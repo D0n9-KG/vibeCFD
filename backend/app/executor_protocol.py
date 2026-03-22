@@ -17,6 +17,12 @@ class ExecutorTaskContext(BaseModel):
     selected_case_id: str | None = None
     selected_case_title: str | None = None
     reviewer_notes: str = ""
+    operating_notes: str = ""
+    workflow_summary: str = ""
+    workflow_assumptions: list[str] = Field(default_factory=list)
+    linked_skills: list[str] = Field(default_factory=list)
+    selected_case_geometry_description: str = ""
+    selected_case_reuse_role: str = ""
 
 
 class ExecutorTaskRequest(BaseModel):

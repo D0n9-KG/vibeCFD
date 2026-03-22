@@ -34,7 +34,7 @@ class HttpClaudeExecutorClient:
 
 
 class ClaudeExecutorEngine:
-    engine_name = "claude_executor"
+    engine_name = "agent_executor"
 
     def __init__(
         self,
@@ -84,11 +84,19 @@ class ClaudeExecutorEngine:
                 selected_case_id=selected_case.case_id if selected_case is not None else None,
                 selected_case_title=selected_case.title if selected_case is not None else None,
                 reviewer_notes=run.reviewer_notes or "",
+                operating_notes=run.request.operating_notes,
+                workflow_summary=workflow_draft.summary if workflow_draft else "",
+                workflow_assumptions=workflow_draft.assumptions if workflow_draft else [],
+                linked_skills=workflow_draft.linked_skills if workflow_draft else [],
+                selected_case_geometry_description=selected_case.geometry_description
+                if selected_case is not None
+                else "",
+                selected_case_reuse_role=selected_case.reuse_role if selected_case is not None else "",
             ),
         )
 
     def _write_request_manifest(self, request: ExecutorTaskRequest) -> None:
-        request_path = Path(request.run_directory) / "execution" / "claude_executor" / "request.json"
+        request_path = Path(request.run_directory) / "execution" / "agent_executor" / "request.json"
         request_path.parent.mkdir(parents=True, exist_ok=True)
         request_path.write_text(
             json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2),
@@ -109,10 +117,10 @@ class ClaudeExecutorEngine:
         self.store.append_timeline(
             run_id,
             "execution",
-            "Dispatch structured execution task to claude-executor.",
+            "Dispatch structured execution task to the agent executor.",
             "running",
         )
-        self.store.set_stage(run_id, "execution", "Running via Claude Executor")
+        self.store.set_stage(run_id, "execution", "Running via Agent Executor")
 
         try:
             result = self.client.execute(request)

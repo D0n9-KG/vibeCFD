@@ -110,7 +110,7 @@ class CaseLibrary:
                     related_tools.extend(manifest.required_tools)
             if related_tools:
                 candidate.rationale = (
-                    f"{candidate.rationale}；关联工具 {', '.join(sorted(set(related_tools)))}"
+                    f"{candidate.rationale}；关联工具：{', '.join(sorted(set(related_tools)))}"
                 )
 
             candidates.append(candidate)

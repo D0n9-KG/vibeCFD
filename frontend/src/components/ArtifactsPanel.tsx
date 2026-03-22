@@ -22,12 +22,12 @@ export function ArtifactsPanel({ run }: ArtifactsPanelProps) {
       <div className="section-heading">
         <p className="eyebrow">Artifacts & Report</p>
         <h2>产物目录与最终报告</h2>
-        <p className="muted">run 目录中的关键证据链会在这里直接暴露出来。</p>
+        <p className="muted">这里集中展示当前 run 的关键图像、结构化结果、日志和交付报告。</p>
       </div>
 
       <div className="artifact-grid">
         {run.artifacts.length === 0 ? (
-          <p className="muted">确认并执行后，这里会出现日志、图像、表格和结构化结果。</p>
+          <p className="muted">确认并执行后，这里会出现几何概览、压力图、尾流图、结果表格和最终报告。</p>
         ) : (
           run.artifacts.map((artifact) => (
             <article key={artifact.relative_path} className="artifact-card">

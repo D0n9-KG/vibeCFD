@@ -19,6 +19,51 @@ class Settings:
     openfoam_command: str
     executor_base_url: str
     executor_timeout_seconds: float
+    agent_provider_name: str
+    agent_model_base_url: str
+    agent_model_name: str
+    agent_model_api_key: str
+    agent_model_timeout_seconds: float
+    agent_model_temperature: float
+    agent_executor_display_name: str
+
+
+def _first_non_empty(*names: str) -> str:
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _infer_agent_base_url() -> str:
+    configured = os.getenv("SUBMARINE_AGENT_BASE_URL", "").strip()
+    if configured:
+        return configured
+    if os.getenv("DASHSCOPE_API_KEY", "").strip():
+        return "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    if os.getenv("DEEPSEEK_API_KEY", "").strip():
+        return "https://api.deepseek.com"
+    if os.getenv("GLM_API_KEY", "").strip():
+        return "https://open.bigmodel.cn/api/paas/v4"
+    if os.getenv("OPENROUTER_API_KEY", "").strip():
+        return "https://openrouter.ai/api/v1"
+    return ""
+
+
+def _infer_agent_model() -> str:
+    configured = os.getenv("SUBMARINE_AGENT_MODEL", "").strip()
+    if configured:
+        return configured
+    if os.getenv("DASHSCOPE_API_KEY", "").strip():
+        return "qwen-plus"
+    if os.getenv("DEEPSEEK_API_KEY", "").strip():
+        return "deepseek-chat"
+    if os.getenv("GLM_API_KEY", "").strip():
+        return "glm-4.5-air"
+    if os.getenv("OPENROUTER_API_KEY", "").strip():
+        return "deepseek/deepseek-chat"
+    return ""
 
 
 def get_settings() -> Settings:
@@ -42,4 +87,20 @@ def get_settings() -> Settings:
         openfoam_command=os.getenv("SUBMARINE_OPENFOAM_COMMAND", "").strip(),
         executor_base_url=os.getenv("SUBMARINE_EXECUTOR_BASE_URL", "http://127.0.0.1:8020").strip(),
         executor_timeout_seconds=float(os.getenv("SUBMARINE_EXECUTOR_TIMEOUT", "120")),
+        agent_provider_name=os.getenv("SUBMARINE_AGENT_PROVIDER", "compatible_api").strip().lower(),
+        agent_model_base_url=_infer_agent_base_url(),
+        agent_model_name=_infer_agent_model(),
+        agent_model_api_key=_first_non_empty(
+            "SUBMARINE_AGENT_API_KEY",
+            "DASHSCOPE_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "GLM_API_KEY",
+            "OPENROUTER_API_KEY",
+        ),
+        agent_model_timeout_seconds=float(os.getenv("SUBMARINE_AGENT_TIMEOUT", "90")),
+        agent_model_temperature=float(os.getenv("SUBMARINE_AGENT_TEMPERATURE", "0.2")),
+        agent_executor_display_name=os.getenv(
+            "SUBMARINE_AGENT_EXECUTOR_NAME",
+            "Submarine Agent Executor",
+        ).strip(),
     )

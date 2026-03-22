@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { formatMetricLabel, formatMetricValue } from "../lib/display";
 import type { ArtifactItem, RunSummary } from "../lib/types";
 
 type GraphicsTab = "graphics" | "compare" | "mapping";
@@ -74,7 +75,7 @@ export function GraphicsWorkspace({ run }: GraphicsWorkspaceProps) {
               primaryImage,
               "等待主图",
               run
-                ? "当前运行尚未生成主图时，这里会优先显示几何预览、推荐案例映射或最新结果占位。"
+                ? "当前运行尚未生成主图时，这里会优先显示几何概览或核心结果图。"
                 : "提交新任务或载入历史运行后，这里会显示最重要的几何预览与结果图。"
             )}
           </article>
@@ -89,7 +90,7 @@ export function GraphicsWorkspace({ run }: GraphicsWorkspaceProps) {
                 secondaryImage,
                 "等待对照图",
                 run
-                  ? "这里用于显示第二张关键图、截面结果或当前阶段的替代预览。"
+                  ? "这里用于展示第二张关键图、截面对比或当前阶段的辅助结果。"
                   : "载入运行后，这里会显示压力分布、尾流切片或结果对照图。"
               )}
             </article>
@@ -128,14 +129,14 @@ export function GraphicsWorkspace({ run }: GraphicsWorkspaceProps) {
             {metricEntries.length === 0 ? (
               <div className="viewport-placeholder">
                 <p className="viewport-placeholder__title">暂无指标</p>
-                <p>运行完成后，这里会集中显示拖曳、压力和其它关键结果，方便快速判读。</p>
+                <p>运行完成后，这里会集中显示阻力、压力和其他关键结果，方便快速判断。</p>
               </div>
             ) : (
               <div className="metric-grid">
                 {metricEntries.map(([key, value]) => (
                   <article key={key} className="metric-tile">
-                    <span>{key}</span>
-                    <strong>{value}</strong>
+                    <span>{formatMetricLabel(key)}</span>
+                    <strong>{formatMetricValue(key, value)}</strong>
                   </article>
                 ))}
               </div>

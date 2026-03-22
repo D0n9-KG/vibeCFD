@@ -15,7 +15,7 @@ def create_execution_engine(store: RunStore) -> ExecutionEngine:
         return MockExecutionEngine(store)
     if settings.execution_engine == "openfoam":
         return OpenFoamExecutionEngine(store)
-    if settings.execution_engine == "claude_executor":
+    if settings.execution_engine in {"claude_executor", "agent_executor"}:
         return ClaudeExecutorEngine(store=store)
 
     raise ValueError(f"Unsupported execution engine: {settings.execution_engine}")

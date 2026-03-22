@@ -7,9 +7,9 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       SUBMARINE_DEMO_ROOT: /workspace
-      SUBMARINE_EXECUTION_ENGINE: mock
+      SUBMARINE_EXECUTION_ENGINE: agent_executor
       SUBMARINE_EXECUTION_DELAY: "0.05"
-      SUBMARINE_EXECUTOR_BASE_URL: http://claude-executor:8020
+      SUBMARINE_EXECUTOR_BASE_URL: http://agent-executor:8020
     ports:
       - "8010:8010"
     volumes:
@@ -28,7 +28,7 @@ services:
     ports:
       - "5173:5173"
 
-  claude-executor:
+  agent-executor:
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -43,6 +43,14 @@ services:
       - "8020"
     environment:
       SUBMARINE_DEMO_ROOT: /workspace
+      SUBMARINE_AGENT_PROVIDER: ${SUBMARINE_AGENT_PROVIDER:-compatible_api}
+      SUBMARINE_AGENT_BASE_URL: ${SUBMARINE_AGENT_BASE_URL:-}
+      SUBMARINE_AGENT_MODEL: ${SUBMARINE_AGENT_MODEL:-}
+      SUBMARINE_AGENT_API_KEY: ${SUBMARINE_AGENT_API_KEY:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      GLM_API_KEY: ${GLM_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     ports:
       - "8020:8020"
     volumes:

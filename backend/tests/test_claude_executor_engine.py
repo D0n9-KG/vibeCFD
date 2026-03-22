@@ -105,6 +105,6 @@ def test_claude_executor_engine_builds_request_and_completes_run(
     assert client.last_request is not None
     assert client.last_request.run_id == run.run_id
     assert client.last_request.allowed_tools
-    assert (Path(completed.run_directory) / "execution" / "claude_executor" / "request.json").is_file()
+    assert (Path(completed.run_directory) / "execution" / "agent_executor" / "request.json").is_file()
     assert (Path(completed.run_directory) / "report" / "final_report.md").is_file()
     assert completed.timeline[-1].stage == "completed"

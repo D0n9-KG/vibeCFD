@@ -3,6 +3,8 @@ import time
 
 from fastapi.testclient import TestClient
 
+from app.agent_runtime.models import AgentPlan, AgentPlanStep, AgentReport
+from app.agent_runtime.service import AgentExecutionService
 from app.claude_executor_main import app as claude_executor_app
 from app.main import app
 
@@ -144,7 +146,8 @@ def test_retry_run_creates_a_new_prepared_run(temp_workspace) -> None:
     assert retry_body["candidate_cases"]
 
 
-def test_cancel_queued_run_and_retry_it(temp_workspace) -> None:
+def test_cancel_queued_run_and_retry_it(temp_workspace, monkeypatch) -> None:
+    monkeypatch.setenv("SUBMARINE_DISPATCH_POLL_INTERVAL", "0.5")
     client = TestClient(app)
 
     created = client.post(
@@ -230,6 +233,40 @@ def test_submit_task_and_confirm_run_with_claude_executor(
     monkeypatch.setenv("SUBMARINE_EXECUTION_ENGINE", "claude_executor")
     monkeypatch.setenv("SUBMARINE_EXECUTOR_BASE_URL", "http://claude-executor:8020")
 
+    class FakeProvider:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete_json(self, *, system_prompt: str, user_prompt: str) -> dict:
+            self.calls += 1
+            if self.calls == 1:
+                return AgentPlan(
+                    mission_title="SUBOFF 压力分布演示任务",
+                    plan_summary="先检查几何，再生成演示级求解结果，最后整理报告。",
+                    selected_skills=["geometry-check", "solver-run", "report-generate"],
+                    steps=[
+                        AgentPlanStep(
+                            skill_id="geometry-check",
+                            goal="确认上传几何可用于模板化执行。",
+                            expected_output="几何摘要",
+                        ),
+                        AgentPlanStep(
+                            skill_id="solver-run",
+                            goal="输出压力分布和阻力指标。",
+                            expected_output="图表与结果 JSON",
+                        ),
+                    ],
+                    report_focus=["压力分布", "阻力系数"],
+                ).model_dump(mode="json")
+            return AgentReport(
+                report_title="SUBOFF 压力分布比赛报告",
+                executive_summary="执行器完成了几何检查、演示级求解与报告整理。",
+                key_findings=["生成了压力分布和结构化结果。"],
+                verification_notes=["运行目录已回写完整产物。"],
+                next_actions=["后续可接入真实 OpenFOAM。"],
+            ).model_dump(mode="json")
+
+    claude_executor_app.state.execution_service = AgentExecutionService(provider=FakeProvider())
     executor_client = TestClient(claude_executor_app)
 
     class FakeHttpxResponse:
@@ -259,7 +296,24 @@ def test_submit_task_and_confirm_run_with_claude_executor(
             "geometry_family_hint": "DARPA SUBOFF",
             "operating_notes": "Deeply submerged at benchmark speed.",
         },
-        files={"geometry_file": ("suboff.stl", b"solid hull", "model/stl")},
+        files={
+            "geometry_file": (
+                "suboff_solid.x_t",
+                "\n".join(
+                    [
+                        "**PART1;",
+                        "APPL=unigraphics;",
+                        "FORMAT=text;",
+                        "KEY=suboff_solid;",
+                        "FILE=D:\\Cases\\suboff\\CAD-new\\suboff_solid.x_t;",
+                        "DATE=26-mar-2024;",
+                        "**PART2;",
+                        "**PART3;",
+                    ]
+                ).encode("utf-8"),
+                "text/plain",
+            )
+        },
     )
 
     assert response.status_code == 201
