@@ -1127,6 +1127,76 @@ def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
         "# Wake Velocity Slice\n",
         encoding="utf-8",
     )
+    (solver_results_dir / "figure-manifest.json").write_text(
+        json.dumps(
+            {
+                "run_dir_name": "postprocess-report",
+                "figure_count": 2,
+                "figures": [
+                    {
+                        "figure_id": "postprocess-report:surface_pressure_contour",
+                        "output_id": "surface_pressure_contour",
+                        "title": "Surface Pressure Result",
+                        "caption": (
+                            "Surface pressure contour over the selected hull patches, "
+                            "colored by p. Patch selection: hull. Samples: 1."
+                        ),
+                        "render_status": "rendered",
+                        "field": "p",
+                        "selector_summary": "Patch selection: hull",
+                        "axes": ["x", "y"],
+                        "color_metric": "p",
+                        "sample_count": 1,
+                        "value_range": {"min": 12.0, "max": 12.0},
+                        "source_csv_virtual_path": (
+                            "/mnt/user-data/outputs/submarine/solver-dispatch/"
+                            "postprocess-report/surface-pressure.csv"
+                        ),
+                        "artifact_virtual_paths": [
+                            "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/surface-pressure.csv",
+                            "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/surface-pressure.md",
+                        ],
+                    },
+                    {
+                        "figure_id": "postprocess-report:wake_velocity_slice",
+                        "output_id": "wake_velocity_slice",
+                        "title": "Wake Velocity Slice",
+                        "caption": (
+                            "Wake velocity slice extracted from the requested cutting plane, "
+                            "colored by |U|. Plane slice at x/Lref=1.25 with normal "
+                            "(1.0, 0.0, 0.0). Samples: 1."
+                        ),
+                        "render_status": "rendered",
+                        "field": "U",
+                        "selector_summary": (
+                            "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)"
+                        ),
+                        "axes": ["y", "z"],
+                        "color_metric": "|U|",
+                        "sample_count": 1,
+                        "value_range": {"min": 4.8, "max": 4.8},
+                        "source_csv_virtual_path": (
+                            "/mnt/user-data/outputs/submarine/solver-dispatch/"
+                            "postprocess-report/wake-velocity-slice.csv"
+                        ),
+                        "artifact_virtual_paths": [
+                            "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.csv",
+                            "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.md",
+                        ],
+                    },
+                ],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/surface-pressure.csv",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/surface-pressure.md",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.csv",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.md",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     runtime = SimpleNamespace(
         state={
@@ -1194,6 +1264,7 @@ def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
                     "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/surface-pressure.md",
                     "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.csv",
                     "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.md",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/figure-manifest.json",
                 ],
                 "activity_timeline": [],
             },
@@ -1225,6 +1296,32 @@ def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
         "png",
         "report",
     ]
+    assert final_payload["figure_delivery_summary"]["figure_count"] == 2
+    assert final_payload["figure_delivery_summary"]["manifest_virtual_path"].endswith(
+        "/figure-manifest.json"
+    )
+    assert final_payload["figure_delivery_summary"]["figures"][0]["caption"].startswith(
+        "Surface pressure contour"
+    )
+    assert any(
+        path.endswith("/surface-pressure.csv")
+        for path in final_payload["figure_delivery_summary"]["figures"][0][
+            "artifact_virtual_paths"
+        ]
+    )
+    assert final_payload["figure_delivery_summary"]["figures"][1]["selector_summary"] == (
+        "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)"
+    )
+    assert any(
+        path.endswith("/figure-manifest.json")
+        for path in final_payload["artifact_virtual_paths"]
+    )
+    assert "## Figure Delivery" in final_markdown
+    assert "Surface pressure contour over the selected hull patches" in final_markdown
+    assert "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)" in final_markdown
+    assert "<h2>Figure Delivery</h2>" in final_html
+    assert "Surface pressure contour over the selected hull patches" in final_html
+    assert "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)" in final_html
     assert "selector=patch[hull]" in final_markdown
     assert "selector=plane[x/Lref=1.25; normal=(1, 0, 0)]" in final_markdown
     assert "selector=patch[hull]" in final_html

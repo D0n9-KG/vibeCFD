@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .contracts import SubmarineRuntimeSnapshot, build_supervisor_review_contract
 from .evidence import build_research_evidence_summary
+from .figure_delivery import build_figure_delivery_summary
 from .library import load_case_library
 from .models import SubmarineBenchmarkTarget, SubmarineCase
 from .output_contract import build_output_delivery_plan
@@ -184,6 +185,26 @@ def _build_experiment_summary(
         "compare_count": len([item for item in comparisons if isinstance(item, dict)]),
         "compare_notes": compare_notes,
     }
+
+
+def _build_figure_delivery_summary(
+    *,
+    outputs_dir: Path,
+    artifact_virtual_paths: list[str],
+) -> dict | None:
+    loaded = _load_json_payload_from_artifacts(
+        outputs_dir,
+        artifact_virtual_paths,
+        "figure-manifest.json",
+    )
+    if loaded is None:
+        return None
+
+    manifest_virtual_path, manifest = loaded
+    return build_figure_delivery_summary(
+        manifest=manifest,
+        manifest_virtual_path=manifest_virtual_path,
+    )
 
 
 def _has_required_artifact(artifact_virtual_paths: list[str], required_artifact: str) -> bool:
@@ -731,6 +752,37 @@ def _render_output_delivery_markdown(output_delivery_plan: list[dict] | None) ->
     return lines
 
 
+def _render_figure_delivery_markdown(figure_delivery_summary: dict | None) -> list[str]:
+    if not figure_delivery_summary:
+        return []
+
+    lines = [
+        "",
+        "## Figure Delivery",
+        f"- figure_count: `{figure_delivery_summary.get('figure_count')}`",
+        f"- manifest: `{figure_delivery_summary.get('manifest_virtual_path')}`",
+    ]
+    figures = figure_delivery_summary.get("figures") or []
+    if figures:
+        lines.extend(["", "### Figure Summary"])
+        lines.extend(
+            (
+                "- "
+                + " | ".join(
+                    [
+                        f"`{item.get('output_id')}`",
+                        f"`{item.get('render_status')}`",
+                        str(item.get("title") or "Untitled"),
+                        str(item.get("selector_summary") or "No selector provenance"),
+                        str(item.get("caption") or "No caption"),
+                    ]
+                )
+            )
+            for item in figures
+        )
+    return lines
+
+
 def _render_acceptance_html(acceptance_assessment: dict | None) -> str:
     if not acceptance_assessment:
         return ""
@@ -799,6 +851,29 @@ def _render_output_delivery_html(output_delivery_plan: list[dict] | None) -> str
     return (
         '<section class="panel">'
         "<h2>Requested Output Delivery</h2>"
+        f"<ul>{items}</ul>"
+        "</section>"
+    )
+
+
+def _render_figure_delivery_html(figure_delivery_summary: dict | None) -> str:
+    if not figure_delivery_summary:
+        return ""
+
+    items = "".join(
+        "<li>"
+        f"<strong>{escape(str(item.get('title') or item.get('output_id')))}</strong> "
+        f"(<code>{escape(str(item.get('render_status')))}</code>)"
+        f"<p>{escape(str(item.get('caption') or 'No caption'))}</p>"
+        f"<p>{escape(str(item.get('selector_summary') or 'No selector provenance'))}</p>"
+        "</li>"
+        for item in (figure_delivery_summary.get("figures") or [])
+    ) or "<li>None</li>"
+    return (
+        '<section class="panel">'
+        "<h2>Figure Delivery</h2>"
+        f"<p><strong>manifest:</strong> {escape(str(figure_delivery_summary.get('manifest_virtual_path') or '--'))}</p>"
+        f"<p><strong>figure_count:</strong> {escape(str(figure_delivery_summary.get('figure_count') or 0))}</p>"
         f"<ul>{items}</ul>"
         "</section>"
     )
@@ -1428,6 +1503,7 @@ def _render_markdown(payload: dict) -> str:
     lines.extend(_render_research_evidence_markdown(payload.get("research_evidence_summary")))
     lines.extend(_render_scientific_gate_markdown(payload.get("scientific_supervisor_gate")))
     lines.extend(_render_scientific_study_markdown(payload.get("scientific_study_summary")))
+    lines.extend(_render_figure_delivery_markdown(payload.get("figure_delivery_summary")))
     lines.extend(
         _render_scientific_verification_markdown(
             payload.get("scientific_verification_assessment")
@@ -1598,6 +1674,9 @@ def _render_html(payload: dict) -> str:
     scientific_study_section = _render_scientific_study_html(
         payload.get("scientific_study_summary")
     )
+    figure_delivery_section = _render_figure_delivery_html(
+        payload.get("figure_delivery_summary")
+    )
     scientific_verification_section = _render_scientific_verification_html(
         payload.get("scientific_verification_assessment")
     )
@@ -1677,6 +1756,7 @@ def _render_html(payload: dict) -> str:
       {research_evidence_section}
       {scientific_gate_section}
       {scientific_study_section}
+      {figure_delivery_section}
       {scientific_verification_section}
     {output_delivery_section}
     <section class="panel">
@@ -1752,6 +1832,10 @@ def run_result_report(
         outputs_dir=outputs_dir,
         artifact_virtual_paths=all_artifacts,
     )
+    figure_delivery_summary = _build_figure_delivery_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+    )
     output_delivery_plan = build_output_delivery_plan(
         snapshot.requested_outputs,
         stage="result-reporting",
@@ -1817,6 +1901,7 @@ def run_result_report(
         "research_evidence_summary": research_evidence_summary,
         "scientific_supervisor_gate": scientific_supervisor_gate,
         "scientific_study_summary": scientific_study_summary,
+        "figure_delivery_summary": figure_delivery_summary,
         "scientific_verification_assessment": scientific_verification_assessment,
         "output_delivery_plan": output_delivery_plan,
         "stage_status": snapshot.stage_status,

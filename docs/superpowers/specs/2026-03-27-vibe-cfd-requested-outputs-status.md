@@ -347,6 +347,73 @@ Broader verification:
 - `cd frontend && node_modules/.bin/tsc.cmd --noEmit`
 - result: passed
 
+## 15. 2026-03-28 Addendum: Figure Delivery Summary
+
+This session continued the same requested-output mainline and upgraded the supported figure outputs from loose PNG previews to manifest-backed delivery records.
+
+### 15.1 What Changed
+
+The deterministic postprocess layer now emits a structured `figure-manifest.json` alongside supported figure exports such as:
+
+- `surface_pressure_contour`
+- `wake_velocity_slice`
+
+Each figure entry now records:
+
+- stable `figure_id`
+- human-readable `title`
+- publication-oriented `caption`
+- `render_status`
+- `selector_summary`
+- `field`
+- figure-specific `artifact_virtual_paths`
+- `source_csv_virtual_path`
+
+The final report now loads that manifest and emits a compact `figure_delivery_summary` that includes:
+
+- manifest path
+- figure count
+- per-figure caption and selector provenance
+- figure-specific artifact entrypoints
+
+The submarine workbench result cards now surface that same structured evidence directly next to the preview area:
+
+- figure render status
+- caption text
+- selector provenance
+- manifest-backed artifact links
+
+### 15.2 Why This Matters
+
+This closes an important honesty gap in the requested-output pipeline. The repository no longer treats a PNG as self-explanatory; it now keeps the visual artifact tied to:
+
+- what figure it is
+- what was sampled
+- how it was selected
+- which stable artifacts back the image
+
+That makes the figure layer more suitable for supervisor review and for later publication-grade upgrades without turning the user-facing flow into a rigid report wizard.
+
+### 15.3 Remaining Gap
+
+This is still `Publication-Grade Figure Delivery v1`, not the final scientific figure system:
+
+- preview rendering is still deterministic and lightweight rather than publication-polished
+- there is still no side-by-side multi-run figure compare workspace
+- streamline and other richer figure families are still unsupported
+- figure styling is more provenance-rich now, but not yet journal-grade
+
+### 15.4 Verification
+
+Focused verification:
+
+- `uv run pytest tests/test_submarine_solver_dispatch_tool.py -q -k requested_postprocess_artifacts`
+- result: `1 passed`
+- `uv run pytest tests/test_submarine_result_report_tool.py -q -k postprocess_exports_delivered`
+- result: `1 passed`
+- `node --experimental-strip-types --test src/components/workspace/submarine-runtime-panel.utils.test.ts`
+- result: `24 passed`
+
 ## 15. 2026-03-28 Addendum: Unified Research Evidence Chain
 
 This session connected the existing experiment, verification, benchmark, and delivery summaries into one explicit research-facing evidence layer.

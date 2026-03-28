@@ -189,6 +189,24 @@ export type SubmarineExperimentSummary = {
   compareNotes: string[];
 };
 
+export type SubmarineFigureDeliverySummary = {
+  figureCount: number;
+  manifestPath: string;
+  artifactPaths: string[];
+  figures: Array<{
+    figureId: string;
+    outputId: string;
+    title: string;
+    caption: string;
+    renderStatus: string;
+    renderStatusLabel: string;
+    selectorSummary: string;
+    field: string;
+    artifactPaths: string[];
+    sourceCsvPath: string;
+  }>;
+};
+
 export type SubmarineResearchEvidenceSummary = {
   readinessLabel: string;
   verificationStatusLabel: string;
@@ -250,8 +268,12 @@ export type SubmarineResultCard = {
   deliveryStatus: string;
   specSummary: string;
   detail: string;
+  figureCaption: string;
+  selectorSummary: string;
+  figureRenderStatus: string;
   previewArtifactPath: string | null;
   artifactPaths: string[];
+  figureArtifactPaths: string[];
   artifacts: SubmarineResultCardArtifact[];
 };
 
@@ -306,6 +328,12 @@ const SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS: Record<string, string> = {
 const EXPERIMENT_STATUS_LABELS: Record<string, string> = {
   planned: "Planned",
   completed: "Completed",
+  blocked: "Blocked",
+};
+
+const FIGURE_RENDER_STATUS_LABELS: Record<string, string> = {
+  rendered: "Rendered",
+  skipped: "Skipped",
   blocked: "Blocked",
 };
 
@@ -579,6 +607,13 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     {
       label: "Experiment Manifest JSON",
       externalLinkLabel: "Open experiment manifest JSON in a new window",
+    },
+  ],
+  [
+    "/figure-manifest.json",
+    {
+      label: "Figure Manifest JSON",
+      externalLinkLabel: "Open figure manifest JSON in a new window",
     },
   ],
   [
@@ -1267,6 +1302,63 @@ export function buildSubmarineExperimentSummary(
   };
 }
 
+export function buildSubmarineFigureDeliverySummary(
+  payload:
+    | {
+        figure_delivery_summary?:
+          | {
+              figure_count?: number | null;
+              manifest_virtual_path?: string | null;
+              artifact_virtual_paths?: string[] | null;
+              figures?:
+                | Array<{
+                    figure_id?: string | null;
+                    output_id?: string | null;
+                    title?: string | null;
+                    caption?: string | null;
+                    render_status?: string | null;
+                    selector_summary?: string | null;
+                    field?: string | null;
+                    artifact_virtual_paths?: string[] | null;
+                    source_csv_virtual_path?: string | null;
+                  }>
+                | null;
+            }
+          | null;
+      }
+    | null
+    | undefined,
+): SubmarineFigureDeliverySummary | null {
+  const summary = payload?.figure_delivery_summary;
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    figureCount:
+      typeof summary.figure_count === "number" && Number.isFinite(summary.figure_count)
+        ? summary.figure_count
+        : 0,
+    manifestPath: summary.manifest_virtual_path ?? "--",
+    artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
+    figures: (summary.figures ?? []).filter(Boolean).map((item) => ({
+      figureId: item.figure_id ?? "unknown",
+      outputId: item.output_id ?? "unknown",
+      title: item.title ?? "--",
+      caption: item.caption ?? "--",
+      renderStatus: item.render_status ?? "--",
+      renderStatusLabel:
+        FIGURE_RENDER_STATUS_LABELS[item.render_status ?? ""] ??
+        item.render_status ??
+        "--",
+      selectorSummary: item.selector_summary ?? "--",
+      field: item.field ?? "--",
+      artifactPaths: item.artifact_virtual_paths?.filter(Boolean) ?? [],
+      sourceCsvPath: item.source_csv_virtual_path ?? "--",
+    })),
+  };
+}
+
 export function buildSubmarineResearchEvidenceSummary(
   payload:
     | {
@@ -1388,13 +1480,27 @@ function collectOutputArtifacts(outputId: string, artifactPaths: string[]) {
   return matchedPaths;
 }
 
+function mergeArtifactPaths(...groups: Array<string[]>) {
+  const merged: string[] = [];
+  for (const group of groups) {
+    for (const path of group) {
+      if (path && !merged.includes(path)) {
+        merged.push(path);
+      }
+    }
+  }
+  return merged;
+}
+
 export function buildSubmarineResultCards({
   requestedOutputs,
   outputDelivery,
+  figureDelivery,
   artifactPaths,
 }: {
   requestedOutputs?: SubmarineDesignBriefSummary["requestedOutputs"] | null;
   outputDelivery?: SubmarineAcceptanceSummary["outputDelivery"] | null;
+  figureDelivery?: SubmarineFigureDeliverySummary | null;
   artifactPaths?: string[] | null;
 }): SubmarineResultCard[] {
   const requested = requestedOutputs ?? [];
@@ -1402,6 +1508,9 @@ export function buildSubmarineResultCards({
   const availableArtifacts = artifactPaths ?? [];
   const requestedById = new Map(requested.map((item) => [item.outputId, item]));
   const deliveryById = new Map(delivery.map((item) => [item.outputId, item]));
+  const figureByOutputId = new Map(
+    (figureDelivery?.figures ?? []).map((item) => [item.outputId, item]),
+  );
   const orderedIds = [
     ...requested.map((item) => item.outputId),
     ...delivery
@@ -1412,10 +1521,21 @@ export function buildSubmarineResultCards({
   return orderedIds.map((outputId) => {
     const requestedItem = requestedById.get(outputId);
     const deliveryItem = deliveryById.get(outputId);
+    const figureItem = figureByOutputId.get(outputId);
     const matchedArtifactPaths = collectOutputArtifacts(outputId, availableArtifacts);
+    const figureArtifactPaths = mergeArtifactPaths(
+      figureItem?.artifactPaths ?? [],
+      figureItem && figureDelivery?.manifestPath && figureDelivery.manifestPath !== "--"
+        ? [figureDelivery.manifestPath]
+        : [],
+    );
+    const combinedArtifactPaths = mergeArtifactPaths(
+      matchedArtifactPaths,
+      figureArtifactPaths,
+    );
     const previewArtifactPath =
-      matchedArtifactPaths.find((path) => path.endsWith(".png")) ?? null;
-    const artifacts = matchedArtifactPaths.map((path) => ({
+      combinedArtifactPaths.find((path) => path.endsWith(".png")) ?? null;
+    const artifacts = combinedArtifactPaths.map((path) => ({
       path,
       ...getSubmarineArtifactMeta(path),
     }));
@@ -1437,8 +1557,12 @@ export function buildSubmarineResultCards({
           ? deliveryItem.specSummary
           : requestedItem?.specSummary ?? "--",
       detail: deliveryItem?.detail ?? requestedItem?.notes ?? "--",
+      figureCaption: figureItem?.caption ?? "--",
+      selectorSummary: figureItem?.selectorSummary ?? "--",
+      figureRenderStatus: figureItem?.renderStatusLabel ?? "--",
       previewArtifactPath,
-      artifactPaths: matchedArtifactPaths,
+      artifactPaths: combinedArtifactPaths,
+      figureArtifactPaths,
       artifacts,
     };
   });

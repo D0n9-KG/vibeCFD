@@ -104,6 +104,12 @@ def build_figure_delivery_summary(
                 "render_status": str(item.get("render_status") or "--"),
                 "selector_summary": str(item.get("selector_summary") or "--"),
                 "field": str(item.get("field") or "--"),
+                "artifact_virtual_paths": _as_string_list(
+                    _as_mapping(item).get("artifact_virtual_paths")
+                ),
+                "source_csv_virtual_path": str(
+                    item.get("source_csv_virtual_path") or "--"
+                ),
             }
             for item in figures
         ],

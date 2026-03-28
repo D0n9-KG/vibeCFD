@@ -40,6 +40,7 @@ import {
   buildSubmarineExecutionOutline,
   buildSubmarineDesignBriefSummary,
   buildSubmarineExperimentSummary,
+  buildSubmarineFigureDeliverySummary,
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineResultCards,
   buildSubmarineScientificGateSummary,
@@ -182,6 +183,24 @@ type FinalReportPayload = {
     manifest_virtual_path?: string | null;
     compare_virtual_path?: string | null;
     compare_notes?: string[] | null;
+  } | null;
+  figure_delivery_summary?: {
+    figure_count?: number | null;
+    manifest_virtual_path?: string | null;
+    artifact_virtual_paths?: string[] | null;
+    figures?:
+      | Array<{
+          figure_id?: string | null;
+          output_id?: string | null;
+          title?: string | null;
+          caption?: string | null;
+          render_status?: string | null;
+          selector_summary?: string | null;
+          field?: string | null;
+          artifact_virtual_paths?: string[] | null;
+          source_csv_virtual_path?: string | null;
+        }>
+      | null;
   } | null;
   scientific_study_summary?: {
     study_execution_status?: string | null;
@@ -456,6 +475,10 @@ export function SubmarineRuntimePanel({
     () => buildSubmarineAcceptanceSummary(finalReport),
     [finalReport],
   );
+  const figureDeliverySummary = useMemo(
+    () => buildSubmarineFigureDeliverySummary(finalReport),
+    [finalReport],
+  );
   const researchEvidenceSummary = useMemo(
     () => buildSubmarineResearchEvidenceSummary(finalReport),
     [finalReport],
@@ -535,11 +558,13 @@ export function SubmarineRuntimePanel({
       buildSubmarineResultCards({
         requestedOutputs: designBriefSummary?.requestedOutputs,
         outputDelivery: acceptanceSummary?.outputDelivery,
+        figureDelivery: figureDeliverySummary,
         artifactPaths: submarineArtifacts,
       }),
     [
       acceptanceSummary?.outputDelivery,
       designBriefSummary?.requestedOutputs,
+      figureDeliverySummary,
       submarineArtifacts,
     ],
   );
@@ -1173,6 +1198,16 @@ function RequestedResultCard({
           {card.requestedLabel}
         </div>
         {card.specSummary !== "--" ? <div>Spec: {card.specSummary}</div> : null}
+        {card.figureRenderStatus !== "--" ? (
+          <div>
+            <span className="font-medium text-foreground/80">Figure status:</span>{" "}
+            {card.figureRenderStatus}
+          </div>
+        ) : null}
+        {card.figureCaption !== "--" ? <div>Caption: {card.figureCaption}</div> : null}
+        {card.selectorSummary !== "--" ? (
+          <div>Selector provenance: {card.selectorSummary}</div>
+        ) : null}
         {card.detail !== "--" ? <div>{card.detail}</div> : null}
       </div>
 

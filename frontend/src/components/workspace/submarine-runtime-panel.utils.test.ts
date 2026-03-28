@@ -5,6 +5,7 @@ const {
   buildSubmarineAcceptanceSummary,
   buildSubmarineDesignBriefSummary,
   buildSubmarineExperimentSummary,
+  buildSubmarineFigureDeliverySummary,
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
@@ -429,10 +430,42 @@ void test(
         },
       ],
     });
+    const figureDeliverySummary = buildSubmarineFigureDeliverySummary({
+      figure_delivery_summary: {
+        figure_count: 1,
+        manifest_virtual_path:
+          "/mnt/user-data/outputs/submarine/solver-dispatch/demo/figure-manifest.json",
+        artifact_virtual_paths: [
+          "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.png",
+          "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+          "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.md",
+        ],
+        figures: [
+          {
+            figure_id: "demo:surface_pressure_contour",
+            output_id: "surface_pressure_contour",
+            title: "Surface Pressure Result",
+            caption:
+              "Surface pressure contour over the selected hull patches, colored by p.",
+            render_status: "rendered",
+            selector_summary: "Patch selection: hull",
+            field: "p",
+            artifact_virtual_paths: [
+              "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.png",
+              "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+              "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.md",
+            ],
+            source_csv_virtual_path:
+              "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+          },
+        ],
+      },
+    });
 
     const cards = buildSubmarineResultCards({
       requestedOutputs: briefSummary?.requestedOutputs,
       outputDelivery: acceptanceSummary?.outputDelivery,
+      figureDelivery: figureDeliverySummary,
       artifactPaths: [
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.png",
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
@@ -455,12 +488,25 @@ void test(
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.png",
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.md",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/figure-manifest.json",
       ],
     );
     assert.equal(
       cards[0]?.specSummary,
       "field=p; selector=patch[hull]; time=latest; formats=csv,png,report",
     );
+    assert.equal(
+      cards[0]?.figureCaption,
+      "Surface pressure contour over the selected hull patches, colored by p.",
+    );
+    assert.equal(cards[0]?.selectorSummary, "Patch selection: hull");
+    assert.equal(cards[0]?.figureRenderStatus, "Rendered");
+    assert.deepEqual(cards[0]?.figureArtifactPaths, [
+      "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.png",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.md",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/demo/figure-manifest.json",
+    ]);
     assert.equal(cards[1]?.outputId, "drag_coefficient");
     assert.equal(cards[1]?.previewArtifactPath, null);
     assert.deepEqual(
@@ -472,6 +518,67 @@ void test(
     );
   },
 );
+
+void test("builds a figure delivery summary from the final report payload", () => {
+  const summary = buildSubmarineFigureDeliverySummary({
+    figure_delivery_summary: {
+      figure_count: 2,
+      manifest_virtual_path:
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/figure-manifest.json",
+      artifact_virtual_paths: [
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/wake-velocity-slice.csv",
+      ],
+      figures: [
+        {
+          figure_id: "demo:surface_pressure_contour",
+          output_id: "surface_pressure_contour",
+          title: "Surface Pressure Result",
+          caption:
+            "Surface pressure contour over the selected hull patches, colored by p.",
+          render_status: "rendered",
+          selector_summary: "Patch selection: hull",
+          field: "p",
+          artifact_virtual_paths: [
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+          ],
+          source_csv_virtual_path:
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+        },
+        {
+          figure_id: "demo:wake_velocity_slice",
+          output_id: "wake_velocity_slice",
+          title: "Wake Velocity Slice",
+          caption:
+            "Wake velocity slice extracted from the requested cutting plane, colored by |U|.",
+          render_status: "rendered",
+          selector_summary:
+            "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)",
+          field: "U",
+          artifact_virtual_paths: [
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/wake-velocity-slice.csv",
+          ],
+          source_csv_virtual_path:
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/wake-velocity-slice.csv",
+        },
+      ],
+    },
+  });
+
+  assert.equal(summary?.figureCount, 2);
+  assert.equal(
+    summary?.manifestPath,
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/figure-manifest.json",
+  );
+  assert.equal(summary?.figures[0]?.renderStatusLabel, "Rendered");
+  assert.equal(
+    summary?.figures[1]?.selectorSummary,
+    "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)",
+  );
+  assert.deepEqual(summary?.figures[0]?.artifactPaths, [
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+  ]);
+});
 
 void test(
   "appends delivery-only result cards when a report contains extra outputs",
