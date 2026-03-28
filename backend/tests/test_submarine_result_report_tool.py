@@ -1954,10 +1954,17 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     )
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     research = final_payload["research_evidence_summary"]
+    gate = final_payload["scientific_supervisor_gate"]
 
     assert research["verification_status"] == "passed"
     assert research["validation_status"] == "missing_validation_reference"
     assert research["readiness_status"] == "verified_but_not_validated"
+    assert gate["gate_status"] == "claim_limited"
+    assert gate["allowed_claim_level"] == "verified_but_not_validated"
+    assert gate["recommended_stage"] == "supervisor-review"
+    assert gate["remediation_stage"] == "solver-dispatch"
+    assert final_payload["review_status"] == "ready_for_supervisor"
+    assert final_payload["next_recommended_stage"] == "supervisor-review"
 
 
 def test_submarine_result_report_marks_research_ready_with_validation_and_traceable_evidence(

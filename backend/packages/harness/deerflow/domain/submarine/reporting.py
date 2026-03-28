@@ -12,6 +12,7 @@ from .evidence import build_research_evidence_summary
 from .library import load_case_library
 from .models import SubmarineBenchmarkTarget, SubmarineCase
 from .output_contract import build_output_delivery_plan
+from .supervision import build_scientific_supervisor_gate
 from .verification import (
     build_effective_scientific_verification_requirements,
     build_scientific_verification_assessment,
@@ -1696,11 +1697,22 @@ def run_result_report(
         output_delivery_plan=output_delivery_plan,
         artifact_virtual_paths=all_artifacts,
     )
+    scientific_supervisor_gate = build_scientific_supervisor_gate(
+        research_evidence_summary=research_evidence_summary,
+    )
+    review_status = (
+        "blocked"
+        if scientific_supervisor_gate["gate_status"] == "blocked"
+        else "ready_for_supervisor"
+    )
 
     review = build_supervisor_review_contract(
-        next_recommended_stage="supervisor-review",
+        next_recommended_stage=scientific_supervisor_gate["recommended_stage"],
         report_virtual_path=markdown_artifact,
         artifact_virtual_paths=all_artifacts,
+        review_status=review_status,
+        scientific_gate_status=scientific_supervisor_gate["gate_status"],
+        allowed_claim_level=scientific_supervisor_gate["allowed_claim_level"],
     )
     payload = {
         "report_title": report_title,
@@ -1730,6 +1742,7 @@ def run_result_report(
         "acceptance_assessment": acceptance_assessment,
         "experiment_summary": experiment_summary,
         "research_evidence_summary": research_evidence_summary,
+        "scientific_supervisor_gate": scientific_supervisor_gate,
         "scientific_study_summary": scientific_study_summary,
         "scientific_verification_assessment": scientific_verification_assessment,
         "output_delivery_plan": output_delivery_plan,

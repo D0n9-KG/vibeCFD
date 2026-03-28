@@ -85,9 +85,19 @@ def submarine_result_report_tool(
                 "geometry-preflight": "completed",
                 "solver-dispatch": "completed",
                 "result-reporting": "completed",
+                "supervisor-review": (
+                    "blocked" if payload["review_status"] == "blocked" else "ready"
+                ),
             },
         ),
         review_status=payload["review_status"],
+        scientific_gate_status=payload.get("scientific_supervisor_gate", {}).get(
+            "gate_status"
+        ),
+        allowed_claim_level=payload.get("scientific_supervisor_gate", {}).get(
+            "allowed_claim_level"
+        ),
+        scientific_gate_virtual_path=payload.get("scientific_gate_virtual_path"),
         activity_timeline=extend_runtime_timeline(
             snapshot,
             build_runtime_event(
