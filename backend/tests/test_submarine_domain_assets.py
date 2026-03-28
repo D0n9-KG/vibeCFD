@@ -438,6 +438,75 @@ def test_submarine_domain_execution_plan_includes_supervisor_review():
     assert plan[-1]["status"] == "pending"
 
 
+def test_submarine_domain_builds_scientific_supervisor_gate_semantics():
+    supervision_module = importlib.import_module("deerflow.domain.submarine.supervision")
+
+    research_ready_gate = supervision_module.build_scientific_supervisor_gate(
+        research_evidence_summary={
+            "readiness_status": "research_ready",
+            "verification_status": "passed",
+            "validation_status": "validated",
+            "provenance_status": "traceable",
+            "blocking_issues": [],
+            "evidence_gaps": [],
+        }
+    )
+    assert research_ready_gate["gate_status"] == "ready_for_claim"
+    assert research_ready_gate["allowed_claim_level"] == "research_ready"
+    assert research_ready_gate["recommended_stage"] == "supervisor-review"
+    assert research_ready_gate["remediation_stage"] is None
+
+    verified_only_gate = supervision_module.build_scientific_supervisor_gate(
+        research_evidence_summary={
+            "readiness_status": "verified_but_not_validated",
+            "verification_status": "passed",
+            "validation_status": "missing_validation_reference",
+            "provenance_status": "traceable",
+            "blocking_issues": [],
+            "evidence_gaps": ["No applicable benchmark target was available for this run."],
+        }
+    )
+    assert verified_only_gate["gate_status"] == "claim_limited"
+    assert verified_only_gate["allowed_claim_level"] == "verified_but_not_validated"
+    assert verified_only_gate["recommended_stage"] == "supervisor-review"
+    assert verified_only_gate["remediation_stage"] == "solver-dispatch"
+    assert verified_only_gate["advisory_notes"] == [
+        "External validation evidence is still missing for this run."
+    ]
+
+    validated_with_gaps_gate = supervision_module.build_scientific_supervisor_gate(
+        research_evidence_summary={
+            "readiness_status": "validated_with_gaps",
+            "verification_status": "passed",
+            "validation_status": "validated",
+            "provenance_status": "partial",
+            "blocking_issues": [],
+            "evidence_gaps": ["Experiment registry entrypoints are incomplete."],
+        }
+    )
+    assert validated_with_gaps_gate["gate_status"] == "claim_limited"
+    assert validated_with_gaps_gate["allowed_claim_level"] == "validated_with_gaps"
+    assert validated_with_gaps_gate["recommended_stage"] == "supervisor-review"
+    assert validated_with_gaps_gate["remediation_stage"] == "result-reporting"
+    assert validated_with_gaps_gate["advisory_notes"] == [
+        "Scientific evidence is validated, but reporting and provenance gaps still limit the claim level."
+    ]
+
+    blocked_gate = supervision_module.build_scientific_supervisor_gate(
+        research_evidence_summary={
+            "readiness_status": "blocked",
+            "blocking_issues": ["Benchmark cd_at_3_05_mps exceeded tolerance."],
+            "evidence_gaps": [],
+            "verification_status": "blocked",
+            "validation_status": "validation_failed",
+            "provenance_status": "partial",
+        }
+    )
+    assert blocked_gate["gate_status"] == "blocked"
+    assert blocked_gate["allowed_claim_level"] == "delivery_only"
+    assert blocked_gate["recommended_stage"] == "solver-dispatch"
+
+
 def test_load_skill_registry_returns_submarine_skill_defs():
     registry = load_skill_registry()
 
