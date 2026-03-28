@@ -347,6 +347,63 @@ Broader verification:
 - `cd frontend && node_modules/.bin/tsc.cmd --noEmit`
 - result: passed
 
+## 17. 2026-03-28 Addendum: Experiment Compare Workbench v1
+
+This session continued the research-evidence workbench and turned existing compare artifacts into a real runtime-panel review surface.
+
+### 17.1 What Changed
+
+The repository now promotes compare evidence into two connected layers:
+
+- final report payloads expose a structured `experiment_compare_summary`
+- the submarine runtime panel renders compact compare cards from that summary
+
+The new summary bridges:
+
+- the experiment baseline run id
+- compare-count and compare-artifact entrypoints
+- per-candidate compare status
+- resolved baseline and candidate solver-result / run-record artifact paths
+- compact metric-delta lines derived from structured `metric_deltas`
+
+This means the workbench no longer depends on raw `compare_notes` alone to explain study comparisons.
+
+### 17.2 Why This Matters
+
+For research-facing `vibe CFD`, the existence of a compare artifact is not enough. A human reviewer needs to see:
+
+- what was compared
+- whether the comparison was complete or blocked
+- which metrics moved
+- which artifacts anchor the baseline and candidate evidence
+
+This slice keeps the user experience open-ended while making the evidence layer much more inspectable.
+
+### 17.3 Current Limitation
+
+This is still a compact workbench compare surface, not a full compare lab:
+
+- there is still no dedicated multi-experiment compare page
+- figures are not yet rendered side-by-side by baseline and variant
+- there are no interactive compare charts or filters
+- compare provenance still stops at artifact entrypoints rather than a deeper audit graph
+
+### 17.4 Verification
+
+Focused verification:
+
+- `cd frontend && node --experimental-strip-types --test src/components/workspace/submarine-runtime-panel.utils.test.ts`
+- result: `25 passed`
+- `cd frontend && corepack pnpm exec tsc --noEmit`
+- result: passed
+- `cd frontend && corepack pnpm exec eslint src/components/workspace/submarine-runtime-panel.tsx src/components/workspace/submarine-runtime-panel.utils.ts src/components/workspace/submarine-runtime-panel.utils.test.ts`
+- result: passed
+
+Broader verification:
+
+- `uv run pytest tests/test_submarine_domain_assets.py tests/test_submarine_solver_dispatch_tool.py tests/test_submarine_result_report_tool.py -q`
+- result: `52 passed`
+
 ## 15. 2026-03-28 Addendum: Figure Delivery Summary
 
 This session continued the same requested-output mainline and upgraded the supported figure outputs from loose PNG previews to manifest-backed delivery records.

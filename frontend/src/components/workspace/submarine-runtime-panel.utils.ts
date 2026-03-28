@@ -189,6 +189,29 @@ export type SubmarineExperimentSummary = {
   compareNotes: string[];
 };
 
+export type SubmarineExperimentCompareSummary = {
+  experimentId: string;
+  baselineRunId: string;
+  compareCount: number;
+  comparePath: string;
+  artifactPaths: string[];
+  comparisons: Array<{
+    candidateRunId: string;
+    studyType: string;
+    variantId: string;
+    studyLabel: string;
+    compareStatus: string;
+    compareStatusLabel: string;
+    notes: string;
+    metricDeltaLines: string[];
+    baselineSolverResultsPath: string;
+    candidateSolverResultsPath: string;
+    baselineRunRecordPath: string;
+    candidateRunRecordPath: string;
+    artifactPaths: string[];
+  }>;
+};
+
 export type SubmarineFigureDeliverySummary = {
   figureCount: number;
   manifestPath: string;
@@ -331,6 +354,12 @@ const EXPERIMENT_STATUS_LABELS: Record<string, string> = {
   blocked: "Blocked",
 };
 
+const EXPERIMENT_COMPARE_STATUS_LABELS: Record<string, string> = {
+  completed: "Completed",
+  missing_metrics: "Missing Metrics",
+  blocked: "Blocked",
+};
+
 const FIGURE_RENDER_STATUS_LABELS: Record<string, string> = {
   rendered: "Rendered",
   skipped: "Skipped",
@@ -416,6 +445,41 @@ function formatSpecNumber(value: number) {
     return `${value}`;
   }
   return value.toFixed(4).replace(/\.?0+$/, "");
+}
+
+function formatCompareMetricValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? formatSpecNumber(value)
+    : "--";
+}
+
+function formatCompareMetricRelativeDelta(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? `${(value * 100).toFixed(2)}%`
+    : "--";
+}
+
+function formatCompareMetricDeltaLines(metricDeltas: unknown) {
+  if (!metricDeltas || typeof metricDeltas !== "object") {
+    return [];
+  }
+
+  return Object.entries(metricDeltas).flatMap(([metricName, payload]) => {
+    if (!payload || typeof payload !== "object") {
+      return [];
+    }
+
+    const metric = payload as {
+      baseline_value?: unknown;
+      candidate_value?: unknown;
+      absolute_delta?: unknown;
+      relative_delta?: unknown;
+    };
+
+    return [
+      `${metricName}: baseline=${formatCompareMetricValue(metric.baseline_value)} | candidate=${formatCompareMetricValue(metric.candidate_value)} | delta=${formatCompareMetricValue(metric.absolute_delta)} | relative=${formatCompareMetricRelativeDelta(metric.relative_delta)}`,
+    ];
+  });
 }
 
 function formatPostprocessSpecSummary(
@@ -1299,6 +1363,88 @@ export function buildSubmarineExperimentSummary(
     manifestPath: summary.manifest_virtual_path ?? "--",
     comparePath: summary.compare_virtual_path ?? "--",
     compareNotes: summary.compare_notes?.filter(Boolean) ?? [],
+  };
+}
+
+export function buildSubmarineExperimentCompareSummary(
+  payload:
+    | {
+        experiment_compare_summary?:
+          | {
+              experiment_id?: string | null;
+              baseline_run_id?: string | null;
+              compare_count?: number | null;
+              compare_virtual_path?: string | null;
+              artifact_virtual_paths?: string[] | null;
+              comparisons?:
+                | Array<{
+                    candidate_run_id?: string | null;
+                    study_type?: string | null;
+                    variant_id?: string | null;
+                    compare_status?: string | null;
+                    notes?: string | null;
+                    metric_deltas?: Record<string, unknown> | null;
+                    baseline_solver_results_virtual_path?: string | null;
+                    candidate_solver_results_virtual_path?: string | null;
+                    baseline_run_record_virtual_path?: string | null;
+                    candidate_run_record_virtual_path?: string | null;
+                  }>
+                | null;
+            }
+          | null;
+      }
+    | null
+    | undefined,
+): SubmarineExperimentCompareSummary | null {
+  const summary = payload?.experiment_compare_summary;
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    experimentId: summary.experiment_id ?? "--",
+    baselineRunId: summary.baseline_run_id ?? "--",
+    compareCount:
+      typeof summary.compare_count === "number" && Number.isFinite(summary.compare_count)
+        ? summary.compare_count
+        : 0,
+    comparePath: summary.compare_virtual_path ?? "--",
+    artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
+    comparisons: (summary.comparisons ?? []).filter(Boolean).map((item) => {
+      const studyType = item.study_type ?? "unknown";
+      const variantId = item.variant_id ?? "unknown";
+      const baselineSolverResultsPath =
+        item.baseline_solver_results_virtual_path ?? "--";
+      const candidateSolverResultsPath =
+        item.candidate_solver_results_virtual_path ?? "--";
+      const baselineRunRecordPath = item.baseline_run_record_virtual_path ?? "--";
+      const candidateRunRecordPath =
+        item.candidate_run_record_virtual_path ?? "--";
+
+      return {
+        candidateRunId: item.candidate_run_id ?? "unknown",
+        studyType,
+        variantId,
+        studyLabel: `${studyType} / ${variantId}`,
+        compareStatus: item.compare_status ?? "--",
+        compareStatusLabel:
+          EXPERIMENT_COMPARE_STATUS_LABELS[item.compare_status ?? ""] ??
+          item.compare_status ??
+          "--",
+        notes: item.notes ?? "--",
+        metricDeltaLines: formatCompareMetricDeltaLines(item.metric_deltas),
+        baselineSolverResultsPath,
+        candidateSolverResultsPath,
+        baselineRunRecordPath,
+        candidateRunRecordPath,
+        artifactPaths: mergeArtifactPaths(
+          baselineSolverResultsPath !== "--" ? [baselineSolverResultsPath] : [],
+          candidateSolverResultsPath !== "--" ? [candidateSolverResultsPath] : [],
+          baselineRunRecordPath !== "--" ? [baselineRunRecordPath] : [],
+          candidateRunRecordPath !== "--" ? [candidateRunRecordPath] : [],
+        ),
+      };
+    }),
   };
 }
 

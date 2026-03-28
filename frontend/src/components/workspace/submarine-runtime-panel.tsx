@@ -39,6 +39,7 @@ import {
   buildSubmarineAcceptanceSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineDesignBriefSummary,
+  buildSubmarineExperimentCompareSummary,
   buildSubmarineExperimentSummary,
   buildSubmarineFigureDeliverySummary,
   buildSubmarineResearchEvidenceSummary,
@@ -183,6 +184,27 @@ type FinalReportPayload = {
     manifest_virtual_path?: string | null;
     compare_virtual_path?: string | null;
     compare_notes?: string[] | null;
+  } | null;
+  experiment_compare_summary?: {
+    experiment_id?: string | null;
+    baseline_run_id?: string | null;
+    compare_count?: number | null;
+    compare_virtual_path?: string | null;
+    artifact_virtual_paths?: string[] | null;
+    comparisons?:
+      | Array<{
+          candidate_run_id?: string | null;
+          study_type?: string | null;
+          variant_id?: string | null;
+          compare_status?: string | null;
+          notes?: string | null;
+          metric_deltas?: Record<string, unknown> | null;
+          baseline_solver_results_virtual_path?: string | null;
+          candidate_solver_results_virtual_path?: string | null;
+          baseline_run_record_virtual_path?: string | null;
+          candidate_run_record_virtual_path?: string | null;
+        }>
+      | null;
   } | null;
   figure_delivery_summary?: {
     figure_count?: number | null;
@@ -512,6 +534,10 @@ export function SubmarineRuntimePanel({
   );
   const experimentSummary = useMemo(
     () => buildSubmarineExperimentSummary(finalReport),
+    [finalReport],
+  );
+  const experimentCompareSummary = useMemo(
+    () => buildSubmarineExperimentCompareSummary(finalReport),
     [finalReport],
   );
   const scientificVerificationSummary = useMemo(
@@ -904,6 +930,89 @@ export function SubmarineRuntimePanel({
                         emptyText="No run compare notes are recorded yet."
                       />
                     </div>
+                  </div>
+                ) : null}
+                {experimentCompareSummary ? (
+                  <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <KeyValue
+                        label="Experiment Compare"
+                        value={`${experimentCompareSummary.compareCount}`}
+                      />
+                      <KeyValue
+                        label="Experiment ID"
+                        value={experimentCompareSummary.experimentId}
+                      />
+                      <KeyValue
+                        label="Baseline Run"
+                        value={experimentCompareSummary.baselineRunId}
+                      />
+                      <KeyValue
+                        label="Compare Artifact"
+                        value={experimentCompareSummary.comparePath}
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <LabeledList
+                        title="Compare Artifacts"
+                        items={experimentCompareSummary.artifactPaths}
+                        emptyText="No experiment compare artifacts are recorded yet."
+                      />
+                      <LabeledList
+                        title="Compared Runs"
+                        items={experimentCompareSummary.comparisons.map(
+                          (item) =>
+                            `${experimentCompareSummary.baselineRunId} -> ${item.candidateRunId} | ${item.compareStatusLabel} | ${item.studyLabel}`,
+                        )}
+                        emptyText="No experiment comparisons are recorded yet."
+                      />
+                    </div>
+                    {experimentCompareSummary.comparisons.length > 0 ? (
+                      <div className="space-y-3">
+                        {experimentCompareSummary.comparisons.map((item) => (
+                          <div
+                            key={`${item.candidateRunId}-${item.studyLabel}`}
+                            className="rounded-xl border bg-muted/20 p-4"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="bg-background/80">
+                                {item.compareStatusLabel}
+                              </Badge>
+                              <span className="text-sm font-medium text-foreground">
+                                {experimentCompareSummary.baselineRunId}
+                                {" -> "}
+                                {item.candidateRunId}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {item.studyLabel}
+                              </span>
+                            </div>
+                            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                              <KeyValue label="Study Type" value={item.studyType} />
+                              <KeyValue label="Variant" value={item.variantId} />
+                              <KeyValue label="Status" value={item.compareStatusLabel} />
+                              <KeyValue label="Notes" value={item.notes} />
+                            </div>
+                            <div className="mt-3 grid gap-4 xl:grid-cols-2">
+                              <LabeledList
+                                title="Metric Deltas"
+                                items={
+                                  item.metricDeltaLines.length > 0
+                                    ? item.metricDeltaLines
+                                    : [item.notes]
+                                }
+                                emptyText="No compare metric deltas are recorded."
+                              />
+                              <LabeledList
+                                title="Comparison Artifacts"
+                                items={item.artifactPaths}
+                                emptyText="No comparison artifacts are recorded."
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
                 {scientificStudySummary ? (

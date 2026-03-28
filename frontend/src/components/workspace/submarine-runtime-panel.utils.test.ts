@@ -4,6 +4,7 @@ import test from "node:test";
 const {
   buildSubmarineAcceptanceSummary,
   buildSubmarineDesignBriefSummary,
+  buildSubmarineExperimentCompareSummary,
   buildSubmarineExperimentSummary,
   buildSubmarineFigureDeliverySummary,
   buildSubmarineResearchEvidenceSummary,
@@ -795,6 +796,77 @@ void test("builds an experiment summary from the final report payload", () => {
   assert.deepEqual(summary?.compareNotes, [
     "mesh_independence:coarse | completed",
     "domain_sensitivity:compact | completed",
+  ]);
+});
+
+void test("builds an experiment compare summary from the final report payload", () => {
+  const summary = buildSubmarineExperimentCompareSummary({
+    experiment_compare_summary: {
+      experiment_id:
+        "darpa-suboff-bare-hull-resistance-study-compare-demo-resistance",
+      baseline_run_id: "baseline",
+      compare_count: 1,
+      compare_virtual_path:
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+      artifact_virtual_paths: [
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+      ],
+      comparisons: [
+        {
+          candidate_run_id: "mesh_independence:coarse",
+          study_type: "mesh_independence",
+          variant_id: "coarse",
+          compare_status: "completed",
+          notes: "Relative Cd shift stayed within tolerance.",
+          metric_deltas: {
+            Cd: {
+              baseline_value: 0.12,
+              candidate_value: 0.1212,
+              absolute_delta: 0.0012,
+              relative_delta: 0.01,
+            },
+            mesh_cells: {
+              baseline_value: 1200000,
+              candidate_value: 840000,
+              absolute_delta: -360000,
+              relative_delta: -0.3,
+            },
+          },
+          baseline_solver_results_virtual_path:
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json",
+          candidate_solver_results_virtual_path:
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/solver-results.json",
+          baseline_run_record_virtual_path:
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-record.json",
+          candidate_run_record_virtual_path:
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/run-record.json",
+        },
+      ],
+    },
+  });
+
+  assert.equal(summary?.compareCount, 1);
+  assert.equal(summary?.baselineRunId, "baseline");
+  assert.equal(summary?.comparePath, "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json");
+  assert.deepEqual(summary?.artifactPaths, [
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+  ]);
+  assert.equal(summary?.comparisons.length, 1);
+  assert.equal(summary?.comparisons[0]?.candidateRunId, "mesh_independence:coarse");
+  assert.equal(summary?.comparisons[0]?.compareStatus, "completed");
+  assert.equal(summary?.comparisons[0]?.compareStatusLabel, "Completed");
+  assert.equal(summary?.comparisons[0]?.studyLabel, "mesh_independence / coarse");
+  assert.deepEqual(summary?.comparisons[0]?.metricDeltaLines, [
+    "Cd: baseline=0.12 | candidate=0.1212 | delta=0.0012 | relative=1.00%",
+    "mesh_cells: baseline=1200000 | candidate=840000 | delta=-360000 | relative=-30.00%",
+  ]);
+  assert.deepEqual(summary?.comparisons[0]?.artifactPaths, [
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/solver-results.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-record.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/run-record.json",
   ]);
 });
 
