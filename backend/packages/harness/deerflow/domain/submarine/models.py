@@ -124,6 +124,44 @@ class SubmarineRunCompareSummary(BaseModel):
     artifact_virtual_paths: list[str] = Field(default_factory=list)
 
 
+SubmarineResearchReadinessStatus = Literal[
+    "blocked",
+    "insufficient_evidence",
+    "verified_but_not_validated",
+    "validated_with_gaps",
+    "research_ready",
+]
+
+SubmarineResearchVerificationStatus = Literal[
+    "passed",
+    "needs_more_verification",
+    "blocked",
+]
+
+SubmarineResearchValidationStatus = Literal[
+    "validated",
+    "missing_validation_reference",
+    "validation_failed",
+    "blocked",
+]
+
+SubmarineResearchProvenanceStatus = Literal["traceable", "partial", "missing"]
+
+
+class SubmarineResearchEvidenceSummary(BaseModel):
+    readiness_status: SubmarineResearchReadinessStatus
+    verification_status: SubmarineResearchVerificationStatus
+    validation_status: SubmarineResearchValidationStatus
+    provenance_status: SubmarineResearchProvenanceStatus
+    confidence: Literal["high", "medium", "low"] = "medium"
+    blocking_issues: list[str] = Field(default_factory=list)
+    evidence_gaps: list[str] = Field(default_factory=list)
+    passed_evidence: list[str] = Field(default_factory=list)
+    benchmark_highlights: list[str] = Field(default_factory=list)
+    provenance_highlights: list[str] = Field(default_factory=list)
+    artifact_virtual_paths: list[str] = Field(default_factory=list)
+
+
 class SubmarineCaseAcceptanceProfile(BaseModel):
     profile_id: str
     summary_zh: str

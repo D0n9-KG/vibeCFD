@@ -202,6 +202,30 @@ def test_submarine_domain_builds_experiment_compare_summary():
     assert summary.comparisons[0].candidate_run_id == "mesh_independence:coarse"
 
 
+def test_submarine_domain_exposes_research_evidence_summary_model():
+    models_module = importlib.import_module("deerflow.domain.submarine.models")
+
+    summary = models_module.SubmarineResearchEvidenceSummary(
+        readiness_status="verified_but_not_validated",
+        verification_status="passed",
+        validation_status="missing_validation_reference",
+        provenance_status="traceable",
+        confidence="medium",
+        blocking_issues=[],
+        evidence_gaps=["No applicable benchmark target was available for this run."],
+        passed_evidence=["Scientific verification requirements passed."],
+        benchmark_highlights=[],
+        provenance_highlights=["Experiment manifest and compare summary are available."],
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/research-evidence-summary.json"
+        ],
+    )
+
+    assert summary.readiness_status == "verified_but_not_validated"
+    assert summary.validation_status == "missing_validation_reference"
+    assert summary.provenance_status == "traceable"
+
+
 def test_load_skill_registry_returns_submarine_skill_defs():
     registry = load_skill_registry()
 
