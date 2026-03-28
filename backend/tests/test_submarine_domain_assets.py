@@ -412,6 +412,32 @@ def test_submarine_domain_builds_research_evidence_summary_semantics():
     assert validated_with_gaps["readiness_status"] == "validated_with_gaps"
 
 
+def test_submarine_domain_exposes_scientific_supervisor_gate_model():
+    contracts_module = importlib.import_module("deerflow.domain.submarine.contracts")
+
+    gate = contracts_module.SubmarineScientificSupervisorGate(
+        gate_status="claim_limited",
+        allowed_claim_level="verified_but_not_validated",
+        source_readiness_status="verified_but_not_validated",
+        recommended_stage="supervisor-review",
+        remediation_stage="solver-dispatch",
+        advisory_notes=["External validation is still missing."],
+    )
+
+    assert gate.gate_status == "claim_limited"
+    assert gate.allowed_claim_level == "verified_but_not_validated"
+    assert gate.recommended_stage == "supervisor-review"
+
+
+def test_submarine_domain_execution_plan_includes_supervisor_review():
+    contracts_module = importlib.import_module("deerflow.domain.submarine.contracts")
+
+    plan = contracts_module.build_execution_plan(confirmation_status="confirmed")
+
+    assert plan[-1]["role_id"] == "supervisor-review"
+    assert plan[-1]["status"] == "pending"
+
+
 def test_load_skill_registry_returns_submarine_skill_defs():
     registry = load_skill_registry()
 

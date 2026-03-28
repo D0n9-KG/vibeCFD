@@ -29,6 +29,14 @@ class SupervisorReviewContract(BaseModel):
     next_recommended_stage: str
     report_virtual_path: str
     artifact_virtual_paths: list[str] = Field(default_factory=list)
+    scientific_gate_status: Literal["ready_for_claim", "claim_limited", "blocked"] | None = None
+    allowed_claim_level: Literal[
+        "delivery_only",
+        "verified_but_not_validated",
+        "validated_with_gaps",
+        "research_ready",
+    ] | None = None
+    scientific_gate_virtual_path: str | None = None
 
 
 class SubmarineRuntimeEvent(BaseModel):
@@ -91,6 +99,26 @@ class SubmarineOutputDeliveryItem(BaseModel):
     artifact_virtual_paths: list[str] = Field(default_factory=list)
 
 
+SubmarineScientificGateStatus = Literal["ready_for_claim", "claim_limited", "blocked"]
+SubmarineScientificClaimLevel = Literal[
+    "delivery_only",
+    "verified_but_not_validated",
+    "validated_with_gaps",
+    "research_ready",
+]
+
+
+class SubmarineScientificSupervisorGate(BaseModel):
+    gate_status: SubmarineScientificGateStatus
+    allowed_claim_level: SubmarineScientificClaimLevel
+    source_readiness_status: str
+    recommended_stage: str
+    remediation_stage: str | None = None
+    blocking_reasons: list[str] = Field(default_factory=list)
+    advisory_notes: list[str] = Field(default_factory=list)
+    artifact_virtual_paths: list[str] = Field(default_factory=list)
+
+
 _EXECUTION_PLAN_TEMPLATE: tuple[tuple[str, str, str], ...] = (
     (
         "claude-code-supervisor",
@@ -117,6 +145,11 @@ _EXECUTION_PLAN_TEMPLATE: tuple[tuple[str, str, str], ...] = (
         "DeerFlow result-reporting",
         "Organize metrics, logs, and reports into reviewable artifacts for supervisor sign-off and user delivery.",
     ),
+    (
+        "supervisor-review",
+        "Claude Code Supervisor",
+        "Review the scientific evidence gate, confirm the allowed claim level, and decide whether follow-up remediation is needed.",
+    ),
 )
 
 
@@ -140,6 +173,7 @@ def build_execution_plan(
             "geometry-preflight": "ready",
             "solver-dispatch": "pending",
             "result-reporting": "pending",
+            "supervisor-review": "pending",
         }
     else:
         default_statuses = {
@@ -148,6 +182,7 @@ def build_execution_plan(
             "geometry-preflight": "pending",
             "solver-dispatch": "pending",
             "result-reporting": "pending",
+            "supervisor-review": "pending",
         }
 
     plan_updates = stage_updates or {}
@@ -191,6 +226,9 @@ class SubmarineRuntimeSnapshot(BaseModel):
     run_script_virtual_path: str | None = None
     supervisor_handoff_virtual_path: str | None = None
     review_status: Literal["ready_for_supervisor", "needs_user_confirmation", "blocked"] = "ready_for_supervisor"
+    scientific_gate_status: SubmarineScientificGateStatus | None = None
+    allowed_claim_level: SubmarineScientificClaimLevel | None = None
+    scientific_gate_virtual_path: str | None = None
     next_recommended_stage: str
     report_virtual_path: str
     artifact_virtual_paths: list[str] = Field(default_factory=list)
@@ -204,12 +242,18 @@ def build_supervisor_review_contract(
     report_virtual_path: str,
     artifact_virtual_paths: list[str] | None = None,
     review_status: Literal["ready_for_supervisor", "needs_user_confirmation", "blocked"] = "ready_for_supervisor",
+    scientific_gate_status: SubmarineScientificGateStatus | None = None,
+    allowed_claim_level: SubmarineScientificClaimLevel | None = None,
+    scientific_gate_virtual_path: str | None = None,
 ) -> SupervisorReviewContract:
     return SupervisorReviewContract(
         review_status=review_status,
         next_recommended_stage=next_recommended_stage,
         report_virtual_path=report_virtual_path,
         artifact_virtual_paths=artifact_virtual_paths or [],
+        scientific_gate_status=scientific_gate_status,
+        allowed_claim_level=allowed_claim_level,
+        scientific_gate_virtual_path=scientific_gate_virtual_path,
     )
 
 
@@ -239,6 +283,9 @@ def build_runtime_snapshot(
     run_script_virtual_path: str | None = None,
     supervisor_handoff_virtual_path: str | None = None,
     review_status: Literal["ready_for_supervisor", "needs_user_confirmation", "blocked"] = "ready_for_supervisor",
+    scientific_gate_status: SubmarineScientificGateStatus | None = None,
+    allowed_claim_level: SubmarineScientificClaimLevel | None = None,
+    scientific_gate_virtual_path: str | None = None,
     activity_timeline: list[SubmarineRuntimeEvent | dict] | None = None,
 ) -> SubmarineRuntimeSnapshot:
     return SubmarineRuntimeSnapshot(
@@ -257,6 +304,9 @@ def build_runtime_snapshot(
         run_script_virtual_path=run_script_virtual_path,
         supervisor_handoff_virtual_path=supervisor_handoff_virtual_path,
         review_status=review_status,
+        scientific_gate_status=scientific_gate_status,
+        allowed_claim_level=allowed_claim_level,
+        scientific_gate_virtual_path=scientific_gate_virtual_path,
         next_recommended_stage=next_recommended_stage,
         report_virtual_path=report_virtual_path,
         artifact_virtual_paths=artifact_virtual_paths or [],
