@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import csv
+import json
 import shutil
 from pathlib import Path
 from typing import Any
+
+from .figure_delivery import build_figure_manifest
 
 
 _REQUESTED_POSTPROCESS_EXPORTS: dict[str, dict[str, str | tuple[str, ...]]] = {
@@ -545,6 +548,138 @@ def _requested_output_formats(output_id: str, requested_output: dict | None) -> 
     }
 
 
+def _format_vector(values: tuple[float, float, float]) -> str:
+    return f"({values[0]:.1f}, {values[1]:.1f}, {values[2]:.1f})"
+
+
+def _selector_summary(output_id: str, requested_output: dict | None) -> str:
+    if output_id == "surface_pressure_contour":
+        spec = _surface_pressure_spec(requested_output)
+        patches = spec["selector"]["patches"]
+        return f"Patch selection: {', '.join(str(patch) for patch in patches)}"
+
+    if output_id == "wake_velocity_slice":
+        spec = _wake_velocity_slice_spec(requested_output)
+        selector = spec["selector"]
+        origin_value = float(selector["origin_value"])
+        normal = _vector3(selector.get("normal"), (1.0, 0.0, 0.0))
+        if selector.get("origin_mode") == "x_absolute_m":
+            return f"Plane slice at x={origin_value:g} m with normal {_format_vector(normal)}"
+        return f"Plane slice at x/Lref={origin_value:g} with normal {_format_vector(normal)}"
+
+    return "Selector provenance unavailable"
+
+
+def _figure_metric_metadata(
+    output_id: str,
+    rows: list[dict[str, str]],
+    requested_output: dict | None,
+) -> tuple[list[str], str | None, str | None, list[float]]:
+    if output_id == "surface_pressure_contour":
+        spec = _surface_pressure_spec(requested_output)
+        field = str(spec.get("field") or "p")
+        x_axis, y_axis = _extract_projection_axes(rows)
+        _, _, color_values = _extract_numeric_points(
+            rows,
+            x_key=x_axis,
+            y_key=y_axis,
+            color_getter=lambda row: row.get(field, ""),
+        )
+        return [x_axis, y_axis], field, field, color_values
+
+    if output_id == "wake_velocity_slice":
+        spec = _wake_velocity_slice_spec(requested_output)
+        selector = spec.get("selector") or {}
+        normal = _vector3(selector.get("normal"), (1.0, 0.0, 0.0))
+        x_axis, y_axis = _wake_plane_axes(normal)
+        field = str(spec.get("field") or "U")
+        _, _, color_values = _extract_numeric_points(
+            rows,
+            x_key=x_axis,
+            y_key=y_axis,
+            color_getter=_wake_color_getter(field),
+        )
+        color_metric = "|U|" if field == "U" else field
+        return [x_axis, y_axis], field, color_metric, color_values
+
+    return [], None, None, []
+
+
+def _value_range(values: list[float]) -> dict[str, float] | None:
+    if not values:
+        return None
+    return {
+        "min": round(min(values), 6),
+        "max": round(max(values), 6),
+    }
+
+
+def _figure_caption(
+    *,
+    output_id: str,
+    requested_output: dict | None,
+    color_metric: str | None,
+    sample_count: int,
+) -> str:
+    selector_summary = _selector_summary(output_id, requested_output)
+    metric = color_metric or "scalar"
+    if output_id == "surface_pressure_contour":
+        return (
+            "Surface pressure contour over the selected hull patches, "
+            f"colored by {metric}. {selector_summary}. Samples: {sample_count}."
+        )
+    if output_id == "wake_velocity_slice":
+        return (
+            "Wake velocity slice extracted from the requested cutting plane, "
+            f"colored by {metric}. {selector_summary}. Samples: {sample_count}."
+        )
+    return f"Deterministic figure export colored by {metric}. Samples: {sample_count}."
+
+
+def _build_figure_item(
+    *,
+    output_id: str,
+    export_spec: dict[str, str | tuple[str, ...]],
+    run_dir_name: str,
+    csv_path: Path,
+    csv_virtual_path: str,
+    markdown_virtual_path: str,
+    image_virtual_path: str | None,
+    requested_output: dict | None,
+    render_status: str,
+) -> dict[str, Any]:
+    rows = _read_delimited_rows(csv_path)
+    axes, field, color_metric, color_values = _figure_metric_metadata(
+        output_id,
+        rows,
+        requested_output,
+    )
+    artifact_virtual_paths = [csv_virtual_path, markdown_virtual_path]
+    if image_virtual_path:
+        artifact_virtual_paths.append(image_virtual_path)
+    sample_count = len(color_values)
+    return {
+        "figure_id": f"{run_dir_name}:{output_id}",
+        "output_id": output_id,
+        "title": str(export_spec["title"]),
+        "caption": _figure_caption(
+            output_id=output_id,
+            requested_output=requested_output,
+            color_metric=color_metric,
+            sample_count=sample_count,
+        ),
+        "render_status": render_status,
+        "field": field,
+        "selector_summary": _selector_summary(output_id, requested_output),
+        "axes": axes,
+        "color_metric": color_metric,
+        "sample_count": sample_count,
+        "value_range": _value_range(color_values),
+        "source_csv_virtual_path": csv_virtual_path,
+        "artifact_virtual_paths": artifact_virtual_paths,
+    }
+
+
 def _render_requested_postprocess_png(
     *,
     output_id: str,
@@ -600,6 +735,7 @@ def collect_requested_postprocess_artifacts(
 ) -> list[str]:
     requested_by_id = _requested_output_map(requested_outputs)
     exported_artifacts: list[str] = []
+    figure_items: list[dict[str, Any]] = []
 
     for output_id, export_spec in _REQUESTED_POSTPROCESS_EXPORTS.items():
         requested_output = requested_by_id.get(output_id)
@@ -621,7 +757,9 @@ def collect_requested_postprocess_artifacts(
         shutil.copy2(source_path, csv_path)
 
         csv_virtual_path = artifact_virtual_path_builder(run_dir_name, csv_name)
+        markdown_virtual_path = artifact_virtual_path_builder(run_dir_name, markdown_name)
         image_virtual_path: str | None = None
+        render_status = "skipped"
         if "png" in _requested_output_formats(output_id, requested_output):
             png_name = str(export_spec["artifact_png"])
             png_path = artifact_dir / png_name
@@ -634,6 +772,9 @@ def collect_requested_postprocess_artifacts(
             if rendered:
                 image_virtual_path = artifact_virtual_path_builder(run_dir_name, png_name)
                 exported_artifacts.append(image_virtual_path)
+                render_status = "rendered"
+            else:
+                render_status = "blocked"
 
         columns, data_row_count = _summarize_delimited_file(csv_path)
         write_text(
@@ -652,8 +793,38 @@ def collect_requested_postprocess_artifacts(
         exported_artifacts.extend(
             [
                 csv_virtual_path,
-                artifact_virtual_path_builder(run_dir_name, markdown_name),
+                markdown_virtual_path,
             ]
         )
+        figure_items.append(
+            _build_figure_item(
+                output_id=output_id,
+                export_spec=export_spec,
+                run_dir_name=run_dir_name,
+                csv_path=csv_path,
+                csv_virtual_path=csv_virtual_path,
+                markdown_virtual_path=markdown_virtual_path,
+                image_virtual_path=image_virtual_path,
+                requested_output=requested_output,
+                render_status=render_status,
+            )
+        )
+
+    if figure_items:
+        manifest_name = "figure-manifest.json"
+        manifest_path = artifact_dir / manifest_name
+        manifest_virtual_path = artifact_virtual_path_builder(run_dir_name, manifest_name)
+        write_text(
+            manifest_path,
+            json.dumps(
+                build_figure_manifest(
+                    run_dir_name=run_dir_name,
+                    figures=figure_items,
+                ),
+                ensure_ascii=False,
+                indent=2,
+            ),
+        )
+        exported_artifacts.append(manifest_virtual_path)
 
     return exported_artifacts

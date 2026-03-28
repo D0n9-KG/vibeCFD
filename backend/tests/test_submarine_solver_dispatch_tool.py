@@ -1298,6 +1298,7 @@ def test_submarine_solver_dispatch_exports_requested_postprocess_artifacts(tmp_p
         / "solver-dispatch"
         / "ppx"
     )
+    figure_manifest_path = artifact_dir / "figure-manifest.json"
 
     assert any(path.endswith("/surface-pressure.csv") for path in artifacts)
     assert any(path.endswith("/surface-pressure.md") for path in artifacts)
@@ -1305,8 +1306,42 @@ def test_submarine_solver_dispatch_exports_requested_postprocess_artifacts(tmp_p
     assert any(path.endswith("/wake-velocity-slice.csv") for path in artifacts)
     assert any(path.endswith("/wake-velocity-slice.md") for path in artifacts)
     assert any(path.endswith("/wake-velocity-slice.png") for path in artifacts)
+    assert any(path.endswith("/figure-manifest.json") for path in artifacts)
     assert (artifact_dir / "surface-pressure.png").exists()
     assert (artifact_dir / "wake-velocity-slice.png").exists()
+    manifest = json.loads(figure_manifest_path.read_text(encoding="utf-8"))
+    assert manifest["run_dir_name"] == "ppx"
+    assert manifest["figure_count"] == 2
+    figures_by_output = {
+        item["output_id"]: item
+        for item in manifest["figures"]
+    }
+    assert set(figures_by_output) == {"surface_pressure_contour", "wake_velocity_slice"}
+    surface_pressure = figures_by_output["surface_pressure_contour"]
+    wake_slice = figures_by_output["wake_velocity_slice"]
+    assert surface_pressure["title"] == "Surface Pressure Result"
+    assert surface_pressure["caption"].startswith("Surface pressure contour")
+    assert surface_pressure["render_status"] == "rendered"
+    assert surface_pressure["field"] == "p"
+    assert surface_pressure["selector_summary"] == "Patch selection: hull"
+    assert surface_pressure["axes"] == ["x", "y"]
+    assert surface_pressure["color_metric"] == "p"
+    assert surface_pressure["sample_count"] == 2
+    assert surface_pressure["value_range"] == {"min": 10.5, "max": 12.0}
+    assert surface_pressure["source_csv_virtual_path"].endswith("/surface-pressure.csv")
+    assert any(path.endswith("/surface-pressure.png") for path in surface_pressure["artifact_virtual_paths"])
+
+    assert wake_slice["title"] == "Wake Velocity Slice"
+    assert wake_slice["caption"].startswith("Wake velocity slice")
+    assert wake_slice["render_status"] == "rendered"
+    assert wake_slice["field"] == "U"
+    assert wake_slice["selector_summary"] == "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)"
+    assert wake_slice["axes"] == ["y", "z"]
+    assert wake_slice["color_metric"] == "|U|"
+    assert wake_slice["sample_count"] == 2
+    assert wake_slice["value_range"] == {"min": 4.601087, "max": 4.8}
+    assert wake_slice["source_csv_virtual_path"].endswith("/wake-velocity-slice.csv")
+    assert any(path.endswith("/wake-velocity-slice.png") for path in wake_slice["artifact_virtual_paths"])
     assert payload["output_delivery_plan"][0]["delivery_status"] == "delivered"
     assert payload["output_delivery_plan"][1]["delivery_status"] == "delivered"
 
