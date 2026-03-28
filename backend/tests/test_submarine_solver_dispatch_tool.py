@@ -187,26 +187,27 @@ class _FakeScientificStudySandbox(_FakeSandbox):
         super().__init__(output=output)
         self.workspace_dir = workspace_dir
         self.cd_by_command_fragment = {
-            "/study-execution-demo/openfoam-case/Allrun": 0.1200,
-            "/study-execution-demo/studies/mesh-independence/coarse/openfoam-case/Allrun": 0.1212,
-            "/study-execution-demo/studies/mesh-independence/fine/openfoam-case/Allrun": 0.1194,
-            "/study-execution-demo/studies/domain-sensitivity/compact/openfoam-case/Allrun": 0.1290,
-            "/study-execution-demo/studies/domain-sensitivity/expanded/openfoam-case/Allrun": 0.1110,
-            "/study-execution-demo/studies/time-step-sensitivity/coarse/openfoam-case/Allrun": 0.1208,
-            "/study-execution-demo/studies/time-step-sensitivity/fine/openfoam-case/Allrun": 0.1196,
+            "/studies/mesh-independence/coarse/openfoam-case/Allrun": 0.1212,
+            "/studies/mesh-independence/fine/openfoam-case/Allrun": 0.1194,
+            "/studies/domain-sensitivity/compact/openfoam-case/Allrun": 0.1290,
+            "/studies/domain-sensitivity/expanded/openfoam-case/Allrun": 0.1110,
+            "/studies/time-step-sensitivity/coarse/openfoam-case/Allrun": 0.1208,
+            "/studies/time-step-sensitivity/fine/openfoam-case/Allrun": 0.1196,
+            "/openfoam-case/Allrun": 0.1200,
         }
 
     def _resolve_case_dir(self, command: str) -> tuple[Path, float]:
         for fragment, cd_value in self.cd_by_command_fragment.items():
             if fragment in command:
-                relative = fragment.split("/study-execution-demo/", maxsplit=1)[1]
-                allrun_relative = relative.removeprefix("/")
-                case_relative = allrun_relative.removesuffix("/Allrun")
+                marker = "/submarine/solver-dispatch/"
+                _, relative_command = command.split(marker, maxsplit=1)
+                run_dir_name, relative = relative_command.split("/", maxsplit=1)
+                case_relative = relative.removesuffix("/Allrun")
                 return (
                     self.workspace_dir
                     / "submarine"
                     / "solver-dispatch"
-                    / "study-execution-demo"
+                    / run_dir_name
                     / Path(case_relative),
                     cd_value,
                 )
@@ -892,6 +893,94 @@ def test_submarine_solver_dispatch_writes_solver_results_artifact(tmp_path, monk
     assert len(solver_results["residual_summary"]["history"]) == 8
 
 
+def test_submarine_solver_dispatch_emits_baseline_experiment_artifacts(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-baseline-experiment"
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "baseline-experiment-demo.stl"
+    _write_ascii_stl(geometry_path)
+
+    case_dir = (
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "baseline-experiment-demo"
+        / "openfoam-case"
+    )
+    fake_sandbox = _FakePostprocessSandbox(case_dir=case_dir)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(tool_module, "get_sandbox_provider", lambda: _FakeProvider(fake_sandbox))
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/baseline-experiment-demo.stl",
+        task_description="执行一次 baseline run 并生成 experiment registry artifacts",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=True,
+        solver_command=(
+            "bash /mnt/user-data/workspace/submarine/solver-dispatch/"
+            "baseline-experiment-demo/openfoam-case/Allrun"
+        ),
+        tool_call_id="tc-dispatch-baseline-experiment",
+    )
+
+    artifacts = result.update["artifacts"]
+    request_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "baseline-experiment-demo"
+        / "openfoam-request.json"
+    )
+    experiment_manifest_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "baseline-experiment-demo"
+        / "experiment-manifest.json"
+    )
+    run_record_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "baseline-experiment-demo"
+        / "run-record.json"
+    )
+    compare_summary_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "baseline-experiment-demo"
+        / "run-compare-summary.json"
+    )
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    experiment_manifest = json.loads(experiment_manifest_path.read_text(encoding="utf-8"))
+    run_record = json.loads(run_record_path.read_text(encoding="utf-8"))
+    compare_summary = json.loads(compare_summary_path.read_text(encoding="utf-8"))
+
+    assert any(path.endswith("/experiment-manifest.json") for path in artifacts)
+    assert any(path.endswith("/run-record.json") for path in artifacts)
+    assert any(path.endswith("/run-compare-summary.json") for path in artifacts)
+    assert payload["experiment_manifest"]["baseline_run_id"] == "baseline"
+    assert payload["run_compare_summary"]["baseline_run_id"] == "baseline"
+    assert payload["run_compare_summary"]["comparisons"] == []
+    assert experiment_manifest["baseline_run_id"] == "baseline"
+    assert run_record["run_id"] == "baseline"
+    assert run_record["run_role"] == "baseline"
+    assert compare_summary["comparisons"] == []
+
+
 def test_submarine_solver_dispatch_writes_scientific_verification_artifacts(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-study-results"
@@ -1055,6 +1144,74 @@ def test_submarine_solver_dispatch_executes_scientific_study_variants_when_enabl
         / "baseline"
         / "solver-results.json"
     ).exists()
+
+
+def test_submarine_solver_dispatch_emits_run_compare_summary_for_study_execution(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-study-compare"
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "study-compare-demo.stl"
+    _write_ascii_stl(geometry_path)
+
+    fake_sandbox = _FakeScientificStudySandbox(workspace_dir=workspace_dir)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(tool_module, "get_sandbox_provider", lambda: _FakeProvider(fake_sandbox))
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/study-compare-demo.stl",
+        task_description="执行 scientific study variants 并生成 run compare summary",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=True,
+        execute_scientific_studies=True,
+        solver_command="bash /mnt/user-data/workspace/submarine/solver-dispatch/study-compare-demo/openfoam-case/Allrun",
+        tool_call_id="tc-dispatch-study-compare",
+    )
+
+    artifacts = result.update["artifacts"]
+    request_path = (
+        outputs_dir / "submarine" / "solver-dispatch" / "study-compare-demo" / "openfoam-request.json"
+    )
+    compare_summary_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "study-compare-demo"
+        / "run-compare-summary.json"
+    )
+    variant_run_record_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "study-compare-demo"
+        / "studies"
+        / "mesh-independence"
+        / "coarse"
+        / "run-record.json"
+    )
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    compare_summary = json.loads(compare_summary_path.read_text(encoding="utf-8"))
+    variant_run_record = json.loads(variant_run_record_path.read_text(encoding="utf-8"))
+
+    assert any(path.endswith("/run-compare-summary.json") for path in artifacts)
+    assert payload["run_compare_summary"]["baseline_run_id"] == "baseline"
+    assert len(payload["run_compare_summary"]["comparisons"]) == 6
+    assert len(compare_summary["comparisons"]) == 6
+    assert compare_summary["comparisons"][0]["candidate_run_id"] == "mesh_independence:coarse"
+    assert compare_summary["comparisons"][0]["metric_deltas"]["Cd"]["baseline_value"] == 0.12
+    assert variant_run_record["run_id"] == "mesh_independence:coarse"
+    assert variant_run_record["run_role"] == "scientific_study_variant"
 
 
 def test_submarine_solver_dispatch_exports_requested_postprocess_artifacts(tmp_path, monkeypatch):

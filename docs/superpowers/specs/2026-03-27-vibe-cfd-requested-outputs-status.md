@@ -347,6 +347,82 @@ Broader verification:
 - `cd frontend && node_modules/.bin/tsc.cmd --noEmit`
 - result: passed
 
+## 14. 2026-03-28 Addendum: Experiment Registry And Run Compare v1
+
+This session extended the scientific-study work into a lightweight experiment registry so baseline and variant runs are now explicit members of a shared compareable experiment, instead of a loose collection of artifacts.
+
+### 14.1 What Changed
+
+The submarine domain now has typed contracts for:
+
+- experiment manifests
+- baseline and scientific-study variant run records
+- run-compare entries
+- root compare summaries
+
+The new helper layer derives deterministic identifiers for:
+
+- `experiment_id`
+- baseline `run_id`
+- per-study variant `run_id`
+
+That makes experiment evidence stable enough to reference in reporting and the workbench without hard-coding one-off directory names.
+
+### 14.2 Solver-Dispatch Changes
+
+`backend/packages/harness/deerflow/domain/submarine/solver_dispatch.py` now emits:
+
+- root `experiment-manifest.json`
+- root `run-record.json` for the baseline execution
+- root `run-compare-summary.json`
+- per-variant `run-record.json` files under `studies/<study>/<variant>/`
+
+For baseline-only runs, the compare summary is intentionally minimal and honest:
+
+- `baseline_run_id` is always explicit
+- `comparisons` is empty when no non-baseline runs executed
+- the experiment manifest still records the baseline run as the first experiment member
+
+For study-enabled execution, the compare summary now aggregates the currently executed non-baseline variants and records compact deltas for:
+
+- `Cd`
+- `Fx`
+- `final_time_seconds`
+- `mesh_cells`
+
+Blocked or incomplete study runs are no longer silently dropped from compare bookkeeping; they surface as compare entries with non-success status.
+
+### 14.3 Reporting And Workbench Changes
+
+The final report now adds an `experiment_summary` block that includes:
+
+- `experiment_id`
+- `experiment_status`
+- `baseline_run_id`
+- `run_count`
+- manifest and compare artifact entrypoints
+- compact compare notes
+
+The submarine workbench now surfaces that experiment summary in the runtime health panel so users can see:
+
+- which experiment the current run belongs to
+- whether the registry is only planned, completed, or blocked
+- how many runs are already attached
+- where the compare summary lives
+- which variant comparisons currently exist
+
+This keeps the top-level UX open-ended while tightening the execution and evidence layers underneath.
+
+### 14.4 Remaining Gap
+
+This is still intentionally a v1 experiment layer, not a full research experiment platform:
+
+- there is still no dedicated side-by-side compare workspace
+- compare semantics are still compact and metric-oriented, not figure-native
+- validation targets and provenance are not yet unified into the same experiment evidence chain
+- supervisor transitions are still softer than a dedicated scientific state machine
+- publication-grade compare figures remain a later slice
+
 ## 11. 2026-03-28 Addendum: Structured Requested-Result Cards
 
 This session continued the same DeerFlow-native requested-output pipeline and upgraded the submarine workbench from text-only requested-output summaries to structured result cards.

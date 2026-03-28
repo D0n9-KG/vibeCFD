@@ -10,11 +10,19 @@ from collections.abc import Callable
 from pathlib import Path
 
 from .contracts import SubmarineRequestedOutput, build_supervisor_review_contract
+from .experiments import (
+    build_experiment_id,
+    build_experiment_run_id,
+    build_metric_snapshot,
+    build_run_compare_summary,
+    build_run_record,
+)
 from .geometry_check import inspect_geometry_file
 from .library import load_case_library, rank_cases
 from .models import (
     GeometryInspection,
     SubmarineCaseMatch,
+    SubmarineExperimentManifest,
 )
 from .output_contract import build_output_delivery_plan
 from .postprocess import (
@@ -1727,14 +1735,38 @@ def run_solver_dispatch(
     handoff_path = artifact_dir / "supervisor-handoff.json"
     solver_results_json_path = artifact_dir / "solver-results.json"
     solver_results_md_path = artifact_dir / "solver-results.md"
+    experiment_manifest_path = artifact_dir / "experiment-manifest.json"
+    baseline_run_record_path = artifact_dir / "run-record.json"
+    run_compare_summary_path = artifact_dir / "run-compare-summary.json"
 
     selected_case_definition = None
     if selected_case is not None:
         selected_case_definition = load_case_library().case_index.get(selected_case.case_id)
+    experiment_id = build_experiment_id(
+        selected_case_id=selected_case.case_id if selected_case else None,
+        run_dir_name=run_dir_name,
+        task_type=task_type,
+    )
 
     scientific_study_manifest_model = None
     scientific_study_plan: dict | None = None
     scientific_study_manifest: dict | None = None
+    experiment_manifest: dict | None = None
+    run_compare_summary: dict | None = None
+    baseline_run_record_model = None
+    candidate_run_record_models: list = []
+    baseline_run_record_virtual_path = _artifact_virtual_path(
+        run_dir_name,
+        "run-record.json",
+    )
+    run_compare_summary_virtual_path = _artifact_virtual_path(
+        run_dir_name,
+        "run-compare-summary.json",
+    )
+    experiment_manifest_virtual_path = _artifact_virtual_path(
+        run_dir_name,
+        "experiment-manifest.json",
+    )
     planned_study_artifact_paths: list[str] = []
     if selected_case_definition is not None:
         scientific_study_manifest_model = build_scientific_study_manifest(
@@ -1788,6 +1820,7 @@ def run_solver_dispatch(
     requested_postprocess_artifacts: list[str] = []
     scientific_study_artifacts: list[str] = []
     scientific_variant_results: dict[str, dict[str, dict[str, object] | None]] = {}
+    experiment_artifacts: list[str] = []
     if execute_now and effective_solver_command and execute_command is not None:
         command_output = execute_command(effective_solver_command)
         log_path.write_text(command_output, encoding="utf-8")
@@ -1818,6 +1851,83 @@ def run_solver_dispatch(
                 artifact_virtual_path_builder=_artifact_virtual_path,
                 write_text=_write_unix_text,
             )
+            baseline_run_record_model = build_run_record(
+                experiment_id=experiment_id,
+                run_id=build_experiment_run_id(
+                    study_type=None,
+                    variant_id=None,
+                ),
+                run_role="baseline",
+                solver_results_virtual_path=_solver_results_virtual_path(
+                    run_dir_name,
+                    "solver-results.json",
+                ),
+                run_record_virtual_path=baseline_run_record_virtual_path,
+                execution_status=(
+                    "completed" if solver_results.get("solver_completed") else "blocked"
+                ),
+                metric_snapshot=build_metric_snapshot(solver_results=solver_results),
+            )
+            baseline_run_record_path.write_text(
+                json.dumps(
+                    baseline_run_record_model.model_dump(mode="json"),
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            run_compare_summary_model = build_run_compare_summary(
+                experiment_id=experiment_id,
+                baseline_run_id=baseline_run_record_model.run_id,
+                baseline_record=baseline_run_record_model.model_dump(mode="json"),
+                candidate_records=[],
+                artifact_virtual_paths=[
+                    baseline_run_record_virtual_path,
+                    run_compare_summary_virtual_path,
+                ],
+            )
+            run_compare_summary_path.write_text(
+                json.dumps(
+                    run_compare_summary_model.model_dump(mode="json"),
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            experiment_manifest_model = SubmarineExperimentManifest(
+                experiment_id=experiment_id,
+                selected_case_id=selected_case.case_id if selected_case else None,
+                task_type=task_type,
+                baseline_run_id=baseline_run_record_model.run_id,
+                run_records=[baseline_run_record_model],
+                artifact_virtual_paths=[
+                    baseline_run_record_virtual_path,
+                    run_compare_summary_virtual_path,
+                    experiment_manifest_virtual_path,
+                ],
+                experiment_status=(
+                    "completed"
+                    if baseline_run_record_model.execution_status == "completed"
+                    else "blocked"
+                ),
+            )
+            experiment_manifest_path.write_text(
+                json.dumps(
+                    experiment_manifest_model.model_dump(mode="json"),
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            experiment_manifest = experiment_manifest_model.model_dump(mode="json")
+            run_compare_summary = run_compare_summary_model.model_dump(mode="json")
+            experiment_artifacts.extend(
+                [
+                    baseline_run_record_virtual_path,
+                    run_compare_summary_virtual_path,
+                    experiment_manifest_virtual_path,
+                ]
+            )
 
     if scientific_study_manifest_model is not None:
         study_results = []
@@ -1840,12 +1950,25 @@ def run_solver_dispatch(
                             / variant.variant_id
                             / "solver-results.json"
                         )
+                        variant_run_record_path = (
+                            artifact_dir
+                            / "studies"
+                            / _study_slug(definition.study_type)
+                            / variant.variant_id
+                            / "run-record.json"
+                        )
                         variant_output_path.parent.mkdir(parents=True, exist_ok=True)
                         variant_virtual_path = _study_variant_virtual_path(
                             run_dir_name,
                             definition.study_type,
                             variant.variant_id,
                             "solver-results.json",
+                        )
+                        variant_run_record_virtual_path = _study_variant_virtual_path(
+                            run_dir_name,
+                            definition.study_type,
+                            variant.variant_id,
+                            "run-record.json",
                         )
 
                         if variant.variant_id == "baseline":
@@ -1959,7 +2082,33 @@ def run_solver_dispatch(
                             json.dumps(variant_payload, ensure_ascii=False, indent=2),
                             encoding="utf-8",
                         )
+                        variant_run_record_model = build_run_record(
+                            experiment_id=experiment_id,
+                            run_id=build_experiment_run_id(
+                                study_type=definition.study_type,
+                                variant_id=variant.variant_id,
+                            ),
+                            run_role="scientific_study_variant",
+                            study_type=definition.study_type,
+                            variant_id=variant.variant_id,
+                            solver_results_virtual_path=variant_virtual_path,
+                            run_record_virtual_path=variant_run_record_virtual_path,
+                            execution_status=str(variant_payload["execution_status"]),
+                            metric_snapshot=build_metric_snapshot(
+                                solver_results=variant_solver_results
+                            ),
+                        )
+                        variant_run_record_path.write_text(
+                            json.dumps(
+                                variant_run_record_model.model_dump(mode="json"),
+                                ensure_ascii=False,
+                                indent=2,
+                            ),
+                            encoding="utf-8",
+                        )
+                        candidate_run_record_models.append(variant_run_record_model)
                         scientific_study_artifacts.append(variant_virtual_path)
+                        experiment_artifacts.append(variant_run_record_virtual_path)
 
                 study_results = build_completed_scientific_study_results(
                     manifest=scientific_study_manifest_model,
@@ -2036,6 +2185,67 @@ def run_solver_dispatch(
                 scientific_study_manifest_model
             )
 
+    if baseline_run_record_model is not None:
+        all_run_records = [
+            baseline_run_record_model,
+            *candidate_run_record_models,
+        ]
+        run_compare_summary_model = build_run_compare_summary(
+            experiment_id=experiment_id,
+            baseline_run_id=baseline_run_record_model.run_id,
+            baseline_record=baseline_run_record_model.model_dump(mode="json"),
+            candidate_records=[
+                item.model_dump(mode="json") for item in candidate_run_record_models
+            ],
+            artifact_virtual_paths=[
+                baseline_run_record_virtual_path,
+                run_compare_summary_virtual_path,
+                *[
+                    item.run_record_virtual_path
+                    for item in candidate_run_record_models
+                ],
+            ],
+        )
+        run_compare_summary_path.write_text(
+            json.dumps(
+                run_compare_summary_model.model_dump(mode="json"),
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        experiment_manifest_model = SubmarineExperimentManifest(
+            experiment_id=experiment_id,
+            selected_case_id=selected_case.case_id if selected_case else None,
+            task_type=task_type,
+            baseline_run_id=baseline_run_record_model.run_id,
+            run_records=all_run_records,
+            artifact_virtual_paths=[
+                baseline_run_record_virtual_path,
+                run_compare_summary_virtual_path,
+                experiment_manifest_virtual_path,
+                *[
+                    item.run_record_virtual_path
+                    for item in candidate_run_record_models
+                ],
+            ],
+            experiment_status=(
+                "blocked"
+                if any(item.execution_status == "blocked" for item in all_run_records)
+                else "completed"
+            ),
+        )
+        experiment_manifest_path.write_text(
+            json.dumps(
+                experiment_manifest_model.model_dump(mode="json"),
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        experiment_manifest = experiment_manifest_model.model_dump(mode="json")
+        run_compare_summary = run_compare_summary_model.model_dump(mode="json")
+
     artifacts = [
         _artifact_virtual_path(run_dir_name, "dispatch-summary.md"),
         _artifact_virtual_path(run_dir_name, "dispatch-summary.html"),
@@ -2060,6 +2270,7 @@ def run_solver_dispatch(
         )
     artifacts.extend(requested_postprocess_artifacts)
     artifacts.extend(scientific_study_artifacts)
+    artifacts.extend(experiment_artifacts)
 
     review_status = "ready_for_supervisor"
     next_stage = "result-reporting" if dispatch_status == "executed" else "solver-dispatch"
@@ -2100,6 +2311,8 @@ def run_solver_dispatch(
         "output_delivery_plan": output_delivery_plan,
         "scientific_study_plan": scientific_study_plan,
         "scientific_study_manifest": scientific_study_manifest,
+        "experiment_manifest": experiment_manifest,
+        "run_compare_summary": run_compare_summary,
         "review_status": review.review_status,
         "next_recommended_stage": review.next_recommended_stage,
         "artifact_virtual_paths": review.artifact_virtual_paths,

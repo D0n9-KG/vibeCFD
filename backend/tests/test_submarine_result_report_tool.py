@@ -1621,6 +1621,156 @@ def test_scientific_verification_keeps_unreadable_study_artifact_as_missing_evid
     assert "missing" in mesh_requirement["detail"].lower() or "unsupported" in mesh_requirement["detail"].lower()
 
 
+def test_submarine_result_report_adds_experiment_summary(tmp_path):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-experiment-summary"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = (
+        outputs_dir / "submarine" / "solver-dispatch" / "experiment-summary"
+    )
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "mesh_summary": {"mesh_ok": True, "cells": 9342},
+                "latest_force_coefficients": {"Cd": 0.12},
+                "latest_forces": {"total_force": [8.0, 0.0, 0.0]},
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 0.00014,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "experiment-manifest.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": "darpa-suboff-bare-hull-resistance-experiment-summary-resistance",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "task_type": "resistance",
+                "baseline_run_id": "baseline",
+                "run_records": [
+                    {
+                        "run_id": "baseline",
+                        "run_role": "baseline",
+                        "execution_status": "completed",
+                    },
+                    {
+                        "run_id": "mesh_independence:coarse",
+                        "run_role": "scientific_study_variant",
+                        "study_type": "mesh_independence",
+                        "variant_id": "coarse",
+                        "execution_status": "completed",
+                    },
+                ],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/experiment-manifest.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/run-compare-summary.json",
+                ],
+                "experiment_status": "completed",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "run-compare-summary.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": "darpa-suboff-bare-hull-resistance-experiment-summary-resistance",
+                "baseline_run_id": "baseline",
+                "comparisons": [
+                    {
+                        "baseline_run_id": "baseline",
+                        "candidate_run_id": "mesh_independence:coarse",
+                        "study_type": "mesh_independence",
+                        "variant_id": "coarse",
+                        "compare_status": "completed",
+                        "metric_deltas": {
+                            "Cd": {
+                                "baseline_value": 0.12,
+                                "candidate_value": 0.1212,
+                                "absolute_delta": 0.0012,
+                                "relative_delta": 0.01,
+                            }
+                        },
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Summarize experiment registry artifacts",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/experiment-manifest.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/run-compare-summary.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Experiment summary report",
+        tool_call_id="tc-result-report-experiment-summary",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    experiment_summary = final_payload["experiment_summary"]
+
+    assert experiment_summary["experiment_id"] == (
+        "darpa-suboff-bare-hull-resistance-experiment-summary-resistance"
+    )
+    assert experiment_summary["baseline_run_id"] == "baseline"
+    assert experiment_summary["run_count"] == 2
+    assert experiment_summary["compare_virtual_path"].endswith("/run-compare-summary.json")
+
+
 def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_path):
     report_tool_module = importlib.import_module(
         "deerflow.tools.builtins.submarine_result_report_tool"

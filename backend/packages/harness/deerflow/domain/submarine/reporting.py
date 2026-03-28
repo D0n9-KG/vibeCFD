@@ -139,6 +139,51 @@ def _build_scientific_study_summary(
     }
 
 
+def _build_experiment_summary(
+    *,
+    outputs_dir: Path,
+    artifact_virtual_paths: list[str],
+) -> dict | None:
+    manifest_loaded = _load_json_payload_from_artifacts(
+        outputs_dir,
+        artifact_virtual_paths,
+        "experiment-manifest.json",
+    )
+    if manifest_loaded is None:
+        return None
+
+    manifest_virtual_path, manifest = manifest_loaded
+    compare_loaded = _load_json_payload_from_artifacts(
+        outputs_dir,
+        artifact_virtual_paths,
+        "run-compare-summary.json",
+    )
+    compare_virtual_path = compare_loaded[0] if compare_loaded is not None else None
+    compare_summary = compare_loaded[1] if compare_loaded is not None else {}
+    comparisons = compare_summary.get("comparisons") or []
+    compare_notes: list[str] = []
+    for item in comparisons:
+        if not isinstance(item, dict):
+            continue
+        candidate_run_id = str(item.get("candidate_run_id") or "unknown")
+        compare_status = str(item.get("compare_status") or "unknown")
+        compare_notes.append(f"{candidate_run_id} | {compare_status}")
+
+    run_records = manifest.get("run_records") or []
+    return {
+        "experiment_id": manifest.get("experiment_id"),
+        "experiment_status": manifest.get("experiment_status"),
+        "baseline_run_id": manifest.get("baseline_run_id"),
+        "run_count": len([item for item in run_records if isinstance(item, dict)]),
+        "manifest_virtual_path": manifest_virtual_path,
+        "compare_virtual_path": compare_virtual_path,
+        "artifact_virtual_paths": manifest.get("artifact_virtual_paths")
+        or [manifest_virtual_path],
+        "compare_count": len([item for item in comparisons if isinstance(item, dict)]),
+        "compare_notes": compare_notes,
+    }
+
+
 def _has_required_artifact(artifact_virtual_paths: list[str], required_artifact: str) -> bool:
     return any(path.endswith(required_artifact) for path in artifact_virtual_paths)
 
@@ -788,6 +833,30 @@ def _render_scientific_study_markdown(scientific_study_summary: dict | None) -> 
     return lines
 
 
+def _render_experiment_markdown(experiment_summary: dict | None) -> list[str]:
+    if not experiment_summary:
+        return []
+
+    lines = [
+        "",
+        "## Experiment Registry",
+        f"- experiment_id: `{experiment_summary.get('experiment_id')}`",
+        f"- experiment_status: `{experiment_summary.get('experiment_status')}`",
+        f"- baseline_run_id: `{experiment_summary.get('baseline_run_id')}`",
+        f"- run_count: `{experiment_summary.get('run_count')}`",
+        f"- manifest: `{experiment_summary.get('manifest_virtual_path')}`",
+    ]
+    if experiment_summary.get("compare_virtual_path"):
+        lines.append(
+            f"- compare: `{experiment_summary.get('compare_virtual_path')}`"
+        )
+    compare_notes = experiment_summary.get("compare_notes") or []
+    if compare_notes:
+        lines.extend(["", "### Compare Summary"])
+        lines.extend(f"- {item}" for item in compare_notes)
+    return lines
+
+
 def _render_scientific_verification_markdown(
     scientific_verification_assessment: dict | None,
 ) -> list[str]:
@@ -858,6 +927,34 @@ def _render_scientific_study_html(scientific_study_summary: dict | None) -> str:
         f"<p><strong>manifest:</strong> {escape(str(scientific_study_summary.get('manifest_virtual_path')))}</p>"
         "<h3>Study Summary</h3>"
         f"<ul>{study_items}</ul>"
+        "</section>"
+    )
+
+
+def _render_experiment_html(experiment_summary: dict | None) -> str:
+    if not experiment_summary:
+        return ""
+
+    compare_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (experiment_summary.get("compare_notes") or [])
+    ) or "<li>None</li>"
+    compare_html = (
+        f"<p><strong>compare:</strong> {escape(str(experiment_summary.get('compare_virtual_path')))}</p>"
+        if experiment_summary.get("compare_virtual_path")
+        else ""
+    )
+    return (
+        '<section class="panel">'
+        "<h2>Experiment Registry</h2>"
+        f"<p><strong>experiment_id:</strong> {escape(str(experiment_summary.get('experiment_id')))}</p>"
+        f"<p><strong>experiment_status:</strong> {escape(str(experiment_summary.get('experiment_status')))}</p>"
+        f"<p><strong>baseline_run_id:</strong> {escape(str(experiment_summary.get('baseline_run_id')))}</p>"
+        f"<p><strong>run_count:</strong> {escape(str(experiment_summary.get('run_count')))}</p>"
+        f"<p><strong>manifest:</strong> {escape(str(experiment_summary.get('manifest_virtual_path')))}</p>"
+        f"{compare_html}"
+        "<h3>Compare Summary</h3>"
+        f"<ul>{compare_items}</ul>"
         "</section>"
     )
 
@@ -1211,6 +1308,7 @@ def _render_markdown(payload: dict) -> str:
     )
     lines.extend(_render_solver_metrics_markdown_enriched(payload.get("solver_metrics")))
     lines.extend(_render_acceptance_markdown(payload.get("acceptance_assessment")))
+    lines.extend(_render_experiment_markdown(payload.get("experiment_summary")))
     lines.extend(_render_scientific_study_markdown(payload.get("scientific_study_summary")))
     lines.extend(
         _render_scientific_verification_markdown(
@@ -1372,6 +1470,7 @@ def _render_html(payload: dict) -> str:
     final_items = "".join(f"<li>{escape(path)}</li>" for path in payload["final_artifact_virtual_paths"])
     metrics_section = _render_solver_metrics_html_enriched(payload.get("solver_metrics"))
     acceptance_section = _render_acceptance_html(payload.get("acceptance_assessment"))
+    experiment_section = _render_experiment_html(payload.get("experiment_summary"))
     scientific_study_section = _render_scientific_study_html(
         payload.get("scientific_study_summary")
     )
@@ -1450,6 +1549,7 @@ def _render_html(payload: dict) -> str:
     {requested_outputs_section}
     {metrics_section}
     {acceptance_section}
+    {experiment_section}
     {scientific_study_section}
     {scientific_verification_section}
     {output_delivery_section}
@@ -1514,6 +1614,10 @@ def run_result_report(
         artifact_virtual_paths=all_artifacts,
         scientific_verification_assessment=scientific_verification_assessment,
     )
+    experiment_summary = _build_experiment_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+    )
     output_delivery_plan = build_output_delivery_plan(
         snapshot.requested_outputs,
         stage="result-reporting",
@@ -1553,6 +1657,7 @@ def run_result_report(
         "source_artifact_virtual_paths": snapshot.artifact_virtual_paths,
         "solver_metrics": solver_metrics,
         "acceptance_assessment": acceptance_assessment,
+        "experiment_summary": experiment_summary,
         "scientific_study_summary": scientific_study_summary,
         "scientific_verification_assessment": scientific_verification_assessment,
         "output_delivery_plan": output_delivery_plan,

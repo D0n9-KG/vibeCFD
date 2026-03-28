@@ -4,6 +4,7 @@ import test from "node:test";
 const {
   buildSubmarineAcceptanceSummary,
   buildSubmarineDesignBriefSummary,
+  buildSubmarineExperimentSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
   buildSubmarineScientificStudySummary,
@@ -630,4 +631,44 @@ void test("labels blocked scientific study execution explicitly", () => {
   });
 
   assert.equal(summary?.executionStatusLabel, "Blocked");
+});
+
+void test("builds an experiment summary from the final report payload", () => {
+  const summary = buildSubmarineExperimentSummary({
+    experiment_summary: {
+      experiment_id:
+        "darpa-suboff-bare-hull-resistance-study-compare-demo-resistance",
+      experiment_status: "completed",
+      baseline_run_id: "baseline",
+      run_count: 7,
+      manifest_virtual_path:
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+      compare_virtual_path:
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+      compare_notes: [
+        "mesh_independence:coarse | completed",
+        "domain_sensitivity:compact | completed",
+      ],
+    },
+  });
+
+  assert.equal(
+    summary?.experimentId,
+    "darpa-suboff-bare-hull-resistance-study-compare-demo-resistance",
+  );
+  assert.equal(summary?.experimentStatusLabel, "Completed");
+  assert.equal(summary?.baselineRunId, "baseline");
+  assert.equal(summary?.runCount, 7);
+  assert.equal(
+    summary?.manifestPath,
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+  );
+  assert.equal(
+    summary?.comparePath,
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+  );
+  assert.deepEqual(summary?.compareNotes, [
+    "mesh_independence:coarse | completed",
+    "domain_sensitivity:compact | completed",
+  ]);
 });

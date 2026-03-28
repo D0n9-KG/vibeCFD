@@ -179,6 +179,16 @@ export type SubmarineScientificStudySummary = {
   }>;
 };
 
+export type SubmarineExperimentSummary = {
+  experimentId: string;
+  experimentStatusLabel: string;
+  baselineRunId: string;
+  runCount: number;
+  manifestPath: string;
+  comparePath: string;
+  compareNotes: string[];
+};
+
 export type SubmarineAcceptanceSummary = {
   statusLabel: string;
   confidenceLabel: string;
@@ -265,6 +275,12 @@ const SCIENTIFIC_VERIFICATION_CONFIDENCE_LABELS: Record<string, string> = {
 const SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS: Record<string, string> = {
   planned: "Planned",
   in_progress: "In Progress",
+  completed: "Completed",
+  blocked: "Blocked",
+};
+
+const EXPERIMENT_STATUS_LABELS: Record<string, string> = {
+  planned: "Planned",
   completed: "Completed",
   blocked: "Blocked",
 };
@@ -491,6 +507,27 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     },
   ],
   [
+    "/experiment-manifest.json",
+    {
+      label: "Experiment Manifest JSON",
+      externalLinkLabel: "Open experiment manifest JSON in a new window",
+    },
+  ],
+  [
+    "/run-compare-summary.json",
+    {
+      label: "Run Compare Summary JSON",
+      externalLinkLabel: "Open run compare summary JSON in a new window",
+    },
+  ],
+  [
+    "/run-record.json",
+    {
+      label: "Experiment Run Record JSON",
+      externalLinkLabel: "Open experiment run record JSON in a new window",
+    },
+  ],
+  [
     "/delivery-readiness.md",
     {
       label: "浜や粯灏辩华",
@@ -673,7 +710,8 @@ function classifySubmarineArtifact(path: string): SubmarineArtifactGroupId {
     path.endsWith("/cfd-design-brief.html") ||
     path.endsWith("/cfd-design-brief.json") ||
     path.endsWith("/study-plan.json") ||
-    path.endsWith("/study-manifest.json")
+    path.endsWith("/study-manifest.json") ||
+    path.endsWith("/experiment-manifest.json")
   ) {
     return "planning";
   }
@@ -697,6 +735,7 @@ function classifySubmarineArtifact(path: string): SubmarineArtifactGroupId {
     path.endsWith("/wake-velocity-slice.csv") ||
     path.endsWith("/wake-velocity-slice.png") ||
     path.endsWith("/wake-velocity-slice.md") ||
+    path.endsWith("/run-compare-summary.json") ||
     path.endsWith("/verification-mesh-independence.json") ||
     path.endsWith("/verification-domain-sensitivity.json") ||
     path.endsWith("/verification-time-step-sensitivity.json")
@@ -707,6 +746,7 @@ function classifySubmarineArtifact(path: string): SubmarineArtifactGroupId {
   if (
     path.endsWith("/openfoam-run.log") ||
     path.endsWith("/openfoam-request.json") ||
+    path.endsWith("/run-record.json") ||
     path.endsWith("/dispatch-summary.md") ||
     path.endsWith("/dispatch-summary.html") ||
     path.endsWith("/supervisor-handoff.json")
@@ -1100,6 +1140,46 @@ export function buildSubmarineScientificStudySummary(
                 : item.verification_status ?? "--",
       verificationDetail: item.verification_detail ?? "--",
     })),
+  };
+}
+
+export function buildSubmarineExperimentSummary(
+  payload:
+    | {
+        experiment_summary?:
+          | {
+              experiment_id?: string | null;
+              experiment_status?: string | null;
+              baseline_run_id?: string | null;
+              run_count?: number | null;
+              manifest_virtual_path?: string | null;
+              compare_virtual_path?: string | null;
+              compare_notes?: string[] | null;
+            }
+          | null;
+      }
+    | null
+    | undefined,
+): SubmarineExperimentSummary | null {
+  const summary = payload?.experiment_summary;
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    experimentId: summary.experiment_id ?? "--",
+    experimentStatusLabel:
+      EXPERIMENT_STATUS_LABELS[summary.experiment_status ?? ""] ??
+      summary.experiment_status ??
+      "--",
+    baselineRunId: summary.baseline_run_id ?? "--",
+    runCount:
+      typeof summary.run_count === "number" && Number.isFinite(summary.run_count)
+        ? summary.run_count
+        : 0,
+    manifestPath: summary.manifest_virtual_path ?? "--",
+    comparePath: summary.compare_virtual_path ?? "--",
+    compareNotes: summary.compare_notes?.filter(Boolean) ?? [],
   };
 }
 

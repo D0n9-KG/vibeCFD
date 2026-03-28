@@ -39,6 +39,7 @@ import {
   buildSubmarineAcceptanceSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineDesignBriefSummary,
+  buildSubmarineExperimentSummary,
   buildSubmarineResultCards,
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
@@ -146,6 +147,15 @@ type FinalReportPayload = {
   summary_zh?: string;
   solver_metrics?: SolverMetrics | null;
   acceptance_assessment?: SubmarineAcceptanceAssessment | null;
+  experiment_summary?: {
+    experiment_id?: string | null;
+    experiment_status?: string | null;
+    baseline_run_id?: string | null;
+    run_count?: number | null;
+    manifest_virtual_path?: string | null;
+    compare_virtual_path?: string | null;
+    compare_notes?: string[] | null;
+  } | null;
   scientific_study_summary?: {
     study_execution_status?: string | null;
     manifest_virtual_path?: string | null;
@@ -419,6 +429,10 @@ export function SubmarineRuntimePanel({
     () => buildSubmarineAcceptanceSummary(finalReport),
     [finalReport],
   );
+  const experimentSummary = useMemo(
+    () => buildSubmarineExperimentSummary(finalReport),
+    [finalReport],
+  );
   const scientificVerificationSummary = useMemo(
     () => buildSubmarineScientificVerificationSummary(finalReport),
     [finalReport],
@@ -662,10 +676,49 @@ export function SubmarineRuntimePanel({
                     emptyText="当前还没有记录请求输出的交付状态。"
                   />
                 </div>
-              ) : null}
-              {scientificStudySummary ? (
-                <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
-                  <div className="grid gap-3 md:grid-cols-2">
+                ) : null}
+                {experimentSummary ? (
+                  <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <KeyValue
+                        label="Experiment Registry"
+                        value={experimentSummary.experimentStatusLabel}
+                      />
+                      <KeyValue
+                        label="Experiment ID"
+                        value={experimentSummary.experimentId}
+                      />
+                      <KeyValue
+                        label="Baseline Run"
+                        value={experimentSummary.baselineRunId}
+                      />
+                      <KeyValue
+                        label="Run Count"
+                        value={`${experimentSummary.runCount}`}
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <LabeledList
+                        title="Experiment Artifacts"
+                        items={[
+                          experimentSummary.manifestPath,
+                          ...(experimentSummary.comparePath !== "--"
+                            ? [experimentSummary.comparePath]
+                            : []),
+                        ]}
+                        emptyText="No experiment registry artifacts are recorded yet."
+                      />
+                      <LabeledList
+                        title="Run Compare Notes"
+                        items={experimentSummary.compareNotes}
+                        emptyText="No run compare notes are recorded yet."
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                {scientificStudySummary ? (
+                  <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2">
                     <KeyValue
                       label="Scientific Studies"
                       value={scientificStudySummary.executionStatusLabel}
