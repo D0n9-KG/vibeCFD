@@ -145,13 +145,22 @@ def build_provenance_status(
         highlights.append("Scientific study manifest is available.")
     if delivered_artifact_paths:
         highlights.append("Requested output artifacts were exported for this run.")
+    has_core_evidence_artifacts = any(
+        path.endswith("/solver-results.json")
+        or path.endswith("/verification-mesh-independence.json")
+        or path.endswith("/verification-domain-sensitivity.json")
+        or path.endswith("/verification-time-step-sensitivity.json")
+        for path in artifacts
+    )
+    if has_core_evidence_artifacts:
+        highlights.append("Core solver and scientific verification artifacts are available.")
 
     traceable = (
         has_report_artifact
         and has_experiment_manifest
         and has_experiment_compare
         and has_study_manifest
-        and bool(delivered_artifact_paths)
+        and (bool(delivered_artifact_paths) or has_core_evidence_artifacts)
     )
     if traceable:
         return "traceable", [], gaps, highlights
@@ -161,8 +170,10 @@ def build_provenance_status(
             gaps.append("Experiment registry entrypoints are incomplete.")
         if not has_study_manifest:
             gaps.append("Scientific study manifest is missing from the evidence trail.")
-        if not delivered_artifact_paths:
-            gaps.append("Requested outputs are not yet backed by delivered artifacts.")
+        if not delivered_artifact_paths and not has_core_evidence_artifacts:
+            gaps.append(
+                "Requested outputs or core scientific evidence artifacts are not yet linked."
+            )
         return "partial", [], gaps, highlights
 
     return "missing", [], ["Research provenance artifacts are missing."], highlights
