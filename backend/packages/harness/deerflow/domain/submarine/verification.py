@@ -1,0 +1,301 @@
+"""Scientific verification contracts for research-facing submarine CFD runs."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Iterable
+
+from .models import (
+    SubmarineCaseAcceptanceProfile,
+    SubmarineScientificVerificationRequirement,
+)
+
+
+def _is_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _has_artifact(artifact_virtual_paths: Iterable[str], required_artifact: str) -> bool:
+    return any(path.endswith(required_artifact) for path in artifact_virtual_paths)
+
+
+def _resolve_outputs_artifact(outputs_dir: Path, virtual_path: str) -> Path | None:
+    prefix = "/mnt/user-data/outputs/"
+    if not virtual_path.startswith(prefix):
+        return None
+    relative_parts = [part for part in virtual_path.removeprefix(prefix).split("/") if part]
+    return outputs_dir.joinpath(*relative_parts)
+
+
+def _load_verification_study_payloads(
+    *,
+    outputs_dir: Path | None,
+    artifact_virtual_paths: list[str],
+    required_artifacts: list[str],
+) -> list[tuple[str, dict]]:
+    if outputs_dir is None:
+        return []
+
+    payloads: list[tuple[str, dict]] = []
+    for artifact_path in artifact_virtual_paths:
+        if not any(artifact_path.endswith(required_artifact) for required_artifact in required_artifacts):
+            continue
+        local_path = _resolve_outputs_artifact(outputs_dir, artifact_path)
+        if local_path is None or not local_path.exists() or local_path.suffix.lower() != ".json":
+            continue
+        try:
+            payload = json.loads(local_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(payload, dict):
+            payloads.append((artifact_path, payload))
+    return payloads
+
+
+def build_effective_scientific_verification_requirements(
+    *,
+    acceptance_profile: SubmarineCaseAcceptanceProfile | None,
+    task_type: str,
+) -> list[SubmarineScientificVerificationRequirement]:
+    if acceptance_profile is None:
+        return []
+
+    requirements: list[SubmarineScientificVerificationRequirement] = []
+    if acceptance_profile.max_final_residual is not None:
+        requirements.append(
+            SubmarineScientificVerificationRequirement(
+                requirement_id="final_residual_threshold",
+                label="Final residual threshold",
+                summary_zh=(
+                    "要求本次基线 run 的最大最终残差不高于案例 profile 规定阈值，"
+                    "否则当前结果不适合作为科研对比基线。"
+                ),
+                check_type="max_final_residual",
+                max_value=acceptance_profile.max_final_residual,
+            )
+        )
+
+    if acceptance_profile.require_force_coefficients:
+        spread_limit = 0.02 if task_type == "resistance" else 0.05
+        requirements.append(
+            SubmarineScientificVerificationRequirement(
+                requirement_id="force_coefficient_tail_stability",
+                label="Force coefficient tail stability",
+                summary_zh=(
+                    "要求力系数历史尾段已经收敛到稳定范围，避免把尚未稳定的解"
+                    "直接当成科研结论。"
+                ),
+                check_type="force_coefficient_tail_stability",
+                force_coefficient="Cd",
+                minimum_history_samples=5,
+                max_tail_relative_spread=spread_limit,
+            )
+        )
+
+    requirements.extend(
+        [
+            SubmarineScientificVerificationRequirement(
+                requirement_id="mesh_independence_study",
+                label="Mesh independence study",
+                summary_zh="要求补齐网格无关性研究证据，确认结果不由单一网格分辨率偶然决定。",
+                check_type="artifact_presence",
+                required_artifacts=["verification-mesh-independence.json"],
+            ),
+            SubmarineScientificVerificationRequirement(
+                requirement_id="domain_sensitivity_study",
+                label="Domain sensitivity study",
+                summary_zh="要求补齐计算域尺寸敏感性研究证据，确认外边界设置不会显著扭曲结论。",
+                check_type="artifact_presence",
+                required_artifacts=["verification-domain-sensitivity.json"],
+            ),
+            SubmarineScientificVerificationRequirement(
+                requirement_id="time_step_sensitivity_study",
+                label="Time-step sensitivity study",
+                summary_zh="要求补齐时间步敏感性研究证据，确认时间推进设置不会主导关键结果。",
+                check_type="artifact_presence",
+                required_artifacts=["verification-time-step-sensitivity.json"],
+            ),
+        ]
+    )
+
+    custom_by_id = {
+        item.requirement_id: item
+        for item in acceptance_profile.scientific_verification_requirements
+    }
+    merged: list[SubmarineScientificVerificationRequirement] = []
+    for item in requirements:
+        merged.append(custom_by_id.pop(item.requirement_id, item))
+    merged.extend(custom_by_id.values())
+    return merged
+
+
+def build_scientific_verification_assessment(
+    *,
+    acceptance_profile: SubmarineCaseAcceptanceProfile | None,
+    task_type: str,
+    solver_metrics: dict | None,
+    artifact_virtual_paths: list[str],
+    outputs_dir: Path | None = None,
+) -> dict | None:
+    requirements = build_effective_scientific_verification_requirements(
+        acceptance_profile=acceptance_profile,
+        task_type=task_type,
+    )
+    if not requirements:
+        return None
+
+    requirement_statuses: list[dict] = []
+    blocking_issues: list[str] = []
+    missing_evidence: list[str] = []
+    passed_requirements: list[str] = []
+
+    residual_summary = (solver_metrics or {}).get("residual_summary") or {}
+    force_history = (solver_metrics or {}).get("force_coefficients_history") or []
+
+    for requirement in requirements:
+        if requirement.check_type == "max_final_residual":
+            observed = residual_summary.get("max_final_residual")
+            if not _is_number(observed):
+                detail = (
+                    f"{requirement.label}: residual summary is unavailable for this run."
+                )
+                status = "missing_evidence"
+                missing_evidence.append(detail)
+            elif requirement.max_value is not None and float(observed) <= requirement.max_value:
+                detail = (
+                    f"{requirement.label}: observed {float(observed):.6f} <= "
+                    f"{requirement.max_value:.6f}."
+                )
+                status = "passed"
+                passed_requirements.append(detail)
+            else:
+                detail = (
+                    f"{requirement.label}: observed {float(observed):.6f} exceeds "
+                    f"limit {requirement.max_value:.6f}."
+                )
+                status = "blocked"
+                blocking_issues.append(detail)
+        elif requirement.check_type == "force_coefficient_tail_stability":
+            coefficient = requirement.force_coefficient or "Cd"
+            tail_count = requirement.minimum_history_samples or 5
+            tail_values = [
+                float(item[coefficient])
+                for item in force_history[-tail_count:]
+                if isinstance(item, dict) and _is_number(item.get(coefficient))
+            ]
+            if len(tail_values) < tail_count:
+                detail = (
+                    f"{requirement.label}: need at least {tail_count} {coefficient} samples "
+                    "in force coefficient history."
+                )
+                status = "missing_evidence"
+                missing_evidence.append(detail)
+            else:
+                baseline = max(sum(abs(value) for value in tail_values) / len(tail_values), 1e-12)
+                spread = (max(tail_values) - min(tail_values)) / baseline
+                limit = requirement.max_tail_relative_spread or 0.02
+                if spread <= limit:
+                    detail = (
+                        f"{requirement.label}: tail relative spread {spread:.4f} <= "
+                        f"{limit:.4f} for {coefficient}."
+                    )
+                    status = "passed"
+                    passed_requirements.append(detail)
+                else:
+                    detail = (
+                        f"{requirement.label}: tail relative spread {spread:.4f} exceeds "
+                        f"{limit:.4f} for {coefficient}."
+                    )
+                    status = "blocked"
+                    blocking_issues.append(detail)
+        else:
+            matched = [
+                artifact_path
+                for artifact_path in artifact_virtual_paths
+                if any(
+                    artifact_path.endswith(required_artifact)
+                    for required_artifact in requirement.required_artifacts
+                )
+            ]
+            study_payloads = _load_verification_study_payloads(
+                outputs_dir=outputs_dir,
+                artifact_virtual_paths=artifact_virtual_paths,
+                required_artifacts=requirement.required_artifacts,
+            )
+            if study_payloads:
+                artifact_path, payload = study_payloads[0]
+                study_status = str(payload.get("status") or "").strip().lower()
+                study_summary = (
+                    str(payload.get("summary_zh") or payload.get("detail") or "").strip()
+                )
+                if study_status in {"passed", "research_ready"}:
+                    detail = (
+                        f"{requirement.label}: {study_summary or 'study evidence passed'} "
+                        f"({artifact_path})."
+                    )
+                    status = "passed"
+                    passed_requirements.append(detail)
+                elif study_status in {"failed", "blocked"}:
+                    detail = (
+                        f"{requirement.label}: {study_summary or 'study evidence failed'} "
+                        f"({artifact_path})."
+                    )
+                    status = "blocked"
+                    blocking_issues.append(detail)
+                else:
+                    detail = (
+                        f"{requirement.label}: evidence artifact {artifact_path} exists, "
+                        "but its verification status is missing or unsupported."
+                    )
+                    status = "missing_evidence"
+                    missing_evidence.append(detail)
+            elif matched:
+                detail = (
+                    f"{requirement.label}: evidence exported via {', '.join(matched)}."
+                )
+                status = "passed"
+                passed_requirements.append(detail)
+            else:
+                detail = (
+                    f"{requirement.label}: missing evidence artifacts "
+                    f"{', '.join(requirement.required_artifacts) or 'for this study'}."
+                )
+                status = "missing_evidence"
+                missing_evidence.append(detail)
+
+        requirement_statuses.append(
+            {
+                "requirement_id": requirement.requirement_id,
+                "label": requirement.label,
+                "summary_zh": requirement.summary_zh,
+                "check_type": requirement.check_type,
+                "status": status,
+                "detail": detail,
+                "required_artifacts": requirement.required_artifacts,
+                "force_coefficient": requirement.force_coefficient,
+                "minimum_history_samples": requirement.minimum_history_samples,
+                "max_tail_relative_spread": requirement.max_tail_relative_spread,
+                "max_value": requirement.max_value,
+            }
+        )
+
+    if blocking_issues:
+        status = "blocked"
+        confidence = "low"
+    elif missing_evidence:
+        status = "needs_more_verification"
+        confidence = "medium"
+    else:
+        status = "research_ready"
+        confidence = "high"
+
+    return {
+        "status": status,
+        "confidence": confidence,
+        "requirement_count": len(requirement_statuses),
+        "requirements": requirement_statuses,
+        "blocking_issues": blocking_issues,
+        "missing_evidence": missing_evidence,
+        "passed_requirements": passed_requirements,
+    }

@@ -1,0 +1,156 @@
+{
+  "solver_completed": true,
+  "final_time_seconds": 200.0,
+  "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case/postProcessing",
+  "latest_force_coefficients": {
+    "Time": 200.0,
+    "Cm": -1.38590176e-06,
+    "Cd": 0.00329517365,
+    "Cl": 5.08813363e-06,
+    "Cl(f)": 1.15816505e-06,
+    "Cl(r)": 3.92996858e-06
+  },
+  "latest_forces": {
+    "Time": 200.0,
+    "pressure_force": [
+      0.0,
+      0.0,
+      0.0101773276
+    ],
+    "viscous_force": [
+      6.59034731,
+      -6.51951387e-07,
+      -1.06035943e-06
+    ],
+    "total_force": [
+      6.59034731,
+      -6.51951e-07,
+      0.010176267241
+    ],
+    "pressure_moment": [
+      0.00509619054,
+      -0.0110891882,
+      0.0
+    ],
+    "viscous_moment": [
+      -5.3088681e-07,
+      1.97406259e-06,
+      -3.29517521
+    ],
+    "total_moment": [
+      0.005095659653,
+      -0.011087214137,
+      -3.29517521
+    ]
+  },
+  "reference_values": {
+    "reference_length_m": 4.0,
+    "reference_area_m2": 0.16,
+    "inlet_velocity_mps": 5.0,
+    "fluid_density_kg_m3": 1000.0
+  },
+  "force_coefficients_history": [
+    {
+      "Time": 0.0,
+      "Cd": 0.0112,
+      "Cl": 0.00021,
+      "Cs": 0.0,
+      "CmPitch": 0.0019
+    },
+    {
+      "Time": 50.0,
+      "Cd": 0.0064,
+      "Cl": 9e-05,
+      "Cs": 0.0,
+      "CmPitch": 0.0008
+    },
+    {
+      "Time": 100.0,
+      "Cd": 0.0043,
+      "Cl": 3e-05,
+      "Cs": 0.0,
+      "CmPitch": 0.0002
+    },
+    {
+      "Time": 150.0,
+      "Cd": 0.0036,
+      "Cl": 1e-05,
+      "Cs": 0.0,
+      "CmPitch": 5e-05
+    },
+    {
+      "Time": 200.0,
+      "Cd": 0.00329517365,
+      "Cl": 5.08813363e-06,
+      "Cs": 0.0,
+      "CmPitch": 0.0
+    }
+  ],
+  "forces_history": [
+    {
+      "Time": 0.0,
+      "total_force": [
+        22.4,
+        0.0,
+        0.08
+      ],
+      "total_moment": [
+        0.03,
+        -0.08,
+        -11.2
+      ]
+    },
+    {
+      "Time": 50.0,
+      "total_force": [
+        12.6,
+        0.0,
+        0.03
+      ],
+      "total_moment": [
+        0.012,
+        -0.032,
+        -6.3
+      ]
+    },
+    {
+      "Time": 100.0,
+      "total_force": [
+        8.9,
+        0.0,
+        0.015
+      ],
+      "total_moment": [
+        0.007,
+        -0.019,
+        -4.45
+      ]
+    },
+    {
+      "Time": 150.0,
+      "total_force": [
+        7.1,
+        0.0,
+        0.011
+      ],
+      "total_moment": [
+        0.0058,
+        -0.013,
+        -3.55
+      ]
+    },
+    {
+      "Time": 200.0,
+      "total_force": [
+        6.59034731,
+        -6.51951e-07,
+        0.010176267241
+      ],
+      "total_moment": [
+        0.005095659653,
+        -0.011087214137,
+        -3.29517521
+      ]
+    }
+  ]
+}

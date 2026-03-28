@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>submarine-result-acceptance validation report</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 32px;
+        font-family: "Segoe UI", "PingFang SC", sans-serif;
+        background: #f7f5f1;
+        color: #1e1b18;
+      }
+      main {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      section {
+        background: #fffdfa;
+        border: 1px solid #e5ddd2;
+        border-radius: 18px;
+        padding: 20px 24px;
+        margin-bottom: 16px;
+      }
+      h1,
+      h2 {
+        margin-top: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <h1>submarine-result-acceptance validation report</h1>
+        <p>status: <strong>ready_for_review</strong></p>
+        <p>error_count: <strong>0</strong></p>
+        <p>warning_count: <strong>1</strong></p>
+      </section>
+      <section>
+        <h2>Passed Checks</h2>
+        <ul>
+          <li>skill_name_slug_format</li>
+          <li>description_starts_with_use_when</li>
+          <li>has_overview_section</li>
+          <li>has_workflow_section</li>
+          <li>has_acceptance_section</li>
+          <li>has_validation_section</li>
+          <li>trigger_conditions_present</li>
+          <li>workflow_steps_present</li>
+          <li>acceptance_criteria_present</li>
+          <li>test_scenarios_present</li>
+        </ul>
+      </section>
+      <section>
+        <h2>Warnings</h2>
+        <ul>
+          <li>description_too_long</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

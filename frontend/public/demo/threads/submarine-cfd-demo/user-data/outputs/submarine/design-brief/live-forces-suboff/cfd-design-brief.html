@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>潜艇 CFD 设计简报</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 32px;
+        font-family: "Segoe UI", "PingFang SC", sans-serif;
+        background: #f6f3ee;
+        color: #1f1a15;
+      }
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+      }
+      section {
+        background: #fffdfa;
+        border: 1px solid #e4d8c7;
+        border-radius: 18px;
+        padding: 20px 24px;
+        margin-bottom: 18px;
+      }
+      h1, h2 {
+        margin-top: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <h1>潜艇 CFD 设计简报</h1>
+        <p>Claude Code 已将当前对话整理为第一版潜艇 CFD 方案：先基于 DARPA SUBOFF 裸艇进行阻力基线计算，确认单工况稳健跑通后，再决定是否扩展更多工况。</p>
+      </section>
+      <section>
+        <h2>任务定义</h2>
+        <p><strong>任务目标：</strong>基于上传的 DARPA SUBOFF 几何完成裸艇阻力基线计算，并交付可审阅的结果报告。</p>
+        <p><strong>确认状态：</strong>draft</p>
+        <p><strong>几何路径：</strong>/mnt/user-data/uploads/live-forces-suboff.stl</p>
+        <p><strong>选定案例：</strong>darpa_suboff_bare_hull_resistance</p>
+      </section>
+      <section>
+        <h2>计算要求</h2>
+        <p><strong>inlet_velocity_mps:</strong> 5.0</p>
+        <p><strong>fluid_density_kg_m3:</strong> 1000.0</p>
+        <p><strong>kinematic_viscosity_m2ps:</strong> 1e-06</p>
+        <p><strong>end_time_seconds:</strong> 200.0</p>
+        <p><strong>delta_t_seconds:</strong> 1.0</p>
+        <p><strong>write_interval_steps:</strong> 50</p>
+      </section>
+    </main>
+  </body>
+</html>

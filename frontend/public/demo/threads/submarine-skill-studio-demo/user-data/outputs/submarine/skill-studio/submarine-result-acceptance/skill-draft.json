@@ -1,0 +1,61 @@
+{
+  "skill_name": "submarine-result-acceptance",
+  "skill_title": "Submarine Result Acceptance",
+  "skill_purpose": "Define how Claude Code and reporting subagents should decide whether a submarine CFD run is trustworthy, needs review, or should be rerun.",
+  "description": "Use when a submarine CFD workflow needs an explicit acceptance decision before delivery.",
+  "assistant_mode": "claude-code-skill-creator",
+  "assistant_label": "Claude Code · Skill Creator",
+  "workspace_mode": "expert_skill_studio",
+  "builtin_skills": [
+    "skill-creator",
+    "writing-skills"
+  ],
+  "trigger_conditions": [
+    "the user asks whether the current CFD result is trustworthy",
+    "Claude Code needs a final acceptance decision before delivery",
+    "result-reporting needs a clear delivery conclusion"
+  ],
+  "workflow_steps": [
+    "review mesh, residual, and force summaries from the current run",
+    "decide whether the run is deliverable, risky, or should be rerun",
+    "produce a Chinese acceptance conclusion with evidence and next-step advice"
+  ],
+  "expert_rules": [
+    "treat obviously drifting residual histories as risky unless the report explains why",
+    "flag drag values that materially diverge from the baseline case family"
+  ],
+  "acceptance_criteria": [
+    "state an explicit delivery decision",
+    "cite which CFD indicators support that decision"
+  ],
+  "test_scenarios": [
+    "baseline steady-state bare-hull case with stable Cd and residual decay",
+    "report generated despite residuals staying high and force history oscillating"
+  ],
+  "artifact_virtual_paths": [
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-draft.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-package.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/SKILL.md",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/agents/openai.yaml",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/references/domain-rules.md",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/test-matrix.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/test-matrix.md",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.html",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/publish-readiness.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/publish-readiness.md",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/submarine-result-acceptance.skill"
+  ],
+  "report_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
+  "ui_metadata_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/agents/openai.yaml",
+  "package_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-package.json",
+  "package_archive_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/submarine-result-acceptance.skill",
+  "test_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/test-matrix.json",
+  "publish_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/publish-readiness.json",
+  "validation_status": "ready_for_review",
+  "test_status": "ready_for_dry_run",
+  "publish_status": "ready_for_review",
+  "error_count": 0,
+  "warning_count": 1
+}

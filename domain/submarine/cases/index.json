@@ -1,0 +1,260 @@
+{
+  "cases": [
+    {
+      "case_id": "darpa_suboff_bare_hull_resistance",
+      "title": "DARPA SUBOFF Bare Hull Resistance Baseline",
+      "geometry_family": "DARPA SUBOFF",
+      "geometry_description": "Canonical deeply submerged benchmark hull for drag and pressure studies.",
+      "task_type": "resistance",
+      "condition_tags": ["deeply submerged", "benchmark", "steady RANS"],
+      "input_requirements": ["STL hull surface", "speed notes", "water properties"],
+      "expected_outputs": ["drag coefficient", "pressure distribution", "streamlines"],
+      "recommended_solver": "OpenFOAM simpleFoam",
+      "mesh_strategy": "Template hexa/poly hybrid mesh around bare hull",
+      "bc_strategy": "Uniform inlet velocity, pressure outlet, no-slip hull",
+      "postprocess_steps": ["export drag metrics", "export pressure contour", "capture streamlines"],
+      "validation_targets": ["published drag trend", "pressure coefficient distribution"],
+      "reference_sources": [
+        {
+          "title": "Geometric Characteristics of DARPA SUBOFF Models (DTRC Model Nos. 5470 and 5471)",
+          "source": "NTIS",
+          "url": "https://ntrl.ntis.gov/NTRL/dashboard/searchResults/titleDetail/ADA210642.xhtml"
+        },
+        {
+          "title": "Summary of DARPA SUBOFF Experimental Program Data",
+          "source": "NTIS",
+          "url": "https://ntrl.ntis.gov/NTRL/dashboard/searchResults/titleDetail/ADA359226.xhtml"
+        },
+        {
+          "title": "Hydrodynamic parameter estimation of DARPA SUBOFF using dynamic pitch maneuver",
+          "source": "Journal article",
+          "url": "https://pure.port.ac.uk/ws/portalfiles/portal/110702250/Hydrodynamic_parameter_estimation_of_DARPA_SUBOFF.pdf"
+        }
+      ],
+      "acceptance_profile": {
+        "profile_id": "darpa-suboff-resistance-baseline",
+        "summary_zh": "面向 DARPA SUBOFF 裸艇阻力基线工况的第一版案例级科研验收 profile。",
+        "require_solver_completed": true,
+        "require_mesh_ok": true,
+        "require_force_coefficients": true,
+        "minimum_completed_fraction_of_planned_time": 0.95,
+        "max_final_residual": 0.001,
+        "required_artifacts": ["solver-results.json"],
+        "benchmark_targets": [
+          {
+            "metric_id": "cd_at_3_05_mps",
+            "quantity": "Cd",
+            "summary_zh": "在 3.05 m/s 工况下，将阻力系数 Cd 与公开 DARPA SUBOFF 裸艇基准值对比。",
+            "reference_value": 0.00314,
+            "relative_tolerance": 0.1,
+            "inlet_velocity_mps": 3.05,
+            "velocity_tolerance_mps": 0.05,
+            "on_miss_status": "blocked",
+            "source_label": "Mushtaque et al. (2025) Table 6, EFD bare hull",
+            "source_url": "https://pure.port.ac.uk/ws/portalfiles/portal/110702250/Hydrodynamic_parameter_estimation_of_DARPA_SUBOFF.pdf"
+          }
+        ]
+      },
+      "reuse_role": "default workflow template",
+      "linked_skills": ["case-search", "geometry-check", "solver-openfoam", "postprocess", "report"]
+    },
+    {
+      "case_id": "darpa_suboff_pressure_distribution",
+      "title": "DARPA SUBOFF Pressure Distribution Study",
+      "geometry_family": "DARPA SUBOFF",
+      "geometry_description": "Benchmark setup focused on hull pressure extraction and surface diagnostics.",
+      "task_type": "pressure_distribution",
+      "condition_tags": ["deeply submerged", "pressure map", "benchmark"],
+      "input_requirements": ["STL hull surface", "speed notes"],
+      "expected_outputs": ["pressure distribution", "drag coefficient", "surface metrics"],
+      "recommended_solver": "OpenFOAM simpleFoam",
+      "mesh_strategy": "Wall-focused refinement around hull pressure taps",
+      "bc_strategy": "Steady incompressible external flow template",
+      "postprocess_steps": ["extract pressure contour", "sample wall coefficients", "export drag"],
+      "validation_targets": ["surface pressure trend", "benchmark comparison"],
+      "reference_sources": [
+        {
+          "title": "SUBOFF pressure benchmark notes",
+          "source": "Open literature",
+          "url": "https://example.com/suboff-pressure"
+        }
+      ],
+      "acceptance_profile": {
+        "profile_id": "darpa-suboff-pressure-distribution",
+        "summary_zh": "面向 DARPA SUBOFF 压力分布任务的第一版案例级科研验收 profile。",
+        "require_solver_completed": true,
+        "require_mesh_ok": true,
+        "require_force_coefficients": true,
+        "minimum_completed_fraction_of_planned_time": 0.95,
+        "max_final_residual": 0.001,
+        "required_artifacts": ["solver-results.json"]
+      },
+      "reuse_role": "pressure template",
+      "linked_skills": ["case-search", "geometry-check", "mesh-prep", "solver-openfoam", "postprocess", "report"]
+    },
+    {
+      "case_id": "joubert_bb2_wake_baseline",
+      "title": "Joubert BB2 Wake Field Baseline",
+      "geometry_family": "Joubert BB2",
+      "geometry_description": "Reference hull for wake studies and stern-flow analysis.",
+      "task_type": "wake_field",
+      "condition_tags": ["wake", "stern flow", "deeply submerged"],
+      "input_requirements": ["STL hull geometry", "speed notes"],
+      "expected_outputs": ["wake field", "velocity slice", "pressure distribution"],
+      "recommended_solver": "OpenFOAM simpleFoam",
+      "mesh_strategy": "Stern-refined external flow template",
+      "bc_strategy": "Steady wake-study boundary condition set",
+      "postprocess_steps": ["export wake slice", "capture iso-velocity view", "export drag"],
+      "validation_targets": ["wake deficit trend", "stern pressure recovery"],
+      "reference_sources": [
+        {
+          "title": "Joubert BB2 wake analysis",
+          "source": "Research paper",
+          "url": "https://example.com/joubert-wake"
+        }
+      ],
+      "acceptance_profile": {
+        "profile_id": "joubert-bb2-wake-baseline",
+        "summary_zh": "面向 Joubert BB2 尾流基线任务的第一版案例级科研验收 profile。",
+        "require_solver_completed": true,
+        "require_mesh_ok": true,
+        "require_force_coefficients": true,
+        "minimum_completed_fraction_of_planned_time": 0.9,
+        "max_final_residual": 0.002,
+        "required_artifacts": ["solver-results.json"]
+      },
+      "reuse_role": "wake comparison baseline",
+      "linked_skills": ["case-search", "geometry-check", "solver-openfoam", "postprocess", "report"]
+    },
+    {
+      "case_id": "joubert_bb2_pressure_velocity",
+      "title": "Joubert BB2 Pressure and Velocity Template",
+      "geometry_family": "Joubert BB2",
+      "geometry_description": "Combined pressure and velocity workflow for benchmark-style stern analysis.",
+      "task_type": "pressure_distribution",
+      "condition_tags": ["pressure map", "wake", "steady RANS"],
+      "input_requirements": ["STL hull geometry", "operating notes"],
+      "expected_outputs": ["pressure distribution", "wake field", "drag coefficient"],
+      "recommended_solver": "OpenFOAM simpleFoam",
+      "mesh_strategy": "Structured outer box with stern refinement",
+      "bc_strategy": "Steady incompressible benchmark setup",
+      "postprocess_steps": ["pressure contour", "wake export", "drag table"],
+      "validation_targets": ["pressure recovery trend", "wake symmetry"],
+      "reference_sources": [
+        {
+          "title": "Joubert BB2 CFD template",
+          "source": "Software tutorial",
+          "url": "https://example.com/joubert-template"
+        }
+      ],
+      "reuse_role": "secondary pressure template",
+      "linked_skills": ["case-search", "geometry-check", "mesh-prep", "solver-openfoam", "postprocess", "report"]
+    },
+    {
+      "case_id": "type209_engineering_drag",
+      "title": "Type 209 Engineering Drag Workflow",
+      "geometry_family": "Type 209",
+      "geometry_description": "Engineering-style submarine hull used for template-based drag evaluation.",
+      "task_type": "resistance",
+      "condition_tags": ["engineering geometry", "drag", "template mapping"],
+      "input_requirements": ["STL hull geometry", "basic operating notes"],
+      "expected_outputs": ["drag coefficient", "pressure distribution", "report"],
+      "recommended_solver": "OpenFOAM simpleFoam",
+      "mesh_strategy": "Engineering template with moderate wall refinement",
+      "bc_strategy": "Steady external flow setup",
+      "postprocess_steps": ["drag export", "pressure contour", "report generation"],
+      "validation_targets": ["drag range sanity check", "pressure hotspots"],
+      "reference_sources": [
+        {
+          "title": "Type 209 public geometry studies",
+          "source": "Engineering reference",
+          "url": "https://example.com/type209"
+        }
+      ],
+      "acceptance_profile": {
+        "profile_id": "type209-engineering-drag",
+        "summary_zh": "面向 Type 209 工程阻力评估的第一版案例级科研验收 profile。",
+        "require_solver_completed": true,
+        "require_mesh_ok": true,
+        "require_force_coefficients": true,
+        "minimum_completed_fraction_of_planned_time": 0.9,
+        "max_final_residual": 0.002,
+        "required_artifacts": ["solver-results.json"]
+      },
+      "reuse_role": "engineering mapping template",
+      "linked_skills": ["case-search", "geometry-check", "solver-openfoam", "postprocess", "report"]
+    },
+    {
+      "case_id": "type209_pressure_velocity_openfoam",
+      "title": "Type 209 Pressure and Velocity OpenFOAM Template",
+      "geometry_family": "Type 209",
+      "geometry_description": "Template workflow for mapping uploaded engineering geometry to a Type 209 family case.",
+      "task_type": "pressure_distribution",
+      "condition_tags": ["engineering geometry", "pressure map", "template mapping"],
+      "input_requirements": ["STL hull geometry", "operating notes"],
+      "expected_outputs": ["pressure distribution", "drag coefficient", "flow visualization"],
+      "recommended_solver": "OpenFOAM simpleFoam",
+      "mesh_strategy": "Template mesh adapted from engineering hull envelope",
+      "bc_strategy": "Steady incompressible external flow with benchmark-inspired defaults",
+      "postprocess_steps": ["surface pressure map", "streamline view", "drag table"],
+      "validation_targets": ["engineering sanity range", "pressure map coherence"],
+      "reference_sources": [
+        {
+          "title": "Type 209 OpenFOAM tutorial notes",
+          "source": "Tutorial adaptation",
+          "url": "https://example.com/type209-openfoam"
+        }
+      ],
+      "reuse_role": "engineering pressure template",
+      "linked_skills": ["case-search", "geometry-check", "mesh-prep", "solver-openfoam", "postprocess", "report"]
+    },
+    {
+      "case_id": "suboff_near_free_surface_reference",
+      "title": "SUBOFF Near Free Surface Reference",
+      "geometry_family": "DARPA SUBOFF",
+      "geometry_description": "Reference case retained for future free-surface expansion, used now as a non-recommended contrast.",
+      "task_type": "near_free_surface",
+      "condition_tags": ["free surface", "future expansion"],
+      "input_requirements": ["Validated benchmark geometry", "surface condition notes"],
+      "expected_outputs": ["wave pattern", "drag coefficient"],
+      "recommended_solver": "OpenFOAM interFoam",
+      "mesh_strategy": "Free-surface two-phase domain",
+      "bc_strategy": "Two-phase boundary condition set",
+      "postprocess_steps": ["surface wave cut", "drag export"],
+      "validation_targets": ["wave elevation trend"],
+      "reference_sources": [
+        {
+          "title": "Near-free-surface submarine studies",
+          "source": "Research paper",
+          "url": "https://example.com/free-surface"
+        }
+      ],
+      "reuse_role": "future expansion placeholder",
+      "linked_skills": ["case-search", "report"]
+    },
+    {
+      "case_id": "joubert_bb2_drag_pressure_combo",
+      "title": "Joubert BB2 Drag and Pressure Combo",
+      "geometry_family": "Joubert BB2",
+      "geometry_description": "Balanced workflow for joint drag and pressure evaluation on a benchmark-like hull.",
+      "task_type": "resistance",
+      "condition_tags": ["drag", "pressure map", "benchmark"],
+      "input_requirements": ["STL hull geometry", "benchmark notes"],
+      "expected_outputs": ["drag coefficient", "pressure distribution", "wake field"],
+      "recommended_solver": "OpenFOAM simpleFoam",
+      "mesh_strategy": "Balanced wall and wake refinement template",
+      "bc_strategy": "Steady external flow benchmark setup",
+      "postprocess_steps": ["drag export", "pressure contour", "wake slice"],
+      "validation_targets": ["drag curve trend", "pressure symmetry"],
+      "reference_sources": [
+        {
+          "title": "Joubert BB2 drag-pressure workflow",
+          "source": "Software case note",
+          "url": "https://example.com/joubert-drag-pressure"
+        }
+      ],
+      "reuse_role": "alternative template",
+      "linked_skills": ["case-search", "geometry-check", "solver-openfoam", "postprocess", "report"]
+    }
+  ]
+}

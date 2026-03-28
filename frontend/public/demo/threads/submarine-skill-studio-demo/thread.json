@@ -1,0 +1,106 @@
+{
+  "values": {
+    "messages": [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "We need a reusable skill that helps Claude Code judge whether a submarine CFD run is ready for delivery or should be rerun."
+          }
+        ],
+        "additional_kwargs": {},
+        "response_metadata": {},
+        "type": "human",
+        "name": null,
+        "id": "skill-studio-human-1"
+      },
+      {
+        "content": "I drafted the `submarine-result-acceptance` package, generated the UI metadata, prepared two dry-run scenarios, and marked the package ready for expert review. You can inspect the package, validation checks, scenario tests, and publish gates in the Skill Studio workbench.",
+        "additional_kwargs": {},
+        "response_metadata": {
+          "finish_reason": "stop",
+          "model_name": "claude-code-skill-creator"
+        },
+        "type": "ai",
+        "name": null,
+        "id": "skill-studio-ai-1",
+        "tool_calls": [],
+        "invalid_tool_calls": [],
+        "usage_metadata": null
+      }
+    ],
+    "title": "Submarine Skill Studio Demo",
+    "artifacts": [
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-draft.json",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-package.json",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/SKILL.md",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/agents/openai.yaml",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/references/domain-rules.md",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/test-matrix.json",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/test-matrix.md",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.json",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.html",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/publish-readiness.json",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/publish-readiness.md",
+      "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/submarine-result-acceptance.skill"
+    ],
+    "submarine_skill_studio": {
+      "skill_name": "submarine-result-acceptance",
+      "assistant_mode": "claude-code-skill-creator",
+      "assistant_label": "Claude Code · Skill Creator",
+      "builtin_skills": [
+        "skill-creator",
+        "writing-skills"
+      ],
+      "validation_status": "ready_for_review",
+      "test_status": "ready_for_dry_run",
+      "publish_status": "ready_for_review",
+      "error_count": 0,
+      "warning_count": 1,
+      "report_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
+      "package_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-package.json",
+      "package_archive_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/submarine-result-acceptance.skill",
+      "test_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/test-matrix.json",
+      "publish_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/publish-readiness.json",
+      "ui_metadata_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/agents/openai.yaml",
+      "artifact_virtual_paths": [
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-draft.json",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-package.json",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/SKILL.md",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/agents/openai.yaml",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/references/domain-rules.md",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/test-matrix.json",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/test-matrix.md",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.json",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.html",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/publish-readiness.json",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/publish-readiness.md",
+        "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/submarine-result-acceptance.skill"
+      ]
+    }
+  },
+  "next": [],
+  "tasks": [],
+  "metadata": {
+    "model_name": "claude-code-skill-creator",
+    "graph_id": "lead_agent",
+    "thread_id": "submarine-skill-studio-demo",
+    "source": "mock"
+  },
+  "created_at": "2026-03-27T00:00:00+00:00",
+  "checkpoint": {
+    "checkpoint_id": "submarine-skill-studio-demo-checkpoint",
+    "thread_id": "submarine-skill-studio-demo",
+    "checkpoint_ns": ""
+  },
+  "parent_checkpoint": {
+    "checkpoint_id": "submarine-skill-studio-demo-parent",
+    "thread_id": "submarine-skill-studio-demo",
+    "checkpoint_ns": ""
+  },
+  "interrupts": [],
+  "checkpoint_id": "submarine-skill-studio-demo-checkpoint",
+  "parent_checkpoint_id": "submarine-skill-studio-demo-parent"
+}

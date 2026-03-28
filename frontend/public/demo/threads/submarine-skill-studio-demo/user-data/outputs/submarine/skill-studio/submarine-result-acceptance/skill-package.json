@@ -1,0 +1,33 @@
+{
+  "skill_name": "submarine-result-acceptance",
+  "skill_title": "Submarine Result Acceptance",
+  "assistant_mode": "claude-code-skill-creator",
+  "assistant_label": "Claude Code · Skill Creator",
+  "workspace_mode": "expert_skill_studio",
+  "builtin_skills": [
+    "skill-creator",
+    "writing-skills"
+  ],
+  "validation_status": "ready_for_review",
+  "test_status": "ready_for_dry_run",
+  "publish_status": "ready_for_review",
+  "package_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-package.json",
+  "package_archive_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/submarine-result-acceptance.skill",
+  "archive_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/submarine-result-acceptance.skill",
+  "ui_metadata_virtual_path": "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/agents/openai.yaml",
+  "artifact_virtual_paths": [
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-draft.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-package.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/SKILL.md",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/agents/openai.yaml",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/references/domain-rules.md",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/test-matrix.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/test-matrix.md",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.html",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/publish-readiness.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/publish-readiness.md",
+    "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/submarine-result-acceptance.skill"
+  ]
+}

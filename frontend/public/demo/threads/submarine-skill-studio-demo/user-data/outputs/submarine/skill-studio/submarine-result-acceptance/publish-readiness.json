@@ -1,0 +1,38 @@
+{
+  "skill_name": "submarine-result-acceptance",
+  "status": "ready_for_review",
+  "publish_gate_count": 5,
+  "blocking_count": 0,
+  "gates": [
+    {
+      "id": "structure",
+      "label": "Skill structure is valid",
+      "status": "passed"
+    },
+    {
+      "id": "trigger",
+      "label": "Trigger description is discoverable",
+      "status": "passed"
+    },
+    {
+      "id": "scenarios",
+      "label": "Scenario tests are prepared",
+      "status": "passed"
+    },
+    {
+      "id": "dry-run",
+      "label": "Dry-run handoff is ready",
+      "status": "passed"
+    },
+    {
+      "id": "ui-metadata",
+      "label": "UI metadata has been generated",
+      "status": "passed"
+    }
+  ],
+  "next_actions": [
+    "Run a dry-run conversation using one of the prepared scenarios.",
+    "Review the generated SKILL.md, domain rules, and UI metadata together.",
+    "Publish only after the expert signs off on the dry-run result."
+  ]
+}

@@ -1,0 +1,1594 @@
+import importlib
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+from deerflow.config.paths import Paths
+
+geometry_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_geometry_check_tool")
+
+
+def _make_runtime(paths: Paths, thread_id: str = "thread-1") -> SimpleNamespace:
+    return SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(paths.sandbox_outputs_dir(thread_id)),
+            }
+        },
+        context={"thread_id": thread_id},
+    )
+
+
+def _write_ascii_stl(path: Path) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                "solid demo",
+                "facet normal 0 0 0",
+                "  outer loop",
+                "    vertex 0 0 0",
+                "    vertex 4 0 0",
+                "    vertex 0 1 0",
+                "  endloop",
+                "endfacet",
+                "facet normal 0 0 0",
+                "  outer loop",
+                "    vertex 4 0 0",
+                "    vertex 4 1 0",
+                "    vertex 0 1 0",
+                "  endloop",
+                "endfacet",
+                "endsolid demo",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypatch):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-1"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "report-demo.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(geometry_tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    geometry_result = geometry_tool_module.submarine_geometry_check_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/report-demo.stl",
+        task_description="检查几何并为潜艇阻力任务生成可交付结果",
+        task_type="resistance",
+        geometry_family_hint="Type 209",
+        tool_call_id="tc-geometry-report",
+    )
+    runtime.state["artifacts"] = geometry_result.update["artifacts"]
+    runtime.state["submarine_runtime"] = geometry_result.update["submarine_runtime"]
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="潜艇 CFD 阶段报告",
+        tool_call_id="tc-result-report",
+    )
+
+    artifacts = result.update["artifacts"]
+    assert any(path.endswith("/final-report.json") for path in artifacts)
+    assert any(path.endswith("/final-report.md") for path in artifacts)
+    assert any(path.endswith("/final-report.html") for path in artifacts)
+
+    json_path = outputs_dir / "submarine" / "reports" / "report-demo" / "final-report.json"
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+
+    assert payload["report_title"] == "潜艇 CFD 阶段报告"
+    assert "潜艇 CFD 阶段报告" in payload["summary_zh"]
+    assert payload["source_runtime_stage"] == "geometry-preflight"
+    assert payload["next_recommended_stage"] == "supervisor-review"
+    assert payload["report_virtual_path"].endswith("/final-report.md")
+    assert payload["artifact_virtual_paths"]
+    assert result.update["submarine_runtime"]["current_stage"] == "result-reporting"
+    assert result.update["submarine_runtime"]["report_virtual_path"].endswith("/final-report.md")
+
+
+def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-1"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "metrics-demo"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/metrics-demo/openfoam-case/postProcessing",
+                "latest_force_coefficients": {
+                    "Time": 200.0,
+                    "Cd": 0.12,
+                    "Cl": 0.0,
+                    "Cs": 0.0,
+                    "CmPitch": 0.01,
+                },
+                "latest_forces": {
+                    "Time": 200.0,
+                    "pressure_force": [0.0, 0.0, 0.0],
+                    "viscous_force": [8.0, 0.0, 0.0],
+                    "total_force": [8.0, 0.0, 0.0],
+                    "pressure_moment": [0.0, 0.0, 0.0],
+                    "viscous_moment": [0.0, 0.5, 0.0],
+                    "total_moment": [0.0, 0.5, 0.0],
+                },
+                "reference_values": {
+                    "reference_length_m": 4.0,
+                    "reference_area_m2": 1.0,
+                    "inlet_velocity_mps": 5.0,
+                    "fluid_density_kg_m3": 1000.0,
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 7.5,
+                    "fluid_density_kg_m3": 998.2,
+                    "kinematic_viscosity_m2ps": 8.5e-07,
+                    "end_time_seconds": 600.0,
+                    "delta_t_seconds": 0.5,
+                    "write_interval_steps": 20,
+                },
+                "mesh_summary": {
+                    "mesh_ok": True,
+                    "points": 10234,
+                    "faces": 28764,
+                    "internal_faces": 27654,
+                    "cells": 9342,
+                },
+                "residual_summary": {
+                    "field_count": 3,
+                    "latest_time": 200.0,
+                    "max_final_residual": 0.00014,
+                    "latest_by_field": {
+                        "Ux": {
+                            "Time": 200.0,
+                            "solver": "smoothSolver",
+                            "field": "Ux",
+                            "initial_residual": 0.00031,
+                            "final_residual": 3e-08,
+                            "iterations": 2,
+                        },
+                        "p": {
+                            "Time": 200.0,
+                            "solver": "GAMG",
+                            "field": "p",
+                            "initial_residual": 0.012,
+                            "final_residual": 0.00014,
+                            "iterations": 5,
+                        },
+                    },
+                    "history": [],
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "真实 OpenFOAM 结果整理",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/metrics-demo.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "execution_plan": [
+                    {
+                        "role_id": "claude-code-supervisor",
+                        "owner": "Claude Code",
+                        "goal": "确认方案",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "task-intelligence",
+                        "owner": "DeerFlow task-intelligence",
+                        "goal": "完成任务理解",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "geometry-preflight",
+                        "owner": "DeerFlow geometry-preflight",
+                        "goal": "完成几何预检",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "solver-dispatch",
+                        "owner": "DeerFlow solver-dispatch",
+                        "goal": "完成求解派发",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "result-reporting",
+                        "owner": "DeerFlow result-reporting",
+                        "goal": "生成最终报告",
+                        "status": "ready",
+                    },
+                ],
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/metrics-demo/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/metrics-demo/openfoam-case/Allrun",
+                "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/metrics-demo/supervisor-handoff.json",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/metrics-demo/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/metrics-demo/solver-results.json",
+                ],
+                "activity_timeline": [
+                    {
+                        "stage": "task-intelligence",
+                        "actor": "claude-code-supervisor",
+                        "title": "设计简报已确认",
+                        "summary": "Claude Code 已与用户确认第一版 CFD 方案。",
+                        "status": "confirmed",
+                        "timestamp": "2026-03-26T10:40:00+00:00",
+                    },
+                    {
+                        "stage": "solver-dispatch",
+                        "actor": "solver-dispatch",
+                        "title": "OpenFOAM 求解已执行",
+                        "summary": "已完成求解并写回 solver-results 产物。",
+                        "status": "executed",
+                        "timestamp": "2026-03-26T10:45:00+00:00",
+                    },
+                ],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="潜艇 CFD 结果指标报告",
+        tool_call_id="tc-result-report-metrics",
+    )
+
+    json_path = outputs_dir / "submarine" / "reports" / "metrics-demo" / "final-report.json"
+    md_path = outputs_dir / "submarine" / "reports" / "metrics-demo" / "final-report.md"
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    markdown = md_path.read_text(encoding="utf-8")
+
+    assert payload["report_title"] == "潜艇 CFD 结果指标报告"
+    assert "CFD 指标" in payload["summary_zh"]
+    assert payload["execution_readiness"] == "stl_ready"
+    assert payload["solver_metrics"]["latest_force_coefficients"]["Cd"] == 0.12
+    assert payload["solver_metrics"]["latest_forces"]["total_force"][0] == 8.0
+    assert payload["solver_metrics"]["final_time_seconds"] == 200.0
+    assert payload["solver_metrics"]["simulation_requirements"]["end_time_seconds"] == 600.0
+    assert payload["solver_metrics"]["mesh_summary"]["cells"] == 9342
+    assert payload["solver_metrics"]["residual_summary"]["latest_by_field"]["p"]["final_residual"] == 0.00014
+    assert "计算要求" in markdown
+    assert "write_interval_steps" in markdown
+    assert "网格质量摘要" in markdown
+    assert "残差收敛摘要" in markdown
+    assert any(path.endswith("/final-report.json") for path in result.update["artifacts"])
+    assert len(result.update["submarine_runtime"]["activity_timeline"]) == 3
+    assert result.update["submarine_runtime"]["activity_timeline"][-1]["stage"] == "result-reporting"
+    assert result.update["submarine_runtime"]["execution_plan"][4]["status"] == "completed"
+
+
+def test_submarine_result_report_emits_delivery_readiness_artifacts(tmp_path):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-acceptance"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "acceptance-demo"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/acceptance-demo/openfoam-case/postProcessing",
+                "latest_force_coefficients": {
+                    "Time": 200.0,
+                    "Cd": 0.12,
+                    "Cl": 0.0,
+                    "Cs": 0.0,
+                    "CmPitch": 0.01,
+                },
+                "mesh_summary": {
+                    "mesh_ok": True,
+                    "points": 10234,
+                    "faces": 28764,
+                    "internal_faces": 27654,
+                    "cells": 9342,
+                },
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 0.00014,
+                    "latest_by_field": {
+                        "Ux": {
+                            "Time": 200.0,
+                            "solver": "smoothSolver",
+                            "field": "Ux",
+                            "initial_residual": 0.00031,
+                            "final_residual": 3e-08,
+                            "iterations": 2,
+                        },
+                        "p": {
+                            "Time": 200.0,
+                            "solver": "GAMG",
+                            "field": "p",
+                            "initial_residual": 0.012,
+                            "final_residual": 0.00014,
+                            "iterations": 5,
+                        },
+                    },
+                    "history": [],
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 7.5,
+                    "fluid_density_kg_m3": 998.2,
+                    "kinematic_viscosity_m2ps": 8.5e-07,
+                    "end_time_seconds": 600.0,
+                    "delta_t_seconds": 0.5,
+                    "write_interval_steps": 20,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Assess delivery readiness",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/acceptance-demo.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "execution_plan": [
+                    {
+                        "role_id": "claude-code-supervisor",
+                        "owner": "Claude Code",
+                        "goal": "Confirm plan",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "task-intelligence",
+                        "owner": "DeerFlow task-intelligence",
+                        "goal": "Resolve workflow",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "geometry-preflight",
+                        "owner": "DeerFlow geometry-preflight",
+                        "goal": "Check geometry",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "solver-dispatch",
+                        "owner": "DeerFlow solver-dispatch",
+                        "goal": "Run solver",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "result-reporting",
+                        "owner": "DeerFlow result-reporting",
+                        "goal": "Summarize report",
+                        "status": "ready",
+                    },
+                ],
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/acceptance-demo/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/acceptance-demo/openfoam-case/Allrun",
+                "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/acceptance-demo/supervisor-handoff.json",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/acceptance-demo/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/acceptance-demo/solver-results.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Acceptance report",
+        tool_call_id="tc-result-report-acceptance",
+    )
+
+    readiness_path = (
+        outputs_dir
+        / "submarine"
+        / "reports"
+        / "acceptance-demo"
+        / "delivery-readiness.json"
+    )
+    readiness_payload = json.loads(readiness_path.read_text(encoding="utf-8"))
+    final_report_path = (
+        outputs_dir
+        / "submarine"
+        / "reports"
+        / "acceptance-demo"
+        / "final-report.json"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+
+    assert any(
+        path.endswith("/delivery-readiness.json")
+        for path in result.update["artifacts"]
+    )
+    assert any(
+        path.endswith("/delivery-readiness.md")
+        for path in result.update["artifacts"]
+    )
+    assert readiness_payload["status"] == "ready_for_review"
+    assert readiness_payload["confidence"] == "medium"
+    assert readiness_payload["gate_count"] >= 4
+    assert any(
+        gate["id"] == "planned_end_time_reached" and gate["status"] == "warning"
+        for gate in readiness_payload["gates"]
+    )
+    assert final_payload["acceptance_assessment"]["status"] == "ready_for_review"
+    assert final_payload["acceptance_assessment"]["confidence"] == "medium"
+    assert any(
+        "end_time_seconds" in warning
+        for warning in final_payload["acceptance_assessment"]["warnings"]
+    )
+
+
+def test_submarine_result_report_applies_case_acceptance_profile(tmp_path):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-case-profile"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "profile-demo"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/profile-demo/openfoam-case/postProcessing",
+                "latest_force_coefficients": {
+                    "Time": 200.0,
+                    "Cd": 0.12,
+                    "Cl": 0.0,
+                    "Cs": 0.0,
+                    "CmPitch": 0.01,
+                },
+                "mesh_summary": {
+                    "mesh_ok": True,
+                    "points": 10234,
+                    "faces": 28764,
+                    "internal_faces": 27654,
+                    "cells": 9342,
+                },
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 0.002,
+                    "latest_by_field": {
+                        "Ux": {
+                            "Time": 200.0,
+                            "solver": "smoothSolver",
+                            "field": "Ux",
+                            "initial_residual": 0.00031,
+                            "final_residual": 4e-07,
+                            "iterations": 2,
+                        },
+                        "p": {
+                            "Time": 200.0,
+                            "solver": "GAMG",
+                            "field": "p",
+                            "initial_residual": 0.012,
+                            "final_residual": 0.002,
+                            "iterations": 5,
+                        },
+                    },
+                    "history": [],
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 5.0,
+                    "fluid_density_kg_m3": 1000.0,
+                    "kinematic_viscosity_m2ps": 1.0e-06,
+                    "end_time_seconds": 200.0,
+                    "delta_t_seconds": 1.0,
+                    "write_interval_steps": 50,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Evaluate case-specific acceptance",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/profile-demo.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "execution_plan": [
+                    {
+                        "role_id": "claude-code-supervisor",
+                        "owner": "Claude Code",
+                        "goal": "Confirm plan",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "task-intelligence",
+                        "owner": "DeerFlow task-intelligence",
+                        "goal": "Resolve workflow",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "geometry-preflight",
+                        "owner": "DeerFlow geometry-preflight",
+                        "goal": "Check geometry",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "solver-dispatch",
+                        "owner": "DeerFlow solver-dispatch",
+                        "goal": "Run solver",
+                        "status": "completed",
+                    },
+                    {
+                        "role_id": "result-reporting",
+                        "owner": "DeerFlow result-reporting",
+                        "goal": "Summarize report",
+                        "status": "ready",
+                    },
+                ],
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/profile-demo/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/profile-demo/openfoam-case/Allrun",
+                "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/profile-demo/supervisor-handoff.json",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/profile-demo/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/profile-demo/solver-results.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Case profile report",
+        tool_call_id="tc-result-report-profile",
+    )
+
+    final_report_path = (
+        outputs_dir / "submarine" / "reports" / "profile-demo" / "final-report.json"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+
+    assert (
+        final_payload["selected_case_acceptance_profile"]["profile_id"]
+        == "darpa-suboff-resistance-baseline"
+    )
+    assert final_payload["acceptance_assessment"]["status"] == "blocked"
+    assert any(
+        gate["id"] == "case_max_final_residual" and gate["status"] == "blocked"
+        for gate in final_payload["acceptance_assessment"]["gates"]
+    )
+    assert any(
+        "0.002" in item
+        for item in final_payload["acceptance_assessment"]["blocking_issues"]
+    )
+
+
+def test_submarine_result_report_adds_benchmark_comparison_for_matching_case(tmp_path):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-benchmark-pass"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "benchmark-pass"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/benchmark-pass/openfoam-case/postProcessing",
+                "latest_force_coefficients": {
+                    "Time": 200.0,
+                    "Cd": 0.00310,
+                    "Cl": 0.0,
+                    "Cs": 0.0,
+                    "CmPitch": 0.0,
+                },
+                "mesh_summary": {
+                    "mesh_ok": True,
+                    "points": 10234,
+                    "faces": 28764,
+                    "internal_faces": 27654,
+                    "cells": 9342,
+                },
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 5e-4,
+                    "latest_by_field": {
+                        "Ux": {
+                            "Time": 200.0,
+                            "solver": "smoothSolver",
+                            "field": "Ux",
+                            "initial_residual": 0.00031,
+                            "final_residual": 4e-07,
+                            "iterations": 2,
+                        },
+                        "p": {
+                            "Time": 200.0,
+                            "solver": "GAMG",
+                            "field": "p",
+                            "initial_residual": 0.012,
+                            "final_residual": 5e-04,
+                            "iterations": 5,
+                        },
+                    },
+                    "history": [],
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "fluid_density_kg_m3": 1000.0,
+                    "kinematic_viscosity_m2ps": 1.0e-06,
+                    "end_time_seconds": 200.0,
+                    "delta_t_seconds": 1.0,
+                    "write_interval_steps": 50,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Benchmark SUBOFF drag",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "execution_plan": [],
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/benchmark-pass/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/benchmark-pass/openfoam-case/Allrun",
+                "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/benchmark-pass/supervisor-handoff.json",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/benchmark-pass/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/benchmark-pass/solver-results.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Benchmark pass report",
+        tool_call_id="tc-result-report-benchmark-pass",
+    )
+
+    final_report_path = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    benchmark_comparisons = final_payload["acceptance_assessment"]["benchmark_comparisons"]
+
+    assert benchmark_comparisons
+    assert benchmark_comparisons[0]["metric_id"] == "cd_at_3_05_mps"
+    assert benchmark_comparisons[0]["status"] == "passed"
+    assert benchmark_comparisons[0]["reference_value"] == 0.00314
+    assert benchmark_comparisons[0]["observed_value"] == 0.00310
+    assert any(
+        gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "passed"
+        for gate in final_payload["acceptance_assessment"]["gates"]
+    )
+
+
+def test_submarine_result_report_blocks_when_benchmark_miss_exceeds_tolerance(tmp_path):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-benchmark-blocked"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "benchmark-blocked"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/benchmark-blocked/openfoam-case/postProcessing",
+                "latest_force_coefficients": {
+                    "Time": 200.0,
+                    "Cd": 0.00360,
+                    "Cl": 0.0,
+                    "Cs": 0.0,
+                    "CmPitch": 0.0,
+                },
+                "mesh_summary": {
+                    "mesh_ok": True,
+                    "points": 10234,
+                    "faces": 28764,
+                    "internal_faces": 27654,
+                    "cells": 9342,
+                },
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 5e-4,
+                    "latest_by_field": {
+                        "Ux": {
+                            "Time": 200.0,
+                            "solver": "smoothSolver",
+                            "field": "Ux",
+                            "initial_residual": 0.00031,
+                            "final_residual": 4e-07,
+                            "iterations": 2,
+                        },
+                        "p": {
+                            "Time": 200.0,
+                            "solver": "GAMG",
+                            "field": "p",
+                            "initial_residual": 0.012,
+                            "final_residual": 5e-04,
+                            "iterations": 5,
+                        },
+                    },
+                    "history": [],
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "fluid_density_kg_m3": 1000.0,
+                    "kinematic_viscosity_m2ps": 1.0e-06,
+                    "end_time_seconds": 200.0,
+                    "delta_t_seconds": 1.0,
+                    "write_interval_steps": 50,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Benchmark SUBOFF drag",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "execution_plan": [],
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/benchmark-blocked/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/benchmark-blocked/openfoam-case/Allrun",
+                "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/benchmark-blocked/supervisor-handoff.json",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/benchmark-blocked/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/benchmark-blocked/solver-results.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Benchmark blocked report",
+        tool_call_id="tc-result-report-benchmark-blocked",
+    )
+
+    final_report_path = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    benchmark_comparisons = final_payload["acceptance_assessment"]["benchmark_comparisons"]
+
+    assert benchmark_comparisons
+    assert benchmark_comparisons[0]["metric_id"] == "cd_at_3_05_mps"
+    assert benchmark_comparisons[0]["status"] == "blocked"
+    assert final_payload["acceptance_assessment"]["status"] == "blocked"
+    assert any(
+        gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "blocked"
+        for gate in final_payload["acceptance_assessment"]["gates"]
+    )
+    assert any(
+        "cd_at_3_05_mps" in item
+        for item in final_payload["acceptance_assessment"]["blocking_issues"]
+    )
+
+
+def test_submarine_result_report_tracks_requested_output_delivery(tmp_path):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-requested-report"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "requested-report"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/requested-report/openfoam-case/postProcessing",
+                "latest_force_coefficients": {
+                    "Time": 200.0,
+                    "Cd": 0.00310,
+                    "Cl": 0.0,
+                    "Cs": 0.0,
+                    "CmPitch": 0.0,
+                },
+                "latest_forces": {
+                    "Time": 200.0,
+                    "pressure_force": [0.0, 0.0, 0.0],
+                    "viscous_force": [8.0, 0.0, 0.0],
+                    "total_force": [8.0, 0.0, 0.0],
+                    "pressure_moment": [0.0, 0.0, 0.0],
+                    "viscous_moment": [0.0, 0.5, 0.0],
+                    "total_moment": [0.0, 0.5, 0.0],
+                },
+                "mesh_summary": {
+                    "mesh_ok": True,
+                    "points": 10234,
+                    "faces": 28764,
+                    "internal_faces": 27654,
+                    "cells": 9342,
+                },
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 5e-4,
+                    "latest_by_field": {
+                        "Ux": {
+                            "Time": 200.0,
+                            "solver": "smoothSolver",
+                            "field": "Ux",
+                            "initial_residual": 0.00031,
+                            "final_residual": 4e-07,
+                            "iterations": 2,
+                        },
+                        "p": {
+                            "Time": 200.0,
+                            "solver": "GAMG",
+                            "field": "p",
+                            "initial_residual": 0.012,
+                            "final_residual": 5e-04,
+                            "iterations": 5,
+                        },
+                    },
+                    "history": [],
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "fluid_density_kg_m3": 1000.0,
+                    "kinematic_viscosity_m2ps": 1.0e-06,
+                    "end_time_seconds": 200.0,
+                    "delta_t_seconds": 1.0,
+                    "write_interval_steps": 50,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "根据用户要求交付结果",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/requested-report.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "requested_outputs": [
+                    {
+                        "output_id": "drag_coefficient",
+                        "label": "阻力系数 Cd",
+                        "requested_label": "阻力系数 Cd",
+                        "status": "requested",
+                        "support_level": "supported",
+                        "notes": "当前运行时可交付该结构化结果。",
+                    },
+                    {
+                        "output_id": "benchmark_comparison",
+                        "label": "Benchmark 对比",
+                        "requested_label": "Benchmark 对比",
+                        "status": "requested",
+                        "support_level": "supported",
+                        "notes": "当前运行时可交付该结构化结果。",
+                    },
+                    {
+                        "output_id": "surface_pressure_contour",
+                        "label": "表面压力云图",
+                        "requested_label": "表面压力云图",
+                        "status": "requested",
+                        "support_level": "supported",
+                        "notes": "当前运行时可在存在后处理文件时导出压力结果 artifact。",
+                    },
+                    {
+                        "output_id": "chinese_report",
+                        "label": "中文结果报告",
+                        "requested_label": "中文结果报告",
+                        "status": "requested",
+                        "support_level": "supported",
+                        "notes": "当前运行时可交付该结构化结果。",
+                    },
+                ],
+                "execution_plan": [],
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/requested-report/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/requested-report/openfoam-case/Allrun",
+                "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/requested-report/supervisor-handoff.json",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/requested-report/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/requested-report/solver-results.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Requested outputs report",
+        tool_call_id="tc-result-report-requested-outputs",
+    )
+
+    final_report_path = (
+        outputs_dir / "submarine" / "reports" / "requested-report" / "final-report.json"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+
+    assert [item["output_id"] for item in final_payload["requested_outputs"]] == [
+        "drag_coefficient",
+        "benchmark_comparison",
+        "surface_pressure_contour",
+        "chinese_report",
+    ]
+    assert final_payload["output_delivery_plan"][0]["delivery_status"] == "delivered"
+    assert final_payload["output_delivery_plan"][1]["delivery_status"] == "delivered"
+    assert final_payload["output_delivery_plan"][2]["delivery_status"] == "not_available_for_this_run"
+    assert final_payload["output_delivery_plan"][3]["delivery_status"] == "delivered"
+
+
+def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-postprocess-report"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "postprocess-report"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/postprocess-report/openfoam-case/postProcessing",
+                "latest_force_coefficients": {
+                    "Time": 200.0,
+                    "Cd": 0.00310,
+                    "Cl": 0.0,
+                    "Cs": 0.0,
+                    "CmPitch": 0.0,
+                },
+                "mesh_summary": {
+                    "mesh_ok": True,
+                    "points": 10234,
+                    "faces": 28764,
+                    "internal_faces": 27654,
+                    "cells": 9342,
+                },
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 5e-4,
+                    "latest_by_field": {
+                        "Ux": {
+                            "Time": 200.0,
+                            "solver": "smoothSolver",
+                            "field": "Ux",
+                            "initial_residual": 0.00031,
+                            "final_residual": 4e-07,
+                            "iterations": 2,
+                        },
+                        "p": {
+                            "Time": 200.0,
+                            "solver": "GAMG",
+                            "field": "p",
+                            "initial_residual": 0.012,
+                            "final_residual": 5e-04,
+                            "iterations": 5,
+                        },
+                    },
+                    "history": [],
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "fluid_density_kg_m3": 1000.0,
+                    "kinematic_viscosity_m2ps": 1.0e-06,
+                    "end_time_seconds": 200.0,
+                    "delta_t_seconds": 1.0,
+                    "write_interval_steps": 50,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "surface-pressure.csv").write_text(
+        "x,y,z,p\n0,0,0,12.0\n",
+        encoding="utf-8",
+    )
+    (solver_results_dir / "surface-pressure.md").write_text(
+        "# Surface Pressure\n",
+        encoding="utf-8",
+    )
+    (solver_results_dir / "wake-velocity-slice.csv").write_text(
+        "x,y,z,Ux,Uy,Uz\n5,0,0,4.8,0,0\n",
+        encoding="utf-8",
+    )
+    (solver_results_dir / "wake-velocity-slice.md").write_text(
+        "# Wake Velocity Slice\n",
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "交付压力和尾流结果",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/postprocess-report.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "requested_outputs": [
+                    {
+                        "output_id": "surface_pressure_contour",
+                        "label": "表面压力云图",
+                        "requested_label": "表面压力云图",
+                        "status": "requested",
+                        "support_level": "supported",
+                        "postprocess_spec": {
+                            "field": "p",
+                            "time_mode": "latest",
+                            "selector": {
+                                "type": "patch",
+                                "patches": ["hull"],
+                            },
+                            "formats": ["csv", "png", "report"],
+                        },
+                        "notes": "当前运行时可在存在后处理文件时导出压力结果 artifact。",
+                    },
+                    {
+                        "output_id": "wake_velocity_slice",
+                        "label": "尾流速度切片",
+                        "requested_label": "尾流速度切片",
+                        "status": "requested",
+                        "support_level": "supported",
+                        "postprocess_spec": {
+                            "field": "U",
+                            "time_mode": "latest",
+                            "selector": {
+                                "type": "plane",
+                                "origin_mode": "x_by_lref",
+                                "origin_value": 1.25,
+                                "normal": [1.0, 0.0, 0.0],
+                            },
+                            "formats": ["csv", "png", "report"],
+                        },
+                        "notes": "当前运行时可在存在后处理文件时导出尾流结果 artifact。",
+                    },
+                ],
+                "execution_plan": [],
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/postprocess-report/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/postprocess-report/openfoam-case/Allrun",
+                "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/supervisor-handoff.json",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/surface-pressure.csv",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/surface-pressure.md",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.csv",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.md",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Postprocess export report",
+        tool_call_id="tc-result-report-postprocess",
+    )
+
+    final_report_path = (
+        outputs_dir / "submarine" / "reports" / "postprocess-report" / "final-report.json"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    final_markdown = (
+        outputs_dir / "submarine" / "reports" / "postprocess-report" / "final-report.md"
+    ).read_text(encoding="utf-8")
+    final_html = (
+        outputs_dir / "submarine" / "reports" / "postprocess-report" / "final-report.html"
+    ).read_text(encoding="utf-8")
+
+    assert final_payload["output_delivery_plan"][0]["delivery_status"] == "delivered"
+    assert final_payload["output_delivery_plan"][1]["delivery_status"] == "delivered"
+    assert final_payload["requested_outputs"][0]["postprocess_spec"]["formats"] == [
+        "csv",
+        "png",
+        "report",
+    ]
+    assert "selector=patch[hull]" in final_markdown
+    assert "selector=plane[x/Lref=1.25; normal=(1, 0, 0)]" in final_markdown
+    assert "selector=patch[hull]" in final_html
+    assert "selector=plane[x/Lref=1.25; normal=(1, 0, 0)]" in final_html
+
+
+def test_submarine_result_report_adds_scientific_verification_assessment(tmp_path):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-scientific-verification"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = (
+        outputs_dir / "submarine" / "solver-dispatch" / "scientific-verification"
+    )
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/scientific-verification/openfoam-case/postProcessing",
+                "latest_force_coefficients": {
+                    "Time": 200.0,
+                    "Cd": 0.00312,
+                    "Cl": 0.0,
+                    "Cs": 0.0,
+                    "CmPitch": 0.0,
+                },
+                "force_coefficients_history": [
+                    {"Time": 160.0, "Cd": 0.00313},
+                    {"Time": 170.0, "Cd": 0.00312},
+                    {"Time": 180.0, "Cd": 0.00311},
+                    {"Time": 190.0, "Cd": 0.00312},
+                    {"Time": 200.0, "Cd": 0.00312},
+                ],
+                "mesh_summary": {
+                    "mesh_ok": True,
+                    "points": 10234,
+                    "faces": 28764,
+                    "internal_faces": 27654,
+                    "cells": 9342,
+                },
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 5e-4,
+                    "latest_by_field": {
+                        "Ux": {
+                            "Time": 200.0,
+                            "solver": "smoothSolver",
+                            "field": "Ux",
+                            "initial_residual": 0.00031,
+                            "final_residual": 4e-07,
+                            "iterations": 2,
+                        },
+                        "p": {
+                            "Time": 200.0,
+                            "solver": "GAMG",
+                            "field": "p",
+                            "initial_residual": 0.012,
+                            "final_residual": 5e-04,
+                            "iterations": 5,
+                        },
+                    },
+                    "history": [],
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "fluid_density_kg_m3": 1000.0,
+                    "kinematic_viscosity_m2ps": 1.0e-06,
+                    "end_time_seconds": 200.0,
+                    "delta_t_seconds": 1.0,
+                    "write_interval_steps": 50,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Evaluate research-facing scientific verification readiness",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/scientific-verification/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/scientific-verification/openfoam-case/Allrun",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/scientific-verification/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/scientific-verification/solver-results.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Scientific verification report",
+        tool_call_id="tc-result-report-scientific-verification",
+    )
+
+    final_report_path = (
+        outputs_dir
+        / "submarine"
+        / "reports"
+        / "suboff_solid"
+        / "final-report.json"
+    )
+    md_path = (
+        outputs_dir
+        / "submarine"
+        / "reports"
+        / "suboff_solid"
+        / "final-report.md"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    markdown = md_path.read_text(encoding="utf-8")
+    assessment = final_payload["scientific_verification_assessment"]
+
+    assert assessment["status"] == "needs_more_verification"
+    assert assessment["confidence"] == "medium"
+    assert [item["requirement_id"] for item in assessment["requirements"]] == [
+        "final_residual_threshold",
+        "force_coefficient_tail_stability",
+        "mesh_independence_study",
+        "domain_sensitivity_study",
+        "time_step_sensitivity_study",
+    ]
+    assert assessment["requirements"][0]["status"] == "passed"
+    assert assessment["requirements"][1]["status"] == "passed"
+    assert assessment["requirements"][2]["status"] == "missing_evidence"
+    assert any(
+        "mesh independence" in item.lower()
+        for item in assessment["missing_evidence"]
+    )
+    assert "Scientific Verification" in markdown
+
+
+def test_scientific_verification_marks_study_artifact_as_passed(tmp_path):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-scientific-verification-pass-artifact"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "verification-pass"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {"Time": 200.0, "Cd": 0.00312},
+                "force_coefficients_history": [
+                    {"Time": 160.0, "Cd": 0.00313},
+                    {"Time": 170.0, "Cd": 0.00312},
+                    {"Time": 180.0, "Cd": 0.00311},
+                    {"Time": 190.0, "Cd": 0.00312},
+                    {"Time": 200.0, "Cd": 0.00312},
+                ],
+                "mesh_summary": {"mesh_ok": True},
+                "residual_summary": {"max_final_residual": 5e-4},
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "end_time_seconds": 200.0,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "verification-mesh-independence.json").write_text(
+        json.dumps(
+            {
+                "study_type": "mesh_independence",
+                "status": "passed",
+                "summary_zh": "Three-grid study shows Cd variation below tolerance.",
+                "monitored_quantity": "Cd",
+                "variant_count": 3,
+                "relative_spread": 0.008,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Evaluate scientific verification evidence artifacts",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/verification-pass/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verification-pass/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verification-pass/verification-mesh-independence.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Scientific verification pass artifact report",
+        tool_call_id="tc-result-report-scientific-pass-artifact",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    requirements = final_payload["scientific_verification_assessment"]["requirements"]
+    mesh_requirement = next(
+        item for item in requirements if item["requirement_id"] == "mesh_independence_study"
+    )
+
+    assert mesh_requirement["status"] == "passed"
+    assert "below tolerance" in mesh_requirement["detail"]
+
+
+def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_path):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-scientific-verification-failed-artifact"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "verification-fail"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {"Time": 200.0, "Cd": 0.00312},
+                "force_coefficients_history": [
+                    {"Time": 160.0, "Cd": 0.00313},
+                    {"Time": 170.0, "Cd": 0.00312},
+                    {"Time": 180.0, "Cd": 0.00311},
+                    {"Time": 190.0, "Cd": 0.00312},
+                    {"Time": 200.0, "Cd": 0.00312},
+                ],
+                "mesh_summary": {"mesh_ok": True},
+                "residual_summary": {"max_final_residual": 5e-4},
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "end_time_seconds": 200.0,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "verification-domain-sensitivity.json").write_text(
+        json.dumps(
+            {
+                "study_type": "domain_sensitivity",
+                "status": "failed",
+                "summary_zh": "Outer-domain sweep shows Cd drift above accepted tolerance.",
+                "monitored_quantity": "Cd",
+                "variant_count": 3,
+                "relative_spread": 0.061,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Evaluate failed scientific verification evidence artifact",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/verification-fail/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verification-fail/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verification-fail/verification-domain-sensitivity.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Scientific verification failed artifact report",
+        tool_call_id="tc-result-report-scientific-failed-artifact",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    assessment = final_payload["scientific_verification_assessment"]
+    domain_requirement = next(
+        item
+        for item in assessment["requirements"]
+        if item["requirement_id"] == "domain_sensitivity_study"
+    )
+
+    assert assessment["status"] == "blocked"
+    assert domain_requirement["status"] == "blocked"
+    assert "above accepted tolerance" in domain_requirement["detail"]
