@@ -189,6 +189,19 @@ export type SubmarineExperimentSummary = {
   compareNotes: string[];
 };
 
+export type SubmarineResearchEvidenceSummary = {
+  readinessLabel: string;
+  verificationStatusLabel: string;
+  validationStatusLabel: string;
+  provenanceStatusLabel: string;
+  confidenceLabel: string;
+  evidenceGaps: string[];
+  passedEvidence: string[];
+  benchmarkHighlights: string[];
+  provenanceHighlights: string[];
+  artifactPaths: string[];
+};
+
 export type SubmarineAcceptanceSummary = {
   statusLabel: string;
   confidenceLabel: string;
@@ -283,6 +296,29 @@ const EXPERIMENT_STATUS_LABELS: Record<string, string> = {
   planned: "Planned",
   completed: "Completed",
   blocked: "Blocked",
+};
+
+const RESEARCH_EVIDENCE_READINESS_LABELS: Record<string, string> = {
+  blocked: "Blocked",
+  insufficient_evidence: "Insufficient Evidence",
+  verified_but_not_validated: "Verified But Not Validated",
+  validated_with_gaps: "Validated With Gaps",
+  research_ready: "Research Ready",
+};
+
+const RESEARCH_EVIDENCE_DIMENSION_LABELS: Record<string, string> = {
+  passed: "Passed",
+  needs_more_verification: "Needs More Verification",
+  validated: "Validated",
+  missing_validation_reference: "Missing Validation Reference",
+  validation_failed: "Validation Failed",
+  blocked: "Blocked",
+  traceable: "Traceable",
+  partial: "Partial",
+  missing: "Missing",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
 };
 
 const RESULT_CARD_ARTIFACT_SUFFIXES: Record<string, string[]> = {
@@ -542,6 +578,13 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     },
   ],
   [
+    "/research-evidence-summary.json",
+    {
+      label: "Research Evidence Summary JSON",
+      externalLinkLabel: "Open research evidence summary JSON in a new window",
+    },
+  ],
+  [
     "/final-report.md",
     {
       label: "最终报告",
@@ -719,6 +762,7 @@ function classifySubmarineArtifact(path: string): SubmarineArtifactGroupId {
   if (
     path.endsWith("/delivery-readiness.md") ||
     path.endsWith("/delivery-readiness.json") ||
+    path.endsWith("/research-evidence-summary.json") ||
     path.endsWith("/final-report.md") ||
     path.endsWith("/final-report.html") ||
     path.endsWith("/final-report.json")
@@ -1180,6 +1224,61 @@ export function buildSubmarineExperimentSummary(
     manifestPath: summary.manifest_virtual_path ?? "--",
     comparePath: summary.compare_virtual_path ?? "--",
     compareNotes: summary.compare_notes?.filter(Boolean) ?? [],
+  };
+}
+
+export function buildSubmarineResearchEvidenceSummary(
+  payload:
+    | {
+        research_evidence_summary?:
+          | {
+              readiness_status?: string | null;
+              verification_status?: string | null;
+              validation_status?: string | null;
+              provenance_status?: string | null;
+              confidence?: string | null;
+              evidence_gaps?: string[] | null;
+              passed_evidence?: string[] | null;
+              benchmark_highlights?: string[] | null;
+              provenance_highlights?: string[] | null;
+              artifact_virtual_paths?: string[] | null;
+            }
+          | null;
+      }
+    | null
+    | undefined,
+): SubmarineResearchEvidenceSummary | null {
+  const summary = payload?.research_evidence_summary;
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    readinessLabel:
+      RESEARCH_EVIDENCE_READINESS_LABELS[summary.readiness_status ?? ""] ??
+      summary.readiness_status ??
+      "--",
+    verificationStatusLabel:
+      RESEARCH_EVIDENCE_DIMENSION_LABELS[summary.verification_status ?? ""] ??
+      summary.verification_status ??
+      "--",
+    validationStatusLabel:
+      RESEARCH_EVIDENCE_DIMENSION_LABELS[summary.validation_status ?? ""] ??
+      summary.validation_status ??
+      "--",
+    provenanceStatusLabel:
+      RESEARCH_EVIDENCE_DIMENSION_LABELS[summary.provenance_status ?? ""] ??
+      summary.provenance_status ??
+      "--",
+    confidenceLabel:
+      RESEARCH_EVIDENCE_DIMENSION_LABELS[summary.confidence ?? ""] ??
+      summary.confidence ??
+      "--",
+    evidenceGaps: summary.evidence_gaps?.filter(Boolean) ?? [],
+    passedEvidence: summary.passed_evidence?.filter(Boolean) ?? [],
+    benchmarkHighlights: summary.benchmark_highlights?.filter(Boolean) ?? [],
+    provenanceHighlights: summary.provenance_highlights?.filter(Boolean) ?? [],
+    artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
   };
 }
 

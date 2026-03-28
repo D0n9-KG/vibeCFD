@@ -5,6 +5,7 @@ const {
   buildSubmarineAcceptanceSummary,
   buildSubmarineDesignBriefSummary,
   buildSubmarineExperimentSummary,
+  buildSubmarineResearchEvidenceSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
   buildSubmarineScientificStudySummary,
@@ -670,5 +671,46 @@ void test("builds an experiment summary from the final report payload", () => {
   assert.deepEqual(summary?.compareNotes, [
     "mesh_independence:coarse | completed",
     "domain_sensitivity:compact | completed",
+  ]);
+});
+
+void test("builds a research evidence summary from the final report payload", () => {
+  const summary = buildSubmarineResearchEvidenceSummary({
+    research_evidence_summary: {
+      readiness_status: "verified_but_not_validated",
+      verification_status: "passed",
+      validation_status: "missing_validation_reference",
+      provenance_status: "traceable",
+      confidence: "medium",
+      evidence_gaps: [
+        "No applicable benchmark target was available for this run.",
+      ],
+      passed_evidence: ["Scientific verification requirements passed."],
+      benchmark_highlights: [],
+      provenance_highlights: [
+        "Experiment manifest and compare summary are available.",
+      ],
+      artifact_virtual_paths: [
+        "/mnt/user-data/outputs/submarine/reports/demo/research-evidence-summary.json",
+      ],
+    },
+  });
+
+  assert.equal(summary?.readinessLabel, "Verified But Not Validated");
+  assert.equal(summary?.verificationStatusLabel, "Passed");
+  assert.equal(summary?.validationStatusLabel, "Missing Validation Reference");
+  assert.equal(summary?.provenanceStatusLabel, "Traceable");
+  assert.equal(summary?.confidenceLabel, "Medium");
+  assert.deepEqual(summary?.evidenceGaps, [
+    "No applicable benchmark target was available for this run.",
+  ]);
+  assert.deepEqual(summary?.passedEvidence, [
+    "Scientific verification requirements passed.",
+  ]);
+  assert.deepEqual(summary?.provenanceHighlights, [
+    "Experiment manifest and compare summary are available.",
+  ]);
+  assert.deepEqual(summary?.artifactPaths, [
+    "/mnt/user-data/outputs/submarine/reports/demo/research-evidence-summary.json",
   ]);
 });
