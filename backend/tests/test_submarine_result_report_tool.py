@@ -2150,9 +2150,16 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     final_report_path = (
         outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
     )
+    final_markdown = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.md"
+    ).read_text(encoding="utf-8")
+    final_html = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.html"
+    ).read_text(encoding="utf-8")
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     research = final_payload["research_evidence_summary"]
     gate = final_payload["scientific_supervisor_gate"]
+    remediation = final_payload["scientific_remediation_summary"]
 
     assert research["verification_status"] == "passed"
     assert research["validation_status"] == "missing_validation_reference"
@@ -2161,8 +2168,22 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     assert gate["allowed_claim_level"] == "verified_but_not_validated"
     assert gate["recommended_stage"] == "supervisor-review"
     assert gate["remediation_stage"] == "solver-dispatch"
+    assert remediation["plan_status"] == "recommended"
+    assert remediation["current_claim_level"] == "verified_but_not_validated"
+    assert remediation["target_claim_level"] == "research_ready"
+    assert remediation["recommended_stage"] == "supervisor-review"
+    assert remediation["artifact_virtual_paths"][0].endswith(
+        "/scientific-remediation-plan.json"
+    )
+    assert remediation["actions"][0]["action_id"] == "attach-validation-reference"
+    assert remediation["actions"][0]["owner_stage"] == "supervisor-review"
+    assert remediation["actions"][0]["execution_mode"] == "manual_required"
     assert final_payload["review_status"] == "ready_for_supervisor"
     assert final_payload["next_recommended_stage"] == "supervisor-review"
+    assert "## Scientific Remediation Plan" in final_markdown
+    assert "attach-validation-reference" in final_markdown
+    assert "<h2>Scientific Remediation Plan</h2>" in final_html
+    assert "attach-validation-reference" in final_html
 
 
 def test_submarine_result_report_marks_research_ready_with_validation_and_traceable_evidence(

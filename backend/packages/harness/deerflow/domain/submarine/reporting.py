@@ -13,6 +13,7 @@ from .figure_delivery import build_figure_delivery_summary
 from .library import load_case_library
 from .models import SubmarineBenchmarkTarget, SubmarineCase
 from .output_contract import build_output_delivery_plan
+from .remediation import build_scientific_remediation_summary
 from .supervision import build_scientific_supervisor_gate
 from .verification import (
     build_effective_scientific_verification_requirements,
@@ -1112,6 +1113,44 @@ def _render_scientific_gate_markdown(scientific_supervisor_gate: dict | None) ->
     return lines
 
 
+def _render_scientific_remediation_markdown(
+    scientific_remediation_summary: dict | None,
+) -> list[str]:
+    if not scientific_remediation_summary:
+        return []
+
+    lines = [
+        "",
+        "## Scientific Remediation Plan",
+        f"- plan_status: `{scientific_remediation_summary.get('plan_status')}`",
+        f"- current_claim_level: `{scientific_remediation_summary.get('current_claim_level')}`",
+        f"- target_claim_level: `{scientific_remediation_summary.get('target_claim_level')}`",
+        f"- recommended_stage: `{scientific_remediation_summary.get('recommended_stage')}`",
+    ]
+    artifact_paths = scientific_remediation_summary.get("artifact_virtual_paths") or []
+    if artifact_paths:
+        lines.extend(["", "### Remediation Artifacts"])
+        lines.extend(f"- `{path}`" for path in artifact_paths)
+    actions = scientific_remediation_summary.get("actions") or []
+    if actions:
+        lines.extend(["", "### Remediation Actions"])
+        for item in actions:
+            if not isinstance(item, dict):
+                continue
+            lines.append(
+                "- "
+                + " | ".join(
+                    [
+                        f"`{item.get('action_id')}`",
+                        f"`{item.get('owner_stage')}`",
+                        f"`{item.get('execution_mode')}`",
+                        str(item.get("evidence_gap") or "No evidence gap"),
+                    ]
+                )
+            )
+    return lines
+
+
 def _render_scientific_verification_markdown(
     scientific_verification_assessment: dict | None,
 ) -> list[str]:
@@ -1297,6 +1336,38 @@ def _render_scientific_gate_html(scientific_supervisor_gate: dict | None) -> str
         f"<ul>{blocking_items}</ul>"
         "<h3>Advisory Notes</h3>"
         f"<ul>{advisory_items}</ul>"
+        "</section>"
+    )
+
+
+def _render_scientific_remediation_html(scientific_remediation_summary: dict | None) -> str:
+    if not scientific_remediation_summary:
+        return ""
+
+    artifact_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (scientific_remediation_summary.get("artifact_virtual_paths") or [])
+    ) or "<li>None</li>"
+    action_items = "".join(
+        "<li>"
+        f"<strong>{escape(str(item.get('action_id') or '--'))}</strong> "
+        f"(<code>{escape(str(item.get('owner_stage') or '--'))}</code> / <code>{escape(str(item.get('execution_mode') or '--'))}</code>)"
+        f"<p>{escape(str(item.get('evidence_gap') or 'No evidence gap'))}</p>"
+        "</li>"
+        for item in (scientific_remediation_summary.get("actions") or [])
+        if isinstance(item, dict)
+    ) or "<li>None</li>"
+    return (
+        '<section class="panel">'
+        "<h2>Scientific Remediation Plan</h2>"
+        f"<p><strong>plan_status:</strong> {escape(str(scientific_remediation_summary.get('plan_status') or '--'))}</p>"
+        f"<p><strong>current_claim_level:</strong> {escape(str(scientific_remediation_summary.get('current_claim_level') or '--'))}</p>"
+        f"<p><strong>target_claim_level:</strong> {escape(str(scientific_remediation_summary.get('target_claim_level') or '--'))}</p>"
+        f"<p><strong>recommended_stage:</strong> {escape(str(scientific_remediation_summary.get('recommended_stage') or '--'))}</p>"
+        "<h3>Remediation Artifacts</h3>"
+        f"<ul>{artifact_items}</ul>"
+        "<h3>Remediation Actions</h3>"
+        f"<ul>{action_items}</ul>"
         "</section>"
     )
 
@@ -1653,6 +1724,11 @@ def _render_markdown(payload: dict) -> str:
     lines.extend(_render_experiment_markdown(payload.get("experiment_summary")))
     lines.extend(_render_research_evidence_markdown(payload.get("research_evidence_summary")))
     lines.extend(_render_scientific_gate_markdown(payload.get("scientific_supervisor_gate")))
+    lines.extend(
+        _render_scientific_remediation_markdown(
+            payload.get("scientific_remediation_summary")
+        )
+    )
     lines.extend(_render_scientific_study_markdown(payload.get("scientific_study_summary")))
     lines.extend(_render_experiment_compare_markdown(payload.get("experiment_compare_summary")))
     lines.extend(_render_figure_delivery_markdown(payload.get("figure_delivery_summary")))
@@ -1823,6 +1899,9 @@ def _render_html(payload: dict) -> str:
     scientific_gate_section = _render_scientific_gate_html(
         payload.get("scientific_supervisor_gate")
     )
+    scientific_remediation_section = _render_scientific_remediation_html(
+        payload.get("scientific_remediation_summary")
+    )
     scientific_study_section = _render_scientific_study_html(
         payload.get("scientific_study_summary")
     )
@@ -1910,6 +1989,7 @@ def _render_html(payload: dict) -> str:
       {experiment_section}
       {research_evidence_section}
       {scientific_gate_section}
+      {scientific_remediation_section}
       {scientific_study_section}
       {experiment_compare_section}
       {figure_delivery_section}
@@ -1944,6 +2024,9 @@ def run_result_report(
     scientific_gate_json_artifact = _artifact_virtual_path(
         run_dir_name, "supervisor-scientific-gate.json"
     )
+    scientific_remediation_json_artifact = _artifact_virtual_path(
+        run_dir_name, "scientific-remediation-plan.json"
+    )
     json_artifact = _artifact_virtual_path(run_dir_name, "final-report.json")
     markdown_artifact = _artifact_virtual_path(run_dir_name, "final-report.md")
     html_artifact = _artifact_virtual_path(run_dir_name, "final-report.html")
@@ -1952,6 +2035,7 @@ def run_result_report(
         delivery_json_artifact,
         research_evidence_json_artifact,
         scientific_gate_json_artifact,
+        scientific_remediation_json_artifact,
         markdown_artifact,
         html_artifact,
         json_artifact,
@@ -2016,6 +2100,13 @@ def run_result_report(
         research_evidence_summary=research_evidence_summary,
         artifact_virtual_paths=[scientific_gate_json_artifact],
     )
+    scientific_remediation_summary = build_scientific_remediation_summary(
+        scientific_supervisor_gate=scientific_supervisor_gate,
+        research_evidence_summary=research_evidence_summary,
+        scientific_verification_assessment=scientific_verification_assessment,
+        scientific_study_summary=scientific_study_summary,
+        artifact_virtual_paths=[scientific_remediation_json_artifact],
+    )
     review_status = (
         "blocked"
         if scientific_supervisor_gate["gate_status"] == "blocked"
@@ -2061,6 +2152,7 @@ def run_result_report(
         "experiment_compare_summary": experiment_compare_summary,
         "research_evidence_summary": research_evidence_summary,
         "scientific_supervisor_gate": scientific_supervisor_gate,
+        "scientific_remediation_summary": scientific_remediation_summary,
         "scientific_study_summary": scientific_study_summary,
         "figure_delivery_summary": figure_delivery_summary,
         "scientific_verification_assessment": scientific_verification_assessment,
@@ -2088,6 +2180,10 @@ def run_result_report(
     )
     (artifact_dir / "supervisor-scientific-gate.json").write_text(
         json.dumps(scientific_supervisor_gate, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (artifact_dir / "scientific-remediation-plan.json").write_text(
+        json.dumps(scientific_remediation_summary, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     (artifact_dir / "final-report.json").write_text(
