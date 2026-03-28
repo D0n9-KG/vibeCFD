@@ -82,6 +82,48 @@ class SubmarineScientificStudyResult(BaseModel):
     summary_zh: str
 
 
+SubmarineExperimentRunRole = Literal["baseline", "scientific_study_variant"]
+
+
+class SubmarineExperimentRunRecord(BaseModel):
+    run_id: str
+    experiment_id: str
+    run_role: SubmarineExperimentRunRole
+    study_type: SubmarineScientificStudyType | None = None
+    variant_id: str | None = None
+    solver_results_virtual_path: str
+    run_record_virtual_path: str
+    execution_status: Literal["planned", "completed", "blocked"]
+    metric_snapshot: dict[str, object] = Field(default_factory=dict)
+
+
+class SubmarineExperimentManifest(BaseModel):
+    experiment_id: str
+    selected_case_id: str | None = None
+    task_type: str
+    baseline_run_id: str
+    run_records: list[SubmarineExperimentRunRecord] = Field(default_factory=list)
+    artifact_virtual_paths: list[str] = Field(default_factory=list)
+    experiment_status: Literal["planned", "completed", "blocked"] = "planned"
+
+
+class SubmarineRunComparison(BaseModel):
+    baseline_run_id: str
+    candidate_run_id: str
+    study_type: SubmarineScientificStudyType | None = None
+    variant_id: str | None = None
+    compare_status: Literal["completed", "missing_metrics", "blocked"]
+    metric_deltas: dict[str, object] = Field(default_factory=dict)
+    notes: str | None = None
+
+
+class SubmarineRunCompareSummary(BaseModel):
+    experiment_id: str
+    baseline_run_id: str
+    comparisons: list[SubmarineRunComparison] = Field(default_factory=list)
+    artifact_virtual_paths: list[str] = Field(default_factory=list)
+
+
 class SubmarineCaseAcceptanceProfile(BaseModel):
     profile_id: str
     summary_zh: str

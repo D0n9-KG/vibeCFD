@@ -122,6 +122,86 @@ def test_submarine_case_library_builds_scientific_study_manifest():
     assert manifest.study_definitions[2].variants[0].parameter_overrides["delta_t_multiplier"] == 2.0
 
 
+def test_submarine_domain_exposes_experiment_run_records():
+    models_module = importlib.import_module("deerflow.domain.submarine.models")
+
+    record = models_module.SubmarineExperimentRunRecord(
+        run_id="mesh_independence:coarse",
+        experiment_id="darpa-suboff-bare-hull-resistance-study-execution-demo-resistance",
+        run_role="scientific_study_variant",
+        study_type="mesh_independence",
+        variant_id="coarse",
+        solver_results_virtual_path=(
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/"
+            "mesh-independence/coarse/solver-results.json"
+        ),
+        run_record_virtual_path=(
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/"
+            "mesh-independence/coarse/run-record.json"
+        ),
+        execution_status="completed",
+    )
+
+    assert record.run_id == "mesh_independence:coarse"
+    assert record.study_type == "mesh_independence"
+    assert record.variant_id == "coarse"
+    assert record.run_role == "scientific_study_variant"
+
+
+def test_submarine_domain_builds_experiment_compare_summary():
+    experiments_module = importlib.import_module("deerflow.domain.submarine.experiments")
+
+    experiment_id = experiments_module.build_experiment_id(
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        run_dir_name="study-execution-demo",
+        task_type="resistance",
+    )
+    baseline_run_id = experiments_module.build_experiment_run_id(
+        study_type=None,
+        variant_id=None,
+    )
+    coarse_run_id = experiments_module.build_experiment_run_id(
+        study_type="mesh_independence",
+        variant_id="coarse",
+    )
+
+    summary = experiments_module.build_run_compare_summary(
+        experiment_id=experiment_id,
+        baseline_run_id=baseline_run_id,
+        baseline_record={
+            "run_id": baseline_run_id,
+            "metric_snapshot": {
+                "Cd": 0.12,
+                "Fx": 8.0,
+                "final_time_seconds": 200.0,
+                "mesh_cells": 9342,
+            },
+        },
+        candidate_records=[
+            {
+                "run_id": coarse_run_id,
+                "study_type": "mesh_independence",
+                "variant_id": "coarse",
+                "execution_status": "completed",
+                "metric_snapshot": {
+                    "Cd": 0.1212,
+                    "Fx": 8.18,
+                    "final_time_seconds": 200.0,
+                    "mesh_cells": 7010,
+                },
+            }
+        ],
+    )
+
+    assert experiment_id == "darpa-suboff-bare-hull-resistance-study-execution-demo-resistance"
+    assert baseline_run_id == "baseline"
+    assert coarse_run_id == "mesh_independence:coarse"
+    assert summary.experiment_id == experiment_id
+    assert summary.baseline_run_id == "baseline"
+    assert len(summary.comparisons) == 1
+    assert summary.comparisons[0].candidate_run_id == "mesh_independence:coarse"
+
+
 def test_load_skill_registry_returns_submarine_skill_defs():
     registry = load_skill_registry()
 
