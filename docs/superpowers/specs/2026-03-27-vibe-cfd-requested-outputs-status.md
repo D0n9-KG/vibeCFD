@@ -347,6 +347,100 @@ Broader verification:
 - `cd frontend && node_modules/.bin/tsc.cmd --noEmit`
 - result: passed
 
+## 15. 2026-03-28 Addendum: Unified Research Evidence Chain
+
+This session connected the existing experiment, verification, benchmark, and delivery summaries into one explicit research-facing evidence layer.
+
+### 15.1 What Changed
+
+The repository now emits a structured `research_evidence_summary` that sits above:
+
+- `acceptance_assessment`
+- `scientific_verification_assessment`
+- `scientific_study_summary`
+- `experiment_summary`
+- `output_delivery_plan`
+
+This new layer does not replace those blocks. It interprets them together and answers the more important research question:
+
+- what can this run legitimately claim right now?
+
+### 15.2 Conservative Readiness Rule
+
+The top-level semantics are now intentionally stricter:
+
+- without an external validation reference, the highest default readiness is `verified_but_not_validated`
+
+That means the repository now explicitly distinguishes:
+
+- numerical verification strength
+- external validation support
+- provenance traceability
+
+The system no longer treats strong numerical verification alone as enough for generic `research_ready`.
+
+### 15.3 New Artifact And Reporting Layer
+
+`backend/packages/harness/deerflow/domain/submarine/reporting.py` now emits:
+
+- `research-evidence-summary.json`
+- `research_evidence_summary` inside `final-report.json`
+
+The new summary normalizes three dimensions:
+
+- `verification_status`
+- `validation_status`
+- `provenance_status`
+
+and aggregates them into a top-level readiness status:
+
+- `blocked`
+- `insufficient_evidence`
+- `verified_but_not_validated`
+- `validated_with_gaps`
+- `research_ready`
+
+### 15.4 Provenance Semantics
+
+This session also tightened one important nuance in the provenance layer.
+
+`traceable` provenance no longer depends on user-requested output cards alone. A run can now be considered traceable when the core research evidence trail is present via:
+
+- solver results
+- scientific verification artifacts
+- study manifest
+- experiment manifest
+- compare summary
+- report entrypoints
+
+This matters because research evidence should not be downgraded merely because the user did not request extra presentation-oriented output artifacts.
+
+### 15.5 Workbench Changes
+
+The submarine workbench now surfaces a compact research evidence section that shows:
+
+- research readiness
+- verification status
+- validation status
+- provenance status
+- confidence
+- passed evidence
+- evidence gaps
+- benchmark highlights
+- provenance highlights
+- evidence artifact entrypoints
+
+This keeps the UI agentic and compact while making the evidence semantics much harder to misuse.
+
+### 15.6 Remaining Gap
+
+This is a major evidence-layer step, but it is still not the final research platform:
+
+- supervisor transitions are still softer than a dedicated scientific state machine
+- provenance is still summary-based rather than a full audit graph
+- validation still depends on case-local benchmark targets rather than a broader validation registry
+- publication-grade figures and compare views are still a later slice
+
 ## 14. 2026-03-28 Addendum: Experiment Registry And Run Compare v1
 
 This session extended the scientific-study work into a lightweight experiment registry so baseline and variant runs are now explicit members of a shared compareable experiment, instead of a loose collection of artifacts.
