@@ -507,6 +507,33 @@ def test_submarine_domain_builds_scientific_supervisor_gate_semantics():
     assert blocked_gate["recommended_stage"] == "solver-dispatch"
 
 
+def test_submarine_domain_exposes_figure_manifest_contract():
+    figure_delivery_module = importlib.import_module(
+        "deerflow.domain.submarine.figure_delivery"
+    )
+
+    manifest = figure_delivery_module.build_figure_manifest(
+        run_dir_name="demo-run",
+        figures=[
+            {
+                "figure_id": "surface_pressure_contour:latest",
+                "output_id": "surface_pressure_contour",
+                "title": "Surface Pressure Figure",
+                "caption": "Surface pressure rendered from the latest exported samples.",
+                "render_status": "rendered",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo-run/surface-pressure.png"
+                ],
+            }
+        ],
+    )
+
+    assert manifest["run_dir_name"] == "demo-run"
+    assert manifest["figure_count"] == 1
+    assert manifest["figures"][0]["figure_id"] == "surface_pressure_contour:latest"
+    assert manifest["figures"][0]["render_status"] == "rendered"
+
+
 def test_load_skill_registry_returns_submarine_skill_defs():
     registry = load_skill_registry()
 
