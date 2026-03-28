@@ -42,6 +42,7 @@ import {
   buildSubmarineExperimentSummary,
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineResultCards,
+  buildSubmarineScientificGateSummary,
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
   filterSubmarineArtifactGroups,
@@ -73,6 +74,9 @@ type SubmarineRuntimeSnapshot = {
   simulation_requirements?: Record<string, number | null> | null;
   stage_status?: string | null;
   review_status?: string | null;
+  scientific_gate_status?: string | null;
+  allowed_claim_level?: string | null;
+  scientific_gate_virtual_path?: string | null;
   next_recommended_stage?: string | null;
   report_virtual_path?: string | null;
   workspace_case_dir_virtual_path?: string | null;
@@ -158,6 +162,16 @@ type FinalReportPayload = {
     passed_evidence?: string[] | null;
     benchmark_highlights?: string[] | null;
     provenance_highlights?: string[] | null;
+    artifact_virtual_paths?: string[] | null;
+  } | null;
+  scientific_supervisor_gate?: {
+    gate_status?: string | null;
+    allowed_claim_level?: string | null;
+    source_readiness_status?: string | null;
+    recommended_stage?: string | null;
+    remediation_stage?: string | null;
+    blocking_reasons?: string[] | null;
+    advisory_notes?: string[] | null;
     artifact_virtual_paths?: string[] | null;
   } | null;
   experiment_summary?: {
@@ -446,6 +460,33 @@ export function SubmarineRuntimePanel({
     () => buildSubmarineResearchEvidenceSummary(finalReport),
     [finalReport],
   );
+  const scientificGateSummary = useMemo(
+    () =>
+      buildSubmarineScientificGateSummary(
+        finalReport?.scientific_supervisor_gate
+          ? finalReport
+          : runtime?.scientific_gate_status || runtime?.allowed_claim_level
+            ? {
+                scientific_supervisor_gate: {
+                  gate_status: runtime?.scientific_gate_status,
+                  allowed_claim_level: runtime?.allowed_claim_level,
+                  source_readiness_status: runtime?.allowed_claim_level,
+                  recommended_stage: runtime?.next_recommended_stage,
+                  artifact_virtual_paths: runtime?.scientific_gate_virtual_path
+                    ? [runtime.scientific_gate_virtual_path]
+                    : [],
+                },
+              }
+            : null,
+      ),
+    [
+      finalReport,
+      runtime?.allowed_claim_level,
+      runtime?.next_recommended_stage,
+      runtime?.scientific_gate_status,
+      runtime?.scientific_gate_virtual_path,
+    ],
+  );
   const experimentSummary = useMemo(
     () => buildSubmarineExperimentSummary(finalReport),
     [finalReport],
@@ -651,7 +692,16 @@ export function SubmarineRuntimePanel({
               <div className="grid gap-3 md:grid-cols-3">
                 <StatusTile icon={ShipWheelIcon} label="几何就绪" value={dispatchPayload?.requires_geometry_conversion ? "待转换" : runtime?.geometry_virtual_path ? "可求解" : "待上传"} note={dispatchPayload?.requires_geometry_conversion ? "当前上传格式需要先转换成 STL。" : runtime?.geometry_virtual_path ? "当前线程已经具备几何输入。" : "当前线程还没有潜艇几何输入。"} />
                 <StatusTile icon={RadarIcon} label="求解执行" value={solverMetrics?.solver_completed ? "已完成" : runtime?.current_stage === "solver-dispatch" ? "执行中" : "待执行"} note={solverMetrics?.solver_completed ? `最终时间步 ${formatNumeric(solverMetrics.final_time_seconds, 0, " s")}` : runtime?.current_stage === "solver-dispatch" ? runtime?.stage_status ?? "等待更多求解产物。" : "完成几何预检与案例确认后，可进入真实 OpenFOAM 求解。"} />
-                <StatusTile icon={Layers2Icon} label="Supervisor 复核" value={formatReviewStatus(runtime?.review_status)} note={`下一阶段：${formatStage(runtime?.next_recommended_stage)}`} />
+                <StatusTile
+                  icon={Layers2Icon}
+                  label="Supervisor 复核"
+                  value={formatReviewStatus(runtime?.review_status)}
+                  note={
+                    scientificGateSummary
+                      ? `Scientific gate：${scientificGateSummary.gateStatusLabel}；claim level：${scientificGateSummary.allowedClaimLevelLabel}；下一阶段：${formatStage(runtime?.next_recommended_stage)}`
+                      : `下一阶段：${formatStage(runtime?.next_recommended_stage)}`
+                  }
+                />
               </div>
               {acceptanceSummary ? (
                 <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
@@ -693,6 +743,49 @@ export function SubmarineRuntimePanel({
                     emptyText="当前还没有记录请求输出的交付状态。"
                   />
                 </div>
+                ) : null}
+                {scientificGateSummary ? (
+                  <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                      <KeyValue
+                        label="Scientific Gate"
+                        value={scientificGateSummary.gateStatusLabel}
+                      />
+                      <KeyValue
+                        label="Allowed Claim"
+                        value={scientificGateSummary.allowedClaimLevelLabel}
+                      />
+                      <KeyValue
+                        label="Source Readiness"
+                        value={scientificGateSummary.sourceReadinessLabel}
+                      />
+                      <KeyValue
+                        label="Recommended Stage"
+                        value={scientificGateSummary.recommendedStageLabel}
+                      />
+                      <KeyValue
+                        label="Remediation"
+                        value={scientificGateSummary.remediationStageLabel}
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      <LabeledList
+                        title="Blocking Reasons"
+                        items={scientificGateSummary.blockingReasons}
+                        emptyText="No scientific supervisor blockers are recorded."
+                      />
+                      <LabeledList
+                        title="Advisory Notes"
+                        items={scientificGateSummary.advisoryNotes}
+                        emptyText="No scientific supervisor advisory notes are recorded."
+                      />
+                      <LabeledList
+                        title="Gate Artifacts"
+                        items={scientificGateSummary.artifactPaths}
+                        emptyText="No scientific supervisor gate artifacts are recorded."
+                      />
+                    </div>
+                  </div>
                 ) : null}
                 {researchEvidenceSummary ? (
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
