@@ -1755,6 +1755,71 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
         ),
         encoding="utf-8",
     )
+    (solver_results_dir / "run-record.json").write_text(
+        json.dumps(
+            {
+                "run_id": "baseline",
+                "experiment_id": "darpa-suboff-bare-hull-resistance-experiment-summary-resistance",
+                "run_role": "baseline",
+                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/solver-results.json",
+                "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/run-record.json",
+                "execution_status": "completed",
+                "metric_snapshot": {
+                    "Cd": 0.12,
+                    "Fx": 8.0,
+                    "final_time_seconds": 200.0,
+                    "mesh_cells": 9342,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    variant_dir = (
+        solver_results_dir
+        / "studies"
+        / "mesh-independence"
+        / "coarse"
+    )
+    variant_dir.mkdir(parents=True, exist_ok=True)
+    (variant_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "mesh_summary": {"mesh_ok": True, "cells": 8120},
+                "latest_force_coefficients": {"Cd": 0.1212},
+                "latest_forces": {"total_force": [8.2, 0.0, 0.0]},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (variant_dir / "run-record.json").write_text(
+        json.dumps(
+            {
+                "run_id": "mesh_independence:coarse",
+                "experiment_id": "darpa-suboff-bare-hull-resistance-experiment-summary-resistance",
+                "run_role": "scientific_study_variant",
+                "study_type": "mesh_independence",
+                "variant_id": "coarse",
+                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/studies/mesh-independence/coarse/solver-results.json",
+                "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/studies/mesh-independence/coarse/run-record.json",
+                "execution_status": "completed",
+                "metric_snapshot": {
+                    "Cd": 0.1212,
+                    "Fx": 8.2,
+                    "final_time_seconds": 200.0,
+                    "mesh_cells": 8120,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     (solver_results_dir / "experiment-manifest.json").write_text(
         json.dumps(
             {
@@ -1766,6 +1831,8 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
                     {
                         "run_id": "baseline",
                         "run_role": "baseline",
+                        "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/solver-results.json",
+                        "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/run-record.json",
                         "execution_status": "completed",
                     },
                     {
@@ -1773,6 +1840,8 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
                         "run_role": "scientific_study_variant",
                         "study_type": "mesh_independence",
                         "variant_id": "coarse",
+                        "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/studies/mesh-independence/coarse/solver-results.json",
+                        "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/experiment-summary/studies/mesh-independence/coarse/run-record.json",
                         "execution_status": "completed",
                     },
                 ],
@@ -1862,7 +1931,14 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
         ]
     )
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    final_markdown = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.md"
+    ).read_text(encoding="utf-8")
+    final_html = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.html"
+    ).read_text(encoding="utf-8")
     experiment_summary = final_payload["experiment_summary"]
+    experiment_compare = final_payload["experiment_compare_summary"]
 
     assert experiment_summary["experiment_id"] == (
         "darpa-suboff-bare-hull-resistance-experiment-summary-resistance"
@@ -1870,6 +1946,27 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
     assert experiment_summary["baseline_run_id"] == "baseline"
     assert experiment_summary["run_count"] == 2
     assert experiment_summary["compare_virtual_path"].endswith("/run-compare-summary.json")
+    assert experiment_compare["compare_count"] == 1
+    assert experiment_compare["baseline_run_id"] == "baseline"
+    assert experiment_compare["compare_virtual_path"].endswith("/run-compare-summary.json")
+    comparison = experiment_compare["comparisons"][0]
+    assert comparison["candidate_run_id"] == "mesh_independence:coarse"
+    assert comparison["study_type"] == "mesh_independence"
+    assert comparison["variant_id"] == "coarse"
+    assert comparison["compare_status"] == "completed"
+    assert comparison["baseline_solver_results_virtual_path"].endswith("/solver-results.json")
+    assert comparison["candidate_solver_results_virtual_path"].endswith(
+        "/studies/mesh-independence/coarse/solver-results.json"
+    )
+    assert comparison["baseline_run_record_virtual_path"].endswith("/run-record.json")
+    assert comparison["candidate_run_record_virtual_path"].endswith(
+        "/studies/mesh-independence/coarse/run-record.json"
+    )
+    assert comparison["metric_deltas"]["Cd"]["relative_delta"] == 0.01
+    assert "## Experiment Compare" in final_markdown
+    assert "mesh_independence:coarse" in final_markdown
+    assert "<h2>Experiment Compare</h2>" in final_html
+    assert "mesh_independence:coarse" in final_html
 
 
 def test_submarine_result_report_marks_verified_but_not_validated_without_benchmark_reference(

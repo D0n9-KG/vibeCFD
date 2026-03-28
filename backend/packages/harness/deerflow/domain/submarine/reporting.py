@@ -187,6 +187,74 @@ def _build_experiment_summary(
     }
 
 
+def _build_experiment_compare_summary(
+    *,
+    outputs_dir: Path,
+    artifact_virtual_paths: list[str],
+) -> dict | None:
+    manifest_loaded = _load_json_payload_from_artifacts(
+        outputs_dir,
+        artifact_virtual_paths,
+        "experiment-manifest.json",
+    )
+    compare_loaded = _load_json_payload_from_artifacts(
+        outputs_dir,
+        artifact_virtual_paths,
+        "run-compare-summary.json",
+    )
+    if manifest_loaded is None or compare_loaded is None:
+        return None
+
+    _, manifest = manifest_loaded
+    compare_virtual_path, compare_summary = compare_loaded
+    run_record_index = {
+        str(item.get("run_id") or "unknown"): item
+        for item in (manifest.get("run_records") or [])
+        if isinstance(item, dict)
+    }
+    baseline_run_id = str(compare_summary.get("baseline_run_id") or "baseline")
+    baseline_record = run_record_index.get(baseline_run_id, {})
+
+    comparisons: list[dict[str, object]] = []
+    for item in compare_summary.get("comparisons") or []:
+        if not isinstance(item, dict):
+            continue
+        candidate_run_id = str(item.get("candidate_run_id") or "unknown")
+        candidate_record = run_record_index.get(candidate_run_id, {})
+        comparisons.append(
+            {
+                "candidate_run_id": candidate_run_id,
+                "study_type": item.get("study_type"),
+                "variant_id": item.get("variant_id"),
+                "compare_status": item.get("compare_status"),
+                "notes": item.get("notes"),
+                "metric_deltas": item.get("metric_deltas") or {},
+                "baseline_solver_results_virtual_path": baseline_record.get(
+                    "solver_results_virtual_path"
+                ),
+                "candidate_solver_results_virtual_path": candidate_record.get(
+                    "solver_results_virtual_path"
+                ),
+                "baseline_run_record_virtual_path": baseline_record.get(
+                    "run_record_virtual_path"
+                ),
+                "candidate_run_record_virtual_path": candidate_record.get(
+                    "run_record_virtual_path"
+                ),
+            }
+        )
+
+    return {
+        "experiment_id": compare_summary.get("experiment_id") or manifest.get("experiment_id"),
+        "baseline_run_id": baseline_run_id,
+        "compare_count": len(comparisons),
+        "compare_virtual_path": compare_virtual_path,
+        "artifact_virtual_paths": compare_summary.get("artifact_virtual_paths")
+        or [compare_virtual_path],
+        "comparisons": comparisons,
+    }
+
+
 def _build_figure_delivery_summary(
     *,
     outputs_dir: Path,
@@ -934,6 +1002,64 @@ def _render_experiment_markdown(experiment_summary: dict | None) -> list[str]:
     return lines
 
 
+def _format_compare_metric_delta_lines(metric_deltas: object) -> list[str]:
+    if not isinstance(metric_deltas, dict):
+        return []
+
+    lines: list[str] = []
+    for metric_name, payload in metric_deltas.items():
+        if not isinstance(payload, dict):
+            continue
+        lines.append(
+            " ".join(
+                [
+                    f"{metric_name}:",
+                    f"baseline={payload.get('baseline_value')}",
+                    f"candidate={payload.get('candidate_value')}",
+                    f"delta={payload.get('absolute_delta')}",
+                    f"relative={_format_percent(payload.get('relative_delta'))}",
+                ]
+            )
+        )
+    return lines
+
+
+def _render_experiment_compare_markdown(
+    experiment_compare_summary: dict | None,
+) -> list[str]:
+    if not experiment_compare_summary:
+        return []
+
+    lines = [
+        "",
+        "## Experiment Compare",
+        f"- baseline_run_id: `{experiment_compare_summary.get('baseline_run_id')}`",
+        f"- compare_count: `{experiment_compare_summary.get('compare_count')}`",
+        f"- compare: `{experiment_compare_summary.get('compare_virtual_path')}`",
+    ]
+    comparisons = experiment_compare_summary.get("comparisons") or []
+    if comparisons:
+        lines.extend(["", "### Compare Entries"])
+        for item in comparisons:
+            if not isinstance(item, dict):
+                continue
+            metric_lines = _format_compare_metric_delta_lines(item.get("metric_deltas"))
+            detail = " | ".join(metric_lines) if metric_lines else str(item.get("notes") or "No metric delta")
+            lines.append(
+                "- "
+                + " | ".join(
+                    [
+                        f"`{item.get('candidate_run_id')}`",
+                        f"`{item.get('compare_status')}`",
+                        str(item.get("study_type") or "--"),
+                        str(item.get("variant_id") or "--"),
+                        detail,
+                    ]
+                )
+            )
+    return lines
+
+
 def _render_research_evidence_markdown(research_evidence_summary: dict | None) -> list[str]:
     if not research_evidence_summary:
         return []
@@ -1084,6 +1210,31 @@ def _render_experiment_html(experiment_summary: dict | None) -> str:
         f"{compare_html}"
         "<h3>Compare Summary</h3>"
         f"<ul>{compare_items}</ul>"
+        "</section>"
+    )
+
+
+def _render_experiment_compare_html(experiment_compare_summary: dict | None) -> str:
+    if not experiment_compare_summary:
+        return ""
+
+    items = "".join(
+        "<li>"
+        f"<strong>{escape(str(item.get('candidate_run_id') or '--'))}</strong> "
+        f"(<code>{escape(str(item.get('compare_status') or '--'))}</code>)"
+        f"<p>{escape(str(item.get('study_type') or '--'))} / {escape(str(item.get('variant_id') or '--'))}</p>"
+        f"<p>{escape(' | '.join(_format_compare_metric_delta_lines(item.get('metric_deltas'))) or str(item.get('notes') or 'No metric delta'))}</p>"
+        "</li>"
+        for item in (experiment_compare_summary.get("comparisons") or [])
+        if isinstance(item, dict)
+    ) or "<li>None</li>"
+    return (
+        '<section class="panel">'
+        "<h2>Experiment Compare</h2>"
+        f"<p><strong>baseline_run_id:</strong> {escape(str(experiment_compare_summary.get('baseline_run_id') or '--'))}</p>"
+        f"<p><strong>compare_count:</strong> {escape(str(experiment_compare_summary.get('compare_count') or 0))}</p>"
+        f"<p><strong>compare:</strong> {escape(str(experiment_compare_summary.get('compare_virtual_path') or '--'))}</p>"
+        f"<ul>{items}</ul>"
         "</section>"
     )
 
@@ -1503,6 +1654,7 @@ def _render_markdown(payload: dict) -> str:
     lines.extend(_render_research_evidence_markdown(payload.get("research_evidence_summary")))
     lines.extend(_render_scientific_gate_markdown(payload.get("scientific_supervisor_gate")))
     lines.extend(_render_scientific_study_markdown(payload.get("scientific_study_summary")))
+    lines.extend(_render_experiment_compare_markdown(payload.get("experiment_compare_summary")))
     lines.extend(_render_figure_delivery_markdown(payload.get("figure_delivery_summary")))
     lines.extend(
         _render_scientific_verification_markdown(
@@ -1674,6 +1826,9 @@ def _render_html(payload: dict) -> str:
     scientific_study_section = _render_scientific_study_html(
         payload.get("scientific_study_summary")
     )
+    experiment_compare_section = _render_experiment_compare_html(
+        payload.get("experiment_compare_summary")
+    )
     figure_delivery_section = _render_figure_delivery_html(
         payload.get("figure_delivery_summary")
     )
@@ -1756,6 +1911,7 @@ def _render_html(payload: dict) -> str:
       {research_evidence_section}
       {scientific_gate_section}
       {scientific_study_section}
+      {experiment_compare_section}
       {figure_delivery_section}
       {scientific_verification_section}
     {output_delivery_section}
@@ -1832,6 +1988,10 @@ def run_result_report(
         outputs_dir=outputs_dir,
         artifact_virtual_paths=all_artifacts,
     )
+    experiment_compare_summary = _build_experiment_compare_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+    )
     figure_delivery_summary = _build_figure_delivery_summary(
         outputs_dir=outputs_dir,
         artifact_virtual_paths=all_artifacts,
@@ -1898,6 +2058,7 @@ def run_result_report(
         "solver_metrics": solver_metrics,
         "acceptance_assessment": acceptance_assessment,
         "experiment_summary": experiment_summary,
+        "experiment_compare_summary": experiment_compare_summary,
         "research_evidence_summary": research_evidence_summary,
         "scientific_supervisor_gate": scientific_supervisor_gate,
         "scientific_study_summary": scientific_study_summary,
