@@ -226,6 +226,192 @@ def test_submarine_domain_exposes_research_evidence_summary_model():
     assert summary.provenance_status == "traceable"
 
 
+def test_submarine_domain_builds_research_evidence_summary_semantics():
+    evidence_module = importlib.import_module("deerflow.domain.submarine.evidence")
+
+    verified_only = evidence_module.build_research_evidence_summary(
+        acceptance_profile=None,
+        acceptance_assessment={
+            "status": "ready_for_review",
+            "confidence": "medium",
+            "benchmark_comparisons": [],
+            "blocking_issues": [],
+        },
+        scientific_verification_assessment={
+            "status": "research_ready",
+            "confidence": "high",
+            "blocking_issues": [],
+            "missing_evidence": [],
+            "passed_requirements": ["Scientific verification requirements passed."],
+        },
+        scientific_study_summary={
+            "study_execution_status": "completed",
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-mesh-independence.json",
+            ],
+        },
+        experiment_summary={
+            "experiment_status": "completed",
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+            "compare_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+            "run_count": 7,
+        },
+        output_delivery_plan=[
+            {
+                "output_id": "drag_coefficient",
+                "delivery_status": "delivered",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
+                ],
+            }
+        ],
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/final-report.json",
+            "/mnt/user-data/outputs/submarine/reports/demo/delivery-readiness.json",
+        ],
+    )
+    assert verified_only["verification_status"] == "passed"
+    assert verified_only["validation_status"] == "missing_validation_reference"
+    assert verified_only["provenance_status"] == "traceable"
+    assert verified_only["readiness_status"] == "verified_but_not_validated"
+
+    research_ready = evidence_module.build_research_evidence_summary(
+        acceptance_profile={
+            "benchmark_targets": [{"metric_id": "cd_at_3_05_mps"}],
+        },
+        acceptance_assessment={
+            "status": "ready_for_review",
+            "confidence": "high",
+            "benchmark_comparisons": [
+                {
+                    "metric_id": "cd_at_3_05_mps",
+                    "status": "passed",
+                    "detail": "Benchmark cd_at_3_05_mps passed.",
+                }
+            ],
+            "blocking_issues": [],
+        },
+        scientific_verification_assessment={
+            "status": "research_ready",
+            "confidence": "high",
+            "blocking_issues": [],
+            "missing_evidence": [],
+            "passed_requirements": ["Scientific verification requirements passed."],
+        },
+        scientific_study_summary={
+            "study_execution_status": "completed",
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
+            ],
+        },
+        experiment_summary={
+            "experiment_status": "completed",
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+            "compare_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+            "run_count": 7,
+        },
+        output_delivery_plan=[
+            {
+                "output_id": "drag_coefficient",
+                "delivery_status": "delivered",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
+                ],
+            }
+        ],
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/final-report.json",
+            "/mnt/user-data/outputs/submarine/reports/demo/delivery-readiness.json",
+            "/mnt/user-data/outputs/submarine/reports/demo/research-evidence-summary.json",
+        ],
+    )
+    assert research_ready["validation_status"] == "validated"
+    assert research_ready["readiness_status"] == "research_ready"
+
+    validation_failed = evidence_module.build_research_evidence_summary(
+        acceptance_profile={
+            "benchmark_targets": [{"metric_id": "cd_at_3_05_mps"}],
+        },
+        acceptance_assessment={
+            "status": "blocked",
+            "confidence": "low",
+            "benchmark_comparisons": [
+                {
+                    "metric_id": "cd_at_3_05_mps",
+                    "status": "blocked",
+                    "detail": "Benchmark cd_at_3_05_mps exceeded tolerance.",
+                }
+            ],
+            "blocking_issues": ["Benchmark cd_at_3_05_mps exceeded tolerance."],
+        },
+        scientific_verification_assessment={
+            "status": "research_ready",
+            "confidence": "high",
+            "blocking_issues": [],
+            "missing_evidence": [],
+            "passed_requirements": ["Scientific verification requirements passed."],
+        },
+        scientific_study_summary={
+            "study_execution_status": "completed",
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "artifact_virtual_paths": [],
+        },
+        experiment_summary={
+            "experiment_status": "completed",
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+            "compare_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+            "run_count": 7,
+        },
+        output_delivery_plan=[],
+        artifact_virtual_paths=[],
+    )
+    assert validation_failed["validation_status"] == "validation_failed"
+    assert validation_failed["readiness_status"] == "blocked"
+
+    validated_with_gaps = evidence_module.build_research_evidence_summary(
+        acceptance_profile={
+            "benchmark_targets": [{"metric_id": "cd_at_3_05_mps"}],
+        },
+        acceptance_assessment={
+            "status": "ready_for_review",
+            "confidence": "high",
+            "benchmark_comparisons": [
+                {
+                    "metric_id": "cd_at_3_05_mps",
+                    "status": "passed",
+                    "detail": "Benchmark cd_at_3_05_mps passed.",
+                }
+            ],
+            "blocking_issues": [],
+        },
+        scientific_verification_assessment={
+            "status": "research_ready",
+            "confidence": "high",
+            "blocking_issues": [],
+            "missing_evidence": [],
+            "passed_requirements": ["Scientific verification requirements passed."],
+        },
+        scientific_study_summary=None,
+        experiment_summary=None,
+        output_delivery_plan=[
+            {
+                "output_id": "drag_coefficient",
+                "delivery_status": "planned",
+                "artifact_virtual_paths": [],
+            }
+        ],
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/final-report.json"
+        ],
+    )
+    assert validated_with_gaps["validation_status"] == "validated"
+    assert validated_with_gaps["provenance_status"] == "partial"
+    assert validated_with_gaps["readiness_status"] == "validated_with_gaps"
+
+
 def test_load_skill_registry_returns_submarine_skill_defs():
     registry = load_skill_registry()
 
