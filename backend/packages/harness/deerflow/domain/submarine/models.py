@@ -6,6 +6,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+SubmarineScientificStudyType = Literal[
+    "mesh_independence",
+    "domain_sensitivity",
+    "time_step_sensitivity",
+]
+
 
 class ReferenceSource(BaseModel):
     title: str
@@ -40,6 +46,40 @@ class SubmarineScientificVerificationRequirement(BaseModel):
     minimum_history_samples: int | None = None
     max_tail_relative_spread: float | None = None
     max_value: float | None = None
+
+
+class SubmarineScientificStudyVariant(BaseModel):
+    study_type: SubmarineScientificStudyType
+    variant_id: str
+    variant_label: str
+    parameter_overrides: dict[str, float | int | str] = Field(default_factory=dict)
+    rationale: str
+
+
+class SubmarineScientificStudyDefinition(BaseModel):
+    study_type: SubmarineScientificStudyType
+    summary_label: str
+    monitored_quantity: str
+    pass_fail_tolerance: float
+    variants: list[SubmarineScientificStudyVariant] = Field(default_factory=list)
+
+
+class SubmarineScientificStudyManifest(BaseModel):
+    selected_case_id: str
+    baseline_configuration_snapshot: dict[str, object] = Field(default_factory=dict)
+    study_definitions: list[SubmarineScientificStudyDefinition] = Field(default_factory=list)
+    artifact_virtual_paths: list[str] = Field(default_factory=list)
+    study_execution_status: Literal["planned", "in_progress", "completed", "blocked"] = "planned"
+
+
+class SubmarineScientificStudyResult(BaseModel):
+    study_type: SubmarineScientificStudyType
+    monitored_quantity: str
+    baseline_value: float | None = None
+    compared_values: list[dict[str, object]] = Field(default_factory=list)
+    relative_spread: float | None = None
+    status: Literal["passed", "blocked", "missing_evidence"]
+    summary_zh: str
 
 
 class SubmarineCaseAcceptanceProfile(BaseModel):

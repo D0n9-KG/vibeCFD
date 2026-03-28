@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 from collections.abc import Callable
@@ -10,7 +11,7 @@ from pathlib import Path
 
 from .contracts import SubmarineRequestedOutput, build_supervisor_review_contract
 from .geometry_check import inspect_geometry_file
-from .library import rank_cases
+from .library import load_case_library, rank_cases
 from .models import (
     GeometryInspection,
     SubmarineCaseMatch,
@@ -19,6 +20,13 @@ from .output_contract import build_output_delivery_plan
 from .postprocess import (
     collect_requested_postprocess_artifacts,
     render_requested_postprocess_function_objects,
+)
+from .studies import (
+    build_completed_scientific_study_results,
+    build_pending_scientific_study_results,
+    build_scientific_study_manifest,
+    build_scientific_study_plan_payload,
+    build_scientific_study_variant_execution,
 )
 
 WORKSPACE_VIRTUAL_ROOT = "/mnt/user-data/workspace"
@@ -43,14 +51,52 @@ def _artifact_virtual_path(run_dir_name: str, filename: str) -> str:
     return f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/{filename}"
 
 
-def _workspace_virtual_path(run_dir_name: str, suffix: str = "") -> str:
-    base = f"{WORKSPACE_VIRTUAL_ROOT}/submarine/solver-dispatch/{run_dir_name}/openfoam-case"
+def _workspace_virtual_path(
+    run_dir_name: str,
+    suffix: str = "",
+    *,
+    case_relative_dir: str = "",
+) -> str:
+    relative = f"/{case_relative_dir.strip('/')}" if case_relative_dir else ""
+    base = (
+        f"{WORKSPACE_VIRTUAL_ROOT}/submarine/solver-dispatch/"
+        f"{run_dir_name}{relative}/openfoam-case"
+    )
     return f"{base}/{suffix}".rstrip("/") if suffix else base
 
 
+def _study_slug(study_type: str) -> str:
+    return study_type.replace("_", "-")
+
+
+def _study_variant_virtual_path(
+    run_dir_name: str,
+    study_type: str,
+    variant_id: str,
+    filename: str,
+) -> str:
+    return (
+        f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/studies/"
+        f"{_study_slug(study_type)}/{variant_id}/{filename}"
+    )
+
+
+def _study_case_relative_dir(study_type: str, variant_id: str) -> str:
+    return f"studies/{_study_slug(study_type)}/{variant_id}"
+
+
 def _write_unix_text(path: Path, content: str) -> None:
-    with path.open("w", encoding="utf-8", newline="\n") as file:
+    with _platform_fs_path(path).open("w", encoding="utf-8", newline="\n") as file:
         file.write(content)
+
+
+def _platform_fs_path(path: Path) -> Path:
+    if os.name != "nt":
+        return path
+    raw = str(path.resolve())
+    if raw.startswith("\\\\?\\"):
+        return Path(raw)
+    return Path(f"\\\\?\\{raw}")
 
 
 def _select_case(candidate_cases: list[SubmarineCaseMatch], selected_case_id: str | None) -> SubmarineCaseMatch | None:
@@ -550,10 +596,17 @@ boundaryField
 """
 
 
-def _block_mesh_dict(domain_length: float) -> str:
+def _block_mesh_dict(
+    domain_length: float,
+    *,
+    mesh_scale_factor: float = 1.0,
+) -> str:
     upstream = round(-2.0 * domain_length, 3)
     downstream = round(4.0 * domain_length, 3)
     half_span = round(2.0 * domain_length, 3)
+    cells_x = max(int(round(80 * mesh_scale_factor)), 32)
+    cells_y = max(int(round(40 * mesh_scale_factor)), 16)
+    cells_z = max(int(round(40 * mesh_scale_factor)), 16)
     return f"""FoamFile
 {{
     version 2.0;
@@ -578,7 +631,7 @@ vertices
 
 blocks
 (
-    hex (0 1 2 3 4 5 6 7) (80 40 40) simpleGrading (1 1 1)
+    hex (0 1 2 3 4 5 6 7) ({cells_x} {cells_y} {cells_z}) simpleGrading (1 1 1)
 );
 
 edges ();
@@ -633,11 +686,24 @@ subsetFeatures
 """
 
 
-def _snappy_hex_mesh_dict(geometry_file_name: str, domain_length: float) -> str:
+def _snappy_hex_mesh_dict(
+    geometry_file_name: str,
+    domain_length: float,
+    *,
+    mesh_scale_factor: float = 1.0,
+) -> str:
     geometry_stem = Path(geometry_file_name).stem
     keep_x = round(-0.5 * domain_length, 3)
     keep_y = round(0.15 * domain_length, 3)
     keep_z = round(0.15 * domain_length, 3)
+    max_local_cells = max(int(round(100000 * mesh_scale_factor)), 50000)
+    max_global_cells = max(int(round(2000000 * mesh_scale_factor)), 500000)
+    if mesh_scale_factor >= 1.15:
+        refinement_levels = (3, 4)
+    elif mesh_scale_factor <= 0.85:
+        refinement_levels = (1, 2)
+    else:
+        refinement_levels = (2, 3)
     return f"""FoamFile
 {{
     version 2.0;
@@ -663,8 +729,8 @@ geometry
 
 castellatedMeshControls
 {{
-    maxLocalCells 100000;
-    maxGlobalCells 2000000;
+    maxLocalCells {max_local_cells};
+    maxGlobalCells {max_global_cells};
     minRefinementCells 0;
     nCellsBetweenLevels 3;
 
@@ -680,7 +746,7 @@ castellatedMeshControls
     {{
         hull
         {{
-            level (2 3);
+            level ({refinement_levels[0]} {refinement_levels[1]});
             patchInfo
             {{
                 type wall;
@@ -747,11 +813,20 @@ def _solver_results_virtual_path(run_dir_name: str, filename: str) -> str:
     return _artifact_virtual_path(run_dir_name, filename)
 
 
-def _workspace_postprocess_virtual_path(run_dir_name: str) -> str:
-    return _workspace_virtual_path(run_dir_name, "postProcessing")
+def _workspace_postprocess_virtual_path(
+    run_dir_name: str,
+    *,
+    case_relative_dir: str = "",
+) -> str:
+    return _workspace_virtual_path(
+        run_dir_name,
+        "postProcessing",
+        case_relative_dir=case_relative_dir,
+    )
 
 
 def _find_latest_postprocess_file(case_dir: Path, object_name: str, filename: str) -> Path | None:
+    case_dir = _platform_fs_path(case_dir)
     root = case_dir / "postProcessing" / object_name
     if not root.exists():
         return None
@@ -1253,6 +1328,7 @@ def _collect_solver_results(
     *,
     case_dir: Path,
     run_dir_name: str,
+    case_relative_dir: str = "",
     command_output: str,
     reference_values: dict[str, float],
     simulation_requirements: dict[str, float | int],
@@ -1273,7 +1349,10 @@ def _collect_solver_results(
     return {
         "solver_completed": _solver_completed_successfully(command_output),
         "final_time_seconds": _parse_final_time_seconds(command_output),
-        "workspace_postprocess_virtual_path": _workspace_postprocess_virtual_path(run_dir_name),
+        "workspace_postprocess_virtual_path": _workspace_postprocess_virtual_path(
+            run_dir_name,
+            case_relative_dir=case_relative_dir,
+        ),
         "mesh_summary": _parse_mesh_summary(command_output),
         "residual_summary": _build_residual_summary(residual_history),
         "latest_force_coefficients": coeffs,
@@ -1282,6 +1361,19 @@ def _collect_solver_results(
         "forces_history": force_history,
         "reference_values": reference_values,
         "simulation_requirements": simulation_requirements,
+    }
+
+
+def _solver_reference_values(case_scaffold: dict[str, str | bool]) -> dict[str, float]:
+    return {
+        "reference_length_m": float(case_scaffold.get("reference_length_m", 0.0)),
+        "reference_area_m2": float(case_scaffold.get("reference_area_m2", 0.0)),
+        "inlet_velocity_mps": float(
+            case_scaffold.get("inlet_velocity_mps", DEFAULT_INLET_VELOCITY_MPS)
+        ),
+        "fluid_density_kg_m3": float(
+            case_scaffold.get("fluid_density_kg_m3", DEFAULT_FLUID_DENSITY_KG_M3)
+        ),
     }
 
 
@@ -1308,15 +1400,23 @@ def _write_openfoam_case_scaffold(
     selected_case: SubmarineCaseMatch | None,
     simulation_requirements: dict[str, float | int],
     requested_outputs: list[dict] | None = None,
+    case_relative_dir: str = "",
+    mesh_scale_factor: float = 1.0,
+    domain_extent_multiplier: float = 1.0,
 ) -> dict[str, str | bool]:
-    case_dir = workspace_dir / "submarine" / "solver-dispatch" / run_dir_name / "openfoam-case"
-    (case_dir / "0").mkdir(parents=True, exist_ok=True)
-    (case_dir / "constant" / "triSurface").mkdir(parents=True, exist_ok=True)
-    (case_dir / "constant" / "source-geometry").mkdir(parents=True, exist_ok=True)
-    (case_dir / "system").mkdir(parents=True, exist_ok=True)
+    case_root_dir = workspace_dir / "submarine" / "solver-dispatch" / run_dir_name
+    if case_relative_dir:
+        case_root_dir = case_root_dir / Path(case_relative_dir)
+    case_dir = case_root_dir / "openfoam-case"
+    case_dir_fs = _platform_fs_path(case_dir)
+    (case_dir_fs / "0").mkdir(parents=True, exist_ok=True)
+    (case_dir_fs / "constant" / "triSurface").mkdir(parents=True, exist_ok=True)
+    (case_dir_fs / "constant" / "source-geometry").mkdir(parents=True, exist_ok=True)
+    (case_dir_fs / "system").mkdir(parents=True, exist_ok=True)
 
     application = _resolve_solver_application(selected_case)
-    domain_length = max((geometry.estimated_length_m or 10.0) * 2.0, 20.0)
+    base_domain_length = max((geometry.estimated_length_m or 10.0) * 2.0, 20.0)
+    domain_length = max(base_domain_length * domain_extent_multiplier, 1.0)
     reference_length_m = _reference_length_m(geometry)
     reference_area_m2 = _reference_area_m2(geometry)
     requires_conversion = geometry_path.suffix.lower() != ".stl"
@@ -1357,28 +1457,45 @@ def _write_openfoam_case_scaffold(
     _write_unix_text(case_dir / "system" / "fvSchemes", _fv_schemes())
     _write_unix_text(case_dir / "system" / "fvSolution", _fv_solution())
     _write_unix_text(case_dir / "system" / "meshQualityDict", _mesh_quality_dict())
-    _write_unix_text(case_dir / "system" / "blockMeshDict", _block_mesh_dict(domain_length))
+    _write_unix_text(
+        case_dir / "system" / "blockMeshDict",
+        _block_mesh_dict(domain_length, mesh_scale_factor=mesh_scale_factor),
+    )
 
     if requires_conversion:
-        source_geometry_path = case_dir / "constant" / "source-geometry" / geometry_path.name
-        shutil.copy2(geometry_path, source_geometry_path)
+        source_geometry_path = case_dir_fs / "constant" / "source-geometry" / geometry_path.name
+        shutil.copy2(_platform_fs_path(geometry_path), source_geometry_path)
         _write_unix_text(
             case_dir / "GEOMETRY_CONVERSION_REQUIRED.txt",
             "The uploaded geometry must be converted to STL before snappyHexMesh can run.\n",
         )
     else:
-        tri_surface_path = case_dir / "constant" / "triSurface" / geometry_path.name
-        shutil.copy2(geometry_path, tri_surface_path)
+        tri_surface_path = case_dir_fs / "constant" / "triSurface" / geometry_path.name
+        shutil.copy2(_platform_fs_path(geometry_path), tri_surface_path)
         _write_unix_text(case_dir / "system" / "surfaceFeaturesDict", _surface_features_dict(geometry_path.name))
-        _write_unix_text(case_dir / "system" / "snappyHexMeshDict", _snappy_hex_mesh_dict(geometry_path.name, domain_length))
+        _write_unix_text(
+            case_dir / "system" / "snappyHexMeshDict",
+            _snappy_hex_mesh_dict(
+                geometry_path.name,
+                domain_length,
+                mesh_scale_factor=mesh_scale_factor,
+            ),
+        )
 
-    allrun_path = case_dir / "Allrun"
+    allrun_path = case_dir_fs / "Allrun"
     _write_unix_text(allrun_path, _allrun_script(application, geometry_path.name, requires_conversion))
     allrun_path.chmod(0o755)
 
     return {
-        "workspace_case_dir_virtual_path": _workspace_virtual_path(run_dir_name),
-        "run_script_virtual_path": _workspace_virtual_path(run_dir_name, "Allrun"),
+        "workspace_case_dir_virtual_path": _workspace_virtual_path(
+            run_dir_name,
+            case_relative_dir=case_relative_dir,
+        ),
+        "run_script_virtual_path": _workspace_virtual_path(
+            run_dir_name,
+            "Allrun",
+            case_relative_dir=case_relative_dir,
+        ),
         "requires_geometry_conversion": requires_conversion,
         "execution_readiness": execution_readiness,
         "solver_application": application,
@@ -1390,6 +1507,8 @@ def _write_openfoam_case_scaffold(
         "end_time_seconds": float(simulation_requirements["end_time_seconds"]),
         "delta_t_seconds": float(simulation_requirements["delta_t_seconds"]),
         "write_interval_steps": int(simulation_requirements["write_interval_steps"]),
+        "mesh_scale_factor": mesh_scale_factor,
+        "domain_extent_multiplier": domain_extent_multiplier,
     }
 
 
@@ -1571,6 +1690,7 @@ def run_solver_dispatch(
     requested_outputs: list[dict] | None = None,
     solver_command: str | None = None,
     execute_now: bool = False,
+    execute_scientific_studies: bool = False,
     execute_command: Callable[[str], str] | None = None,
 ) -> tuple[dict, list[str]]:
     geometry = inspect_geometry_file(geometry_path, geometry_family_hint)
@@ -1601,10 +1721,50 @@ def run_solver_dispatch(
     request_path = artifact_dir / "openfoam-request.json"
     markdown_path = artifact_dir / "dispatch-summary.md"
     html_path = artifact_dir / "dispatch-summary.html"
+    study_plan_path = artifact_dir / "study-plan.json"
+    study_manifest_path = artifact_dir / "study-manifest.json"
     log_path = artifact_dir / "openfoam-run.log"
     handoff_path = artifact_dir / "supervisor-handoff.json"
     solver_results_json_path = artifact_dir / "solver-results.json"
     solver_results_md_path = artifact_dir / "solver-results.md"
+
+    selected_case_definition = None
+    if selected_case is not None:
+        selected_case_definition = load_case_library().case_index.get(selected_case.case_id)
+
+    scientific_study_manifest_model = None
+    scientific_study_plan: dict | None = None
+    scientific_study_manifest: dict | None = None
+    planned_study_artifact_paths: list[str] = []
+    if selected_case_definition is not None:
+        scientific_study_manifest_model = build_scientific_study_manifest(
+            selected_case=selected_case_definition,
+            simulation_requirements=simulation_requirements,
+            baseline_configuration_snapshot={
+                "task_type": task_type,
+                "geometry_family": geometry.geometry_family,
+                "recommended_solver": selected_case_definition.recommended_solver,
+            },
+        )
+        planned_study_artifact_paths.extend(
+            [
+                _study_variant_virtual_path(
+                    run_dir_name,
+                    definition.study_type,
+                    variant.variant_id,
+                    "solver-results.json",
+                )
+                for definition in scientific_study_manifest_model.study_definitions
+                for variant in definition.variants
+            ]
+        )
+        scientific_study_manifest_model = scientific_study_manifest_model.model_copy(
+            update={"artifact_virtual_paths": planned_study_artifact_paths}
+        )
+        scientific_study_plan = build_scientific_study_plan_payload(
+            scientific_study_manifest_model
+        )
+        scientific_study_manifest = scientific_study_manifest_model.model_dump(mode="json")
 
     case_scaffold: dict[str, str | bool] = {}
     if workspace_dir is not None:
@@ -1626,6 +1786,8 @@ def run_solver_dispatch(
     execution_log_virtual_path: str | None = None
     solver_results: dict | None = None
     requested_postprocess_artifacts: list[str] = []
+    scientific_study_artifacts: list[str] = []
+    scientific_variant_results: dict[str, dict[str, dict[str, object] | None]] = {}
     if execute_now and effective_solver_command and execute_command is not None:
         command_output = execute_command(effective_solver_command)
         log_path.write_text(command_output, encoding="utf-8")
@@ -1637,12 +1799,7 @@ def run_solver_dispatch(
                 case_dir=case_dir,
                 run_dir_name=run_dir_name,
                 command_output=command_output,
-                reference_values={
-                    "reference_length_m": float(case_scaffold.get("reference_length_m", 0.0)),
-                    "reference_area_m2": float(case_scaffold.get("reference_area_m2", 0.0)),
-                    "inlet_velocity_mps": float(case_scaffold.get("inlet_velocity_mps", DEFAULT_INLET_VELOCITY_MPS)),
-                    "fluid_density_kg_m3": float(case_scaffold.get("fluid_density_kg_m3", DEFAULT_FLUID_DENSITY_KG_M3)),
-                },
+                reference_values=_solver_reference_values(case_scaffold),
                 simulation_requirements=simulation_requirements,
             )
             solver_results_json_path.write_text(
@@ -1662,12 +1819,236 @@ def run_solver_dispatch(
                 write_text=_write_unix_text,
             )
 
+    if scientific_study_manifest_model is not None:
+        study_results = []
+        if solver_results is not None:
+            verification_artifact_paths: list[str] = []
+            if execute_scientific_studies and execute_command is not None and workspace_dir is not None:
+                study_execution_status = "in_progress"
+                variant_execution_blocked = False
+
+                for definition in scientific_study_manifest_model.study_definitions:
+                    study_variant_results = scientific_variant_results.setdefault(
+                        definition.study_type,
+                        {},
+                    )
+                    for variant in definition.variants:
+                        variant_output_path = (
+                            artifact_dir
+                            / "studies"
+                            / _study_slug(definition.study_type)
+                            / variant.variant_id
+                            / "solver-results.json"
+                        )
+                        variant_output_path.parent.mkdir(parents=True, exist_ok=True)
+                        variant_virtual_path = _study_variant_virtual_path(
+                            run_dir_name,
+                            definition.study_type,
+                            variant.variant_id,
+                            "solver-results.json",
+                        )
+
+                        if variant.variant_id == "baseline":
+                            baseline_variant_payload = {
+                                **solver_results,
+                                "study_type": definition.study_type,
+                                "variant_id": variant.variant_id,
+                                "variant_label": variant.variant_label,
+                                "execution_status": "completed",
+                                "parameter_overrides": variant.parameter_overrides,
+                                "baseline_solver_results_virtual_path": _solver_results_virtual_path(
+                                    run_dir_name,
+                                    "solver-results.json",
+                                ),
+                            }
+                            study_variant_results[variant.variant_id] = baseline_variant_payload
+                            variant_output_path.write_text(
+                                json.dumps(
+                                    baseline_variant_payload,
+                                    ensure_ascii=False,
+                                    indent=2,
+                                ),
+                                encoding="utf-8",
+                            )
+                            scientific_study_artifacts.append(variant_virtual_path)
+                            continue
+
+                        case_relative_dir = _study_case_relative_dir(
+                            definition.study_type,
+                            variant.variant_id,
+                        )
+                        variant_execution = build_scientific_study_variant_execution(
+                            variant=variant,
+                            simulation_requirements=simulation_requirements,
+                        )
+                        variant_scaffold = _write_openfoam_case_scaffold(
+                            workspace_dir=workspace_dir,
+                            run_dir_name=run_dir_name,
+                            geometry_path=geometry_path,
+                            geometry=geometry,
+                            selected_case=selected_case,
+                            simulation_requirements=variant_execution["simulation_requirements"],
+                            case_relative_dir=case_relative_dir,
+                            mesh_scale_factor=float(variant_execution["mesh_scale_factor"]),
+                            domain_extent_multiplier=float(
+                                variant_execution["domain_extent_multiplier"]
+                            ),
+                        )
+                        variant_command = (
+                            f"bash {variant_scaffold['run_script_virtual_path']}"
+                            if variant_scaffold.get("run_script_virtual_path")
+                            else None
+                        )
+                        variant_command_output = (
+                            execute_command(variant_command) if variant_command else ""
+                        )
+                        variant_failed = (
+                            not variant_command
+                            or _looks_like_solver_failure(variant_command_output)
+                            or bool(variant_scaffold.get("requires_geometry_conversion"))
+                        )
+                        variant_case_dir = (
+                            workspace_dir
+                            / "submarine"
+                            / "solver-dispatch"
+                            / run_dir_name
+                            / Path(case_relative_dir)
+                            / "openfoam-case"
+                        )
+                        variant_solver_results: dict[str, object] | None = None
+                        if not variant_failed:
+                            variant_solver_results = _collect_solver_results(
+                                case_dir=variant_case_dir,
+                                run_dir_name=run_dir_name,
+                                case_relative_dir=case_relative_dir,
+                                command_output=variant_command_output,
+                                reference_values=_solver_reference_values(
+                                    variant_scaffold
+                                ),
+                                simulation_requirements=variant_execution[
+                                    "simulation_requirements"
+                                ],
+                            )
+                            if not variant_solver_results.get("solver_completed"):
+                                variant_failed = True
+
+                        variant_payload: dict[str, object] = {
+                            "study_type": definition.study_type,
+                            "variant_id": variant.variant_id,
+                            "variant_label": variant.variant_label,
+                            "parameter_overrides": variant.parameter_overrides,
+                            "solver_command": variant_command,
+                            "workspace_case_dir_virtual_path": variant_scaffold.get(
+                                "workspace_case_dir_virtual_path"
+                            ),
+                            "run_script_virtual_path": variant_scaffold.get(
+                                "run_script_virtual_path"
+                            ),
+                        }
+                        if variant_solver_results is not None:
+                            variant_payload.update(variant_solver_results)
+                        if variant_failed:
+                            variant_execution_blocked = True
+                            variant_payload["execution_status"] = "blocked"
+                            study_variant_results[variant.variant_id] = None
+                        else:
+                            variant_payload["execution_status"] = "completed"
+                            study_variant_results[variant.variant_id] = variant_payload
+
+                        variant_output_path.write_text(
+                            json.dumps(variant_payload, ensure_ascii=False, indent=2),
+                            encoding="utf-8",
+                        )
+                        scientific_study_artifacts.append(variant_virtual_path)
+
+                study_results = build_completed_scientific_study_results(
+                    manifest=scientific_study_manifest_model,
+                    baseline_solver_results=solver_results,
+                    variant_results=scientific_variant_results,
+                )
+                study_execution_status = (
+                    "blocked" if variant_execution_blocked else "completed"
+                )
+            else:
+                study_results = build_pending_scientific_study_results(
+                    manifest=scientific_study_manifest_model,
+                    baseline_solver_results=solver_results,
+                )
+                study_execution_status = scientific_study_manifest_model.study_execution_status
+                for definition in scientific_study_manifest_model.study_definitions:
+                    for variant in definition.variants:
+                        variant_output_path = (
+                            artifact_dir
+                            / "studies"
+                            / _study_slug(definition.study_type)
+                            / variant.variant_id
+                            / "solver-results.json"
+                        )
+                        variant_output_path.parent.mkdir(parents=True, exist_ok=True)
+                        variant_virtual_path = _study_variant_virtual_path(
+                            run_dir_name,
+                            definition.study_type,
+                            variant.variant_id,
+                            "solver-results.json",
+                        )
+                        variant_output_path.write_text(
+                            json.dumps(
+                                {
+                                    "study_type": definition.study_type,
+                                    "variant_id": variant.variant_id,
+                                    "variant_label": variant.variant_label,
+                                    "execution_status": "pending_variant_execution",
+                                    "parameter_overrides": variant.parameter_overrides,
+                                    "baseline_solver_results_virtual_path": _solver_results_virtual_path(
+                                        run_dir_name,
+                                        "solver-results.json",
+                                    ),
+                                },
+                                ensure_ascii=False,
+                                indent=2,
+                            ),
+                            encoding="utf-8",
+                        )
+                        scientific_study_artifacts.append(variant_virtual_path)
+
+            for result in study_results:
+                filename = f"verification-{_study_slug(result.study_type)}.json"
+                verification_path = artifact_dir / filename
+                verification_virtual_path = _artifact_virtual_path(run_dir_name, filename)
+                verification_path.write_text(
+                    json.dumps(result.model_dump(mode="json"), ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                verification_artifact_paths.append(verification_virtual_path)
+                scientific_study_artifacts.append(verification_virtual_path)
+
+            scientific_study_manifest_model = scientific_study_manifest_model.model_copy(
+                update={
+                    "artifact_virtual_paths": [
+                        *planned_study_artifact_paths,
+                        *verification_artifact_paths,
+                    ],
+                    "study_execution_status": study_execution_status,
+                }
+            )
+            scientific_study_manifest = scientific_study_manifest_model.model_dump(mode="json")
+            scientific_study_plan = build_scientific_study_plan_payload(
+                scientific_study_manifest_model
+            )
+
     artifacts = [
         _artifact_virtual_path(run_dir_name, "dispatch-summary.md"),
         _artifact_virtual_path(run_dir_name, "dispatch-summary.html"),
         _artifact_virtual_path(run_dir_name, "openfoam-request.json"),
         _artifact_virtual_path(run_dir_name, "supervisor-handoff.json"),
     ]
+    if scientific_study_manifest is not None:
+        artifacts.extend(
+            [
+                _artifact_virtual_path(run_dir_name, "study-plan.json"),
+                _artifact_virtual_path(run_dir_name, "study-manifest.json"),
+            ]
+        )
     if execution_log_virtual_path:
         artifacts.append(execution_log_virtual_path)
     if solver_results is not None:
@@ -1678,6 +2059,7 @@ def run_solver_dispatch(
             ]
         )
     artifacts.extend(requested_postprocess_artifacts)
+    artifacts.extend(scientific_study_artifacts)
 
     review_status = "ready_for_supervisor"
     next_stage = "result-reporting" if dispatch_status == "executed" else "solver-dispatch"
@@ -1716,6 +2098,8 @@ def run_solver_dispatch(
         "simulation_requirements": simulation_requirements,
         "requested_outputs": normalized_requested_outputs,
         "output_delivery_plan": output_delivery_plan,
+        "scientific_study_plan": scientific_study_plan,
+        "scientific_study_manifest": scientific_study_manifest,
         "review_status": review.review_status,
         "next_recommended_stage": review.next_recommended_stage,
         "artifact_virtual_paths": review.artifact_virtual_paths,
@@ -1757,5 +2141,15 @@ def run_solver_dispatch(
     markdown_path.write_text(_render_markdown(payload), encoding="utf-8")
     html_path.write_text(_render_html(payload), encoding="utf-8")
     handoff_path.write_text(json.dumps(supervisor_handoff, ensure_ascii=False, indent=2), encoding="utf-8")
+    if scientific_study_plan is not None:
+        study_plan_path.write_text(
+            json.dumps(scientific_study_plan, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    if scientific_study_manifest is not None:
+        study_manifest_path.write_text(
+            json.dumps(scientific_study_manifest, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     return payload, artifacts

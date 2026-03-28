@@ -165,6 +165,20 @@ export type SubmarineScientificVerificationSummary = {
   }>;
 };
 
+export type SubmarineScientificStudySummary = {
+  executionStatusLabel: string;
+  manifestPath: string;
+  artifactPaths: string[];
+  studies: Array<{
+    studyType: string;
+    summaryLabel: string;
+    monitoredQuantity: string;
+    variantCount: number;
+    verificationStatus: string;
+    verificationDetail: string;
+  }>;
+};
+
 export type SubmarineAcceptanceSummary = {
   statusLabel: string;
   confidenceLabel: string;
@@ -246,6 +260,13 @@ const SCIENTIFIC_VERIFICATION_CONFIDENCE_LABELS: Record<string, string> = {
   high: "High",
   medium: "Medium",
   low: "Low",
+};
+
+const SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS: Record<string, string> = {
+  planned: "Planned",
+  in_progress: "In Progress",
+  completed: "Completed",
+  blocked: "Blocked",
 };
 
 const RESULT_CARD_ARTIFACT_SUFFIXES: Record<string, string[]> = {
@@ -456,6 +477,20 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     },
   ],
   [
+    "/study-plan.json",
+    {
+      label: "Scientific Study Plan JSON",
+      externalLinkLabel: "Open scientific study plan JSON in a new window",
+    },
+  ],
+  [
+    "/study-manifest.json",
+    {
+      label: "Scientific Study Manifest JSON",
+      externalLinkLabel: "Open scientific study manifest JSON in a new window",
+    },
+  ],
+  [
     "/delivery-readiness.md",
     {
       label: "浜や粯灏辩华",
@@ -636,7 +671,9 @@ function classifySubmarineArtifact(path: string): SubmarineArtifactGroupId {
   if (
     path.endsWith("/cfd-design-brief.md") ||
     path.endsWith("/cfd-design-brief.html") ||
-    path.endsWith("/cfd-design-brief.json")
+    path.endsWith("/cfd-design-brief.json") ||
+    path.endsWith("/study-plan.json") ||
+    path.endsWith("/study-manifest.json")
   ) {
     return "planning";
   }
@@ -1004,6 +1041,64 @@ export function buildSubmarineScientificVerificationSummary(
                 ? "Blocked"
                 : item.status ?? "--",
       detail: item.detail ?? "--",
+    })),
+  };
+}
+
+export function buildSubmarineScientificStudySummary(
+  payload:
+    | {
+        scientific_study_summary?:
+          | {
+              study_execution_status?: string | null;
+              manifest_virtual_path?: string | null;
+              artifact_virtual_paths?: string[] | null;
+              studies?:
+                | Array<{
+                    study_type?: string | null;
+                    summary_label?: string | null;
+                    monitored_quantity?: string | null;
+                    variant_count?: number | null;
+                    verification_status?: string | null;
+                    verification_detail?: string | null;
+                  }>
+                | null;
+            }
+          | null;
+      }
+    | null
+    | undefined,
+): SubmarineScientificStudySummary | null {
+  const summary = payload?.scientific_study_summary;
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    executionStatusLabel:
+      SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS[
+        summary.study_execution_status ?? ""
+      ] ??
+      summary.study_execution_status ??
+      "--",
+    manifestPath: summary.manifest_virtual_path ?? "--",
+    artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
+    studies: (summary.studies ?? []).filter(Boolean).map((item) => ({
+      studyType: item.study_type ?? "unknown",
+      summaryLabel: item.summary_label ?? "--",
+      monitoredQuantity: item.monitored_quantity ?? "--",
+      variantCount: item.variant_count ?? 0,
+      verificationStatus:
+        item.verification_status === "missing_evidence"
+          ? "Missing Evidence"
+          : item.verification_status === "research_ready"
+            ? "Research Ready"
+            : item.verification_status === "passed"
+              ? "Passed"
+              : item.verification_status === "blocked"
+                ? "Blocked"
+                : item.verification_status ?? "--",
+      verificationDetail: item.verification_detail ?? "--",
     })),
   };
 }

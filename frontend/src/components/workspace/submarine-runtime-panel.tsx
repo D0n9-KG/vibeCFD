@@ -40,6 +40,7 @@ import {
   buildSubmarineExecutionOutline,
   buildSubmarineDesignBriefSummary,
   buildSubmarineResultCards,
+  buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
   filterSubmarineArtifactGroups,
   getSubmarineArtifactFilterOptions,
@@ -145,6 +146,21 @@ type FinalReportPayload = {
   summary_zh?: string;
   solver_metrics?: SolverMetrics | null;
   acceptance_assessment?: SubmarineAcceptanceAssessment | null;
+  scientific_study_summary?: {
+    study_execution_status?: string | null;
+    manifest_virtual_path?: string | null;
+    artifact_virtual_paths?: string[] | null;
+    studies?:
+      | Array<{
+          study_type?: string | null;
+          summary_label?: string | null;
+          monitored_quantity?: string | null;
+          variant_count?: number | null;
+          verification_status?: string | null;
+          verification_detail?: string | null;
+        }>
+      | null;
+  } | null;
   scientific_verification_assessment?: {
     status?: string | null;
     confidence?: string | null;
@@ -407,6 +423,10 @@ export function SubmarineRuntimePanel({
     () => buildSubmarineScientificVerificationSummary(finalReport),
     [finalReport],
   );
+  const scientificStudySummary = useMemo(
+    () => buildSubmarineScientificStudySummary(finalReport),
+    [finalReport],
+  );
   const executionOutline = useMemo(
     () =>
       buildSubmarineExecutionOutline({
@@ -641,6 +661,34 @@ export function SubmarineRuntimePanel({
                     )}
                     emptyText="当前还没有记录请求输出的交付状态。"
                   />
+                </div>
+              ) : null}
+              {scientificStudySummary ? (
+                <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <KeyValue
+                      label="Scientific Studies"
+                      value={scientificStudySummary.executionStatusLabel}
+                    />
+                    <KeyValue
+                      label="Study Manifest"
+                      value={scientificStudySummary.manifestPath}
+                    />
+                  </div>
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <LabeledList
+                      title="Study Status"
+                      items={scientificStudySummary.studies.map((item) =>
+                        `${item.summaryLabel} | ${item.verificationStatus} | ${item.monitoredQuantity} | variants=${item.variantCount} | ${item.verificationDetail}`,
+                      )}
+                      emptyText="No scientific study summaries are available yet."
+                    />
+                    <LabeledList
+                      title="Study Artifacts"
+                      items={scientificStudySummary.artifactPaths}
+                      emptyText="No scientific study artifacts are recorded yet."
+                    />
+                  </div>
                 </div>
               ) : null}
               {scientificVerificationSummary ? (

@@ -35,6 +35,26 @@ def _resolve_outputs_artifact(outputs_dir: Path, virtual_path: str) -> Path | No
     return outputs_dir.joinpath(*relative_parts)
 
 
+def _load_json_payload_from_artifacts(
+    outputs_dir: Path,
+    artifact_virtual_paths: list[str],
+    suffix: str,
+) -> tuple[str, dict] | None:
+    for artifact_virtual_path in artifact_virtual_paths:
+        if not artifact_virtual_path.endswith(suffix):
+            continue
+        local_path = _resolve_outputs_artifact(outputs_dir, artifact_virtual_path)
+        if local_path is None or not local_path.exists():
+            continue
+        try:
+            payload = json.loads(local_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(payload, dict):
+            return artifact_virtual_path, payload
+    return None
+
+
 def _merge_artifact_paths(*groups: list[str]) -> list[str]:
     merged: list[str] = []
     for group in groups:
@@ -64,6 +84,59 @@ def _resolve_selected_case(selected_case_id: str | None) -> SubmarineCase | None
     if not selected_case_id:
         return None
     return load_case_library().case_index.get(selected_case_id)
+
+
+def _study_type_to_requirement_id(study_type: str) -> str:
+    return f"{study_type}_study"
+
+
+def _build_scientific_study_summary(
+    *,
+    outputs_dir: Path,
+    artifact_virtual_paths: list[str],
+    scientific_verification_assessment: dict | None,
+) -> dict | None:
+    loaded = _load_json_payload_from_artifacts(
+        outputs_dir,
+        artifact_virtual_paths,
+        "study-manifest.json",
+    )
+    if loaded is None:
+        return None
+
+    manifest_virtual_path, manifest = loaded
+    study_definitions = manifest.get("study_definitions") or []
+    requirement_index = {
+        str(item.get("requirement_id")): item
+        for item in (scientific_verification_assessment or {}).get("requirements") or []
+        if isinstance(item, dict)
+    }
+
+    studies: list[dict[str, object]] = []
+    for definition in study_definitions:
+        if not isinstance(definition, dict):
+            continue
+        study_type = str(definition.get("study_type") or "").strip()
+        requirement = requirement_index.get(_study_type_to_requirement_id(study_type), {})
+        variants = definition.get("variants") or []
+        studies.append(
+            {
+                "study_type": study_type,
+                "summary_label": definition.get("summary_label"),
+                "monitored_quantity": definition.get("monitored_quantity"),
+                "variant_count": len([item for item in variants if isinstance(item, dict)]),
+                "verification_status": requirement.get("status"),
+                "verification_detail": requirement.get("detail"),
+            }
+        )
+
+    return {
+        "selected_case_id": manifest.get("selected_case_id"),
+        "study_execution_status": manifest.get("study_execution_status"),
+        "manifest_virtual_path": manifest_virtual_path,
+        "artifact_virtual_paths": manifest.get("artifact_virtual_paths") or [manifest_virtual_path],
+        "studies": studies,
+    }
 
 
 def _has_required_artifact(artifact_virtual_paths: list[str], required_artifact: str) -> bool:
@@ -684,6 +757,37 @@ def _render_output_delivery_html(output_delivery_plan: list[dict] | None) -> str
     )
 
 
+def _render_scientific_study_markdown(scientific_study_summary: dict | None) -> list[str]:
+    if not scientific_study_summary:
+        return []
+
+    lines = [
+        "",
+        "## Scientific Studies",
+        f"- execution_status: `{scientific_study_summary.get('study_execution_status')}`",
+        f"- manifest: `{scientific_study_summary.get('manifest_virtual_path')}`",
+    ]
+    studies = scientific_study_summary.get("studies") or []
+    if studies:
+        lines.extend(["", "### Study Summary"])
+        lines.extend(
+            (
+                "- "
+                + " | ".join(
+                    [
+                        f"`{item.get('study_type')}`",
+                        f"verification=`{item.get('verification_status')}`",
+                        f"variants={item.get('variant_count')}",
+                        str(item.get("verification_detail") or "No detail"),
+                    ]
+                )
+            )
+            for item in studies
+        )
+
+    return lines
+
+
 def _render_scientific_verification_markdown(
     scientific_verification_assessment: dict | None,
 ) -> list[str]:
@@ -732,6 +836,30 @@ def _render_scientific_verification_markdown(
         lines.extend(f"- {item}" for item in passed_requirements)
 
     return lines
+
+
+def _render_scientific_study_html(scientific_study_summary: dict | None) -> str:
+    if not scientific_study_summary:
+        return ""
+
+    study_items = "".join(
+        "<li>"
+        f"<strong>{escape(str(item.get('summary_label') or item.get('study_type')))}</strong> "
+        f"(<code>{escape(str(item.get('verification_status')))}</code>)"
+        f"<p>{escape(str(item.get('verification_detail') or 'No detail'))}</p>"
+        "</li>"
+        for item in (scientific_study_summary.get("studies") or [])
+    ) or "<li>None</li>"
+
+    return (
+        '<section class="panel">'
+        "<h2>Scientific Studies</h2>"
+        f"<p><strong>execution_status:</strong> {escape(str(scientific_study_summary.get('study_execution_status')))}</p>"
+        f"<p><strong>manifest:</strong> {escape(str(scientific_study_summary.get('manifest_virtual_path')))}</p>"
+        "<h3>Study Summary</h3>"
+        f"<ul>{study_items}</ul>"
+        "</section>"
+    )
 
 
 def _render_scientific_verification_html(
@@ -1083,6 +1211,7 @@ def _render_markdown(payload: dict) -> str:
     )
     lines.extend(_render_solver_metrics_markdown_enriched(payload.get("solver_metrics")))
     lines.extend(_render_acceptance_markdown(payload.get("acceptance_assessment")))
+    lines.extend(_render_scientific_study_markdown(payload.get("scientific_study_summary")))
     lines.extend(
         _render_scientific_verification_markdown(
             payload.get("scientific_verification_assessment")
@@ -1243,6 +1372,9 @@ def _render_html(payload: dict) -> str:
     final_items = "".join(f"<li>{escape(path)}</li>" for path in payload["final_artifact_virtual_paths"])
     metrics_section = _render_solver_metrics_html_enriched(payload.get("solver_metrics"))
     acceptance_section = _render_acceptance_html(payload.get("acceptance_assessment"))
+    scientific_study_section = _render_scientific_study_html(
+        payload.get("scientific_study_summary")
+    )
     scientific_verification_section = _render_scientific_verification_html(
         payload.get("scientific_verification_assessment")
     )
@@ -1318,6 +1450,7 @@ def _render_html(payload: dict) -> str:
     {requested_outputs_section}
     {metrics_section}
     {acceptance_section}
+    {scientific_study_section}
     {scientific_verification_section}
     {output_delivery_section}
     <section class="panel">
@@ -1376,6 +1509,11 @@ def run_result_report(
         artifact_virtual_paths=all_artifacts,
         outputs_dir=outputs_dir,
     )
+    scientific_study_summary = _build_scientific_study_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+        scientific_verification_assessment=scientific_verification_assessment,
+    )
     output_delivery_plan = build_output_delivery_plan(
         snapshot.requested_outputs,
         stage="result-reporting",
@@ -1415,6 +1553,7 @@ def run_result_report(
         "source_artifact_virtual_paths": snapshot.artifact_virtual_paths,
         "solver_metrics": solver_metrics,
         "acceptance_assessment": acceptance_assessment,
+        "scientific_study_summary": scientific_study_summary,
         "scientific_verification_assessment": scientific_verification_assessment,
         "output_delivery_plan": output_delivery_plan,
         "stage_status": snapshot.stage_status,

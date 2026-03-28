@@ -1,3 +1,5 @@
+import importlib
+
 from deerflow.domain.submarine.assets import get_submarine_domain_root
 from deerflow.domain.submarine.contracts import SubmarineRuntimeRequest
 from deerflow.domain.submarine.library import load_case_library, load_skill_registry
@@ -60,6 +62,64 @@ def test_submarine_case_library_exposes_effective_scientific_verification_requir
     assert requirements[1].force_coefficient == "Cd"
     assert requirements[1].minimum_history_samples == 5
     assert requirements[2].required_artifacts == ["verification-mesh-independence.json"]
+
+
+def test_submarine_case_library_exposes_effective_scientific_study_definitions():
+    studies_module = importlib.import_module("deerflow.domain.submarine.studies")
+    library = load_case_library()
+    case = library.case_index["darpa_suboff_bare_hull_resistance"]
+
+    definitions = studies_module.build_effective_scientific_study_definitions(
+        selected_case=case,
+        simulation_requirements={
+            "inlet_velocity_mps": 5.0,
+            "delta_t_seconds": 1.0,
+            "end_time_seconds": 200.0,
+        },
+    )
+
+    assert [item.study_type for item in definitions] == [
+        "mesh_independence",
+        "domain_sensitivity",
+        "time_step_sensitivity",
+    ]
+    assert definitions[0].monitored_quantity == "Cd"
+    assert definitions[0].pass_fail_tolerance == 0.02
+    assert [variant.variant_id for variant in definitions[0].variants] == [
+        "coarse",
+        "baseline",
+        "fine",
+    ]
+    assert definitions[0].variants[0].parameter_overrides["mesh_scale_factor"] == 0.75
+
+
+def test_submarine_case_library_builds_scientific_study_manifest():
+    studies_module = importlib.import_module("deerflow.domain.submarine.studies")
+    library = load_case_library()
+    case = library.case_index["darpa_suboff_bare_hull_resistance"]
+
+    manifest = studies_module.build_scientific_study_manifest(
+        selected_case=case,
+        simulation_requirements={
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1000.0,
+            "kinematic_viscosity_m2ps": 1e-06,
+            "end_time_seconds": 200.0,
+            "delta_t_seconds": 1.0,
+            "write_interval_steps": 50,
+        },
+        baseline_configuration_snapshot={
+            "task_type": case.task_type,
+            "recommended_solver": case.recommended_solver,
+        },
+    )
+
+    assert manifest.selected_case_id == "darpa_suboff_bare_hull_resistance"
+    assert manifest.study_execution_status == "planned"
+    assert manifest.baseline_configuration_snapshot["task_type"] == "resistance"
+    assert len(manifest.study_definitions) == 3
+    assert manifest.study_definitions[1].variants[2].parameter_overrides["domain_extent_multiplier"] == 1.2
+    assert manifest.study_definitions[2].variants[0].parameter_overrides["delta_t_multiplier"] == 2.0
 
 
 def test_load_skill_registry_returns_submarine_skill_defs():

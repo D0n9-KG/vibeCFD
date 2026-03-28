@@ -1429,6 +1429,34 @@ def test_scientific_verification_marks_study_artifact_as_passed(tmp_path):
         ),
         encoding="utf-8",
     )
+    (solver_results_dir / "study-manifest.json").write_text(
+        json.dumps(
+            {
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "study_execution_status": "planned",
+                "study_definitions": [
+                    {
+                        "study_type": "mesh_independence",
+                        "summary_label": "Mesh Independence",
+                        "monitored_quantity": "Cd",
+                        "pass_fail_tolerance": 0.02,
+                        "variants": [
+                            {"variant_id": "coarse", "variant_label": "Coarse"},
+                            {"variant_id": "baseline", "variant_label": "Baseline"},
+                            {"variant_id": "fine", "variant_label": "Fine"},
+                        ],
+                    }
+                ],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verification-pass/study-manifest.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verification-pass/verification-mesh-independence.json",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     runtime = SimpleNamespace(
         state={
@@ -1450,6 +1478,7 @@ def test_scientific_verification_marks_study_artifact_as_passed(tmp_path):
                 "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/verification-pass/dispatch-summary.md",
                 "artifact_virtual_paths": [
                     "/mnt/user-data/outputs/submarine/solver-dispatch/verification-pass/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verification-pass/study-manifest.json",
                     "/mnt/user-data/outputs/submarine/solver-dispatch/verification-pass/verification-mesh-independence.json",
                 ],
                 "activity_timeline": [],
@@ -1479,9 +1508,117 @@ def test_scientific_verification_marks_study_artifact_as_passed(tmp_path):
     mesh_requirement = next(
         item for item in requirements if item["requirement_id"] == "mesh_independence_study"
     )
+    scientific_study_summary = final_payload["scientific_study_summary"]
+    mesh_study = next(
+        item
+        for item in scientific_study_summary["studies"]
+        if item["study_type"] == "mesh_independence"
+    )
 
     assert mesh_requirement["status"] == "passed"
     assert "below tolerance" in mesh_requirement["detail"]
+    assert scientific_study_summary["study_execution_status"] == "planned"
+    assert any(
+        path.endswith("/study-manifest.json")
+        for path in scientific_study_summary["artifact_virtual_paths"]
+    )
+    assert mesh_study["verification_status"] == "passed"
+
+
+def test_scientific_verification_keeps_unreadable_study_artifact_as_missing_evidence(tmp_path):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-scientific-verification-bad-artifact"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "verification-bad"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {"Time": 200.0, "Cd": 0.00312},
+                "force_coefficients_history": [
+                    {"Time": 160.0, "Cd": 0.00313},
+                    {"Time": 170.0, "Cd": 0.00312},
+                    {"Time": 180.0, "Cd": 0.00311},
+                    {"Time": 190.0, "Cd": 0.00312},
+                    {"Time": 200.0, "Cd": 0.00312},
+                ],
+                "mesh_summary": {"mesh_ok": True},
+                "residual_summary": {"max_final_residual": 5e-4},
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "end_time_seconds": 200.0,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "verification-mesh-independence.json").write_text(
+        "{not valid json",
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Evaluate unreadable scientific verification evidence artifact",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/verification-bad/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verification-bad/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verification-bad/verification-mesh-independence.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Scientific verification unreadable artifact report",
+        tool_call_id="tc-result-report-scientific-bad-artifact",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    requirements = final_payload["scientific_verification_assessment"]["requirements"]
+    mesh_requirement = next(
+        item for item in requirements if item["requirement_id"] == "mesh_independence_study"
+    )
+
+    assert mesh_requirement["status"] == "missing_evidence"
+    assert "missing" in mesh_requirement["detail"].lower() or "unsupported" in mesh_requirement["detail"].lower()
 
 
 def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_path):

@@ -542,6 +542,77 @@ Warning note:
 - the remaining warning is still the existing `datetime.utcnow()` deprecation in `backend/packages/harness/deerflow/agents/memory/updater.py`
 - it is unrelated to this PNG artifact work
 
+## 13. 2026-03-28 Addendum: Scientific Study Orchestration v1
+
+This session moved the repository beyond "scientific verification is required" and into a first deterministic study-orchestration layer that now supports both honest planning artifacts and optional real variant execution.
+
+### 13.1 What Changed
+
+The submarine domain now has typed scientific-study contracts for:
+
+- study definitions
+- study variants
+- study manifests
+- study results
+
+The first deterministic planner generates three study families for supported resistance baselines:
+
+- `mesh_independence`
+- `domain_sensitivity`
+- `time_step_sensitivity`
+
+### 13.2 Solver-Dispatch Changes
+
+`backend/packages/harness/deerflow/domain/submarine/solver_dispatch.py` now emits:
+
+- `study-plan.json`
+- `study-manifest.json`
+- planned per-variant artifact paths under `studies/<study>/<variant>/solver-results.json`
+
+When a baseline run is executed without extra study execution, the repository emits structured verification-study artifacts such as:
+
+- `verification-mesh-independence.json`
+- `verification-domain-sensitivity.json`
+- `verification-time-step-sensitivity.json`
+
+In this v1 slice, those verification artifacts are intentionally honest:
+
+- they record the baseline value when available
+- they mark the study as `missing_evidence` when only the baseline run has been executed
+- they do not pretend that a matched artifact path is enough to claim research readiness
+
+When `execute_scientific_studies=true`, solver dispatch now also materializes and executes the planned non-baseline variants for:
+
+- `mesh_independence`
+- `domain_sensitivity`
+- `time_step_sensitivity`
+
+That execution path writes real per-variant `solver-results.json` payloads under `studies/<study>/<variant>/`, copies the baseline result into each study's `baseline` slot, and regenerates the root `verification-*.json` artifacts from measured `latest_force_coefficients`.
+
+### 13.3 Reporting And Workbench Changes
+
+The final report now adds `scientific_study_summary`, which links:
+
+- the discovered `study-manifest.json`
+- study execution status
+- per-study verification status derived from the scientific verification assessment
+
+The workbench now surfaces that study summary in the runtime health panel so users can inspect:
+
+- whether studies are only planned or already materialized
+- whether study execution finished cleanly or is blocked
+- which study families are still missing evidence
+- which artifact entrypoints anchor the current evidence trail
+
+### 13.4 Remaining Gap
+
+This is still not the full research experiment manager:
+
+- variant case execution is available, but not yet a full run-to-run compare system
+- domain and mesh variants still need deeper physical parameterization and stricter provenance
+- supervisor gating is still softer than a dedicated scientific state machine
+- publication-grade figure generation is still a later slice
+
 ## 10. 2026-03-27 Addendum: Postprocess Provenance Summaries
 
 This session continued the same requested-output pipeline and added a first provenance layer for supported postprocess outputs.

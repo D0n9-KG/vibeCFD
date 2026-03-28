@@ -124,6 +124,7 @@ def submarine_solver_dispatch_tool(
     delta_t_seconds: float | None = None,
     write_interval_steps: int | None = None,
     execute_now: bool = False,
+    execute_scientific_studies: bool = False,
     solver_command: str | None = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
 ) -> Command:
@@ -142,6 +143,7 @@ def submarine_solver_dispatch_tool(
         delta_t_seconds: Optional solver deltaT.
         write_interval_steps: Optional write interval in time steps.
         execute_now: Whether to execute the dispatch command immediately inside the current DeerFlow sandbox.
+        execute_scientific_studies: Whether to execute the planned scientific study variants in addition to the baseline run.
         solver_command: Optional command to run when `execute_now=true`, for example `simpleFoam -case /mnt/user-data/workspace/case`.
     """
     try:
@@ -213,6 +215,7 @@ def submarine_solver_dispatch_tool(
             requested_outputs=existing_runtime.get("requested_outputs"),
             solver_command=solver_command,
             execute_now=execute_now,
+            execute_scientific_studies=execute_scientific_studies,
             execute_command=execute_command,
         )
     except ValueError as exc:

@@ -1,11 +1,21 @@
 import importlib
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
 from deerflow.config.paths import Paths
 
 tool_module = importlib.import_module("deerflow.tools.builtins.submarine_solver_dispatch_tool")
+
+
+def _platform_fs_path(path: Path) -> Path:
+    if os.name != "nt":
+        return path
+    raw = str(path.resolve())
+    if raw.startswith("\\\\?\\"):
+        return Path(raw)
+    return Path(f"\\\\?\\{raw}")
 
 
 def _make_runtime(paths: Paths, thread_id: str = "thread-1", sandbox_id: str = "local") -> SimpleNamespace:
@@ -88,7 +98,8 @@ class _FakePostprocessSandbox(_FakeSandbox):
         self.case_dir = case_dir
 
     def execute_command(self, command: str) -> str:
-        coeffs_dir = self.case_dir / "postProcessing" / "forceCoeffs" / "0"
+        case_dir = _platform_fs_path(self.case_dir)
+        coeffs_dir = case_dir / "postProcessing" / "forceCoeffs" / "0"
         coeffs_dir.mkdir(parents=True, exist_ok=True)
         (coeffs_dir / "forceCoeffs.dat").write_text(
             "\n".join(
@@ -100,7 +111,7 @@ class _FakePostprocessSandbox(_FakeSandbox):
             ),
             encoding="utf-8",
         )
-        forces_dir = self.case_dir / "postProcessing" / "forces" / "0"
+        forces_dir = case_dir / "postProcessing" / "forces" / "0"
         forces_dir.mkdir(parents=True, exist_ok=True)
         (forces_dir / "forces.dat").write_text(
             "\n".join(
@@ -140,10 +151,11 @@ class _FakePostprocessSandbox(_FakeSandbox):
 
 class _FakeRequestedPostprocessSandbox(_FakePostprocessSandbox):
     def execute_command(self, command: str) -> str:
-        self.case_dir.mkdir(parents=True, exist_ok=True)
-        (self.case_dir / "postProcessing").mkdir(parents=True, exist_ok=True)
+        case_dir = _platform_fs_path(self.case_dir)
+        case_dir.mkdir(parents=True, exist_ok=True)
+        (case_dir / "postProcessing").mkdir(parents=True, exist_ok=True)
         result = super().execute_command(command)
-        surface_dir = self.case_dir / "postProcessing" / "surfacePressure" / "200"
+        surface_dir = case_dir / "postProcessing" / "surfacePressure" / "200"
         surface_dir.mkdir(parents=True, exist_ok=True)
         (surface_dir / "surfacePressure.csv").write_text(
             "\n".join(
@@ -155,7 +167,7 @@ class _FakeRequestedPostprocessSandbox(_FakePostprocessSandbox):
             ),
             encoding="utf-8",
         )
-        wake_dir = self.case_dir / "postProcessing" / "wakeVelocitySlice" / "200"
+        wake_dir = case_dir / "postProcessing" / "wakeVelocitySlice" / "200"
         wake_dir.mkdir(parents=True, exist_ok=True)
         (wake_dir / "wakeVelocitySlice.csv").write_text(
             "\n".join(
@@ -168,6 +180,88 @@ class _FakeRequestedPostprocessSandbox(_FakePostprocessSandbox):
             encoding="utf-8",
         )
         return result
+
+
+class _FakeScientificStudySandbox(_FakeSandbox):
+    def __init__(self, workspace_dir: Path, output: str = "End") -> None:
+        super().__init__(output=output)
+        self.workspace_dir = workspace_dir
+        self.cd_by_command_fragment = {
+            "/study-execution-demo/openfoam-case/Allrun": 0.1200,
+            "/study-execution-demo/studies/mesh-independence/coarse/openfoam-case/Allrun": 0.1212,
+            "/study-execution-demo/studies/mesh-independence/fine/openfoam-case/Allrun": 0.1194,
+            "/study-execution-demo/studies/domain-sensitivity/compact/openfoam-case/Allrun": 0.1290,
+            "/study-execution-demo/studies/domain-sensitivity/expanded/openfoam-case/Allrun": 0.1110,
+            "/study-execution-demo/studies/time-step-sensitivity/coarse/openfoam-case/Allrun": 0.1208,
+            "/study-execution-demo/studies/time-step-sensitivity/fine/openfoam-case/Allrun": 0.1196,
+        }
+
+    def _resolve_case_dir(self, command: str) -> tuple[Path, float]:
+        for fragment, cd_value in self.cd_by_command_fragment.items():
+            if fragment in command:
+                relative = fragment.split("/study-execution-demo/", maxsplit=1)[1]
+                allrun_relative = relative.removeprefix("/")
+                case_relative = allrun_relative.removesuffix("/Allrun")
+                return (
+                    self.workspace_dir
+                    / "submarine"
+                    / "solver-dispatch"
+                    / "study-execution-demo"
+                    / Path(case_relative),
+                    cd_value,
+                )
+        raise AssertionError(f"Unexpected command for scientific study sandbox: {command}")
+
+    def execute_command(self, command: str) -> str:
+        case_dir, cd_value = self._resolve_case_dir(command)
+        case_dir = _platform_fs_path(case_dir)
+        coeffs_dir = case_dir / "postProcessing" / "forceCoeffs" / "0"
+        coeffs_dir.mkdir(parents=True, exist_ok=True)
+        (coeffs_dir / "forceCoeffs.dat").write_text(
+            "\n".join(
+                [
+                    "# Time Cd Cs Cl CmRoll CmPitch CmYaw",
+                    f"0 {cd_value + 0.0040:.4f} 0.00 0.00 0.00 0.01 0.00",
+                    f"200 {cd_value:.4f} 0.00 0.00 0.00 0.01 0.00",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        forces_dir = case_dir / "postProcessing" / "forces" / "0"
+        forces_dir.mkdir(parents=True, exist_ok=True)
+        drag_force = round(cd_value * 100.0, 4)
+        (forces_dir / "forces.dat").write_text(
+            "\n".join(
+                [
+                    "# Time forces(pressure viscous) moments(pressure viscous)",
+                    f"0 ((0 0 0) ({drag_force + 1.0} 0 0)) ((0 0 0) (0 1 0))",
+                    f"200 ((0 0 0) ({drag_force} 0 0)) ((0 0 0) (0 0.5 0))",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        self.output = "\n".join(
+            [
+                "[submarine-cfd] Preparing background mesh",
+                "Check mesh...",
+                "    points:           10234",
+                "    faces:            28764",
+                "    internal faces:   27654",
+                "    cells:            9342",
+                "Mesh OK.",
+                "Time = 0",
+                "smoothSolver:  Solving for Ux, Initial residual = 0.02, Final residual = 1e-05, No Iterations 2",
+                "GAMG:  Solving for p, Initial residual = 0.3, Final residual = 0.002, No Iterations 6",
+                "Time = 200",
+                "smoothSolver:  Solving for Ux, Initial residual = 0.00031, Final residual = 3e-08, No Iterations 2",
+                "smoothSolver:  Solving for k, Initial residual = 0.004, Final residual = 8e-07, No Iterations 2",
+                "smoothSolver:  Solving for omega, Initial residual = 0.008, Final residual = 9e-07, No Iterations 2",
+                "GAMG:  Solving for p, Initial residual = 0.012, Final residual = 0.00014, No Iterations 5",
+                "ExecutionTime = 18.1 s  ClockTime = 19 s",
+                "End",
+            ]
+        )
+        return super().execute_command(command)
 
 
 def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatch):
@@ -207,6 +301,56 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
     assert payload["geometry"]["geometry_family"] == "Type 209"
     assert payload["selected_case"]["case_id"]
     assert md_path.exists()
+
+
+def test_submarine_solver_dispatch_emits_scientific_study_plan_artifacts(tmp_path, monkeypatch):
+    paths = Paths(tmp_path)
+    thread_id = "thread-study-plan"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "study-plan-demo.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/study-plan-demo.stl",
+        task_description="涓鸿繖涓?DARPA SUBOFF 鍩虹嚎鍑犱綍鐢熸垚 scientific study plan",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=False,
+        tool_call_id="tc-dispatch-study-plan",
+    )
+
+    artifacts = result.update["artifacts"]
+    request_path = (
+        outputs_dir / "submarine" / "solver-dispatch" / "study-plan-demo" / "openfoam-request.json"
+    )
+    study_plan_path = (
+        outputs_dir / "submarine" / "solver-dispatch" / "study-plan-demo" / "study-plan.json"
+    )
+    study_manifest_path = (
+        outputs_dir / "submarine" / "solver-dispatch" / "study-plan-demo" / "study-manifest.json"
+    )
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    study_plan = json.loads(study_plan_path.read_text(encoding="utf-8"))
+    study_manifest = json.loads(study_manifest_path.read_text(encoding="utf-8"))
+
+    assert any(path.endswith("/study-plan.json") for path in artifacts)
+    assert any(path.endswith("/study-manifest.json") for path in artifacts)
+    assert payload["scientific_study_plan"]["study_count"] == 3
+    assert payload["scientific_study_manifest"]["study_execution_status"] == "planned"
+    assert study_plan["study_count"] == 3
+    assert study_manifest["study_definitions"][0]["study_type"] == "mesh_independence"
+    assert study_manifest["study_definitions"][0]["variants"][0]["variant_id"] == "coarse"
+    assert any(
+        path.endswith("/studies/mesh-independence/coarse/solver-results.json")
+        for path in study_manifest["artifact_virtual_paths"]
+    )
 
 
 def test_submarine_solver_dispatch_tool_can_execute_in_sandbox(tmp_path, monkeypatch):
@@ -746,6 +890,171 @@ def test_submarine_solver_dispatch_writes_solver_results_artifact(tmp_path, monk
     assert solver_results["residual_summary"]["latest_by_field"]["p"]["final_residual"] == 0.00014
     assert solver_results["residual_summary"]["latest_by_field"]["Ux"]["initial_residual"] == 0.00031
     assert len(solver_results["residual_summary"]["history"]) == 8
+
+
+def test_submarine_solver_dispatch_writes_scientific_verification_artifacts(tmp_path, monkeypatch):
+    paths = Paths(tmp_path)
+    thread_id = "thread-study-results"
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "study-results-demo.stl"
+    _write_ascii_stl(geometry_path)
+
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "study-results-demo" / "openfoam-case"
+    fake_sandbox = _FakePostprocessSandbox(case_dir=case_dir)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(tool_module, "get_sandbox_provider", lambda: _FakeProvider(fake_sandbox))
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/study-results-demo.stl",
+        task_description="鎵ц科学 verification studies 骞舵眹鎬?verification-json",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=True,
+        solver_command="bash /mnt/user-data/workspace/submarine/solver-dispatch/study-results-demo/openfoam-case/Allrun",
+        tool_call_id="tc-dispatch-study-results",
+    )
+
+    artifacts = result.update["artifacts"]
+    request_path = (
+        outputs_dir / "submarine" / "solver-dispatch" / "study-results-demo" / "openfoam-request.json"
+    )
+    study_manifest_path = (
+        outputs_dir / "submarine" / "solver-dispatch" / "study-results-demo" / "study-manifest.json"
+    )
+    mesh_verification_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "study-results-demo"
+        / "verification-mesh-independence.json"
+    )
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    study_manifest = json.loads(study_manifest_path.read_text(encoding="utf-8"))
+    mesh_verification = json.loads(mesh_verification_path.read_text(encoding="utf-8"))
+
+    assert any(path.endswith("/verification-mesh-independence.json") for path in artifacts)
+    assert any(path.endswith("/verification-domain-sensitivity.json") for path in artifacts)
+    assert any(path.endswith("/verification-time-step-sensitivity.json") for path in artifacts)
+    assert payload["scientific_study_manifest"]["study_execution_status"] == "planned"
+    assert any(
+        path.endswith("/verification-mesh-independence.json")
+        for path in study_manifest["artifact_virtual_paths"]
+    )
+    assert mesh_verification["study_type"] == "mesh_independence"
+    assert mesh_verification["monitored_quantity"] == "Cd"
+    assert mesh_verification["status"] == "missing_evidence"
+    assert mesh_verification["baseline_value"] == 0.12
+    assert mesh_verification["relative_spread"] is None
+    assert (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "study-results-demo"
+        / "studies"
+        / "mesh-independence"
+        / "coarse"
+        / "solver-results.json"
+    ).exists()
+
+
+def test_submarine_solver_dispatch_executes_scientific_study_variants_when_enabled(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-study-execution"
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "study-execution-demo.stl"
+    _write_ascii_stl(geometry_path)
+
+    fake_sandbox = _FakeScientificStudySandbox(workspace_dir=workspace_dir)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(tool_module, "get_sandbox_provider", lambda: _FakeProvider(fake_sandbox))
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/study-execution-demo.stl",
+        task_description="执行 baseline 与 scientific study variants 并汇总研究证据",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=True,
+        execute_scientific_studies=True,
+        solver_command="bash /mnt/user-data/workspace/submarine/solver-dispatch/study-execution-demo/openfoam-case/Allrun",
+        tool_call_id="tc-dispatch-study-execution",
+    )
+
+    artifacts = result.update["artifacts"]
+    request_path = (
+        outputs_dir / "submarine" / "solver-dispatch" / "study-execution-demo" / "openfoam-request.json"
+    )
+    study_manifest_path = (
+        outputs_dir / "submarine" / "solver-dispatch" / "study-execution-demo" / "study-manifest.json"
+    )
+    mesh_verification_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "study-execution-demo"
+        / "verification-mesh-independence.json"
+    )
+    domain_verification_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "study-execution-demo"
+        / "verification-domain-sensitivity.json"
+    )
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    study_manifest = json.loads(study_manifest_path.read_text(encoding="utf-8"))
+    mesh_verification = json.loads(mesh_verification_path.read_text(encoding="utf-8"))
+    domain_verification = json.loads(domain_verification_path.read_text(encoding="utf-8"))
+
+    assert len(fake_sandbox.commands) == 7
+    assert any(path.endswith("/verification-mesh-independence.json") for path in artifacts)
+    assert any(path.endswith("/verification-domain-sensitivity.json") for path in artifacts)
+    assert any(path.endswith("/verification-time-step-sensitivity.json") for path in artifacts)
+    assert payload["scientific_study_manifest"]["study_execution_status"] == "completed"
+    assert study_manifest["study_execution_status"] == "completed"
+    assert mesh_verification["status"] == "passed"
+    assert mesh_verification["relative_spread"] is not None
+    assert len(mesh_verification["compared_values"]) == 2
+    assert domain_verification["status"] == "blocked"
+    assert domain_verification["relative_spread"] is not None
+    assert (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "study-execution-demo"
+        / "studies"
+        / "domain-sensitivity"
+        / "compact"
+        / "solver-results.json"
+    ).exists()
+    assert (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "study-execution-demo"
+        / "studies"
+        / "mesh-independence"
+        / "baseline"
+        / "solver-results.json"
+    ).exists()
 
 
 def test_submarine_solver_dispatch_exports_requested_postprocess_artifacts(tmp_path, monkeypatch):

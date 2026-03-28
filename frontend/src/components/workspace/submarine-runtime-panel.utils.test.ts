@@ -6,6 +6,7 @@ const {
   buildSubmarineDesignBriefSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
+  buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
   filterSubmarineArtifactGroups,
   getSubmarineArtifactFilterOptions,
@@ -572,4 +573,61 @@ void test("builds a scientific verification summary from the final report payloa
   assert.equal(summary?.requirements[1]?.status, "Missing Evidence");
   assert.equal(summary?.missingEvidence.length, 1);
   assert.equal(summary?.passedRequirements.length, 1);
+});
+
+void test("builds a scientific study summary from the final report payload", () => {
+  const summary = buildSubmarineScientificStudySummary({
+    scientific_study_summary: {
+      study_execution_status: "planned",
+      manifest_virtual_path:
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+      artifact_virtual_paths: [
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-mesh-independence.json",
+      ],
+      studies: [
+        {
+          study_type: "mesh_independence",
+          summary_label: "Mesh Independence",
+          monitored_quantity: "Cd",
+          variant_count: 3,
+          verification_status: "passed",
+          verification_detail: "Three-grid study shows Cd variation below tolerance.",
+        },
+        {
+          study_type: "domain_sensitivity",
+          summary_label: "Domain Sensitivity",
+          monitored_quantity: "Cd",
+          variant_count: 3,
+          verification_status: "missing_evidence",
+          verification_detail: "Only baseline run has been executed so far.",
+        },
+      ],
+    },
+  });
+
+  assert.equal(summary?.executionStatusLabel, "Planned");
+  assert.equal(
+    summary?.manifestPath,
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+  );
+  assert.equal(summary?.artifactPaths.length, 2);
+  assert.equal(summary?.studies.length, 2);
+  assert.equal(summary?.studies[0]?.studyType, "mesh_independence");
+  assert.equal(summary?.studies[0]?.verificationStatus, "Passed");
+  assert.equal(summary?.studies[1]?.verificationStatus, "Missing Evidence");
+});
+
+void test("labels blocked scientific study execution explicitly", () => {
+  const summary = buildSubmarineScientificStudySummary({
+    scientific_study_summary: {
+      study_execution_status: "blocked",
+      manifest_virtual_path:
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+      artifact_virtual_paths: [],
+      studies: [],
+    },
+  });
+
+  assert.equal(summary?.executionStatusLabel, "Blocked");
 });

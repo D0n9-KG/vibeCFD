@@ -252,10 +252,11 @@ def build_scientific_verification_assessment(
                     missing_evidence.append(detail)
             elif matched:
                 detail = (
-                    f"{requirement.label}: evidence exported via {', '.join(matched)}."
+                    f"{requirement.label}: evidence artifacts exist via {', '.join(matched)}, "
+                    "but structured verification payloads are unreadable or missing."
                 )
-                status = "passed"
-                passed_requirements.append(detail)
+                status = "missing_evidence"
+                missing_evidence.append(detail)
             else:
                 detail = (
                     f"{requirement.label}: missing evidence artifacts "
