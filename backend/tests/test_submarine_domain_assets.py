@@ -507,6 +507,93 @@ def test_submarine_domain_builds_scientific_supervisor_gate_semantics():
     assert blocked_gate["recommended_stage"] == "solver-dispatch"
 
 
+def test_submarine_domain_builds_scientific_remediation_plan_semantics():
+    remediation_module = importlib.import_module("deerflow.domain.submarine.remediation")
+
+    missing_study_plan = remediation_module.build_scientific_remediation_summary(
+        scientific_supervisor_gate={
+            "gate_status": "blocked",
+            "allowed_claim_level": "delivery_only",
+            "recommended_stage": "solver-dispatch",
+            "remediation_stage": "solver-dispatch",
+        },
+        research_evidence_summary={
+            "readiness_status": "blocked",
+            "evidence_gaps": [
+                "Scientific verification study evidence is incomplete."
+            ],
+        },
+        scientific_verification_assessment={
+            "missing_evidence": [
+                "verification-mesh-independence.json is missing."
+            ]
+        },
+        scientific_study_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-mesh-independence.json"
+            ],
+            "studies": [
+                {
+                    "study_type": "mesh_independence",
+                    "verification_status": "missing_evidence",
+                }
+            ],
+        },
+    )
+    assert missing_study_plan["plan_status"] == "recommended"
+    assert missing_study_plan["current_claim_level"] == "delivery_only"
+    assert missing_study_plan["target_claim_level"] == "research_ready"
+    assert missing_study_plan["recommended_stage"] == "solver-dispatch"
+    assert missing_study_plan["actions"][0]["action_id"] == "execute-scientific-studies"
+    assert missing_study_plan["actions"][0]["owner_stage"] == "solver-dispatch"
+    assert missing_study_plan["actions"][0]["execution_mode"] == "auto_executable"
+
+    missing_validation_plan = remediation_module.build_scientific_remediation_summary(
+        scientific_supervisor_gate={
+            "gate_status": "claim_limited",
+            "allowed_claim_level": "verified_but_not_validated",
+            "recommended_stage": "supervisor-review",
+            "remediation_stage": "solver-dispatch",
+        },
+        research_evidence_summary={
+            "readiness_status": "verified_but_not_validated",
+            "validation_status": "missing_validation_reference",
+            "evidence_gaps": [
+                "No applicable benchmark target was available for this run."
+            ],
+        },
+        scientific_verification_assessment={"missing_evidence": []},
+        scientific_study_summary={"studies": []},
+    )
+    assert missing_validation_plan["plan_status"] == "recommended"
+    assert missing_validation_plan["current_claim_level"] == "verified_but_not_validated"
+    assert missing_validation_plan["recommended_stage"] == "supervisor-review"
+    assert missing_validation_plan["actions"][0]["action_id"] == "attach-validation-reference"
+    assert missing_validation_plan["actions"][0]["owner_stage"] == "supervisor-review"
+    assert missing_validation_plan["actions"][0]["execution_mode"] == "manual_required"
+
+    research_ready_plan = remediation_module.build_scientific_remediation_summary(
+        scientific_supervisor_gate={
+            "gate_status": "ready_for_claim",
+            "allowed_claim_level": "research_ready",
+            "recommended_stage": "supervisor-review",
+            "remediation_stage": None,
+        },
+        research_evidence_summary={
+            "readiness_status": "research_ready",
+            "validation_status": "validated",
+            "evidence_gaps": [],
+        },
+        scientific_verification_assessment={"missing_evidence": []},
+        scientific_study_summary={"studies": []},
+    )
+    assert research_ready_plan["plan_status"] == "not_needed"
+    assert research_ready_plan["current_claim_level"] == "research_ready"
+    assert research_ready_plan["target_claim_level"] == "research_ready"
+    assert research_ready_plan["actions"] == []
+
+
 def test_submarine_domain_exposes_figure_manifest_contract():
     figure_delivery_module = importlib.import_module(
         "deerflow.domain.submarine.figure_delivery"
