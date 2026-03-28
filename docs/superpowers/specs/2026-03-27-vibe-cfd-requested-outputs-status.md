@@ -441,6 +441,108 @@ This is a major evidence-layer step, but it is still not the final research plat
 - validation still depends on case-local benchmark targets rather than a broader validation registry
 - publication-grade figures and compare views are still a later slice
 
+## 16. 2026-03-28 Addendum: Supervisor Scientific State Machine
+
+This session tightened the supervisor transition semantics so the repository now distinguishes between:
+
+- generating artifacts
+- promoting a run to a stronger scientific claim level
+
+The important rule is that artifact generation remains open and agentic, but stage promotion is now evidence-gated.
+
+### 16.1 What Changed
+
+The submarine domain now has an explicit scientific supervisor gate contract in:
+
+- `backend/packages/harness/deerflow/domain/submarine/contracts.py`
+- `backend/packages/harness/deerflow/domain/submarine/supervision.py`
+
+The new gate exposes:
+
+- `gate_status`
+- `allowed_claim_level`
+- `source_readiness_status`
+- `recommended_stage`
+- `remediation_stage`
+- `blocking_reasons`
+- `advisory_notes`
+- `artifact_virtual_paths`
+
+The execution plan also now includes an explicit `supervisor-review` step instead of treating supervisor sign-off as an implicit afterthought.
+
+### 16.2 Gate Semantics
+
+The first deterministic supervisor-gate semantics are now:
+
+- `research_ready` -> `ready_for_claim`
+- `verified_but_not_validated` -> `claim_limited`
+- `validated_with_gaps` -> `claim_limited`
+- `blocked` / `insufficient_evidence` -> `blocked`
+
+This means the system can now say:
+
+- the run is ready for a strong research claim
+- the run is numerically credible but only for a limited claim
+- the run is blocked from scientific promotion and needs remediation
+
+without collapsing all of those cases into the old generic review shell.
+
+### 16.3 New Artifact And Reporting Layer
+
+`backend/packages/harness/deerflow/domain/submarine/reporting.py` now emits:
+
+- `supervisor-scientific-gate.json`
+- `scientific_supervisor_gate` inside `final-report.json`
+
+The final report also now carries:
+
+- `scientific_gate_virtual_path`
+
+and the result-report tool maps runtime review state from the gate instead of hard-coding it:
+
+- `gate_status == blocked` -> `review_status = blocked`
+- otherwise -> `review_status = ready_for_supervisor`
+- `next_recommended_stage` now follows the gate's `recommended_stage`
+
+This makes the supervisor-facing state traceable instead of being a loose convention.
+
+### 16.4 Claim-Limited vs Blocked
+
+The repository now makes an important scientific distinction:
+
+- `claim_limited` means the run can still move to supervisor review, but only with a constrained claim level such as `verified_but_not_validated`
+- `blocked` means the run can still keep its artifacts, but promotion is stopped until the recommended remediation stage is revisited
+
+This preserves the `vibe CFD` openness of the system while still enforcing hard scientific guardrails where they matter.
+
+### 16.5 Workbench Changes
+
+The submarine workbench now surfaces a dedicated scientific supervisor gate section that shows:
+
+- gate status
+- allowed claim level
+- source readiness
+- recommended stage
+- remediation stage
+- blocking reasons
+- advisory notes
+- gate artifact entrypoints
+
+The top-level supervisor review tile also now reflects the scientific gate, so the user can see at a glance whether the current run is:
+
+- ready for claim
+- claim limited
+- blocked
+
+### 16.6 Remaining Gap
+
+This is the first real scientific state machine, but it is still only the current stage gate:
+
+- the supervisor does not yet drive a richer multi-step remediation loop
+- compare views are still compact rather than a dedicated research dashboard
+- provenance is still summary-oriented rather than a full audit graph
+- publication-grade figures are still a later slice
+
 ## 14. 2026-03-28 Addendum: Experiment Registry And Run Compare v1
 
 This session extended the scientific-study work into a lightweight experiment registry so baseline and variant runs are now explicit members of a shared compareable experiment, instead of a loose collection of artifacts.

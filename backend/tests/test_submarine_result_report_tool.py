@@ -90,11 +90,15 @@ def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypat
     assert payload["report_title"] == "潜艇 CFD 阶段报告"
     assert "潜艇 CFD 阶段报告" in payload["summary_zh"]
     assert payload["source_runtime_stage"] == "geometry-preflight"
-    assert payload["next_recommended_stage"] == "supervisor-review"
+    assert payload["review_status"] == "blocked"
+    assert payload["next_recommended_stage"] == "solver-dispatch"
+    assert payload["scientific_supervisor_gate"]["gate_status"] == "blocked"
+    assert payload["scientific_supervisor_gate"]["allowed_claim_level"] == "delivery_only"
     assert payload["report_virtual_path"].endswith("/final-report.md")
     assert payload["artifact_virtual_paths"]
     assert result.update["submarine_runtime"]["current_stage"] == "result-reporting"
     assert result.update["submarine_runtime"]["report_virtual_path"].endswith("/final-report.md")
+    assert result.update["submarine_runtime"]["scientific_gate_status"] == "blocked"
 
 
 def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
