@@ -2161,7 +2161,7 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
         context={"thread_id": thread_id},
     )
 
-    report_tool_module.submarine_result_report_tool.func(
+    result = report_tool_module.submarine_result_report_tool.func(
         runtime=runtime,
         report_title="Research ready report",
         tool_call_id="tc-result-report-research-ready",
@@ -2172,14 +2172,30 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
     )
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     research = final_payload["research_evidence_summary"]
+    gate = final_payload["scientific_supervisor_gate"]
 
     assert research["validation_status"] == "validated"
     assert research["provenance_status"] == "traceable"
     assert research["readiness_status"] == "research_ready"
+    assert gate["gate_status"] == "ready_for_claim"
+    assert gate["allowed_claim_level"] == "research_ready"
+    assert gate["recommended_stage"] == "supervisor-review"
+    assert gate["remediation_stage"] is None
+    assert final_payload["review_status"] == "ready_for_supervisor"
+    assert final_payload["next_recommended_stage"] == "supervisor-review"
+    assert final_payload["scientific_gate_virtual_path"].endswith(
+        "/supervisor-scientific-gate.json"
+    )
     assert any(
         path.endswith("/research-evidence-summary.json")
         for path in final_payload["artifact_virtual_paths"]
     )
+    assert any(
+        path.endswith("/supervisor-scientific-gate.json")
+        for path in final_payload["artifact_virtual_paths"]
+    )
+    assert result.update["submarine_runtime"]["scientific_gate_status"] == "ready_for_claim"
+    assert result.update["submarine_runtime"]["execution_plan"][-1]["status"] == "ready"
 
 
 def test_submarine_result_report_marks_validation_failed_in_research_evidence_summary(
@@ -2306,7 +2322,7 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
         context={"thread_id": thread_id},
     )
 
-    report_tool_module.submarine_result_report_tool.func(
+    result = report_tool_module.submarine_result_report_tool.func(
         runtime=runtime,
         report_title="Validation failed report",
         tool_call_id="tc-result-report-validation-failed",
@@ -2324,10 +2340,22 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
     )
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     research = final_payload["research_evidence_summary"]
+    gate = final_payload["scientific_supervisor_gate"]
 
     assert research["validation_status"] == "validation_failed"
     assert research["readiness_status"] == "blocked"
     assert evidence_path.exists()
+    assert gate["gate_status"] == "blocked"
+    assert gate["allowed_claim_level"] == "delivery_only"
+    assert gate["recommended_stage"] == "solver-dispatch"
+    assert final_payload["review_status"] == "blocked"
+    assert final_payload["next_recommended_stage"] == "solver-dispatch"
+    assert final_payload["scientific_gate_virtual_path"].endswith(
+        "/supervisor-scientific-gate.json"
+    )
+    assert result.update["submarine_runtime"]["review_status"] == "blocked"
+    assert result.update["submarine_runtime"]["scientific_gate_status"] == "blocked"
+    assert result.update["submarine_runtime"]["execution_plan"][-1]["status"] == "blocked"
 
 
 def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_path):

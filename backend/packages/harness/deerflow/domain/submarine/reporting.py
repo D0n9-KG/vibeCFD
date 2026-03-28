@@ -883,6 +883,34 @@ def _render_research_evidence_markdown(research_evidence_summary: dict | None) -
     return lines
 
 
+def _render_scientific_gate_markdown(scientific_supervisor_gate: dict | None) -> list[str]:
+    if not scientific_supervisor_gate:
+        return []
+
+    lines = [
+        "",
+        "## Scientific Supervisor Gate",
+        f"- gate_status: `{scientific_supervisor_gate.get('gate_status')}`",
+        f"- allowed_claim_level: `{scientific_supervisor_gate.get('allowed_claim_level')}`",
+        f"- source_readiness_status: `{scientific_supervisor_gate.get('source_readiness_status')}`",
+        f"- recommended_stage: `{scientific_supervisor_gate.get('recommended_stage')}`",
+        f"- remediation_stage: `{scientific_supervisor_gate.get('remediation_stage') or 'none'}`",
+    ]
+    artifact_paths = scientific_supervisor_gate.get("artifact_virtual_paths") or []
+    if artifact_paths:
+        lines.extend(["", "### Gate Artifacts"])
+        lines.extend(f"- `{path}`" for path in artifact_paths)
+    blocking_reasons = scientific_supervisor_gate.get("blocking_reasons") or []
+    if blocking_reasons:
+        lines.extend(["", "### Blocking Reasons"])
+        lines.extend(f"- {item}" for item in blocking_reasons)
+    advisory_notes = scientific_supervisor_gate.get("advisory_notes") or []
+    if advisory_notes:
+        lines.extend(["", "### Advisory Notes"])
+        lines.extend(f"- {item}" for item in advisory_notes)
+    return lines
+
+
 def _render_scientific_verification_markdown(
     scientific_verification_assessment: dict | None,
 ) -> list[str]:
@@ -1009,6 +1037,40 @@ def _render_research_evidence_html(research_evidence_summary: dict | None) -> st
         f"<ul>{passed_items}</ul>"
         "<h3>Evidence Gaps</h3>"
         f"<ul>{gap_items}</ul>"
+        "</section>"
+    )
+
+
+def _render_scientific_gate_html(scientific_supervisor_gate: dict | None) -> str:
+    if not scientific_supervisor_gate:
+        return ""
+
+    artifact_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (scientific_supervisor_gate.get("artifact_virtual_paths") or [])
+    ) or "<li>None</li>"
+    blocking_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (scientific_supervisor_gate.get("blocking_reasons") or [])
+    ) or "<li>None</li>"
+    advisory_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (scientific_supervisor_gate.get("advisory_notes") or [])
+    ) or "<li>None</li>"
+    return (
+        '<section class="panel">'
+        "<h2>Scientific Supervisor Gate</h2>"
+        f"<p><strong>gate_status:</strong> {escape(str(scientific_supervisor_gate.get('gate_status')))}</p>"
+        f"<p><strong>allowed_claim_level:</strong> {escape(str(scientific_supervisor_gate.get('allowed_claim_level')))}</p>"
+        f"<p><strong>source_readiness_status:</strong> {escape(str(scientific_supervisor_gate.get('source_readiness_status')))}</p>"
+        f"<p><strong>recommended_stage:</strong> {escape(str(scientific_supervisor_gate.get('recommended_stage')))}</p>"
+        f"<p><strong>remediation_stage:</strong> {escape(str(scientific_supervisor_gate.get('remediation_stage') or 'none'))}</p>"
+        "<h3>Gate Artifacts</h3>"
+        f"<ul>{artifact_items}</ul>"
+        "<h3>Blocking Reasons</h3>"
+        f"<ul>{blocking_items}</ul>"
+        "<h3>Advisory Notes</h3>"
+        f"<ul>{advisory_items}</ul>"
         "</section>"
     )
 
@@ -1364,6 +1426,7 @@ def _render_markdown(payload: dict) -> str:
     lines.extend(_render_acceptance_markdown(payload.get("acceptance_assessment")))
     lines.extend(_render_experiment_markdown(payload.get("experiment_summary")))
     lines.extend(_render_research_evidence_markdown(payload.get("research_evidence_summary")))
+    lines.extend(_render_scientific_gate_markdown(payload.get("scientific_supervisor_gate")))
     lines.extend(_render_scientific_study_markdown(payload.get("scientific_study_summary")))
     lines.extend(
         _render_scientific_verification_markdown(
@@ -1529,6 +1592,9 @@ def _render_html(payload: dict) -> str:
     research_evidence_section = _render_research_evidence_html(
         payload.get("research_evidence_summary")
     )
+    scientific_gate_section = _render_scientific_gate_html(
+        payload.get("scientific_supervisor_gate")
+    )
     scientific_study_section = _render_scientific_study_html(
         payload.get("scientific_study_summary")
     )
@@ -1609,6 +1675,7 @@ def _render_html(payload: dict) -> str:
       {acceptance_section}
       {experiment_section}
       {research_evidence_section}
+      {scientific_gate_section}
       {scientific_study_section}
       {scientific_verification_section}
     {output_delivery_section}
@@ -1638,6 +1705,9 @@ def run_result_report(
     research_evidence_json_artifact = _artifact_virtual_path(
         run_dir_name, "research-evidence-summary.json"
     )
+    scientific_gate_json_artifact = _artifact_virtual_path(
+        run_dir_name, "supervisor-scientific-gate.json"
+    )
     json_artifact = _artifact_virtual_path(run_dir_name, "final-report.json")
     markdown_artifact = _artifact_virtual_path(run_dir_name, "final-report.md")
     html_artifact = _artifact_virtual_path(run_dir_name, "final-report.html")
@@ -1645,6 +1715,7 @@ def run_result_report(
         delivery_markdown_artifact,
         delivery_json_artifact,
         research_evidence_json_artifact,
+        scientific_gate_json_artifact,
         markdown_artifact,
         html_artifact,
         json_artifact,
@@ -1699,6 +1770,7 @@ def run_result_report(
     )
     scientific_supervisor_gate = build_scientific_supervisor_gate(
         research_evidence_summary=research_evidence_summary,
+        artifact_virtual_paths=[scientific_gate_json_artifact],
     )
     review_status = (
         "blocked"
@@ -1713,6 +1785,7 @@ def run_result_report(
         review_status=review_status,
         scientific_gate_status=scientific_supervisor_gate["gate_status"],
         allowed_claim_level=scientific_supervisor_gate["allowed_claim_level"],
+        scientific_gate_virtual_path=scientific_gate_json_artifact,
     )
     payload = {
         "report_title": report_title,
@@ -1750,6 +1823,7 @@ def run_result_report(
         "review_status": review.review_status,
         "next_recommended_stage": review.next_recommended_stage,
         "report_virtual_path": review.report_virtual_path,
+        "scientific_gate_virtual_path": review.scientific_gate_virtual_path,
         "final_artifact_virtual_paths": new_artifacts,
         "artifact_virtual_paths": review.artifact_virtual_paths,
     }
@@ -1764,6 +1838,10 @@ def run_result_report(
     )
     (artifact_dir / "research-evidence-summary.json").write_text(
         json.dumps(research_evidence_summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (artifact_dir / "supervisor-scientific-gate.json").write_text(
+        json.dumps(scientific_supervisor_gate, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     (artifact_dir / "final-report.json").write_text(
