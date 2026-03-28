@@ -40,6 +40,7 @@ import {
   buildSubmarineExecutionOutline,
   buildSubmarineDesignBriefSummary,
   buildSubmarineExperimentSummary,
+  buildSubmarineResearchEvidenceSummary,
   buildSubmarineResultCards,
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
@@ -147,6 +148,18 @@ type FinalReportPayload = {
   summary_zh?: string;
   solver_metrics?: SolverMetrics | null;
   acceptance_assessment?: SubmarineAcceptanceAssessment | null;
+  research_evidence_summary?: {
+    readiness_status?: string | null;
+    verification_status?: string | null;
+    validation_status?: string | null;
+    provenance_status?: string | null;
+    confidence?: string | null;
+    evidence_gaps?: string[] | null;
+    passed_evidence?: string[] | null;
+    benchmark_highlights?: string[] | null;
+    provenance_highlights?: string[] | null;
+    artifact_virtual_paths?: string[] | null;
+  } | null;
   experiment_summary?: {
     experiment_id?: string | null;
     experiment_status?: string | null;
@@ -429,6 +442,10 @@ export function SubmarineRuntimePanel({
     () => buildSubmarineAcceptanceSummary(finalReport),
     [finalReport],
   );
+  const researchEvidenceSummary = useMemo(
+    () => buildSubmarineResearchEvidenceSummary(finalReport),
+    [finalReport],
+  );
   const experimentSummary = useMemo(
     () => buildSubmarineExperimentSummary(finalReport),
     [finalReport],
@@ -676,6 +693,61 @@ export function SubmarineRuntimePanel({
                     emptyText="当前还没有记录请求输出的交付状态。"
                   />
                 </div>
+                ) : null}
+                {researchEvidenceSummary ? (
+                  <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                      <KeyValue
+                        label="Research Readiness"
+                        value={researchEvidenceSummary.readinessLabel}
+                      />
+                      <KeyValue
+                        label="Verification"
+                        value={researchEvidenceSummary.verificationStatusLabel}
+                      />
+                      <KeyValue
+                        label="Validation"
+                        value={researchEvidenceSummary.validationStatusLabel}
+                      />
+                      <KeyValue
+                        label="Provenance"
+                        value={researchEvidenceSummary.provenanceStatusLabel}
+                      />
+                      <KeyValue
+                        label="Confidence"
+                        value={researchEvidenceSummary.confidenceLabel}
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <LabeledList
+                        title="Passed Evidence"
+                        items={researchEvidenceSummary.passedEvidence}
+                        emptyText="No passed research evidence is recorded yet."
+                      />
+                      <LabeledList
+                        title="Evidence Gaps"
+                        items={researchEvidenceSummary.evidenceGaps}
+                        emptyText="No research evidence gaps are recorded."
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      <LabeledList
+                        title="Benchmark Highlights"
+                        items={researchEvidenceSummary.benchmarkHighlights}
+                        emptyText="No benchmark highlights are recorded."
+                      />
+                      <LabeledList
+                        title="Provenance Highlights"
+                        items={researchEvidenceSummary.provenanceHighlights}
+                        emptyText="No provenance highlights are recorded."
+                      />
+                      <LabeledList
+                        title="Evidence Artifacts"
+                        items={researchEvidenceSummary.artifactPaths}
+                        emptyText="No research evidence artifacts are recorded."
+                      />
+                    </div>
+                  </div>
                 ) : null}
                 {experimentSummary ? (
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
