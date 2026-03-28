@@ -202,6 +202,17 @@ export type SubmarineResearchEvidenceSummary = {
   artifactPaths: string[];
 };
 
+export type SubmarineScientificGateSummary = {
+  gateStatusLabel: string;
+  allowedClaimLevelLabel: string;
+  sourceReadinessLabel: string;
+  recommendedStageLabel: string;
+  remediationStageLabel: string;
+  blockingReasons: string[];
+  advisoryNotes: string[];
+  artifactPaths: string[];
+};
+
 export type SubmarineAcceptanceSummary = {
   statusLabel: string;
   confidenceLabel: string;
@@ -319,6 +330,27 @@ const RESEARCH_EVIDENCE_DIMENSION_LABELS: Record<string, string> = {
   high: "High",
   medium: "Medium",
   low: "Low",
+};
+
+const SCIENTIFIC_GATE_STATUS_LABELS: Record<string, string> = {
+  ready_for_claim: "Ready For Claim",
+  claim_limited: "Claim Limited",
+  blocked: "Blocked",
+};
+
+const SCIENTIFIC_CLAIM_LEVEL_LABELS: Record<string, string> = {
+  delivery_only: "Delivery Only",
+  verified_but_not_validated: "Verified But Not Validated",
+  validated_with_gaps: "Validated With Gaps",
+  research_ready: "Research Ready",
+};
+
+const SCIENTIFIC_GATE_STAGE_LABELS: Record<string, string> = {
+  "task-intelligence": "Task Intelligence",
+  "geometry-preflight": "Geometry Preflight",
+  "solver-dispatch": "Solver Dispatch",
+  "result-reporting": "Result Reporting",
+  "supervisor-review": "Supervisor Review",
 };
 
 const RESULT_CARD_ARTIFACT_SUFFIXES: Record<string, string[]> = {
@@ -585,6 +617,13 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     },
   ],
   [
+    "/supervisor-scientific-gate.json",
+    {
+      label: "Scientific Supervisor Gate JSON",
+      externalLinkLabel: "Open scientific supervisor gate JSON in a new window",
+    },
+  ],
+  [
     "/final-report.md",
     {
       label: "最终报告",
@@ -763,6 +802,7 @@ function classifySubmarineArtifact(path: string): SubmarineArtifactGroupId {
     path.endsWith("/delivery-readiness.md") ||
     path.endsWith("/delivery-readiness.json") ||
     path.endsWith("/research-evidence-summary.json") ||
+    path.endsWith("/supervisor-scientific-gate.json") ||
     path.endsWith("/final-report.md") ||
     path.endsWith("/final-report.html") ||
     path.endsWith("/final-report.json")
@@ -1278,6 +1318,57 @@ export function buildSubmarineResearchEvidenceSummary(
     passedEvidence: summary.passed_evidence?.filter(Boolean) ?? [],
     benchmarkHighlights: summary.benchmark_highlights?.filter(Boolean) ?? [],
     provenanceHighlights: summary.provenance_highlights?.filter(Boolean) ?? [],
+    artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
+  };
+}
+
+export function buildSubmarineScientificGateSummary(
+  payload:
+    | {
+        scientific_supervisor_gate?:
+          | {
+              gate_status?: string | null;
+              allowed_claim_level?: string | null;
+              source_readiness_status?: string | null;
+              recommended_stage?: string | null;
+              remediation_stage?: string | null;
+              blocking_reasons?: string[] | null;
+              advisory_notes?: string[] | null;
+              artifact_virtual_paths?: string[] | null;
+            }
+          | null;
+      }
+    | null
+    | undefined,
+): SubmarineScientificGateSummary | null {
+  const summary = payload?.scientific_supervisor_gate;
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    gateStatusLabel:
+      SCIENTIFIC_GATE_STATUS_LABELS[summary.gate_status ?? ""] ??
+      summary.gate_status ??
+      "--",
+    allowedClaimLevelLabel:
+      SCIENTIFIC_CLAIM_LEVEL_LABELS[summary.allowed_claim_level ?? ""] ??
+      summary.allowed_claim_level ??
+      "--",
+    sourceReadinessLabel:
+      RESEARCH_EVIDENCE_READINESS_LABELS[summary.source_readiness_status ?? ""] ??
+      summary.source_readiness_status ??
+      "--",
+    recommendedStageLabel:
+      SCIENTIFIC_GATE_STAGE_LABELS[summary.recommended_stage ?? ""] ??
+      summary.recommended_stage ??
+      "--",
+    remediationStageLabel:
+      SCIENTIFIC_GATE_STAGE_LABELS[summary.remediation_stage ?? ""] ??
+      summary.remediation_stage ??
+      "--",
+    blockingReasons: summary.blocking_reasons?.filter(Boolean) ?? [],
+    advisoryNotes: summary.advisory_notes?.filter(Boolean) ?? [],
     artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
   };
 }

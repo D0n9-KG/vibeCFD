@@ -8,6 +8,7 @@ const {
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
+  buildSubmarineScientificGateSummary,
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
   filterSubmarineArtifactGroups,
@@ -262,6 +263,22 @@ void test("returns stable labels for scientific verification artifacts", () => {
 
   assert.equal(meta.label, "Scientific Verification - Mesh Independence JSON");
   assert.equal(groups[0]?.id, "results");
+});
+
+void test("returns stable labels for scientific supervisor gate artifacts", () => {
+  const meta = getSubmarineArtifactMeta(
+    "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
+  );
+  const groups = groupSubmarineArtifacts([
+    "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
+  ]);
+
+  assert.equal(meta.label, "Scientific Supervisor Gate JSON");
+  assert.equal(
+    meta.externalLinkLabel,
+    "Open scientific supervisor gate JSON in a new window",
+  );
+  assert.equal(groups[0]?.id, "report");
 });
 
 void test("builds an acceptance summary from the final report payload", () => {
@@ -712,5 +729,40 @@ void test("builds a research evidence summary from the final report payload", ()
   ]);
   assert.deepEqual(summary?.artifactPaths, [
     "/mnt/user-data/outputs/submarine/reports/demo/research-evidence-summary.json",
+  ]);
+});
+
+void test("builds a scientific supervisor gate summary from the final report payload", () => {
+  const summary = buildSubmarineScientificGateSummary({
+    scientific_supervisor_gate: {
+      gate_status: "claim_limited",
+      allowed_claim_level: "verified_but_not_validated",
+      source_readiness_status: "verified_but_not_validated",
+      recommended_stage: "supervisor-review",
+      remediation_stage: "solver-dispatch",
+      blocking_reasons: [],
+      advisory_notes: ["External validation evidence is still missing for this run."],
+      artifact_virtual_paths: [
+        "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
+      ],
+    },
+  });
+
+  assert.equal(summary?.gateStatusLabel, "Claim Limited");
+  assert.equal(
+    summary?.allowedClaimLevelLabel,
+    "Verified But Not Validated",
+  );
+  assert.equal(
+    summary?.sourceReadinessLabel,
+    "Verified But Not Validated",
+  );
+  assert.equal(summary?.recommendedStageLabel, "Supervisor Review");
+  assert.equal(summary?.remediationStageLabel, "Solver Dispatch");
+  assert.deepEqual(summary?.advisoryNotes, [
+    "External validation evidence is still missing for this run.",
+  ]);
+  assert.deepEqual(summary?.artifactPaths, [
+    "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
   ]);
 });
