@@ -254,6 +254,28 @@ export type SubmarineScientificGateSummary = {
   artifactPaths: string[];
 };
 
+export type SubmarineScientificRemediationSummary = {
+  planStatusLabel: string;
+  currentClaimLevelLabel: string;
+  targetClaimLevelLabel: string;
+  recommendedStageLabel: string;
+  artifactPaths: string[];
+  actions: Array<{
+    actionId: string;
+    title: string;
+    summary: string;
+    ownerStage: string;
+    ownerStageLabel: string;
+    priority: string;
+    executionMode: string;
+    executionModeLabel: string;
+    status: string;
+    statusLabel: string;
+    evidenceGap: string;
+    requiredArtifacts: string[];
+  }>;
+};
+
 export type SubmarineAcceptanceSummary = {
   statusLabel: string;
   confidenceLabel: string;
@@ -408,6 +430,22 @@ const SCIENTIFIC_GATE_STAGE_LABELS: Record<string, string> = {
   "solver-dispatch": "Solver Dispatch",
   "result-reporting": "Result Reporting",
   "supervisor-review": "Supervisor Review",
+};
+
+const SCIENTIFIC_REMEDIATION_PLAN_STATUS_LABELS: Record<string, string> = {
+  not_needed: "Not Needed",
+  recommended: "Recommended",
+  blocked: "Blocked",
+};
+
+const SCIENTIFIC_REMEDIATION_EXECUTION_MODE_LABELS: Record<string, string> = {
+  auto_executable: "Auto Executable",
+  manual_required: "Manual Required",
+};
+
+const SCIENTIFIC_REMEDIATION_ACTION_STATUS_LABELS: Record<string, string> = {
+  pending: "Pending",
+  not_needed: "Not Needed",
 };
 
 const RESULT_CARD_ARTIFACT_SUFFIXES: Record<string, string[]> = {
@@ -1608,6 +1646,84 @@ export function buildSubmarineScientificGateSummary(
     blockingReasons: summary.blocking_reasons?.filter(Boolean) ?? [],
     advisoryNotes: summary.advisory_notes?.filter(Boolean) ?? [],
     artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
+  };
+}
+
+export function buildSubmarineScientificRemediationSummary(
+  payload:
+    | {
+        scientific_remediation_summary?:
+          | {
+              plan_status?: string | null;
+              current_claim_level?: string | null;
+              target_claim_level?: string | null;
+              recommended_stage?: string | null;
+              artifact_virtual_paths?: string[] | null;
+              actions?:
+                | Array<{
+                    action_id?: string | null;
+                    title?: string | null;
+                    summary?: string | null;
+                    owner_stage?: string | null;
+                    priority?: string | null;
+                    execution_mode?: string | null;
+                    status?: string | null;
+                    evidence_gap?: string | null;
+                    required_artifacts?: string[] | null;
+                  }>
+                | null;
+            }
+          | null;
+      }
+    | null
+    | undefined,
+): SubmarineScientificRemediationSummary | null {
+  const summary = payload?.scientific_remediation_summary;
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    planStatusLabel:
+      SCIENTIFIC_REMEDIATION_PLAN_STATUS_LABELS[summary.plan_status ?? ""] ??
+      summary.plan_status ??
+      "--",
+    currentClaimLevelLabel:
+      SCIENTIFIC_CLAIM_LEVEL_LABELS[summary.current_claim_level ?? ""] ??
+      summary.current_claim_level ??
+      "--",
+    targetClaimLevelLabel:
+      SCIENTIFIC_CLAIM_LEVEL_LABELS[summary.target_claim_level ?? ""] ??
+      summary.target_claim_level ??
+      "--",
+    recommendedStageLabel:
+      SCIENTIFIC_GATE_STAGE_LABELS[summary.recommended_stage ?? ""] ??
+      summary.recommended_stage ??
+      "--",
+    artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
+    actions: (summary.actions ?? []).filter(Boolean).map((item) => ({
+      actionId: item.action_id ?? "unknown",
+      title: item.title ?? "--",
+      summary: item.summary ?? "--",
+      ownerStage: item.owner_stage ?? "--",
+      ownerStageLabel:
+        SCIENTIFIC_GATE_STAGE_LABELS[item.owner_stage ?? ""] ??
+        item.owner_stage ??
+        "--",
+      priority: item.priority ?? "--",
+      executionMode: item.execution_mode ?? "--",
+      executionModeLabel:
+        SCIENTIFIC_REMEDIATION_EXECUTION_MODE_LABELS[item.execution_mode ?? ""] ??
+        item.execution_mode ??
+        "--",
+      status: item.status ?? "--",
+      statusLabel:
+        SCIENTIFIC_REMEDIATION_ACTION_STATUS_LABELS[item.status ?? ""] ??
+        item.status ??
+        "--",
+      evidenceGap: item.evidence_gap ?? "--",
+      requiredArtifacts: item.required_artifacts?.filter(Boolean) ?? [],
+    })),
   };
 }
 

@@ -45,6 +45,7 @@ import {
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineResultCards,
   buildSubmarineScientificGateSummary,
+  buildSubmarineScientificRemediationSummary,
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
   filterSubmarineArtifactGroups,
@@ -175,6 +176,26 @@ type FinalReportPayload = {
     blocking_reasons?: string[] | null;
     advisory_notes?: string[] | null;
     artifact_virtual_paths?: string[] | null;
+  } | null;
+  scientific_remediation_summary?: {
+    plan_status?: string | null;
+    current_claim_level?: string | null;
+    target_claim_level?: string | null;
+    recommended_stage?: string | null;
+    artifact_virtual_paths?: string[] | null;
+    actions?:
+      | Array<{
+          action_id?: string | null;
+          title?: string | null;
+          summary?: string | null;
+          owner_stage?: string | null;
+          priority?: string | null;
+          execution_mode?: string | null;
+          status?: string | null;
+          evidence_gap?: string | null;
+          required_artifacts?: string[] | null;
+        }>
+      | null;
   } | null;
   experiment_summary?: {
     experiment_id?: string | null;
@@ -534,6 +555,10 @@ export function SubmarineRuntimePanel({
   );
   const experimentSummary = useMemo(
     () => buildSubmarineExperimentSummary(finalReport),
+    [finalReport],
+  );
+  const scientificRemediationSummary = useMemo(
+    () => buildSubmarineScientificRemediationSummary(finalReport),
     [finalReport],
   );
   const experimentCompareSummary = useMemo(
@@ -930,6 +955,83 @@ export function SubmarineRuntimePanel({
                         emptyText="No run compare notes are recorded yet."
                       />
                     </div>
+                  </div>
+                ) : null}
+                {scientificRemediationSummary ? (
+                  <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <KeyValue
+                        label="Remediation Plan"
+                        value={scientificRemediationSummary.planStatusLabel}
+                      />
+                      <KeyValue
+                        label="Current Claim"
+                        value={scientificRemediationSummary.currentClaimLevelLabel}
+                      />
+                      <KeyValue
+                        label="Target Claim"
+                        value={scientificRemediationSummary.targetClaimLevelLabel}
+                      />
+                      <KeyValue
+                        label="Recommended Stage"
+                        value={scientificRemediationSummary.recommendedStageLabel}
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <LabeledList
+                        title="Remediation Artifacts"
+                        items={scientificRemediationSummary.artifactPaths}
+                        emptyText="No remediation artifacts are recorded yet."
+                      />
+                      <LabeledList
+                        title="Remediation Actions"
+                        items={scientificRemediationSummary.actions.map(
+                          (item) =>
+                            `${item.title} | ${item.ownerStageLabel} | ${item.executionModeLabel} | ${item.statusLabel}`,
+                        )}
+                        emptyText="No remediation actions are recorded."
+                      />
+                    </div>
+                    {scientificRemediationSummary.actions.length > 0 ? (
+                      <div className="space-y-3">
+                        {scientificRemediationSummary.actions.map((item) => (
+                          <div
+                            key={item.actionId}
+                            className="rounded-xl border bg-muted/20 p-4"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="bg-background/80">
+                                {item.statusLabel}
+                              </Badge>
+                              <span className="text-sm font-medium text-foreground">
+                                {item.title}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {item.ownerStageLabel} | {item.executionModeLabel}
+                              </span>
+                            </div>
+                            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                              <KeyValue label="Action ID" value={item.actionId} />
+                              <KeyValue label="Owner Stage" value={item.ownerStageLabel} />
+                              <KeyValue label="Execution Mode" value={item.executionModeLabel} />
+                              <KeyValue label="Priority" value={item.priority} />
+                            </div>
+                            <div className="mt-3 grid gap-4 xl:grid-cols-2">
+                              <LabeledList
+                                title="Action Summary"
+                                items={[item.summary, item.evidenceGap]}
+                                emptyText="No remediation detail is recorded."
+                              />
+                              <LabeledList
+                                title="Required Artifacts"
+                                items={item.requiredArtifacts}
+                                emptyText="No required remediation artifacts are recorded."
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
                 {experimentCompareSummary ? (

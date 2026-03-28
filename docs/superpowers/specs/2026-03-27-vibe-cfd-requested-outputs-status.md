@@ -404,6 +404,73 @@ Broader verification:
 - `uv run pytest tests/test_submarine_domain_assets.py tests/test_submarine_solver_dispatch_tool.py tests/test_submarine_result_report_tool.py -q`
 - result: `52 passed`
 
+## 18. 2026-03-28 Addendum: Scientific Remediation Planner v1
+
+This session continued the scientific gate work and added a first structured remediation layer.
+
+### 18.1 What Changed
+
+The repository now emits a deterministic `scientific_remediation_summary` and a companion artifact:
+
+- `scientific-remediation-plan.json`
+
+The remediation layer translates research evidence and scientific gate outcomes into explicit next actions.
+
+Current action families include:
+
+- execute missing scientific verification studies
+- attach a validation reference when the run is verified but not externally validated
+- regenerate result-report packaging when provenance linkage is still limiting the claim level
+
+The runtime workbench now renders remediation cards so a reviewer can see:
+
+- current claim level
+- target claim level
+- recommended owner stage
+- whether an action is auto-executable or manual-required
+- which evidence gap the action is closing
+
+### 18.2 Why This Matters
+
+Before this slice, the repository could explain why a run was blocked or claim-limited, but it still stopped at diagnosis.
+
+Now it also produces a machine-readable answer to:
+
+- what should happen next
+- who should do it
+- whether the repository can do it itself later
+
+This is an important step from "evidence-aware" toward "self-steering" research workflow behavior.
+
+### 18.3 Current Limitation
+
+This is still a remediation planner, not a remediation executor:
+
+- auto-executable actions are described, but not yet launched automatically
+- there is no remediation history across multiple follow-up runs
+- missing validation references still need human or case-library input
+- provenance remains summary-oriented rather than a full action audit graph
+
+### 18.4 Verification
+
+Focused verification:
+
+- `uv run pytest tests/test_submarine_domain_assets.py -q -k scientific_remediation_plan`
+- result: `1 passed`
+- `uv run pytest tests/test_submarine_result_report_tool.py -q -k verified_but_not_validated`
+- result: `1 passed`
+- `cd frontend && node --experimental-strip-types --test src/components/workspace/submarine-runtime-panel.utils.test.ts`
+- result: `26 passed`
+- `cd frontend && corepack pnpm exec tsc --noEmit`
+- result: passed
+- `cd frontend && corepack pnpm exec eslint src/components/workspace/submarine-runtime-panel.tsx src/components/workspace/submarine-runtime-panel.utils.ts src/components/workspace/submarine-runtime-panel.utils.test.ts`
+- result: passed
+
+Broader verification:
+
+- `uv run pytest tests/test_submarine_domain_assets.py tests/test_submarine_solver_dispatch_tool.py tests/test_submarine_result_report_tool.py -q`
+- result: `53 passed`
+
 ## 15. 2026-03-28 Addendum: Figure Delivery Summary
 
 This session continued the same requested-output mainline and upgraded the supported figure outputs from loose PNG previews to manifest-backed delivery records.

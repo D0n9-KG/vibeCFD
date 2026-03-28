@@ -11,6 +11,7 @@ const {
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
   buildSubmarineScientificGateSummary,
+  buildSubmarineScientificRemediationSummary,
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
   filterSubmarineArtifactGroups,
@@ -942,6 +943,52 @@ void test("builds a scientific supervisor gate summary from the final report pay
     "External validation evidence is still missing for this run.",
   ]);
   assert.deepEqual(summary?.artifactPaths, [
+    "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
+  ]);
+});
+
+void test("builds a scientific remediation summary from the final report payload", () => {
+  const summary = buildSubmarineScientificRemediationSummary({
+    scientific_remediation_summary: {
+      plan_status: "recommended",
+      current_claim_level: "verified_but_not_validated",
+      target_claim_level: "research_ready",
+      recommended_stage: "supervisor-review",
+      artifact_virtual_paths: [
+        "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-plan.json",
+      ],
+      actions: [
+        {
+          action_id: "attach-validation-reference",
+          title: "Attach validation reference",
+          summary:
+            "Provide a benchmark target for the selected case so the current run can be externally validated.",
+          owner_stage: "supervisor-review",
+          priority: "high",
+          execution_mode: "manual_required",
+          status: "pending",
+          evidence_gap: "No applicable benchmark target was available for this run.",
+          required_artifacts: [
+            "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
+          ],
+        },
+      ],
+    },
+  });
+
+  assert.equal(summary?.planStatusLabel, "Recommended");
+  assert.equal(summary?.currentClaimLevelLabel, "Verified But Not Validated");
+  assert.equal(summary?.targetClaimLevelLabel, "Research Ready");
+  assert.equal(summary?.recommendedStageLabel, "Supervisor Review");
+  assert.deepEqual(summary?.artifactPaths, [
+    "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-plan.json",
+  ]);
+  assert.equal(summary?.actions.length, 1);
+  assert.equal(summary?.actions[0]?.actionId, "attach-validation-reference");
+  assert.equal(summary?.actions[0]?.ownerStageLabel, "Supervisor Review");
+  assert.equal(summary?.actions[0]?.executionModeLabel, "Manual Required");
+  assert.equal(summary?.actions[0]?.statusLabel, "Pending");
+  assert.deepEqual(summary?.actions[0]?.requiredArtifacts, [
     "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
   ]);
 });
