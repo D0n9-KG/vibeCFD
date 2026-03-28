@@ -594,6 +594,79 @@ def test_submarine_domain_builds_scientific_remediation_plan_semantics():
     assert research_ready_plan["actions"] == []
 
 
+def test_submarine_domain_builds_scientific_remediation_handoff_semantics():
+    handoff_module = importlib.import_module("deerflow.domain.submarine.handoff")
+
+    auto_handoff = handoff_module.build_scientific_remediation_handoff(
+        snapshot={
+            "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+            "task_summary": "Assess missing scientific study evidence",
+            "task_type": "resistance",
+            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+            "simulation_requirements": {
+                "inlet_velocity_mps": 3.05,
+                "end_time_seconds": 200.0,
+                "delta_t_seconds": 1.0,
+            },
+        },
+        scientific_remediation_summary={
+            "plan_status": "recommended",
+            "actions": [
+                {
+                    "action_id": "execute-scientific-studies",
+                    "title": "Execute scientific verification studies",
+                    "summary": "Run the planned scientific study variants.",
+                    "owner_stage": "solver-dispatch",
+                    "execution_mode": "auto_executable",
+                    "evidence_gap": "verification-mesh-independence.json is missing.",
+                }
+            ],
+        },
+    )
+    assert auto_handoff["handoff_status"] == "ready_for_auto_followup"
+    assert auto_handoff["recommended_action_id"] == "execute-scientific-studies"
+    assert auto_handoff["tool_name"] == "submarine_solver_dispatch"
+    assert auto_handoff["tool_args"]["geometry_path"] == "/mnt/user-data/uploads/suboff_solid.stl"
+    assert auto_handoff["tool_args"]["execute_scientific_studies"] is True
+
+    manual_handoff = handoff_module.build_scientific_remediation_handoff(
+        snapshot={
+            "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+            "task_summary": "Assess validation evidence",
+            "task_type": "resistance",
+        },
+        scientific_remediation_summary={
+            "plan_status": "recommended",
+            "actions": [
+                {
+                    "action_id": "attach-validation-reference",
+                    "title": "Attach validation reference",
+                    "owner_stage": "supervisor-review",
+                    "execution_mode": "manual_required",
+                    "evidence_gap": "No applicable benchmark target was available for this run.",
+                }
+            ],
+        },
+    )
+    assert manual_handoff["handoff_status"] == "manual_followup_required"
+    assert manual_handoff["tool_name"] is None
+    assert manual_handoff["manual_actions"][0]["action_id"] == "attach-validation-reference"
+
+    no_handoff = handoff_module.build_scientific_remediation_handoff(
+        snapshot={
+            "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+            "task_summary": "Research-ready run",
+            "task_type": "resistance",
+        },
+        scientific_remediation_summary={
+            "plan_status": "not_needed",
+            "actions": [],
+        },
+    )
+    assert no_handoff["handoff_status"] == "not_needed"
+    assert no_handoff["tool_name"] is None
+
+
 def test_submarine_domain_exposes_figure_manifest_contract():
     figure_delivery_module = importlib.import_module(
         "deerflow.domain.submarine.figure_delivery"
