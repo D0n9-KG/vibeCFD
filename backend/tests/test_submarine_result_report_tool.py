@@ -1771,6 +1771,195 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
     assert experiment_summary["compare_virtual_path"].endswith("/run-compare-summary.json")
 
 
+def test_submarine_result_report_marks_verified_but_not_validated_without_benchmark_reference(
+    tmp_path, monkeypatch
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+    reporting_module = importlib.import_module("deerflow.domain.submarine.reporting")
+    models_module = importlib.import_module("deerflow.domain.submarine.models")
+
+    fake_case = models_module.SubmarineCase(
+        case_id="research_evidence_custom_case",
+        title="Research evidence custom case",
+        geometry_family="DARPA SUBOFF",
+        geometry_description="Custom benchmark-free verification case",
+        task_type="resistance",
+        acceptance_profile=models_module.SubmarineCaseAcceptanceProfile(
+            profile_id="research-evidence-no-benchmark",
+            summary_zh="Verification-focused case without external benchmark targets",
+            max_final_residual=0.001,
+            require_force_coefficients=True,
+            benchmark_targets=[],
+        ),
+    )
+    monkeypatch.setattr(reporting_module, "_resolve_selected_case", lambda _: fake_case)
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-verified-not-validated"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = (
+        outputs_dir / "submarine" / "solver-dispatch" / "verified-not-validated"
+    )
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "mesh_summary": {"mesh_ok": True, "cells": 9342},
+                "latest_force_coefficients": {"Time": 200.0, "Cd": 0.00312},
+                "force_coefficients_history": [
+                    {"Time": 160.0, "Cd": 0.00313},
+                    {"Time": 170.0, "Cd": 0.00312},
+                    {"Time": 180.0, "Cd": 0.00311},
+                    {"Time": 190.0, "Cd": 0.00312},
+                    {"Time": 200.0, "Cd": 0.00312},
+                ],
+                "latest_forces": {"total_force": [8.0, 0.0, 0.0]},
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 5e-4,
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "fluid_density_kg_m3": 1000.0,
+                    "kinematic_viscosity_m2ps": 1.0e-06,
+                    "end_time_seconds": 200.0,
+                    "delta_t_seconds": 1.0,
+                    "write_interval_steps": 50,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    for artifact_name, study_type in [
+        ("verification-mesh-independence.json", "mesh_independence"),
+        ("verification-domain-sensitivity.json", "domain_sensitivity"),
+        ("verification-time-step-sensitivity.json", "time_step_sensitivity"),
+    ]:
+        (solver_results_dir / artifact_name).write_text(
+            json.dumps(
+                {
+                    "study_type": study_type,
+                    "status": "passed",
+                    "summary_zh": f"{study_type} evidence passed.",
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+    (solver_results_dir / "study-manifest.json").write_text(
+        json.dumps(
+            {
+                "selected_case_id": "research_evidence_custom_case",
+                "baseline_configuration_snapshot": {"task_type": "resistance"},
+                "study_definitions": [],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/study-manifest.json"
+                ],
+                "study_execution_status": "completed",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "experiment-manifest.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": "research-evidence-custom-case-verified-not-validated-resistance",
+                "selected_case_id": "research_evidence_custom_case",
+                "task_type": "resistance",
+                "baseline_run_id": "baseline",
+                "run_records": [
+                    {
+                        "run_id": "baseline",
+                        "run_role": "baseline",
+                        "execution_status": "completed",
+                    }
+                ],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/experiment-manifest.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/run-compare-summary.json",
+                ],
+                "experiment_status": "completed",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "run-compare-summary.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": "research-evidence-custom-case-verified-not-validated-resistance",
+                "baseline_run_id": "baseline",
+                "comparisons": [],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Assess research evidence without external validation target",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "research_evidence_custom_case",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/study-manifest.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/experiment-manifest.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/run-compare-summary.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/verification-mesh-independence.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/verification-domain-sensitivity.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/verification-time-step-sensitivity.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Verified but not validated report",
+        tool_call_id="tc-result-report-verified-not-validated",
+    )
+
+    final_report_path = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    research = final_payload["research_evidence_summary"]
+
+    assert research["verification_status"] == "passed"
+    assert research["validation_status"] == "missing_validation_reference"
+    assert research["readiness_status"] == "verified_but_not_validated"
+
+
 def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_path):
     report_tool_module = importlib.import_module(
         "deerflow.tools.builtins.submarine_result_report_tool"

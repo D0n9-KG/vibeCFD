@@ -8,6 +8,7 @@ from html import escape
 from pathlib import Path
 
 from .contracts import SubmarineRuntimeSnapshot, build_supervisor_review_contract
+from .evidence import build_research_evidence_summary
 from .library import load_case_library
 from .models import SubmarineBenchmarkTarget, SubmarineCase
 from .output_contract import build_output_delivery_plan
@@ -857,6 +858,30 @@ def _render_experiment_markdown(experiment_summary: dict | None) -> list[str]:
     return lines
 
 
+def _render_research_evidence_markdown(research_evidence_summary: dict | None) -> list[str]:
+    if not research_evidence_summary:
+        return []
+
+    lines = [
+        "",
+        "## Research Evidence",
+        f"- readiness_status: `{research_evidence_summary.get('readiness_status')}`",
+        f"- verification_status: `{research_evidence_summary.get('verification_status')}`",
+        f"- validation_status: `{research_evidence_summary.get('validation_status')}`",
+        f"- provenance_status: `{research_evidence_summary.get('provenance_status')}`",
+        f"- confidence: `{research_evidence_summary.get('confidence')}`",
+    ]
+    passed_evidence = research_evidence_summary.get("passed_evidence") or []
+    evidence_gaps = research_evidence_summary.get("evidence_gaps") or []
+    if passed_evidence:
+        lines.extend(["", "### Passed Evidence"])
+        lines.extend(f"- {item}" for item in passed_evidence)
+    if evidence_gaps:
+        lines.extend(["", "### Evidence Gaps"])
+        lines.extend(f"- {item}" for item in evidence_gaps)
+    return lines
+
+
 def _render_scientific_verification_markdown(
     scientific_verification_assessment: dict | None,
 ) -> list[str]:
@@ -955,6 +980,34 @@ def _render_experiment_html(experiment_summary: dict | None) -> str:
         f"{compare_html}"
         "<h3>Compare Summary</h3>"
         f"<ul>{compare_items}</ul>"
+        "</section>"
+    )
+
+
+def _render_research_evidence_html(research_evidence_summary: dict | None) -> str:
+    if not research_evidence_summary:
+        return ""
+
+    passed_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (research_evidence_summary.get("passed_evidence") or [])
+    ) or "<li>None</li>"
+    gap_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (research_evidence_summary.get("evidence_gaps") or [])
+    ) or "<li>None</li>"
+    return (
+        '<section class="panel">'
+        "<h2>Research Evidence</h2>"
+        f"<p><strong>readiness_status:</strong> {escape(str(research_evidence_summary.get('readiness_status')))}</p>"
+        f"<p><strong>verification_status:</strong> {escape(str(research_evidence_summary.get('verification_status')))}</p>"
+        f"<p><strong>validation_status:</strong> {escape(str(research_evidence_summary.get('validation_status')))}</p>"
+        f"<p><strong>provenance_status:</strong> {escape(str(research_evidence_summary.get('provenance_status')))}</p>"
+        f"<p><strong>confidence:</strong> {escape(str(research_evidence_summary.get('confidence')))}</p>"
+        "<h3>Passed Evidence</h3>"
+        f"<ul>{passed_items}</ul>"
+        "<h3>Evidence Gaps</h3>"
+        f"<ul>{gap_items}</ul>"
         "</section>"
     )
 
@@ -1309,6 +1362,7 @@ def _render_markdown(payload: dict) -> str:
     lines.extend(_render_solver_metrics_markdown_enriched(payload.get("solver_metrics")))
     lines.extend(_render_acceptance_markdown(payload.get("acceptance_assessment")))
     lines.extend(_render_experiment_markdown(payload.get("experiment_summary")))
+    lines.extend(_render_research_evidence_markdown(payload.get("research_evidence_summary")))
     lines.extend(_render_scientific_study_markdown(payload.get("scientific_study_summary")))
     lines.extend(
         _render_scientific_verification_markdown(
@@ -1471,6 +1525,9 @@ def _render_html(payload: dict) -> str:
     metrics_section = _render_solver_metrics_html_enriched(payload.get("solver_metrics"))
     acceptance_section = _render_acceptance_html(payload.get("acceptance_assessment"))
     experiment_section = _render_experiment_html(payload.get("experiment_summary"))
+    research_evidence_section = _render_research_evidence_html(
+        payload.get("research_evidence_summary")
+    )
     scientific_study_section = _render_scientific_study_html(
         payload.get("scientific_study_summary")
     )
@@ -1547,11 +1604,12 @@ def _render_html(payload: dict) -> str:
       <ul>{source_items}</ul>
     </section>
     {requested_outputs_section}
-    {metrics_section}
-    {acceptance_section}
-    {experiment_section}
-    {scientific_study_section}
-    {scientific_verification_section}
+      {metrics_section}
+      {acceptance_section}
+      {experiment_section}
+      {research_evidence_section}
+      {scientific_study_section}
+      {scientific_verification_section}
     {output_delivery_section}
     <section class="panel">
       <h2>本阶段产物</h2>
@@ -1576,12 +1634,16 @@ def run_result_report(
     report_title = report_title or "潜艇 CFD 阶段报告"
     delivery_markdown_artifact = _artifact_virtual_path(run_dir_name, "delivery-readiness.md")
     delivery_json_artifact = _artifact_virtual_path(run_dir_name, "delivery-readiness.json")
+    research_evidence_json_artifact = _artifact_virtual_path(
+        run_dir_name, "research-evidence-summary.json"
+    )
     json_artifact = _artifact_virtual_path(run_dir_name, "final-report.json")
     markdown_artifact = _artifact_virtual_path(run_dir_name, "final-report.md")
     html_artifact = _artifact_virtual_path(run_dir_name, "final-report.html")
     new_artifacts = [
         delivery_markdown_artifact,
         delivery_json_artifact,
+        research_evidence_json_artifact,
         markdown_artifact,
         html_artifact,
         json_artifact,
@@ -1625,6 +1687,15 @@ def run_result_report(
         artifact_virtual_paths=all_artifacts,
         acceptance_assessment=acceptance_assessment,
     )
+    research_evidence_summary = build_research_evidence_summary(
+        acceptance_profile=selected_case.acceptance_profile if selected_case else None,
+        acceptance_assessment=acceptance_assessment,
+        scientific_verification_assessment=scientific_verification_assessment,
+        scientific_study_summary=scientific_study_summary,
+        experiment_summary=experiment_summary,
+        output_delivery_plan=output_delivery_plan,
+        artifact_virtual_paths=all_artifacts,
+    )
 
     review = build_supervisor_review_contract(
         next_recommended_stage="supervisor-review",
@@ -1658,6 +1729,7 @@ def run_result_report(
         "solver_metrics": solver_metrics,
         "acceptance_assessment": acceptance_assessment,
         "experiment_summary": experiment_summary,
+        "research_evidence_summary": research_evidence_summary,
         "scientific_study_summary": scientific_study_summary,
         "scientific_verification_assessment": scientific_verification_assessment,
         "output_delivery_plan": output_delivery_plan,
@@ -1675,6 +1747,10 @@ def run_result_report(
     )
     (artifact_dir / "delivery-readiness.md").write_text(
         _render_delivery_readiness_markdown(report_title, acceptance_assessment),
+        encoding="utf-8",
+    )
+    (artifact_dir / "research-evidence-summary.json").write_text(
+        json.dumps(research_evidence_summary, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     (artifact_dir / "final-report.json").write_text(
