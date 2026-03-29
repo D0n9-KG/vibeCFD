@@ -58,6 +58,7 @@ import {
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
   filterSubmarineArtifactGroups,
+  formatSubmarineRuntimeStageLabel,
   getSubmarineArtifactFilterOptions,
   getSubmarineArtifactMeta,
   groupSubmarineArtifacts,
@@ -159,7 +160,7 @@ const REVIEW_STATUS_LABELS: Record<string, string> = {
 
 function formatStage(stage?: string | null) {
   if (!stage) return "未开始";
-  return STAGE_LABELS[stage as RuntimeStage] ?? stage;
+  return formatSubmarineRuntimeStageLabel(stage);
 }
 
 function formatReviewStatus(status?: string | null) {
@@ -1674,6 +1675,7 @@ function OutlineList({
 }: {
   items: Array<{
     roleId: string;
+    roleLabel: string;
     owner: string;
     goal: string;
     status: string;
@@ -1688,10 +1690,11 @@ function OutlineList({
           {items.map((item) => (
             <div key={`${item.roleId}-${item.owner}`} className="rounded-lg border bg-muted/20 p-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline">{item.roleId}</Badge>
+                <Badge variant="outline">{item.roleLabel}</Badge>
                 <span className="text-sm font-medium text-foreground">{item.owner}</span>
                 <Badge variant="secondary">{item.status}</Badge>
               </div>
+              <div className="mt-2 text-xs text-muted-foreground">{item.roleId}</div>
               <div className="mt-2 text-sm leading-6 text-muted-foreground">{item.goal}</div>
               {item.targetSkills.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -1740,7 +1743,7 @@ function StageTrack({ currentStage }: { currentStage?: string | null }) {
             <div className="mb-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
               Step {index + 1}
             </div>
-            <div className="text-sm font-medium text-foreground">{STAGE_LABELS[stage]}</div>
+            <div className="text-sm font-medium text-foreground">{formatStage(stage)}</div>
           </div>
         );
       })}

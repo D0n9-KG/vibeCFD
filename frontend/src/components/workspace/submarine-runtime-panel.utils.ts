@@ -53,6 +53,7 @@ export type SubmarineDesignBriefSummary = {
   openQuestions: string[];
   executionOutline: Array<{
     roleId: string;
+    roleLabel: string;
     owner: string;
     goal: string;
     status: string;
@@ -375,7 +376,24 @@ const SCIENTIFIC_GATE_STAGE_LABELS: Record<string, string> = {
   "task-intelligence": "Task Intelligence",
   "geometry-preflight": "Geometry Preflight",
   "solver-dispatch": "Solver Dispatch",
+  "scientific-study": "Scientific Study",
+  "experiment-compare": "Experiment Compare",
+  "scientific-verification": "Scientific Verification",
   "result-reporting": "Result Reporting",
+  "scientific-followup": "Scientific Follow-Up",
+  "supervisor-review": "Supervisor Review",
+};
+
+const EXECUTION_ROLE_LABELS: Record<string, string> = {
+  "claude-code-supervisor": "Claude Code Supervisor",
+  "task-intelligence": "Task Intelligence",
+  "geometry-preflight": "Geometry Preflight",
+  "solver-dispatch": "Solver Dispatch",
+  "scientific-study": "Scientific Study",
+  "experiment-compare": "Experiment Compare",
+  "scientific-verification": "Scientific Verification",
+  "result-reporting": "Result Reporting",
+  "scientific-followup": "Scientific Follow-Up",
   "supervisor-review": "Supervisor Review",
 };
 
@@ -1057,6 +1075,24 @@ function formatRequirementNumber(
   return `${value.toFixed(digits)}${suffix}`;
 }
 
+export function formatSubmarineRuntimeStageLabel(stage?: string | null) {
+  if (!stage) {
+    return "--";
+  }
+  return SCIENTIFIC_GATE_STAGE_LABELS[stage] ?? stage;
+}
+
+export function formatSubmarineExecutionRoleLabel(roleId?: string | null) {
+  if (!roleId) {
+    return "--";
+  }
+  return (
+    EXECUTION_ROLE_LABELS[roleId] ??
+    SCIENTIFIC_GATE_STAGE_LABELS[roleId] ??
+    roleId
+  );
+}
+
 function normalizeExecutionOutline(
   items: SubmarineExecutionOutlineItem[] | null | undefined,
 ) {
@@ -1064,6 +1100,7 @@ function normalizeExecutionOutline(
     items
       ?.map((item) => ({
         roleId: item.role_id ?? "unknown",
+        roleLabel: formatSubmarineExecutionRoleLabel(item.role_id),
         owner: item.owner ?? "待指定",
         goal: item.goal ?? "待补充",
         status: item.status ?? "pending",

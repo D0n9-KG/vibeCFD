@@ -11,6 +11,8 @@ const {
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
+  formatSubmarineExecutionRoleLabel,
+  formatSubmarineRuntimeStageLabel,
   buildSubmarineScientificGateSummary,
   buildSubmarineScientificFollowupSummary,
   buildSubmarineScientificRemediationHandoffSummary,
@@ -1138,5 +1140,99 @@ void test(
       "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json",
       "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
     ]);
+  },
+);
+
+void test(
+  "maps scientific runtime roles and stages to readable workbench labels",
+  () => {
+    const outline = buildSubmarineExecutionOutline({
+      runtimePlan: [
+        {
+          role_id: "scientific-study",
+          owner: "DeerFlow scientific-study",
+          goal: "Plan scientific study variants",
+          status: "ready",
+          target_skills: ["submarine-solver-dispatch"],
+        },
+        {
+          role_id: "scientific-followup",
+          owner: "DeerFlow scientific-followup",
+          goal: "Track scientific remediation follow-up",
+          status: "pending",
+        },
+      ],
+    });
+    const gateSummary = buildSubmarineScientificGateSummary({
+      scientific_supervisor_gate: {
+        gate_status: "claim_limited",
+        allowed_claim_level: "validated_with_gaps",
+        source_readiness_status: "validated_with_gaps",
+        recommended_stage: "scientific-verification",
+        remediation_stage: "scientific-followup",
+        artifact_virtual_paths: [],
+      },
+    });
+    const remediationSummary = buildSubmarineScientificRemediationSummary({
+      scientific_remediation_summary: {
+        plan_status: "recommended",
+        current_claim_level: "validated_with_gaps",
+        target_claim_level: "research_ready",
+        recommended_stage: "scientific-followup",
+        artifact_virtual_paths: [],
+        actions: [
+          {
+            action_id: "refresh-followup-history",
+            title: "Refresh scientific follow-up history",
+            summary:
+              "Record the latest rerun decision and refreshed report outputs.",
+            owner_stage: "scientific-followup",
+            priority: "medium",
+            execution_mode: "auto_executable",
+            status: "pending",
+          },
+        ],
+      },
+    });
+    const handoffSummary = buildSubmarineScientificRemediationHandoffSummary({
+      scientific_remediation_handoff: {
+        handoff_status: "manual_followup_required",
+        recommended_action_id: "review-scientific-verification",
+        tool_name: null,
+        reason: "Scientific verification still needs manual review.",
+        artifact_virtual_paths: [],
+        manual_actions: [
+          {
+            action_id: "review-scientific-verification",
+            title: "Review scientific verification evidence",
+            owner_stage: "scientific-verification",
+            evidence_gap:
+              "A reviewer needs to inspect the latest comparison summary.",
+          },
+        ],
+      },
+    });
+
+    assert.equal(
+      formatSubmarineRuntimeStageLabel("scientific-study"),
+      "Scientific Study",
+    );
+    assert.equal(
+      formatSubmarineExecutionRoleLabel("experiment-compare"),
+      "Experiment Compare",
+    );
+    assert.equal(outline[0]?.roleLabel, "Scientific Study");
+    assert.equal(outline[1]?.roleLabel, "Scientific Follow-Up");
+    assert.equal(gateSummary?.recommendedStageLabel, "Scientific Verification");
+    assert.equal(gateSummary?.remediationStageLabel, "Scientific Follow-Up");
+    assert.equal(remediationSummary?.recommendedStageLabel, "Scientific Follow-Up");
+    assert.equal(
+      remediationSummary?.actions[0]?.ownerStageLabel,
+      "Scientific Follow-Up",
+    );
+    assert.equal(
+      handoffSummary?.manualActions[0]?.ownerStageLabel,
+      "Scientific Verification",
+    );
   },
 );
