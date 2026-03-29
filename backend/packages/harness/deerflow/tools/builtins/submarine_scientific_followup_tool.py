@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from types import SimpleNamespace
 from typing import Annotated
 
 from langchain.tools import InjectedToolCallId, ToolRuntime, tool
@@ -22,6 +23,19 @@ from deerflow.tools.builtins.submarine_result_report_tool import (
 from deerflow.tools.builtins.submarine_solver_dispatch_tool import (
     submarine_solver_dispatch_tool,
 )
+
+
+def _build_chained_runtime(
+    runtime: ToolRuntime[ContextT, ThreadState],
+    *,
+    submarine_runtime: Mapping[str, object],
+) -> SimpleNamespace:
+    chained_state = dict(runtime.state or {})
+    chained_state["submarine_runtime"] = dict(submarine_runtime)
+    return SimpleNamespace(
+        state=chained_state,
+        context=runtime.context,
+    )
 
 
 @tool("submarine_scientific_followup", parse_docstring=True)
@@ -96,10 +110,28 @@ def submarine_scientific_followup_tool(
     if tool_name == "submarine_solver_dispatch":
         dispatch_args = dict(tool_args)
         dispatch_args["execute_now"] = True
-        return submarine_solver_dispatch_tool.func(
+        dispatch_result = submarine_solver_dispatch_tool.func(
             runtime=runtime,
             tool_call_id=tool_call_id,
             **dispatch_args,
+        )
+        dispatch_update = (
+            dispatch_result.update
+            if isinstance(dispatch_result.update, Mapping)
+            else {}
+        )
+        dispatch_runtime = dispatch_update.get("submarine_runtime")
+        if not isinstance(dispatch_runtime, Mapping):
+            return dispatch_result
+        if str(dispatch_runtime.get("stage_status") or "") != "executed":
+            return dispatch_result
+        chained_runtime = _build_chained_runtime(
+            runtime,
+            submarine_runtime=dispatch_runtime,
+        )
+        return submarine_result_report_tool.func(
+            runtime=chained_runtime,
+            tool_call_id=tool_call_id,
         )
 
     if tool_name == "submarine_result_report":
