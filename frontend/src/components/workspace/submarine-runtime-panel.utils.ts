@@ -27,6 +27,12 @@ export type SubmarineArtifactFilterOption = {
   count: number;
 };
 
+export type SubmarineStageTrackItem = {
+  stageId: string;
+  label: string;
+  status: string;
+};
+
 export type SubmarineArtifactMeta = {
   label: string;
   externalLinkLabel: string;
@@ -396,6 +402,14 @@ const EXECUTION_ROLE_LABELS: Record<string, string> = {
   "scientific-followup": "Scientific Follow-Up",
   "supervisor-review": "Supervisor Review",
 };
+
+const LEGACY_STAGE_TRACK_ORDER = [
+  "task-intelligence",
+  "geometry-preflight",
+  "solver-dispatch",
+  "result-reporting",
+  "supervisor-review",
+] as const;
 
 const SCIENTIFIC_REMEDIATION_PLAN_STATUS_LABELS: Record<string, string> = {
   not_needed: "Not Needed",
@@ -1091,6 +1105,40 @@ export function formatSubmarineExecutionRoleLabel(roleId?: string | null) {
     SCIENTIFIC_GATE_STAGE_LABELS[roleId] ??
     roleId
   );
+}
+
+export function buildSubmarineStageTrack({
+  runtimePlan,
+  currentStage,
+}: {
+  runtimePlan?: SubmarineExecutionOutlineItem[] | null;
+  currentStage?: string | null;
+}): SubmarineStageTrackItem[] {
+  const trackFromPlan =
+    runtimePlan?.map((item) => ({
+      stageId: item.role_id ?? "unknown",
+      label: formatSubmarineExecutionRoleLabel(item.role_id),
+      status: item.status ?? "pending",
+    })) ?? [];
+
+  if (trackFromPlan.length > 0) {
+    return trackFromPlan;
+  }
+
+  const currentIndex = LEGACY_STAGE_TRACK_ORDER.findIndex(
+    (stageId) => stageId === currentStage,
+  );
+
+  return LEGACY_STAGE_TRACK_ORDER.map((stageId, index) => ({
+    stageId,
+    label: formatSubmarineRuntimeStageLabel(stageId),
+    status:
+      currentIndex > index
+        ? "completed"
+        : currentIndex === index
+          ? "in_progress"
+          : "pending",
+  }));
 }
 
 function normalizeExecutionOutline(

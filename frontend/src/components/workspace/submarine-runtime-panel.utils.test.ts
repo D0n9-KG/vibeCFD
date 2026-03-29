@@ -5,6 +5,7 @@ import type { SubmarineFinalReportPayload } from "./submarine-runtime-panel.cont
 const {
   buildSubmarineAcceptanceSummary,
   buildSubmarineDesignBriefSummary,
+  buildSubmarineStageTrack,
   buildSubmarineExperimentCompareSummary,
   buildSubmarineExperimentSummary,
   buildSubmarineFigureDeliverySummary,
@@ -249,6 +250,95 @@ void test("prefers runtime execution plan over stale design brief outline", () =
     "submarine-solver-dispatch",
     "submarine-geometry-check",
   ]);
+});
+
+void test(
+  "builds a dynamic stage track from the runtime execution plan when scientific roles exist",
+  () => {
+    const track = buildSubmarineStageTrack({
+      runtimePlan: [
+        {
+          role_id: "claude-code-supervisor",
+          status: "completed",
+        },
+        {
+          role_id: "task-intelligence",
+          status: "completed",
+        },
+        {
+          role_id: "geometry-preflight",
+          status: "completed",
+        },
+        {
+          role_id: "solver-dispatch",
+          status: "completed",
+        },
+        {
+          role_id: "scientific-study",
+          status: "completed",
+        },
+        {
+          role_id: "experiment-compare",
+          status: "completed",
+        },
+        {
+          role_id: "scientific-verification",
+          status: "ready",
+        },
+        {
+          role_id: "result-reporting",
+          status: "pending",
+        },
+        {
+          role_id: "scientific-followup",
+          status: "pending",
+        },
+        {
+          role_id: "supervisor-review",
+          status: "pending",
+        },
+      ],
+    });
+
+    assert.deepEqual(
+      track.map((item) => item.stageId),
+      [
+        "claude-code-supervisor",
+        "task-intelligence",
+        "geometry-preflight",
+        "solver-dispatch",
+        "scientific-study",
+        "experiment-compare",
+        "scientific-verification",
+        "result-reporting",
+        "scientific-followup",
+        "supervisor-review",
+      ],
+    );
+    assert.equal(track[4]?.label, "Scientific Study");
+    assert.equal(track[6]?.label, "Scientific Verification");
+    assert.equal(track[6]?.status, "ready");
+    assert.equal(track[8]?.label, "Scientific Follow-Up");
+  },
+);
+
+void test("falls back to the legacy stage track when no runtime plan exists", () => {
+  const track = buildSubmarineStageTrack({
+    currentStage: "solver-dispatch",
+  });
+
+  assert.deepEqual(
+    track.map((item) => item.stageId),
+    [
+      "task-intelligence",
+      "geometry-preflight",
+      "solver-dispatch",
+      "result-reporting",
+      "supervisor-review",
+    ],
+  );
+  assert.equal(track[2]?.status, "in_progress");
+  assert.equal(track[3]?.status, "pending");
 });
 
 void test("returns delivery-readiness labels for acceptance artifacts", () => {

@@ -45,6 +45,7 @@ import {
 import {
   buildSubmarineAcceptanceSummary,
   buildSubmarineExecutionOutline,
+  buildSubmarineStageTrack,
   buildSubmarineDesignBriefSummary,
   buildSubmarineExperimentCompareSummary,
   buildSubmarineExperimentSummary,
@@ -65,6 +66,7 @@ import {
   type SubmarineArtifactFilterId,
   type SubmarineArtifactGroup,
   type SubmarineResultCard,
+  type SubmarineStageTrackItem,
 } from "./submarine-runtime-panel.utils";
 
 type RuntimeStage =
@@ -409,6 +411,14 @@ export function SubmarineRuntimePanel({
       }),
     [activeDesignBrief, runtime?.execution_plan],
   );
+  const stageTrack = useMemo(
+    () =>
+      buildSubmarineStageTrack({
+        runtimePlan: runtime?.execution_plan ?? null,
+        currentStage: runtime?.current_stage,
+      }),
+    [runtime?.current_stage, runtime?.execution_plan],
+  );
   const timelineEvents = runtime?.activity_timeline ?? [];
 
   const solverMetrics =
@@ -494,7 +504,7 @@ export function SubmarineRuntimePanel({
       </CardHeader>
 
       <CardContent className="space-y-5 px-5 py-5">
-        <StageTrack currentStage={runtime?.current_stage} />
+        <StageTrack items={stageTrack} />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <MetricTile icon={ActivityIcon} label="运行状态" value={runtime?.stage_status ?? "待命中"} note={`下一阶段：${formatStage(runtime?.next_recommended_stage)}`} />
@@ -1723,27 +1733,44 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function StageTrack({ currentStage }: { currentStage?: string | null }) {
-  const currentIndex = STAGE_ORDER.findIndex((item) => item === currentStage);
+function formatStageTrackStatus(status?: string | null) {
+  if (!status) {
+    return "pending";
+  }
+  return status.replaceAll("_", " ");
+}
+
+function StageTrack({ items }: { items: SubmarineStageTrackItem[] }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-5">
-      {STAGE_ORDER.map((stage, index) => {
-        const isCurrent = stage === currentStage;
-        const isComplete = currentIndex > index;
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+      {items.map((item, index) => {
+        const isBlocked = item.status === "blocked";
+        const isCurrent =
+          item.status === "in_progress" || item.status === "ready";
+        const isComplete = item.status === "completed";
         return (
           <div
-            key={stage}
+            key={item.stageId}
             className={cn(
               "rounded-xl border px-3 py-3",
-              isCurrent && "border-primary/30 bg-primary/5",
+              isBlocked && "border-red-200 bg-red-50/80",
+              item.status === "ready" && "border-amber-200 bg-amber-50/80",
+              isCurrent && item.status !== "ready" && "border-primary/30 bg-primary/5",
               isComplete && "border-emerald-200 bg-emerald-50/80",
-              !isCurrent && !isComplete && "border-border bg-muted/30",
+              !isBlocked &&
+                !isCurrent &&
+                !isComplete &&
+                item.status !== "ready" &&
+                "border-border bg-muted/30",
             )}
           >
             <div className="mb-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
               Step {index + 1}
             </div>
-            <div className="text-sm font-medium text-foreground">{formatStage(stage)}</div>
+            <div className="text-sm font-medium text-foreground">{item.label}</div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              {formatStageTrackStatus(item.status)}
+            </div>
           </div>
         );
       })}
