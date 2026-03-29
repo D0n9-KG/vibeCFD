@@ -260,9 +260,9 @@ Activity Bar 渲染在现有 `WorkspaceLayout` 内，替换现有 shadcn `Sideba
 
 ### 7.3 现有 URL 参数语义（保持不变）
 
-- `?new=true`：创建新 thread
-- `?mock=true`：mock 模式
-- `?mode=skill`：Skill Studio skill 创建模式（Welcome 页面特殊文案）
+- `/workspace/submarine/new`：path segment `new` 触发新建 thread（`threadIdFromPath === "new"` 时生成 uuid）
+- `?mock=true`：mock 模式（query param）
+- `?mode=skill`：Skill Studio skill 创建模式，Welcome 页面特殊文案（query param）
 
 ---
 
