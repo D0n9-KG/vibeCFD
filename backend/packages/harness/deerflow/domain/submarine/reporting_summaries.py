@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .experiment_linkage import build_experiment_linkage_assessment
 from .figure_delivery import build_figure_delivery_summary as _build_figure_delivery_from_manifest
 from .library import load_case_library
 from .models import SubmarineCase
@@ -102,6 +103,11 @@ def build_experiment_summary(
     outputs_dir: Path,
     artifact_virtual_paths: list[str],
 ) -> dict | None:
+    study_loaded = load_json_payload_from_artifacts(
+        outputs_dir,
+        artifact_virtual_paths,
+        "study-manifest.json",
+    )
     manifest_loaded = load_json_payload_from_artifacts(
         outputs_dir,
         artifact_virtual_paths,
@@ -111,6 +117,8 @@ def build_experiment_summary(
         return None
 
     manifest_virtual_path, manifest = manifest_loaded
+    study_manifest_virtual_path = study_loaded[0] if study_loaded is not None else None
+    study_manifest = study_loaded[1] if study_loaded is not None else {}
     compare_loaded = load_json_payload_from_artifacts(
         outputs_dir,
         artifact_virtual_paths,
@@ -118,6 +126,11 @@ def build_experiment_summary(
     )
     compare_virtual_path = compare_loaded[0] if compare_loaded is not None else None
     compare_summary = compare_loaded[1] if compare_loaded is not None else {}
+    linkage_assessment = build_experiment_linkage_assessment(
+        study_manifest=study_manifest,
+        experiment_manifest=manifest,
+        compare_summary=compare_summary,
+    )
     comparisons = compare_summary.get("comparisons") or []
     compare_notes: list[str] = []
     for item in comparisons:
@@ -133,12 +146,24 @@ def build_experiment_summary(
         "experiment_status": manifest.get("experiment_status"),
         "baseline_run_id": manifest.get("baseline_run_id"),
         "run_count": len([item for item in run_records if isinstance(item, dict)]),
+        "study_manifest_virtual_path": study_manifest_virtual_path,
         "manifest_virtual_path": manifest_virtual_path,
         "compare_virtual_path": compare_virtual_path,
-        "artifact_virtual_paths": manifest.get("artifact_virtual_paths")
-        or [manifest_virtual_path],
+        "artifact_virtual_paths": list(
+            dict.fromkeys(
+                [
+                    *(
+                        manifest.get("artifact_virtual_paths")
+                        or [manifest_virtual_path]
+                    ),
+                    *( [study_manifest_virtual_path] if study_manifest_virtual_path else [] ),
+                    *( [compare_virtual_path] if compare_virtual_path else [] ),
+                ]
+            )
+        ),
         "compare_count": len([item for item in comparisons if isinstance(item, dict)]),
         "compare_notes": compare_notes,
+        **linkage_assessment,
     }
 
 

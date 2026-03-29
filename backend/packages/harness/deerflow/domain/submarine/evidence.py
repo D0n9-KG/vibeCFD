@@ -123,6 +123,10 @@ def build_provenance_status(
     )
     has_experiment_manifest = bool(experiment.get("manifest_virtual_path"))
     has_experiment_compare = bool(experiment.get("compare_virtual_path"))
+    experiment_linkage_status = str(
+        experiment.get("linkage_status") or "consistent"
+    ).strip()
+    experiment_linkage_issues = _as_string_list(experiment.get("linkage_issues"))
     has_study_manifest = bool(studies.get("manifest_virtual_path"))
     delivered_outputs = [
         item
@@ -141,6 +145,12 @@ def build_provenance_status(
 
     if has_experiment_manifest and has_experiment_compare:
         highlights.append("Experiment manifest and compare summary are available.")
+    if experiment_linkage_status == "consistent" and (
+        has_experiment_manifest or has_experiment_compare
+    ):
+        highlights.append(
+            "Experiment registry coverage is consistent with the planned scientific variants."
+        )
     if has_study_manifest:
         highlights.append("Scientific study manifest is available.")
     if delivered_artifact_paths:
@@ -159,6 +169,7 @@ def build_provenance_status(
         has_report_artifact
         and has_experiment_manifest
         and has_experiment_compare
+        and experiment_linkage_status == "consistent"
         and has_study_manifest
         and (bool(delivered_artifact_paths) or has_core_evidence_artifacts)
     )
@@ -168,6 +179,11 @@ def build_provenance_status(
     if has_report_artifact or has_experiment_manifest or has_study_manifest or delivered_outputs:
         if not has_experiment_manifest or not has_experiment_compare:
             gaps.append("Experiment registry entrypoints are incomplete.")
+        if experiment_linkage_status != "consistent":
+            gaps.extend(
+                experiment_linkage_issues
+                or ["Experiment registry coverage is incomplete for the planned studies."]
+            )
         if not has_study_manifest:
             gaps.append("Scientific study manifest is missing from the evidence trail.")
         if not delivered_artifact_paths and not has_core_evidence_artifacts:

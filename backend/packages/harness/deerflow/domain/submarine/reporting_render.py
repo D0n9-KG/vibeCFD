@@ -280,16 +280,36 @@ def _render_experiment_markdown(experiment_summary: dict | None) -> list[str]:
         f"- experiment_status: `{experiment_summary.get('experiment_status')}`",
         f"- baseline_run_id: `{experiment_summary.get('baseline_run_id')}`",
         f"- run_count: `{experiment_summary.get('run_count')}`",
+        f"- linkage_status: `{experiment_summary.get('linkage_status')}`",
         f"- manifest: `{experiment_summary.get('manifest_virtual_path')}`",
     ]
+    if experiment_summary.get("study_manifest_virtual_path"):
+        lines.append(
+            f"- study_manifest: `{experiment_summary.get('study_manifest_virtual_path')}`"
+        )
     if experiment_summary.get("compare_virtual_path"):
         lines.append(
             f"- compare: `{experiment_summary.get('compare_virtual_path')}`"
+        )
+    expected_variant_run_ids = experiment_summary.get("expected_variant_run_ids") or []
+    if expected_variant_run_ids:
+        lines.extend(
+            [
+                "",
+                "### Planned Variant Coverage",
+                f"- expected_variant_run_ids: `{', '.join(str(item) for item in expected_variant_run_ids)}`",
+                f"- recorded_variant_run_ids: `{', '.join(str(item) for item in (experiment_summary.get('recorded_variant_run_ids') or [])) or '--'}`",
+                f"- compared_variant_run_ids: `{', '.join(str(item) for item in (experiment_summary.get('compared_variant_run_ids') or [])) or '--'}`",
+            ]
         )
     compare_notes = experiment_summary.get("compare_notes") or []
     if compare_notes:
         lines.extend(["", "### Compare Summary"])
         lines.extend(f"- {item}" for item in compare_notes)
+    linkage_issues = experiment_summary.get("linkage_issues") or []
+    if linkage_issues:
+        lines.extend(["", "### Linkage Issues"])
+        lines.extend(f"- {item}" for item in linkage_issues)
     return lines
 
 
@@ -613,11 +633,33 @@ def _render_experiment_html(experiment_summary: dict | None) -> str:
         f"<li>{escape(str(item))}</li>"
         for item in (experiment_summary.get("compare_notes") or [])
     ) or "<li>None</li>"
+    linkage_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (experiment_summary.get("linkage_issues") or [])
+    ) or "<li>None</li>"
     compare_html = (
         f"<p><strong>compare:</strong> {escape(str(experiment_summary.get('compare_virtual_path')))}</p>"
         if experiment_summary.get("compare_virtual_path")
         else ""
     )
+    study_manifest_html = (
+        f"<p><strong>study_manifest:</strong> {escape(str(experiment_summary.get('study_manifest_virtual_path')))}</p>"
+        if experiment_summary.get("study_manifest_virtual_path")
+        else ""
+    )
+    expected_variant_run_ids = [
+        str(item)
+        for item in (experiment_summary.get("expected_variant_run_ids") or [])
+        if str(item)
+    ]
+    coverage_html = ""
+    if expected_variant_run_ids:
+        coverage_html = (
+            "<h3>Planned Variant Coverage</h3>"
+            f"<p><strong>expected_variant_run_ids:</strong> {escape(', '.join(expected_variant_run_ids))}</p>"
+            f"<p><strong>recorded_variant_run_ids:</strong> {escape(', '.join(str(item) for item in (experiment_summary.get('recorded_variant_run_ids') or [])) or '--')}</p>"
+            f"<p><strong>compared_variant_run_ids:</strong> {escape(', '.join(str(item) for item in (experiment_summary.get('compared_variant_run_ids') or [])) or '--')}</p>"
+        )
     return (
         '<section class="panel">'
         "<h2>Experiment Registry</h2>"
@@ -625,10 +667,15 @@ def _render_experiment_html(experiment_summary: dict | None) -> str:
         f"<p><strong>experiment_status:</strong> {escape(str(experiment_summary.get('experiment_status')))}</p>"
         f"<p><strong>baseline_run_id:</strong> {escape(str(experiment_summary.get('baseline_run_id')))}</p>"
         f"<p><strong>run_count:</strong> {escape(str(experiment_summary.get('run_count')))}</p>"
+        f"<p><strong>linkage_status:</strong> {escape(str(experiment_summary.get('linkage_status')))}</p>"
         f"<p><strong>manifest:</strong> {escape(str(experiment_summary.get('manifest_virtual_path')))}</p>"
+        f"{study_manifest_html}"
         f"{compare_html}"
+        f"{coverage_html}"
         "<h3>Compare Summary</h3>"
         f"<ul>{compare_items}</ul>"
+        "<h3>Linkage Issues</h3>"
+        f"<ul>{linkage_items}</ul>"
         "</section>"
     )
 
