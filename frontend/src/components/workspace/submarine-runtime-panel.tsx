@@ -45,6 +45,7 @@ import {
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineResultCards,
   buildSubmarineScientificGateSummary,
+  buildSubmarineScientificFollowupSummary,
   buildSubmarineScientificRemediationHandoffSummary,
   buildSubmarineScientificRemediationSummary,
   buildSubmarineScientificStudySummary,
@@ -213,6 +214,20 @@ type FinalReportPayload = {
           evidence_gap?: string | null;
         }>
       | null;
+  } | null;
+  scientific_followup_summary?: {
+    history_virtual_path?: string | null;
+    entry_count?: number | null;
+    latest_outcome_status?: string | null;
+    latest_handoff_status?: string | null;
+    latest_recommended_action_id?: string | null;
+    latest_tool_name?: string | null;
+    latest_dispatch_stage_status?: string | null;
+    report_refreshed?: boolean | null;
+    latest_result_report_virtual_path?: string | null;
+    latest_result_supervisor_handoff_virtual_path?: string | null;
+    latest_notes?: string[] | null;
+    artifact_virtual_paths?: string[] | null;
   } | null;
   experiment_summary?: {
     experiment_id?: string | null;
@@ -580,6 +595,10 @@ export function SubmarineRuntimePanel({
   );
   const scientificRemediationHandoffSummary = useMemo(
     () => buildSubmarineScientificRemediationHandoffSummary(finalReport),
+    [finalReport],
+  );
+  const scientificFollowupSummary = useMemo(
+    () => buildSubmarineScientificFollowupSummary(finalReport),
     [finalReport],
   );
   const experimentCompareSummary = useMemo(
@@ -1119,6 +1138,62 @@ export function SubmarineRuntimePanel({
                         </div>
                       </div>
                     ) : null}
+                  </div>
+                ) : null}
+                {scientificFollowupSummary ? (
+                  <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <KeyValue
+                        label="Follow-Up Entries"
+                        value={`${scientificFollowupSummary.entryCount}`}
+                      />
+                      <KeyValue
+                        label="Latest Outcome"
+                        value={scientificFollowupSummary.latestOutcomeLabel}
+                      />
+                      <KeyValue
+                        label="Latest Handoff"
+                        value={scientificFollowupSummary.latestHandoffStatusLabel}
+                      />
+                      <KeyValue
+                        label="Report Refreshed"
+                        value={scientificFollowupSummary.reportRefreshedLabel}
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      <LabeledList
+                        title="Latest Follow-Up Contract"
+                        items={[
+                          `action | ${scientificFollowupSummary.latestRecommendedActionId}`,
+                          `tool | ${scientificFollowupSummary.latestToolName}`,
+                          `dispatch | ${scientificFollowupSummary.latestDispatchStageStatusLabel}`,
+                        ]}
+                        emptyText="No follow-up contract details are recorded."
+                      />
+                      <LabeledList
+                        title="Latest Follow-Up Paths"
+                        items={[
+                          scientificFollowupSummary.historyPath,
+                          ...(scientificFollowupSummary.latestResultReportPath !== "--"
+                            ? [scientificFollowupSummary.latestResultReportPath]
+                            : []),
+                          ...(scientificFollowupSummary.latestResultHandoffPath !== "--"
+                            ? [scientificFollowupSummary.latestResultHandoffPath]
+                            : []),
+                        ]}
+                        emptyText="No follow-up artifact paths are recorded."
+                      />
+                      <LabeledList
+                        title="Latest Follow-Up Notes"
+                        items={scientificFollowupSummary.latestNotes}
+                        emptyText="No follow-up notes are recorded."
+                      />
+                    </div>
+                    <LabeledList
+                      title="Follow-Up Artifacts"
+                      items={scientificFollowupSummary.artifactPaths}
+                      emptyText="No follow-up artifacts are recorded."
+                    />
                   </div>
                 ) : null}
                 {experimentCompareSummary ? (

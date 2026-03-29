@@ -295,6 +295,21 @@ export type SubmarineScientificRemediationHandoffSummary = {
   }>;
 };
 
+export type SubmarineScientificFollowupSummary = {
+  entryCount: number;
+  latestOutcomeLabel: string;
+  latestHandoffStatusLabel: string;
+  latestRecommendedActionId: string;
+  latestToolName: string;
+  latestDispatchStageStatusLabel: string;
+  reportRefreshedLabel: string;
+  historyPath: string;
+  latestResultReportPath: string;
+  latestResultHandoffPath: string;
+  latestNotes: string[];
+  artifactPaths: string[];
+};
+
 export type SubmarineAcceptanceSummary = {
   statusLabel: string;
   confidenceLabel: string;
@@ -471,6 +486,24 @@ const SCIENTIFIC_REMEDIATION_HANDOFF_STATUS_LABELS: Record<string, string> = {
   ready_for_auto_followup: "Ready For Auto Follow-Up",
   manual_followup_required: "Manual Follow-Up Required",
   not_needed: "Not Needed",
+};
+
+const SCIENTIFIC_FOLLOWUP_OUTCOME_LABELS: Record<string, string> = {
+  error: "Error",
+  invalid_tool_args: "Invalid Tool Args",
+  manual_followup_required: "Manual Follow-Up Required",
+  not_needed: "Not Needed",
+  unsupported_target: "Unsupported Target",
+  result_report_refreshed: "Result Report Refreshed",
+  dispatch_planned: "Dispatch Planned",
+  dispatch_failed: "Dispatch Failed",
+  dispatch_refreshed_report: "Dispatch Refreshed Report",
+};
+
+const DISPATCH_STAGE_STATUS_LABELS: Record<string, string> = {
+  executed: "Executed",
+  planned: "Planned",
+  failed: "Failed",
 };
 
 const RESULT_CARD_ARTIFACT_SUFFIXES: Record<string, string[]> = {
@@ -793,6 +826,13 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     },
   ],
   [
+    "/scientific-followup-history.json",
+    {
+      label: "Scientific Follow-Up History JSON",
+      externalLinkLabel: "Open scientific follow-up history JSON in a new window",
+    },
+  ],
+  [
     "/final-report.md",
     {
       label: "最终报告",
@@ -974,6 +1014,7 @@ function classifySubmarineArtifact(path: string): SubmarineArtifactGroupId {
     path.endsWith("/supervisor-scientific-gate.json") ||
     path.endsWith("/scientific-remediation-plan.json") ||
     path.endsWith("/scientific-remediation-handoff.json") ||
+    path.endsWith("/scientific-followup-history.json") ||
     path.endsWith("/final-report.md") ||
     path.endsWith("/final-report.html") ||
     path.endsWith("/final-report.json")
@@ -1832,6 +1873,65 @@ export function buildSubmarineScientificRemediationHandoffSummary(
         "--",
       evidenceGap: item.evidence_gap ?? "--",
     })),
+  };
+}
+
+export function buildSubmarineScientificFollowupSummary(
+  payload:
+    | {
+        scientific_followup_summary?:
+          | {
+              history_virtual_path?: string | null;
+              entry_count?: number | null;
+              latest_outcome_status?: string | null;
+              latest_handoff_status?: string | null;
+              latest_recommended_action_id?: string | null;
+              latest_tool_name?: string | null;
+              latest_dispatch_stage_status?: string | null;
+              report_refreshed?: boolean | null;
+              latest_result_report_virtual_path?: string | null;
+              latest_result_supervisor_handoff_virtual_path?: string | null;
+              latest_notes?: string[] | null;
+              artifact_virtual_paths?: string[] | null;
+            }
+          | null;
+      }
+    | null
+    | undefined,
+): SubmarineScientificFollowupSummary | null {
+  const summary = payload?.scientific_followup_summary;
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    entryCount:
+      typeof summary.entry_count === "number" && Number.isFinite(summary.entry_count)
+        ? summary.entry_count
+        : 0,
+    latestOutcomeLabel:
+      SCIENTIFIC_FOLLOWUP_OUTCOME_LABELS[summary.latest_outcome_status ?? ""] ??
+      summary.latest_outcome_status ??
+      "--",
+    latestHandoffStatusLabel:
+      SCIENTIFIC_REMEDIATION_HANDOFF_STATUS_LABELS[
+        summary.latest_handoff_status ?? ""
+      ] ??
+      summary.latest_handoff_status ??
+      "--",
+    latestRecommendedActionId: summary.latest_recommended_action_id ?? "none",
+    latestToolName: summary.latest_tool_name ?? "none",
+    latestDispatchStageStatusLabel:
+      DISPATCH_STAGE_STATUS_LABELS[summary.latest_dispatch_stage_status ?? ""] ??
+      summary.latest_dispatch_stage_status ??
+      "none",
+    reportRefreshedLabel: summary.report_refreshed ? "Yes" : "No",
+    historyPath: summary.history_virtual_path ?? "--",
+    latestResultReportPath: summary.latest_result_report_virtual_path ?? "--",
+    latestResultHandoffPath:
+      summary.latest_result_supervisor_handoff_virtual_path ?? "--",
+    latestNotes: summary.latest_notes?.filter(Boolean) ?? [],
+    artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
   };
 }
 

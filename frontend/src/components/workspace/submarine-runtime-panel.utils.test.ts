@@ -11,6 +11,7 @@ const {
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
   buildSubmarineScientificGateSummary,
+  buildSubmarineScientificFollowupSummary,
   buildSubmarineScientificRemediationHandoffSummary,
   buildSubmarineScientificRemediationSummary,
   buildSubmarineScientificStudySummary,
@@ -301,6 +302,23 @@ void test("returns stable labels for scientific remediation handoff artifacts", 
   );
   assert.equal(groups[0]?.id, "report");
   assert.equal(groups[0]?.count, 2);
+});
+
+void test("classifies scientific followup history artifacts as report outputs", () => {
+  const meta = getSubmarineArtifactMeta(
+    "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json",
+  );
+  const groups = groupSubmarineArtifacts([
+    "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json",
+  ]);
+
+  assert.equal(meta.label, "Scientific Follow-Up History JSON");
+  assert.equal(
+    meta.externalLinkLabel,
+    "Open scientific follow-up history JSON in a new window",
+  );
+  assert.equal(groups[0]?.id, "report");
+  assert.equal(groups[0]?.count, 1);
 });
 
 void test("builds an acceptance summary from the final report payload", () => {
@@ -1060,6 +1078,63 @@ void test(
     );
     assert.deepEqual(summary?.artifactPaths, [
       "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
+    ]);
+  },
+);
+
+void test(
+  "builds a scientific followup summary from the final report payload",
+  () => {
+    const summary = buildSubmarineScientificFollowupSummary({
+      scientific_followup_summary: {
+        history_virtual_path:
+          "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json",
+        entry_count: 2,
+        latest_outcome_status: "dispatch_refreshed_report",
+        latest_handoff_status: "ready_for_auto_followup",
+        latest_recommended_action_id: "execute-scientific-studies",
+        latest_tool_name: "submarine_solver_dispatch",
+        latest_dispatch_stage_status: "executed",
+        report_refreshed: true,
+        latest_result_report_virtual_path:
+          "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+        latest_result_supervisor_handoff_virtual_path:
+          "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
+        latest_notes: [
+          "The scientific rerun completed and the report was refreshed.",
+        ],
+        artifact_virtual_paths: [
+          "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json",
+          "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+        ],
+      },
+    });
+
+    assert.equal(summary?.entryCount, 2);
+    assert.equal(summary?.latestOutcomeLabel, "Dispatch Refreshed Report");
+    assert.equal(summary?.latestHandoffStatusLabel, "Ready For Auto Follow-Up");
+    assert.equal(summary?.latestRecommendedActionId, "execute-scientific-studies");
+    assert.equal(summary?.latestToolName, "submarine_solver_dispatch");
+    assert.equal(summary?.latestDispatchStageStatusLabel, "Executed");
+    assert.equal(summary?.reportRefreshedLabel, "Yes");
+    assert.equal(
+      summary?.historyPath,
+      "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json",
+    );
+    assert.equal(
+      summary?.latestResultReportPath,
+      "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+    );
+    assert.equal(
+      summary?.latestResultHandoffPath,
+      "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
+    );
+    assert.deepEqual(summary?.latestNotes, [
+      "The scientific rerun completed and the report was refreshed.",
+    ]);
+    assert.deepEqual(summary?.artifactPaths, [
+      "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json",
+      "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
     ]);
   },
 );
