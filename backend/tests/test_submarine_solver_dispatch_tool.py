@@ -1484,3 +1484,164 @@ def test_submarine_solver_dispatch_inherits_runtime_plan_inputs(tmp_path, monkey
     assert "internalField   uniform (6.5 0 0);" in initial_u
     assert "value uniform (6.5 0 0);" in initial_u
     assert result.update["submarine_runtime"]["simulation_requirements"]["delta_t_seconds"] == 0.25
+
+
+def test_solver_dispatch_decomposition_case_module_writes_scaffold(tmp_path):
+    case_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch_case"
+    )
+    geometry_module = importlib.import_module("deerflow.domain.submarine.geometry_check")
+
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    geometry_path = tmp_path / "decomposition-case.stl"
+    _write_ascii_stl(geometry_path)
+    geometry = geometry_module.inspect_geometry_file(geometry_path, "DARPA SUBOFF")
+
+    simulation_requirements = case_module.resolve_simulation_requirements(
+        inlet_velocity_mps=6.5,
+        fluid_density_kg_m3=997.0,
+        kinematic_viscosity_m2ps=9.1e-07,
+        end_time_seconds=400.0,
+        delta_t_seconds=0.25,
+        write_interval_steps=40,
+    )
+    scaffold = case_module.write_openfoam_case_scaffold(
+        workspace_dir=workspace_dir,
+        run_dir_name="decomposition-case",
+        geometry_path=geometry_path,
+        geometry=geometry,
+        selected_case=None,
+        simulation_requirements=simulation_requirements,
+        requested_outputs=[
+            {
+                "output_id": "surface_pressure_contour",
+                "label": "表面压力云图",
+                "requested_label": "表面压力云图",
+                "status": "requested",
+                "support_level": "supported",
+            },
+            {
+                "output_id": "wake_velocity_slice",
+                "label": "尾流速度切片",
+                "requested_label": "尾流速度切片",
+                "status": "requested",
+                "support_level": "supported",
+                "postprocess_spec": {
+                    "field": "U",
+                    "time_mode": "latest",
+                    "selector": {
+                        "type": "plane",
+                        "origin_mode": "x_by_lref",
+                        "origin_value": 2.0,
+                        "normal": [0.0, 1.0, 0.0],
+                    },
+                    "formats": ["csv", "report"],
+                },
+            },
+        ],
+    )
+
+    case_dir = (
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "decomposition-case"
+        / "openfoam-case"
+    )
+    control_dict = (case_dir / "system" / "controlDict").read_text(encoding="utf-8")
+
+    assert scaffold["execution_readiness"] == "stl_ready"
+    assert scaffold["run_script_virtual_path"].endswith("/Allrun")
+    assert "surfacePressure" in control_dict
+    assert "wakeVelocitySlice" in control_dict
+    assert "magUInf         6.5;" in control_dict
+    assert "rhoInf          997.0;" in control_dict
+
+
+def test_solver_dispatch_decomposition_results_module_collects_solver_outputs(
+    tmp_path,
+):
+    results_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch_results"
+    )
+
+    case_dir = _platform_fs_path(tmp_path / "openfoam-case")
+    coeffs_dir = case_dir / "postProcessing" / "forceCoeffs" / "0"
+    coeffs_dir.mkdir(parents=True, exist_ok=True)
+    (coeffs_dir / "forceCoeffs.dat").write_text(
+        "\n".join(
+            [
+                "# Time Cd Cs Cl CmRoll CmPitch CmYaw",
+                "0 0.18 0.00 0.00 0.00 0.01 0.00",
+                "200 0.12 0.00 0.00 0.00 0.01 0.00",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    forces_dir = case_dir / "postProcessing" / "forces" / "0"
+    forces_dir.mkdir(parents=True, exist_ok=True)
+    (forces_dir / "forces.dat").write_text(
+        "\n".join(
+            [
+                "# Time forces(pressure viscous) moments(pressure viscous)",
+                "0 ((0 0 0) (12 0 0)) ((0 0 0) (0 1 0))",
+                "200 ((0 0 0) (8 0 0)) ((0 0 0) (0 0.5 0))",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    command_output = "\n".join(
+        [
+            "Create mesh for time = 0",
+            "Time = 10",
+            "smoothSolver:  Solving for Ux, Initial residual = 0.001, Final residual = 1e-06, No Iterations 2",
+            "GAMG:  Solving for p, Initial residual = 0.01, Final residual = 0.0002, No Iterations 5",
+            "Time = 200",
+            "smoothSolver:  Solving for Ux, Initial residual = 0.0003, Final residual = 3e-08, No Iterations 2",
+            "GAMG:  Solving for p, Initial residual = 0.012, Final residual = 0.00014, No Iterations 5",
+            "points:           10234",
+            "faces:            28764",
+            "internal faces:   27654",
+            "cells:            9342",
+            "Mesh OK.",
+            "End",
+        ]
+    )
+
+    results = results_module.collect_solver_results(
+        case_dir=case_dir,
+        run_dir_name="decomposition-results",
+        command_output=command_output,
+        reference_values={
+            "reference_length_m": 4.0,
+            "reference_area_m2": 1.0,
+            "inlet_velocity_mps": 6.5,
+            "fluid_density_kg_m3": 997.0,
+        },
+        simulation_requirements={
+            "inlet_velocity_mps": 6.5,
+            "fluid_density_kg_m3": 997.0,
+            "kinematic_viscosity_m2ps": 9.1e-07,
+            "end_time_seconds": 400.0,
+            "delta_t_seconds": 0.25,
+            "write_interval_steps": 40,
+        },
+    )
+
+    assert results["solver_completed"] is True
+    assert results["final_time_seconds"] == 200.0
+    assert results["latest_force_coefficients"]["Cd"] == 0.12
+    assert results["latest_forces"]["total_force"][0] == 8.0
+    assert results["mesh_summary"]["cells"] == 9342
+    assert results["residual_summary"]["field_count"] == 2
+    assert results["workspace_postprocess_virtual_path"].endswith("/postProcessing")
+
+
+def test_solver_dispatch_decomposition_results_module_detects_failure_markers():
+    results_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch_results"
+    )
+
+    assert results_module.looks_like_solver_failure("FOAM FATAL ERROR: divergence")
+    assert not results_module.looks_like_solver_failure("Time = 200\nEnd")
