@@ -2,41 +2,27 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
+from .artifact_store import (
+    load_first_json_payload_from_artifacts,
+    resolve_outputs_artifact,
+)
 from .experiment_linkage import build_experiment_linkage_assessment
 from .figure_delivery import build_figure_delivery_summary as _build_figure_delivery_from_manifest
 from .library import load_case_library
 from .models import SubmarineCase
-
-
-def resolve_outputs_artifact(outputs_dir: Path, virtual_path: str) -> Path | None:
-    prefix = "/mnt/user-data/outputs/"
-    if not virtual_path.startswith(prefix):
-        return None
-    relative_parts = [part for part in virtual_path.removeprefix(prefix).split("/") if part]
-    return outputs_dir.joinpath(*relative_parts)
-
 
 def load_json_payload_from_artifacts(
     outputs_dir: Path,
     artifact_virtual_paths: list[str],
     suffix: str,
 ) -> tuple[str, dict] | None:
-    for artifact_virtual_path in artifact_virtual_paths:
-        if not artifact_virtual_path.endswith(suffix):
-            continue
-        local_path = resolve_outputs_artifact(outputs_dir, artifact_virtual_path)
-        if local_path is None or not local_path.exists():
-            continue
-        try:
-            payload = json.loads(local_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if isinstance(payload, dict):
-            return artifact_virtual_path, payload
-    return None
+    return load_first_json_payload_from_artifacts(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=artifact_virtual_paths,
+        suffixes=[suffix],
+    )
 
 
 def resolve_selected_case(selected_case_id: str | None) -> SubmarineCase | None:

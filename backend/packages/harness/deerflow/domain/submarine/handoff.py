@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+
+from .artifact_store import read_json_mapping, resolve_outputs_artifact
 
 
 def _as_mapping(value: object | None) -> Mapping[str, Any]:
@@ -24,20 +25,12 @@ def _as_dict_list(value: object | None) -> list[dict[str, Any]]:
     return [dict(item) for item in value if isinstance(item, Mapping)]
 
 
-def _resolve_outputs_artifact(outputs_dir: Path, virtual_path: str) -> Path | None:
-    prefix = "/mnt/user-data/outputs/"
-    if not virtual_path.startswith(prefix):
-        return None
-    relative_parts = [part for part in virtual_path.removeprefix(prefix).split("/") if part]
-    return outputs_dir.joinpath(*relative_parts)
-
-
 def load_scientific_remediation_handoff(
     *,
     outputs_dir: Path,
     artifact_virtual_path: str,
 ) -> dict[str, Any]:
-    local_path = _resolve_outputs_artifact(outputs_dir, artifact_virtual_path)
+    local_path = resolve_outputs_artifact(outputs_dir, artifact_virtual_path)
     if local_path is None:
         raise ValueError(
             f"Scientific remediation handoff path must stay inside outputs: {artifact_virtual_path}"
@@ -47,19 +40,12 @@ def load_scientific_remediation_handoff(
             f"Scientific remediation handoff artifact was not found: {artifact_virtual_path}"
         )
 
-    try:
-        payload = json.loads(local_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    payload = read_json_mapping(local_path)
+    if payload is None:
         raise ValueError(
             f"Scientific remediation handoff artifact is unreadable: {artifact_virtual_path}"
-        ) from exc
-
-    if not isinstance(payload, Mapping):
-        raise ValueError(
-            f"Scientific remediation handoff artifact must contain a JSON object: {artifact_virtual_path}"
         )
-
-    return dict(payload)
+    return payload
 
 
 def build_scientific_remediation_handoff(

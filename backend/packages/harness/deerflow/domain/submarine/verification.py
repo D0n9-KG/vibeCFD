@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Iterable
 
+from .artifact_store import load_json_payloads_from_artifacts
 from .models import (
     SubmarineCaseAcceptanceProfile,
     SubmarineScientificVerificationRequirement,
@@ -20,14 +20,6 @@ def _has_artifact(artifact_virtual_paths: Iterable[str], required_artifact: str)
     return any(path.endswith(required_artifact) for path in artifact_virtual_paths)
 
 
-def _resolve_outputs_artifact(outputs_dir: Path, virtual_path: str) -> Path | None:
-    prefix = "/mnt/user-data/outputs/"
-    if not virtual_path.startswith(prefix):
-        return None
-    relative_parts = [part for part in virtual_path.removeprefix(prefix).split("/") if part]
-    return outputs_dir.joinpath(*relative_parts)
-
-
 def _load_verification_study_payloads(
     *,
     outputs_dir: Path | None,
@@ -36,21 +28,11 @@ def _load_verification_study_payloads(
 ) -> list[tuple[str, dict]]:
     if outputs_dir is None:
         return []
-
-    payloads: list[tuple[str, dict]] = []
-    for artifact_path in artifact_virtual_paths:
-        if not any(artifact_path.endswith(required_artifact) for required_artifact in required_artifacts):
-            continue
-        local_path = _resolve_outputs_artifact(outputs_dir, artifact_path)
-        if local_path is None or not local_path.exists() or local_path.suffix.lower() != ".json":
-            continue
-        try:
-            payload = json.loads(local_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if isinstance(payload, dict):
-            payloads.append((artifact_path, payload))
-    return payloads
+    return load_json_payloads_from_artifacts(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=artifact_virtual_paths,
+        suffixes=required_artifacts,
+    )
 
 
 def build_effective_scientific_verification_requirements(
