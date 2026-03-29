@@ -58,6 +58,7 @@ def submarine_result_report_tool(
     except ValueError as exc:
         return Command(update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id)]})
 
+    scientific_followup_summary = payload.get("scientific_followup_summary") or {}
     runtime_snapshot = build_runtime_snapshot(
         current_stage="result-reporting",
         task_summary=snapshot.task_summary,
@@ -73,6 +74,10 @@ def submarine_result_report_tool(
         workspace_case_dir_virtual_path=snapshot.workspace_case_dir_virtual_path,
         run_script_virtual_path=snapshot.run_script_virtual_path,
         supervisor_handoff_virtual_path=payload.get("supervisor_handoff_virtual_path"),
+        scientific_followup_history_virtual_path=(
+            scientific_followup_summary.get("history_virtual_path")
+            or snapshot.scientific_followup_history_virtual_path
+        ),
         next_recommended_stage=payload["next_recommended_stage"],
         report_virtual_path=payload["report_virtual_path"],
         artifact_virtual_paths=payload["artifact_virtual_paths"],

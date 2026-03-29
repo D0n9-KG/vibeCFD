@@ -94,10 +94,15 @@ def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypat
     assert payload["next_recommended_stage"] == "solver-dispatch"
     assert payload["scientific_supervisor_gate"]["gate_status"] == "blocked"
     assert payload["scientific_supervisor_gate"]["allowed_claim_level"] == "delivery_only"
+    assert payload["scientific_followup_summary"] is None
     assert payload["report_virtual_path"].endswith("/final-report.md")
     assert payload["artifact_virtual_paths"]
     assert result.update["submarine_runtime"]["current_stage"] == "result-reporting"
     assert result.update["submarine_runtime"]["report_virtual_path"].endswith("/final-report.md")
+    assert (
+        result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
+        is None
+    )
     assert result.update["submarine_runtime"]["scientific_gate_status"] == "blocked"
 
 
@@ -2598,6 +2603,143 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
     assert result.update["submarine_runtime"]["review_status"] == "blocked"
     assert result.update["submarine_runtime"]["scientific_gate_status"] == "blocked"
     assert result.update["submarine_runtime"]["execution_plan"][-1]["status"] == "blocked"
+
+
+def test_submarine_result_report_surfaces_scientific_followup_summary(
+    tmp_path, monkeypatch
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-followup-report-summary"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "followup-summary.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(geometry_tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    geometry_result = geometry_tool_module.submarine_geometry_check_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/followup-summary.stl",
+        task_description="Generate a report with followup history context",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        tool_call_id="tc-geometry-followup-summary",
+    )
+    history_virtual_path = (
+        "/mnt/user-data/outputs/submarine/reports/followup-summary/"
+        "scientific-followup-history.json"
+    )
+    history_path = (
+        outputs_dir
+        / "submarine"
+        / "reports"
+        / "followup-summary"
+        / "scientific-followup-history.json"
+    )
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    history_path.write_text(
+        json.dumps(
+            {
+                "history_version": "v1",
+                "entry_count": 2,
+                "latest_entry_id": "scientific-followup-0002",
+                "artifact_virtual_paths": [history_virtual_path],
+                "entries": [
+                    {
+                        "entry_id": "scientific-followup-0001",
+                        "sequence_index": 1,
+                        "source_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/followup-summary/scientific-remediation-handoff.json",
+                        "source_report_virtual_path": "/mnt/user-data/outputs/submarine/reports/followup-summary/final-report.md",
+                        "handoff_status": "ready_for_auto_followup",
+                        "recommended_action_id": "execute-scientific-studies",
+                        "tool_name": "submarine_solver_dispatch",
+                        "outcome_status": "dispatch_failed",
+                        "dispatch_stage_status": "failed",
+                        "report_refreshed": False,
+                        "result_report_virtual_path": None,
+                        "result_supervisor_handoff_virtual_path": None,
+                        "artifact_virtual_paths": [history_virtual_path],
+                        "notes": ["The solver dispatch failed in the previous attempt."],
+                    },
+                    {
+                        "entry_id": "scientific-followup-0002",
+                        "sequence_index": 2,
+                        "source_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/followup-summary/scientific-remediation-handoff.json",
+                        "source_report_virtual_path": "/mnt/user-data/outputs/submarine/reports/followup-summary/final-report.md",
+                        "handoff_status": "ready_for_auto_followup",
+                        "recommended_action_id": "execute-scientific-studies",
+                        "tool_name": "submarine_solver_dispatch",
+                        "outcome_status": "dispatch_refreshed_report",
+                        "dispatch_stage_status": "executed",
+                        "report_refreshed": True,
+                        "result_report_virtual_path": "/mnt/user-data/outputs/submarine/reports/followup-summary/final-report.md",
+                        "result_supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/followup-summary/scientific-remediation-handoff.json",
+                        "artifact_virtual_paths": [
+                            history_virtual_path,
+                            "/mnt/user-data/outputs/submarine/reports/followup-summary/final-report.md",
+                        ],
+                        "notes": [
+                            "The scientific rerun completed and the report was refreshed."
+                        ],
+                    },
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime.state["artifacts"] = geometry_result.update["artifacts"]
+    runtime.state["submarine_runtime"] = geometry_result.update["submarine_runtime"]
+    runtime.state["submarine_runtime"]["scientific_followup_history_virtual_path"] = (
+        history_virtual_path
+    )
+    runtime.state["submarine_runtime"]["artifact_virtual_paths"] = [
+        *runtime.state["submarine_runtime"]["artifact_virtual_paths"],
+        history_virtual_path,
+    ]
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Followup history report",
+        tool_call_id="tc-result-report-followup-summary",
+    )
+
+    final_report_path = (
+        outputs_dir / "submarine" / "reports" / "followup-summary" / "final-report.json"
+    )
+    final_markdown = (
+        outputs_dir / "submarine" / "reports" / "followup-summary" / "final-report.md"
+    ).read_text(encoding="utf-8")
+    final_html = (
+        outputs_dir / "submarine" / "reports" / "followup-summary" / "final-report.html"
+    ).read_text(encoding="utf-8")
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    followup_summary = final_payload["scientific_followup_summary"]
+
+    assert followup_summary["entry_count"] == 2
+    assert followup_summary["latest_outcome_status"] == "dispatch_refreshed_report"
+    assert followup_summary["latest_tool_name"] == "submarine_solver_dispatch"
+    assert followup_summary["latest_recommended_action_id"] == "execute-scientific-studies"
+    assert followup_summary["report_refreshed"] is True
+    assert followup_summary["history_virtual_path"] == history_virtual_path
+    assert (
+        result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
+        == history_virtual_path
+    )
+    assert "## Scientific Follow-Up History" in final_markdown
+    assert "dispatch_refreshed_report" in final_markdown
+    assert "<h2>Scientific Follow-Up History</h2>" in final_html
+    assert "dispatch_refreshed_report" in final_html
 
 
 def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_path):

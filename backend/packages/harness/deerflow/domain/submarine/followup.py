@@ -14,6 +14,18 @@ def _as_string_list(values: object | None) -> list[str]:
     return [str(item) for item in values if isinstance(item, str) and item]
 
 
+def _merge_string_lists(*values: object) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        for item in _as_string_list(value):
+            if item in seen:
+                continue
+            seen.add(item)
+            merged.append(item)
+    return merged
+
+
 def resolve_scientific_followup_history_virtual_path(
     *virtual_paths: str | None,
 ) -> str | None:
@@ -135,3 +147,40 @@ def append_scientific_followup_history(
         encoding="utf-8",
     )
     return payload
+
+
+def build_scientific_followup_summary(
+    *,
+    history: Mapping[str, Any],
+    history_virtual_path: str,
+) -> dict[str, Any] | None:
+    entries = [
+        dict(item) for item in history.get("entries", []) if isinstance(item, Mapping)
+    ]
+    if not entries:
+        return None
+
+    latest_entry = entries[-1]
+    return {
+        "history_virtual_path": history_virtual_path,
+        "entry_count": len(entries),
+        "latest_entry_id": latest_entry.get("entry_id"),
+        "latest_outcome_status": latest_entry.get("outcome_status"),
+        "latest_handoff_status": latest_entry.get("handoff_status"),
+        "latest_recommended_action_id": latest_entry.get("recommended_action_id"),
+        "latest_tool_name": latest_entry.get("tool_name"),
+        "latest_dispatch_stage_status": latest_entry.get("dispatch_stage_status"),
+        "report_refreshed": bool(latest_entry.get("report_refreshed")),
+        "latest_result_report_virtual_path": latest_entry.get(
+            "result_report_virtual_path"
+        ),
+        "latest_result_supervisor_handoff_virtual_path": latest_entry.get(
+            "result_supervisor_handoff_virtual_path"
+        ),
+        "latest_notes": _as_string_list(latest_entry.get("notes")),
+        "artifact_virtual_paths": _merge_string_lists(
+            history.get("artifact_virtual_paths"),
+            latest_entry.get("artifact_virtual_paths"),
+            [history_virtual_path],
+        ),
+    }

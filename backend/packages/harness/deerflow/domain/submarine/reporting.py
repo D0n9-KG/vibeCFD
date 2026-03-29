@@ -10,6 +10,7 @@ from pathlib import Path
 from .contracts import SubmarineRuntimeSnapshot, build_supervisor_review_contract
 from .evidence import build_research_evidence_summary
 from .figure_delivery import build_figure_delivery_summary
+from .followup import build_scientific_followup_summary, load_scientific_followup_history
 from .handoff import build_scientific_remediation_handoff
 from .library import load_case_library
 from .models import SubmarineBenchmarkTarget, SubmarineCase
@@ -1197,6 +1198,51 @@ def _render_scientific_remediation_handoff_markdown(
     return lines
 
 
+def _render_scientific_followup_markdown(
+    scientific_followup_summary: dict | None,
+) -> list[str]:
+    if not scientific_followup_summary:
+        return []
+
+    lines = [
+        "",
+        "## Scientific Follow-Up History",
+        f"- entry_count: `{scientific_followup_summary.get('entry_count')}`",
+        f"- latest_outcome_status: `{scientific_followup_summary.get('latest_outcome_status')}`",
+        f"- latest_handoff_status: `{scientific_followup_summary.get('latest_handoff_status')}`",
+        (
+            f"- latest_recommended_action_id: "
+            f"`{scientific_followup_summary.get('latest_recommended_action_id') or 'none'}`"
+        ),
+        f"- latest_tool_name: `{scientific_followup_summary.get('latest_tool_name') or 'none'}`",
+        (
+            f"- latest_dispatch_stage_status: "
+            f"`{scientific_followup_summary.get('latest_dispatch_stage_status') or 'none'}`"
+        ),
+        f"- report_refreshed: `{scientific_followup_summary.get('report_refreshed')}`",
+        f"- history: `{scientific_followup_summary.get('history_virtual_path')}`",
+    ]
+    if scientific_followup_summary.get("latest_result_report_virtual_path"):
+        lines.append(
+            f"- latest_result_report: "
+            f"`{scientific_followup_summary.get('latest_result_report_virtual_path')}`"
+        )
+    if scientific_followup_summary.get("latest_result_supervisor_handoff_virtual_path"):
+        lines.append(
+            f"- latest_result_handoff: "
+            f"`{scientific_followup_summary.get('latest_result_supervisor_handoff_virtual_path')}`"
+        )
+    latest_notes = scientific_followup_summary.get("latest_notes") or []
+    if latest_notes:
+        lines.extend(["", "### Latest Follow-Up Notes"])
+        lines.extend(f"- {item}" for item in latest_notes)
+    artifact_paths = scientific_followup_summary.get("artifact_virtual_paths") or []
+    if artifact_paths:
+        lines.extend(["", "### Follow-Up Artifacts"])
+        lines.extend(f"- `{path}`" for path in artifact_paths)
+    return lines
+
+
 def _render_scientific_verification_markdown(
     scientific_verification_assessment: dict | None,
 ) -> list[str]:
@@ -1821,6 +1867,11 @@ def _render_markdown(payload: dict) -> str:
             payload.get("scientific_remediation_handoff")
         )
     )
+    lines.extend(
+        _render_scientific_followup_markdown(
+            payload.get("scientific_followup_summary")
+        )
+    )
     lines.extend(_render_scientific_study_markdown(payload.get("scientific_study_summary")))
     lines.extend(_render_experiment_compare_markdown(payload.get("experiment_compare_summary")))
     lines.extend(_render_figure_delivery_markdown(payload.get("figure_delivery_summary")))
@@ -1979,6 +2030,47 @@ def _render_solver_metrics_html_enriched(solver_metrics: dict | None) -> str:
     return "<section class=\"panel\"><h2>CFD 结果指标</h2>" + "".join(metric_lines) + "</section>"
 
 
+def _render_scientific_followup_html(scientific_followup_summary: dict | None) -> str:
+    if not scientific_followup_summary:
+        return ""
+
+    artifact_items = "".join(
+        f"<li><code>{escape(str(path))}</code></li>"
+        for path in (scientific_followup_summary.get("artifact_virtual_paths") or [])
+    ) or "<li>None</li>"
+    note_items = "".join(
+        f"<li>{escape(str(note))}</li>"
+        for note in (scientific_followup_summary.get("latest_notes") or [])
+    ) or "<li>None</li>"
+    return (
+        '<section class="panel">'
+        "<h2>Scientific Follow-Up History</h2>"
+        f"<p><strong>entry_count:</strong> {escape(str(scientific_followup_summary.get('entry_count') or 0))}</p>"
+        f"<p><strong>latest_outcome_status:</strong> {escape(str(scientific_followup_summary.get('latest_outcome_status') or '--'))}</p>"
+        f"<p><strong>latest_handoff_status:</strong> {escape(str(scientific_followup_summary.get('latest_handoff_status') or '--'))}</p>"
+        f"<p><strong>latest_recommended_action_id:</strong> {escape(str(scientific_followup_summary.get('latest_recommended_action_id') or 'none'))}</p>"
+        f"<p><strong>latest_tool_name:</strong> {escape(str(scientific_followup_summary.get('latest_tool_name') or 'none'))}</p>"
+        f"<p><strong>latest_dispatch_stage_status:</strong> {escape(str(scientific_followup_summary.get('latest_dispatch_stage_status') or 'none'))}</p>"
+        f"<p><strong>report_refreshed:</strong> {escape(str(scientific_followup_summary.get('report_refreshed')))}</p>"
+        f"<p><strong>history:</strong> {escape(str(scientific_followup_summary.get('history_virtual_path') or '--'))}</p>"
+        + (
+            f"<p><strong>latest_result_report:</strong> {escape(str(scientific_followup_summary.get('latest_result_report_virtual_path')))}</p>"
+            if scientific_followup_summary.get("latest_result_report_virtual_path")
+            else ""
+        )
+        + (
+            f"<p><strong>latest_result_handoff:</strong> {escape(str(scientific_followup_summary.get('latest_result_supervisor_handoff_virtual_path')))}</p>"
+            if scientific_followup_summary.get("latest_result_supervisor_handoff_virtual_path")
+            else ""
+        )
+        + "<h3>Latest Notes</h3>"
+        + f"<ul>{note_items}</ul>"
+        + "<h3>Follow-Up Artifacts</h3>"
+        + f"<ul>{artifact_items}</ul>"
+        + "</section>"
+    )
+
+
 def _render_html(payload: dict) -> str:
     source_items = "".join(f"<li>{escape(path)}</li>" for path in payload["source_artifact_virtual_paths"]) or "<li>暂无</li>"
     final_items = "".join(f"<li>{escape(path)}</li>" for path in payload["final_artifact_virtual_paths"])
@@ -1996,6 +2088,9 @@ def _render_html(payload: dict) -> str:
     )
     scientific_remediation_handoff_section = _render_scientific_remediation_handoff_html(
         payload.get("scientific_remediation_handoff")
+    )
+    scientific_followup_section = _render_scientific_followup_html(
+        payload.get("scientific_followup_summary")
     )
     scientific_study_section = _render_scientific_study_html(
         payload.get("scientific_study_summary")
@@ -2086,6 +2181,7 @@ def _render_html(payload: dict) -> str:
       {scientific_gate_section}
       {scientific_remediation_section}
       {scientific_remediation_handoff_section}
+      {scientific_followup_section}
       {scientific_study_section}
       {experiment_compare_section}
       {figure_delivery_section}
@@ -2212,6 +2308,25 @@ def run_result_report(
         scientific_remediation_summary=scientific_remediation_summary,
         artifact_virtual_paths=[scientific_remediation_handoff_json_artifact],
     )
+    scientific_followup_summary = None
+    if snapshot.scientific_followup_history_virtual_path:
+        followup_history_path = _resolve_outputs_artifact(
+            outputs_dir,
+            snapshot.scientific_followup_history_virtual_path,
+        )
+        if followup_history_path and followup_history_path.exists():
+            try:
+                followup_history = load_scientific_followup_history(
+                    artifact_path=followup_history_path,
+                    artifact_virtual_path=snapshot.scientific_followup_history_virtual_path,
+                )
+            except ValueError:
+                followup_history = None
+            if followup_history:
+                scientific_followup_summary = build_scientific_followup_summary(
+                    history=followup_history,
+                    history_virtual_path=snapshot.scientific_followup_history_virtual_path,
+                )
     review_status = (
         "blocked"
         if scientific_supervisor_gate["gate_status"] == "blocked"
@@ -2259,6 +2374,7 @@ def run_result_report(
         "scientific_supervisor_gate": scientific_supervisor_gate,
         "scientific_remediation_summary": scientific_remediation_summary,
         "scientific_remediation_handoff": scientific_remediation_handoff,
+        "scientific_followup_summary": scientific_followup_summary,
         "scientific_study_summary": scientific_study_summary,
         "figure_delivery_summary": figure_delivery_summary,
         "scientific_verification_assessment": scientific_verification_assessment,
