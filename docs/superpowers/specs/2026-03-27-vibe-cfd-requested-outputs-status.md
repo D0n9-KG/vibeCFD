@@ -347,6 +347,95 @@ Broader verification:
 - `cd frontend && node_modules/.bin/tsc.cmd --noEmit`
 - result: passed
 
+## 22. 2026-03-29 Addendum: Scientific Followup History v1
+
+This session finished the first dedicated audit layer for scientific follow-up execution.
+
+The repository can now not only execute one bounded follow-up cycle, but also preserve a stable machine-readable record of what happened across those follow-up attempts.
+
+### 22.1 What Changed
+
+The submarine domain now includes a dedicated follow-up history helper in:
+
+- `backend/packages/harness/deerflow/domain/submarine/followup.py`
+
+`submarine_scientific_followup` now writes or updates:
+
+- `scientific-followup-history.json`
+
+for every major invocation branch, including:
+
+- manual follow-up required
+- not needed
+- unsupported target
+- dispatch planned
+- dispatch failed
+- dispatch executed and report refreshed
+
+The runtime state now also preserves:
+
+- `scientific_followup_history_virtual_path`
+
+so later report regeneration can keep pointing at the same audit artifact instead of losing that provenance.
+
+### 22.2 Report And Workbench Changes
+
+`backend/packages/harness/deerflow/domain/submarine/reporting.py` now loads the persisted history artifact and emits:
+
+- `scientific_followup_summary` in `final-report.json`
+
+The final report Markdown and HTML now also surface a compact `Scientific Follow-Up History` section with:
+
+- entry count
+- latest outcome status
+- latest handoff status
+- latest recommended action id
+- latest tool name
+- latest dispatch status
+- whether the report was refreshed
+- latest artifact entrypoints
+
+The submarine workbench now shows the same compact summary in the runtime panel and classifies:
+
+- `scientific-followup-history.json`
+
+as a first-class report artifact with a stable label.
+
+### 22.3 Boundary
+
+This is still an auditability slice, not a recursive controller.
+
+The repository now:
+
+- records deterministic follow-up history
+- preserves the history pointer through report refresh
+- surfaces the latest follow-up state for review
+
+The repository still does not:
+
+- auto-consume that history to trigger another rerun
+- recursively loop follow-up execution
+- infer permission for more solver cost from the existence of history
+
+That keeps the project open-ended and agentic while making scientific follow-up materially more reviewable.
+
+### 22.4 Verification
+
+Backend verification:
+
+- `uv run pytest tests/test_submarine_scientific_followup_tool.py tests/test_submarine_result_report_tool.py -q`
+- result: `25 passed`
+
+Frontend verification:
+
+- `node --experimental-strip-types --test src/components/workspace/submarine-runtime-panel.utils.test.ts`
+- result: `30 passed`
+
+Type verification:
+
+- `corepack pnpm exec tsc --noEmit`
+- result: passed
+
 ## 21. 2026-03-29 Addendum: Scientific Followup Report Refresh v1
 
 This session closed the highest-value single follow-up gap after scientific remediation handoffs.
