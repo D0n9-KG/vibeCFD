@@ -347,6 +347,87 @@ Broader verification:
 - `cd frontend && node_modules/.bin/tsc.cmd --noEmit`
 - result: passed
 
+## 20. 2026-03-29 Addendum: Scientific Auto-Followup Tool v1
+
+This session continued the remediation-execution line and added a dedicated built-in tool that can continue from the latest scientific remediation handoff.
+
+### 20.1 What Changed
+
+The repository now exposes:
+
+- `submarine_scientific_followup`
+
+Implemented in:
+
+- `backend/packages/harness/deerflow/tools/builtins/submarine_scientific_followup_tool.py`
+
+Supporting handoff-loading logic now lives in:
+
+- `backend/packages/harness/deerflow/domain/submarine/handoff.py`
+
+The tool is also registered through:
+
+- `backend/packages/harness/deerflow/tools/builtins/__init__.py`
+
+### 20.2 Behavior Boundary
+
+The new tool deliberately does not hide execution inside result reporting.
+
+Instead, it:
+
+- reads the latest `supervisor_handoff_virtual_path`
+- loads the referenced `scientific-remediation-handoff.json`
+- checks whether that handoff is executable
+- delegates supported executable handoffs into existing built-in submarine tools
+
+This keeps the product open-ended and explicit: result reporting synthesizes evidence, while follow-up execution happens through a separate callable tool.
+
+### 20.3 v1 Execution Semantics
+
+In v1, the new tool handles three cases:
+
+- missing handoff pointer
+  - returns a clear error message
+- `manual_followup_required` or `not_needed`
+  - returns a clear non-executing message
+- `ready_for_auto_followup`
+  - delegates to a supported built-in tool
+
+Currently supported executable targets are:
+
+- `submarine_solver_dispatch`
+  - forced to run with `execute_now=true`
+- `submarine_result_report`
+
+That means a supervising agent can now keep moving from a report-stage remediation contract into an actual rerun or report regeneration step without reconstructing arguments manually.
+
+### 20.4 Why This Matters
+
+This is an important bridge between "the system can explain the next step" and "the system can actually continue the scientific loop."
+
+It improves research usability because:
+
+- the handoff contract is now executable, not just inspectable
+- follow-up execution stays deterministic and bounded by typed tool arguments
+- manual-required evidence gaps still stay manual instead of being guessed away
+
+### 20.5 Remaining Gap
+
+This stage still stops short of fully autonomous remediation policies:
+
+- the tool must still be invoked explicitly by the supervising agent
+- there is still no higher-level policy for when expensive reruns should trigger automatically
+- there is still no multi-step loop that keeps rerunning until research-ready evidence is achieved
+
+Those are later layers. This slice only makes the next step executable.
+
+### 20.6 Verification
+
+Backend verification:
+
+- `uv run pytest tests/test_submarine_domain_assets.py tests/test_submarine_solver_dispatch_tool.py tests/test_submarine_result_report_tool.py tests/test_submarine_scientific_followup_tool.py -q`
+- result: `59 passed`
+
 ## 19. 2026-03-29 Addendum: Scientific Remediation Handoff v1
 
 This session continued the scientific remediation track and turned remediation plans into an explicit next-tool handoff contract.
