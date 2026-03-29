@@ -26,6 +26,7 @@ class SubmarineRuntimeState(TypedDict):
     workspace_case_dir_virtual_path: NotRequired[str | None]
     run_script_virtual_path: NotRequired[str | None]
     supervisor_handoff_virtual_path: NotRequired[str | None]
+    scientific_followup_history_virtual_path: NotRequired[str | None]
     review_status: NotRequired[str]
     next_recommended_stage: NotRequired[str]
     report_virtual_path: NotRequired[str]

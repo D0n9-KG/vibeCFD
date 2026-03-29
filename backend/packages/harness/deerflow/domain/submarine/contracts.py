@@ -225,6 +225,7 @@ class SubmarineRuntimeSnapshot(BaseModel):
     workspace_case_dir_virtual_path: str | None = None
     run_script_virtual_path: str | None = None
     supervisor_handoff_virtual_path: str | None = None
+    scientific_followup_history_virtual_path: str | None = None
     review_status: Literal["ready_for_supervisor", "needs_user_confirmation", "blocked"] = "ready_for_supervisor"
     scientific_gate_status: SubmarineScientificGateStatus | None = None
     allowed_claim_level: SubmarineScientificClaimLevel | None = None
@@ -282,6 +283,7 @@ def build_runtime_snapshot(
     workspace_case_dir_virtual_path: str | None = None,
     run_script_virtual_path: str | None = None,
     supervisor_handoff_virtual_path: str | None = None,
+    scientific_followup_history_virtual_path: str | None = None,
     review_status: Literal["ready_for_supervisor", "needs_user_confirmation", "blocked"] = "ready_for_supervisor",
     scientific_gate_status: SubmarineScientificGateStatus | None = None,
     allowed_claim_level: SubmarineScientificClaimLevel | None = None,
@@ -303,6 +305,7 @@ def build_runtime_snapshot(
         workspace_case_dir_virtual_path=workspace_case_dir_virtual_path,
         run_script_virtual_path=run_script_virtual_path,
         supervisor_handoff_virtual_path=supervisor_handoff_virtual_path,
+        scientific_followup_history_virtual_path=scientific_followup_history_virtual_path,
         review_status=review_status,
         scientific_gate_status=scientific_gate_status,
         allowed_claim_level=allowed_claim_level,

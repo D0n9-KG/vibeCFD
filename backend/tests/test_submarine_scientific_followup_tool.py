@@ -60,6 +60,17 @@ def _write_handoff_artifact(
     return f"/mnt/user-data/outputs/submarine/reports/demo/{filename}"
 
 
+def _read_report_artifact(paths: Paths, *, thread_id: str, filename: str) -> dict:
+    artifact_path = (
+        paths.sandbox_outputs_dir(thread_id)
+        / "submarine"
+        / "reports"
+        / "demo"
+        / filename
+    )
+    return json.loads(artifact_path.read_text(encoding="utf-8"))
+
+
 def test_submarine_scientific_followup_errors_without_handoff_pointer(tmp_path):
     tool_module = importlib.import_module(
         "deerflow.tools.builtins.submarine_scientific_followup_tool"
@@ -118,11 +129,26 @@ def test_submarine_scientific_followup_refuses_manual_handoff(tmp_path):
         tool_call_id="tc-followup-manual-handoff",
     )
 
+    history = _read_report_artifact(
+        paths,
+        thread_id=thread_id,
+        filename="scientific-followup-history.json",
+    )
+    history_entry = history["entries"][0]
+
     message = result.update["messages"][0]
     assert "manual_followup_required" in message.content
     assert "attach-validation-reference" in message.content
     assert "No applicable benchmark target was available" in message.content
-    assert "submarine_runtime" not in result.update
+    assert (
+        result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json"
+    )
+    assert history["entry_count"] == 1
+    assert history_entry["outcome_status"] == "manual_followup_required"
+    assert history_entry["report_refreshed"] is False
+    assert history_entry["recommended_action_id"] == "attach-validation-reference"
+    assert history_entry["source_handoff_virtual_path"] == handoff_virtual_path
 
 
 def test_submarine_scientific_followup_reports_not_needed_handoff(tmp_path):
@@ -158,10 +184,24 @@ def test_submarine_scientific_followup_reports_not_needed_handoff(tmp_path):
         tool_call_id="tc-followup-not-needed",
     )
 
+    history = _read_report_artifact(
+        paths,
+        thread_id=thread_id,
+        filename="scientific-followup-history.json",
+    )
+    history_entry = history["entries"][0]
+
     message = result.update["messages"][0]
     assert "not_needed" in message.content
     assert "Scientific remediation is not needed" in message.content
-    assert "submarine_runtime" not in result.update
+    assert (
+        result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json"
+    )
+    assert history["entry_count"] == 1
+    assert history_entry["outcome_status"] == "not_needed"
+    assert history_entry["report_refreshed"] is False
+    assert history_entry["source_handoff_virtual_path"] == handoff_virtual_path
 
 
 def test_submarine_scientific_followup_executes_solver_dispatch_handoff(
@@ -409,6 +449,7 @@ def test_submarine_scientific_followup_refreshes_report_after_executed_dispatch(
                     "current_stage": "result-reporting",
                     "stage_status": "executed",
                     "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+                    "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
                 },
                 "messages": [
                     ToolMessage(
@@ -437,13 +478,36 @@ def test_submarine_scientific_followup_refreshes_report_after_executed_dispatch(
         tool_call_id="tc-followup-refresh",
     )
 
+    history = _read_report_artifact(
+        paths,
+        thread_id=thread_id,
+        filename="scientific-followup-history.json",
+    )
+    history_entry = history["entries"][0]
+
     assert dispatch_captured["runtime"] is runtime
     assert dispatch_captured["execute_now"] is True
     assert report_captured["tool_call_id"] == "tc-followup-refresh"
     assert result.update["submarine_runtime"]["current_stage"] == "result-reporting"
+    assert (
+        result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json"
+    )
     assert "Research report regenerated after solver rerun" in result.update["messages"][
         0
     ].content
+    assert history["entry_count"] == 1
+    assert history_entry["outcome_status"] == "dispatch_refreshed_report"
+    assert history_entry["dispatch_stage_status"] == "executed"
+    assert history_entry["report_refreshed"] is True
+    assert (
+        history_entry["result_report_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/demo/final-report.md"
+    )
+    assert (
+        history_entry["result_supervisor_handoff_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"
+    )
 
 
 def test_submarine_scientific_followup_does_not_refresh_report_after_planned_dispatch(
@@ -526,9 +590,24 @@ def test_submarine_scientific_followup_does_not_refresh_report_after_planned_dis
         tool_call_id="tc-followup-planned",
     )
 
+    history = _read_report_artifact(
+        paths,
+        thread_id=thread_id,
+        filename="scientific-followup-history.json",
+    )
+    history_entry = history["entries"][0]
+
     assert report_calls == []
+    assert (
+        result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json"
+    )
     assert result.update["submarine_runtime"]["stage_status"] == "planned"
     assert "prepared but not executed" in result.update["messages"][0].content
+    assert history["entry_count"] == 1
+    assert history_entry["outcome_status"] == "dispatch_planned"
+    assert history_entry["dispatch_stage_status"] == "planned"
+    assert history_entry["report_refreshed"] is False
 
 
 def test_submarine_scientific_followup_does_not_refresh_report_after_failed_dispatch(
@@ -611,6 +690,21 @@ def test_submarine_scientific_followup_does_not_refresh_report_after_failed_disp
         tool_call_id="tc-followup-failed",
     )
 
+    history = _read_report_artifact(
+        paths,
+        thread_id=thread_id,
+        filename="scientific-followup-history.json",
+    )
+    history_entry = history["entries"][0]
+
     assert report_calls == []
+    assert (
+        result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json"
+    )
     assert result.update["submarine_runtime"]["stage_status"] == "failed"
     assert "failed to execute" in result.update["messages"][0].content
+    assert history["entry_count"] == 1
+    assert history_entry["outcome_status"] == "dispatch_failed"
+    assert history_entry["dispatch_stage_status"] == "failed"
+    assert history_entry["report_refreshed"] is False
