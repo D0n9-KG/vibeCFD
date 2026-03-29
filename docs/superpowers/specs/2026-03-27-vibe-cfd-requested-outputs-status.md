@@ -347,6 +347,68 @@ Broader verification:
 - `cd frontend && node_modules/.bin/tsc.cmd --noEmit`
 - result: passed
 
+## 21. 2026-03-29 Addendum: Scientific Followup Report Refresh v1
+
+This session closed the highest-value single follow-up gap after scientific remediation handoffs.
+
+`submarine_scientific_followup` can now finish one bounded rerun-and-reassess cycle instead of stopping at solver dispatch.
+
+### 21.1 What Changed
+
+When the remediation handoff points to:
+
+- `submarine_solver_dispatch`
+
+the follow-up tool still forces:
+
+- `execute_now=true`
+
+But now it also inspects the returned runtime state.
+
+If the dispatch result reports:
+
+- `stage_status == "executed"`
+
+the tool immediately chains into:
+
+- `submarine_result_report`
+
+using the updated `submarine_runtime` from the dispatch result while preserving the same thread context and thread paths.
+
+### 21.2 Behavior Boundary
+
+This remains intentionally bounded orchestration, not an autonomous loop.
+
+The new rule is:
+
+- executed solver dispatch -> refresh result reporting once
+- planned solver dispatch -> stop and return the dispatch result unchanged
+- failed solver dispatch -> stop and return the dispatch result unchanged
+
+The tool does not recursively consume the new report-stage handoff. A supervising agent must still decide whether another follow-up step is warranted.
+
+### 21.3 Why This Matters
+
+This is an important step toward research-usable `vibe CFD` because one explicit follow-up call can now:
+
+- execute the missing scientific studies
+- regenerate the final report and refreshed evidence summary
+- land the runtime back on a report-stage snapshot for review
+
+That makes the remediation layer materially more usable for real study iteration without collapsing the project into a rigid workflow shell.
+
+### 21.4 Verification
+
+Focused verification:
+
+- `uv run pytest tests/test_submarine_scientific_followup_tool.py -q`
+- result: `8 passed`
+
+Broader backend verification:
+
+- `uv run pytest tests/test_submarine_solver_dispatch_tool.py tests/test_submarine_result_report_tool.py tests/test_submarine_scientific_followup_tool.py -q`
+- result: `43 passed`
+
 ## 20. 2026-03-29 Addendum: Scientific Auto-Followup Tool v1
 
 This session continued the remediation-execution line and added a dedicated built-in tool that can continue from the latest scientific remediation handoff.
