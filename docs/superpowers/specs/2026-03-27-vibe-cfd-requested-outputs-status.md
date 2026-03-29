@@ -347,6 +347,95 @@ Broader verification:
 - `cd frontend && node_modules/.bin/tsc.cmd --noEmit`
 - result: passed
 
+## 19. 2026-03-29 Addendum: Scientific Remediation Handoff v1
+
+This session continued the scientific remediation track and turned remediation plans into an explicit next-tool handoff contract.
+
+### 19.1 What Changed
+
+The repository now adds a report-stage handoff layer on top of the existing scientific remediation plan:
+
+- `backend/packages/harness/deerflow/domain/submarine/handoff.py` maps remediation actions into concrete next-step handoffs
+- `backend/packages/harness/deerflow/domain/submarine/reporting.py` now emits:
+  - `scientific_remediation_handoff` in `final-report.json`
+  - `scientific-remediation-handoff.json` as a dedicated artifact
+  - a refreshed `supervisor_handoff_virtual_path` that points at the report-stage handoff artifact
+- `backend/packages/harness/deerflow/tools/builtins/submarine_result_report_tool.py` now persists that refreshed handoff pointer back into runtime state
+
+### 19.2 Handoff Semantics
+
+The new handoff contract makes the repository explicit about what should happen next:
+
+- `ready_for_auto_followup`
+  - a follow-up tool call can be prepared automatically
+- `manual_followup_required`
+  - the next step still depends on human-supplied evidence or judgment
+- `not_needed`
+  - no remediation handoff is needed for the current run
+
+In v1, the most important mapping is:
+
+- `execute-scientific-studies`
+  - suggests `submarine_solver_dispatch`
+  - carries forward geometry, case selection, task metadata, and scientific-study execution arguments
+
+Manual validation-reference gaps remain manual instead of being disguised as auto-executable.
+
+### 19.3 Workbench Changes
+
+The submarine runtime panel now surfaces the remediation handoff contract next to the remediation plan:
+
+- handoff status
+- recommended action id
+- suggested tool name
+- suggested tool arguments
+- manual follow-up actions
+- handoff artifact links
+
+The workbench also now classifies `scientific-remediation-handoff.json` as a report artifact with a stable human-readable label.
+
+### 19.4 Why This Matters
+
+This is an important step toward research-usable `vibe CFD` because the repository no longer stops at saying "the evidence is incomplete."
+
+It now also says:
+
+- whether the next step is executable by contract
+- which DeerFlow tool should run next
+- which arguments should be carried into that next run
+- which evidence gaps still require manual intervention
+
+That keeps the product open-ended while making the supervisor layer materially more actionable.
+
+### 19.5 Remaining Gap
+
+This stage still does not auto-run expensive follow-up studies:
+
+- the handoff is advisory and machine-readable
+- there is still no autonomous rerun policy layer
+- no loop yet re-enters solver dispatch automatically after report generation
+
+That boundary is intentional so the repository does not collapse into a rigid workflow shell.
+
+### 19.6 Verification
+
+Backend verification:
+
+- `uv run pytest tests/test_submarine_domain_assets.py tests/test_submarine_solver_dispatch_tool.py tests/test_submarine_result_report_tool.py -q`
+- result: `54 passed`
+
+Focused frontend verification:
+
+- `node --experimental-strip-types --test src/components/workspace/submarine-runtime-panel.utils.test.ts`
+- result: `28 passed`
+
+Frontend type/lint verification:
+
+- `corepack pnpm exec tsc --noEmit`
+- result: passed
+- `corepack pnpm exec eslint src/components/workspace/submarine-runtime-panel.tsx src/components/workspace/submarine-runtime-panel.utils.ts src/components/workspace/submarine-runtime-panel.utils.test.ts`
+- result: passed
+
 ## 17. 2026-03-28 Addendum: Experiment Compare Workbench v1
 
 This session continued the research-evidence workbench and turned existing compare artifacts into a real runtime-panel review surface.
