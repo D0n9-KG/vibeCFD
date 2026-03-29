@@ -30,6 +30,13 @@ import { cn } from "@/lib/utils";
 
 import { useArtifacts } from "./artifacts";
 import { useThread } from "./messages/context";
+import type {
+  SubmarineDesignBriefPayload,
+  SubmarineDispatchPayload,
+  SubmarineFinalReportPayload,
+  SubmarineGeometryPayload,
+  SubmarineSolverMetrics,
+} from "./submarine-runtime-panel.contract";
 import {
   buildSparklinePath,
   buildSubmarineTrendSeries,
@@ -54,10 +61,8 @@ import {
   getSubmarineArtifactFilterOptions,
   getSubmarineArtifactMeta,
   groupSubmarineArtifacts,
-  type SubmarineAcceptanceAssessment,
   type SubmarineArtifactFilterId,
   type SubmarineArtifactGroup,
-  type SubmarineDesignBriefPayload,
   type SubmarineResultCard,
 } from "./submarine-runtime-panel.utils";
 
@@ -106,224 +111,6 @@ type RuntimeTimelineEvent = {
   status?: string | null;
   skill_names?: string[] | null;
   timestamp?: string | null;
-};
-
-type CandidateCase = {
-  case_id: string;
-  title: string;
-  score?: number;
-  rationale?: string;
-  geometry_family?: string;
-  task_type?: string;
-};
-
-type SolverMetrics = {
-  solver_completed?: boolean;
-  final_time_seconds?: number | null;
-  workspace_postprocess_virtual_path?: string | null;
-  latest_force_coefficients?: Record<string, number | null> | null;
-  force_coefficients_history?: Array<Record<string, number | null>> | null;
-  latest_forces?: {
-    total_force?: number[] | null;
-    total_moment?: number[] | null;
-  } | null;
-  forces_history?: Array<{
-    Time?: number | null;
-    total_force?: number[] | null;
-    total_moment?: number[] | null;
-  }> | null;
-  reference_values?: {
-    reference_length_m?: number | null;
-    reference_area_m2?: number | null;
-    inlet_velocity_mps?: number | null;
-    fluid_density_kg_m3?: number | null;
-  } | null;
-};
-
-type DispatchPayload = {
-  summary_zh?: string;
-  candidate_cases?: CandidateCase[];
-  selected_case?: CandidateCase | null;
-  solver_results?: SolverMetrics | null;
-  requires_geometry_conversion?: boolean;
-};
-
-type GeometryPayload = {
-  summary_zh?: string;
-  candidate_cases?: CandidateCase[];
-};
-
-type FinalReportPayload = {
-  summary_zh?: string;
-  solver_metrics?: SolverMetrics | null;
-  acceptance_assessment?: SubmarineAcceptanceAssessment | null;
-  research_evidence_summary?: {
-    readiness_status?: string | null;
-    verification_status?: string | null;
-    validation_status?: string | null;
-    provenance_status?: string | null;
-    confidence?: string | null;
-    evidence_gaps?: string[] | null;
-    passed_evidence?: string[] | null;
-    benchmark_highlights?: string[] | null;
-    provenance_highlights?: string[] | null;
-    artifact_virtual_paths?: string[] | null;
-  } | null;
-  scientific_supervisor_gate?: {
-    gate_status?: string | null;
-    allowed_claim_level?: string | null;
-    source_readiness_status?: string | null;
-    recommended_stage?: string | null;
-    remediation_stage?: string | null;
-    blocking_reasons?: string[] | null;
-    advisory_notes?: string[] | null;
-    artifact_virtual_paths?: string[] | null;
-  } | null;
-  scientific_remediation_summary?: {
-    plan_status?: string | null;
-    current_claim_level?: string | null;
-    target_claim_level?: string | null;
-    recommended_stage?: string | null;
-    artifact_virtual_paths?: string[] | null;
-    actions?:
-      | Array<{
-          action_id?: string | null;
-          title?: string | null;
-          summary?: string | null;
-          owner_stage?: string | null;
-          priority?: string | null;
-          execution_mode?: string | null;
-          status?: string | null;
-          evidence_gap?: string | null;
-          required_artifacts?: string[] | null;
-        }>
-      | null;
-  } | null;
-  scientific_remediation_handoff?: {
-    handoff_status?: string | null;
-    recommended_action_id?: string | null;
-    tool_name?: string | null;
-    tool_args?: Record<string, unknown> | null;
-    reason?: string | null;
-    artifact_virtual_paths?: string[] | null;
-    manual_actions?:
-      | Array<{
-          action_id?: string | null;
-          title?: string | null;
-          owner_stage?: string | null;
-          evidence_gap?: string | null;
-        }>
-      | null;
-  } | null;
-  scientific_followup_summary?: {
-    history_virtual_path?: string | null;
-    entry_count?: number | null;
-    latest_outcome_status?: string | null;
-    latest_handoff_status?: string | null;
-    latest_recommended_action_id?: string | null;
-    latest_tool_name?: string | null;
-    latest_dispatch_stage_status?: string | null;
-    report_refreshed?: boolean | null;
-    latest_result_report_virtual_path?: string | null;
-    latest_result_supervisor_handoff_virtual_path?: string | null;
-    latest_notes?: string[] | null;
-    artifact_virtual_paths?: string[] | null;
-  } | null;
-  experiment_summary?: {
-    experiment_id?: string | null;
-    experiment_status?: string | null;
-    baseline_run_id?: string | null;
-    run_count?: number | null;
-    manifest_virtual_path?: string | null;
-    compare_virtual_path?: string | null;
-    compare_notes?: string[] | null;
-  } | null;
-  experiment_compare_summary?: {
-    experiment_id?: string | null;
-    baseline_run_id?: string | null;
-    compare_count?: number | null;
-    compare_virtual_path?: string | null;
-    artifact_virtual_paths?: string[] | null;
-    comparisons?:
-      | Array<{
-          candidate_run_id?: string | null;
-          study_type?: string | null;
-          variant_id?: string | null;
-          compare_status?: string | null;
-          notes?: string | null;
-          metric_deltas?: Record<string, unknown> | null;
-          baseline_solver_results_virtual_path?: string | null;
-          candidate_solver_results_virtual_path?: string | null;
-          baseline_run_record_virtual_path?: string | null;
-          candidate_run_record_virtual_path?: string | null;
-        }>
-      | null;
-  } | null;
-  figure_delivery_summary?: {
-    figure_count?: number | null;
-    manifest_virtual_path?: string | null;
-    artifact_virtual_paths?: string[] | null;
-    figures?:
-      | Array<{
-          figure_id?: string | null;
-          output_id?: string | null;
-          title?: string | null;
-          caption?: string | null;
-          render_status?: string | null;
-          selector_summary?: string | null;
-          field?: string | null;
-          artifact_virtual_paths?: string[] | null;
-          source_csv_virtual_path?: string | null;
-        }>
-      | null;
-  } | null;
-  scientific_study_summary?: {
-    study_execution_status?: string | null;
-    manifest_virtual_path?: string | null;
-    artifact_virtual_paths?: string[] | null;
-    studies?:
-      | Array<{
-          study_type?: string | null;
-          summary_label?: string | null;
-          monitored_quantity?: string | null;
-          variant_count?: number | null;
-          verification_status?: string | null;
-          verification_detail?: string | null;
-        }>
-      | null;
-  } | null;
-  scientific_verification_assessment?: {
-    status?: string | null;
-    confidence?: string | null;
-    blocking_issues?: string[] | null;
-    missing_evidence?: string[] | null;
-    passed_requirements?: string[] | null;
-    requirements?:
-      | Array<{
-          requirement_id?: string | null;
-          label?: string | null;
-          status?: string | null;
-          detail?: string | null;
-        }>
-      | null;
-  } | null;
-  output_delivery_plan?:
-    | Array<{
-        output_id?: string | null;
-        label?: string | null;
-        delivery_status?: string | null;
-        detail?: string | null;
-      }>
-    | null;
-  requested_outputs?:
-    | Array<{
-        output_id?: string | null;
-        label?: string | null;
-        requested_label?: string | null;
-        support_level?: string | null;
-        postprocess_spec?: Record<string, unknown> | null;
-      }>
-    | null;
 };
 
 type WorkbenchSectionId =
@@ -511,19 +298,19 @@ export function SubmarineRuntimePanel({
     [designBriefContent],
   );
   const finalReport = useMemo(
-    () => safeJsonParse<FinalReportPayload>(finalReportContent),
+    () => safeJsonParse<SubmarineFinalReportPayload>(finalReportContent),
     [finalReportContent],
   );
   const solverResults = useMemo(
-    () => safeJsonParse<SolverMetrics>(solverResultsContent),
+    () => safeJsonParse<SubmarineSolverMetrics>(solverResultsContent),
     [solverResultsContent],
   );
   const dispatchPayload = useMemo(
-    () => safeJsonParse<DispatchPayload>(dispatchContent),
+    () => safeJsonParse<SubmarineDispatchPayload>(dispatchContent),
     [dispatchContent],
   );
   const geometryPayload = useMemo(
-    () => safeJsonParse<GeometryPayload>(geometryContent),
+    () => safeJsonParse<SubmarineGeometryPayload>(geometryContent),
     [geometryContent],
   );
 

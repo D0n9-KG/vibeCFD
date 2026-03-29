@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { SubmarineFinalReportPayload } from "./submarine-runtime-panel.contract";
 
 const {
   buildSubmarineAcceptanceSummary,
@@ -1085,7 +1086,7 @@ void test(
 void test(
   "builds a scientific followup summary from the final report payload",
   () => {
-    const summary = buildSubmarineScientificFollowupSummary({
+    const payload: SubmarineFinalReportPayload = {
       scientific_followup_summary: {
         history_virtual_path:
           "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json",
@@ -1108,7 +1109,8 @@ void test(
           "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
         ],
       },
-    });
+    };
+    const summary = buildSubmarineScientificFollowupSummary(payload);
 
     assert.equal(summary?.entryCount, 2);
     assert.equal(summary?.latestOutcomeLabel, "Dispatch Refreshed Report");
