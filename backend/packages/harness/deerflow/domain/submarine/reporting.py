@@ -10,6 +10,7 @@ from pathlib import Path
 from .contracts import SubmarineRuntimeSnapshot, build_supervisor_review_contract
 from .evidence import build_research_evidence_summary
 from .figure_delivery import build_figure_delivery_summary
+from .handoff import build_scientific_remediation_handoff
 from .library import load_case_library
 from .models import SubmarineBenchmarkTarget, SubmarineCase
 from .output_contract import build_output_delivery_plan
@@ -1151,6 +1152,51 @@ def _render_scientific_remediation_markdown(
     return lines
 
 
+def _render_scientific_remediation_handoff_markdown(
+    scientific_remediation_handoff: dict | None,
+) -> list[str]:
+    if not scientific_remediation_handoff:
+        return []
+
+    lines = [
+        "",
+        "## Scientific Remediation Handoff",
+        f"- handoff_status: `{scientific_remediation_handoff.get('handoff_status')}`",
+        (
+            f"- recommended_action_id: "
+            f"`{scientific_remediation_handoff.get('recommended_action_id') or 'none'}`"
+        ),
+        f"- tool_name: `{scientific_remediation_handoff.get('tool_name') or 'manual_only'}`",
+        f"- reason: {scientific_remediation_handoff.get('reason') or 'No detail'}",
+    ]
+    artifact_paths = scientific_remediation_handoff.get("artifact_virtual_paths") or []
+    if artifact_paths:
+        lines.extend(["", "### Handoff Artifacts"])
+        lines.extend(f"- `{path}`" for path in artifact_paths)
+    tool_args = scientific_remediation_handoff.get("tool_args") or {}
+    if tool_args:
+        lines.extend(["", "### Suggested Tool Args"])
+        for key, value in tool_args.items():
+            lines.append(f"- `{key}`: `{value}`")
+    manual_actions = scientific_remediation_handoff.get("manual_actions") or []
+    if manual_actions:
+        lines.extend(["", "### Manual Actions"])
+        for item in manual_actions:
+            if not isinstance(item, dict):
+                continue
+            lines.append(
+                "- "
+                + " | ".join(
+                    [
+                        f"`{item.get('action_id')}`",
+                        f"`{item.get('owner_stage')}`",
+                        str(item.get("evidence_gap") or "Manual follow-up required"),
+                    ]
+                )
+            )
+    return lines
+
+
 def _render_scientific_verification_markdown(
     scientific_verification_assessment: dict | None,
 ) -> list[str]:
@@ -1368,6 +1414,47 @@ def _render_scientific_remediation_html(scientific_remediation_summary: dict | N
         f"<ul>{artifact_items}</ul>"
         "<h3>Remediation Actions</h3>"
         f"<ul>{action_items}</ul>"
+        "</section>"
+    )
+
+
+def _render_scientific_remediation_handoff_html(
+    scientific_remediation_handoff: dict | None,
+) -> str:
+    if not scientific_remediation_handoff:
+        return ""
+
+    artifact_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (scientific_remediation_handoff.get("artifact_virtual_paths") or [])
+    ) or "<li>None</li>"
+    tool_args = scientific_remediation_handoff.get("tool_args") or {}
+    tool_arg_items = "".join(
+        f"<li><strong>{escape(str(key))}</strong>: {escape(str(value))}</li>"
+        for key, value in tool_args.items()
+    ) or "<li>None</li>"
+    manual_action_items = "".join(
+        "<li>"
+        f"<strong>{escape(str(item.get('action_id') or '--'))}</strong> "
+        f"(<code>{escape(str(item.get('owner_stage') or '--'))}</code>)"
+        f"<p>{escape(str(item.get('evidence_gap') or 'Manual follow-up required'))}</p>"
+        "</li>"
+        for item in (scientific_remediation_handoff.get("manual_actions") or [])
+        if isinstance(item, dict)
+    ) or "<li>None</li>"
+    return (
+        '<section class="panel">'
+        "<h2>Scientific Remediation Handoff</h2>"
+        f"<p><strong>handoff_status:</strong> {escape(str(scientific_remediation_handoff.get('handoff_status') or '--'))}</p>"
+        f"<p><strong>recommended_action_id:</strong> {escape(str(scientific_remediation_handoff.get('recommended_action_id') or 'none'))}</p>"
+        f"<p><strong>tool_name:</strong> {escape(str(scientific_remediation_handoff.get('tool_name') or 'manual_only'))}</p>"
+        f"<p><strong>reason:</strong> {escape(str(scientific_remediation_handoff.get('reason') or 'No detail'))}</p>"
+        "<h3>Handoff Artifacts</h3>"
+        f"<ul>{artifact_items}</ul>"
+        "<h3>Suggested Tool Args</h3>"
+        f"<ul>{tool_arg_items}</ul>"
+        "<h3>Manual Actions</h3>"
+        f"<ul>{manual_action_items}</ul>"
         "</section>"
     )
 
@@ -1729,6 +1816,11 @@ def _render_markdown(payload: dict) -> str:
             payload.get("scientific_remediation_summary")
         )
     )
+    lines.extend(
+        _render_scientific_remediation_handoff_markdown(
+            payload.get("scientific_remediation_handoff")
+        )
+    )
     lines.extend(_render_scientific_study_markdown(payload.get("scientific_study_summary")))
     lines.extend(_render_experiment_compare_markdown(payload.get("experiment_compare_summary")))
     lines.extend(_render_figure_delivery_markdown(payload.get("figure_delivery_summary")))
@@ -1902,6 +1994,9 @@ def _render_html(payload: dict) -> str:
     scientific_remediation_section = _render_scientific_remediation_html(
         payload.get("scientific_remediation_summary")
     )
+    scientific_remediation_handoff_section = _render_scientific_remediation_handoff_html(
+        payload.get("scientific_remediation_handoff")
+    )
     scientific_study_section = _render_scientific_study_html(
         payload.get("scientific_study_summary")
     )
@@ -1990,6 +2085,7 @@ def _render_html(payload: dict) -> str:
       {research_evidence_section}
       {scientific_gate_section}
       {scientific_remediation_section}
+      {scientific_remediation_handoff_section}
       {scientific_study_section}
       {experiment_compare_section}
       {figure_delivery_section}
@@ -2027,6 +2123,9 @@ def run_result_report(
     scientific_remediation_json_artifact = _artifact_virtual_path(
         run_dir_name, "scientific-remediation-plan.json"
     )
+    scientific_remediation_handoff_json_artifact = _artifact_virtual_path(
+        run_dir_name, "scientific-remediation-handoff.json"
+    )
     json_artifact = _artifact_virtual_path(run_dir_name, "final-report.json")
     markdown_artifact = _artifact_virtual_path(run_dir_name, "final-report.md")
     html_artifact = _artifact_virtual_path(run_dir_name, "final-report.html")
@@ -2036,6 +2135,7 @@ def run_result_report(
         research_evidence_json_artifact,
         scientific_gate_json_artifact,
         scientific_remediation_json_artifact,
+        scientific_remediation_handoff_json_artifact,
         markdown_artifact,
         html_artifact,
         json_artifact,
@@ -2107,6 +2207,11 @@ def run_result_report(
         scientific_study_summary=scientific_study_summary,
         artifact_virtual_paths=[scientific_remediation_json_artifact],
     )
+    scientific_remediation_handoff = build_scientific_remediation_handoff(
+        snapshot=snapshot,
+        scientific_remediation_summary=scientific_remediation_summary,
+        artifact_virtual_paths=[scientific_remediation_handoff_json_artifact],
+    )
     review_status = (
         "blocked"
         if scientific_supervisor_gate["gate_status"] == "blocked"
@@ -2143,7 +2248,7 @@ def run_result_report(
         ),
         "workspace_case_dir_virtual_path": snapshot.workspace_case_dir_virtual_path,
         "run_script_virtual_path": snapshot.run_script_virtual_path,
-        "supervisor_handoff_virtual_path": snapshot.supervisor_handoff_virtual_path,
+        "supervisor_handoff_virtual_path": scientific_remediation_handoff_json_artifact,
         "source_report_virtual_path": snapshot.report_virtual_path,
         "source_artifact_virtual_paths": snapshot.artifact_virtual_paths,
         "solver_metrics": solver_metrics,
@@ -2153,6 +2258,7 @@ def run_result_report(
         "research_evidence_summary": research_evidence_summary,
         "scientific_supervisor_gate": scientific_supervisor_gate,
         "scientific_remediation_summary": scientific_remediation_summary,
+        "scientific_remediation_handoff": scientific_remediation_handoff,
         "scientific_study_summary": scientific_study_summary,
         "figure_delivery_summary": figure_delivery_summary,
         "scientific_verification_assessment": scientific_verification_assessment,
@@ -2184,6 +2290,10 @@ def run_result_report(
     )
     (artifact_dir / "scientific-remediation-plan.json").write_text(
         json.dumps(scientific_remediation_summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (artifact_dir / "scientific-remediation-handoff.json").write_text(
+        json.dumps(scientific_remediation_handoff, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     (artifact_dir / "final-report.json").write_text(

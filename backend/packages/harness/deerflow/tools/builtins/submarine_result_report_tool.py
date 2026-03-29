@@ -72,7 +72,7 @@ def submarine_result_report_tool(
         stage_status=snapshot.stage_status,
         workspace_case_dir_virtual_path=snapshot.workspace_case_dir_virtual_path,
         run_script_virtual_path=snapshot.run_script_virtual_path,
-        supervisor_handoff_virtual_path=snapshot.supervisor_handoff_virtual_path,
+        supervisor_handoff_virtual_path=payload.get("supervisor_handoff_virtual_path"),
         next_recommended_stage=payload["next_recommended_stage"],
         report_virtual_path=payload["report_virtual_path"],
         artifact_virtual_paths=payload["artifact_virtual_paths"],

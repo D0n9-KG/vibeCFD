@@ -2141,7 +2141,7 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
         context={"thread_id": thread_id},
     )
 
-    report_tool_module.submarine_result_report_tool.func(
+    result = report_tool_module.submarine_result_report_tool.func(
         runtime=runtime,
         report_title="Verified but not validated report",
         tool_call_id="tc-result-report-verified-not-validated",
@@ -2156,10 +2156,18 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     final_html = (
         outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.html"
     ).read_text(encoding="utf-8")
+    handoff_path = (
+        outputs_dir
+        / "submarine"
+        / "reports"
+        / "suboff_solid"
+        / "scientific-remediation-handoff.json"
+    )
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     research = final_payload["research_evidence_summary"]
     gate = final_payload["scientific_supervisor_gate"]
     remediation = final_payload["scientific_remediation_summary"]
+    handoff = final_payload["scientific_remediation_handoff"]
 
     assert research["verification_status"] == "passed"
     assert research["validation_status"] == "missing_validation_reference"
@@ -2178,12 +2186,27 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     assert remediation["actions"][0]["action_id"] == "attach-validation-reference"
     assert remediation["actions"][0]["owner_stage"] == "supervisor-review"
     assert remediation["actions"][0]["execution_mode"] == "manual_required"
+    assert handoff["handoff_status"] == "manual_followup_required"
+    assert handoff["tool_name"] is None
+    assert handoff["artifact_virtual_paths"][0].endswith(
+        "/scientific-remediation-handoff.json"
+    )
+    assert handoff["manual_actions"][0]["action_id"] == "attach-validation-reference"
     assert final_payload["review_status"] == "ready_for_supervisor"
     assert final_payload["next_recommended_stage"] == "supervisor-review"
+    assert final_payload["supervisor_handoff_virtual_path"].endswith(
+        "/scientific-remediation-handoff.json"
+    )
+    assert handoff_path.exists()
+    handoff_payload = json.loads(handoff_path.read_text(encoding="utf-8"))
+    assert handoff_payload["handoff_status"] == "manual_followup_required"
     assert "## Scientific Remediation Plan" in final_markdown
     assert "attach-validation-reference" in final_markdown
     assert "<h2>Scientific Remediation Plan</h2>" in final_html
     assert "attach-validation-reference" in final_html
+    assert result.update["submarine_runtime"]["supervisor_handoff_virtual_path"].endswith(
+        "/scientific-remediation-handoff.json"
+    )
 
 
 def test_submarine_result_report_marks_research_ready_with_validation_and_traceable_evidence(
