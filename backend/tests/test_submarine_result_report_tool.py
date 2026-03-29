@@ -2850,3 +2850,227 @@ def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_
     assert assessment["status"] == "blocked"
     assert domain_requirement["status"] == "blocked"
     assert "above accepted tolerance" in domain_requirement["detail"]
+
+
+def test_reporting_decomposition_module_acceptance_keeps_benchmark_semantics():
+    acceptance_module = importlib.import_module(
+        "deerflow.domain.submarine.reporting_acceptance"
+    )
+    contracts_module = importlib.import_module("deerflow.domain.submarine.contracts")
+    library_module = importlib.import_module("deerflow.domain.submarine.library")
+
+    snapshot = contracts_module.SubmarineRuntimeSnapshot.model_validate(
+        {
+            "current_stage": "solver-dispatch",
+            "task_summary": "Benchmark SUBOFF drag",
+            "task_type": "resistance",
+            "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+            "geometry_family": "DARPA SUBOFF",
+            "execution_readiness": "stl_ready",
+            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+            "stage_status": "executed",
+            "review_status": "ready_for_supervisor",
+            "next_recommended_stage": "result-reporting",
+            "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/benchmark-blocked/dispatch-summary.md",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/solver-dispatch/benchmark-blocked/solver-results.json",
+            ],
+        }
+    )
+    selected_case = library_module.load_case_library().case_index[
+        "darpa_suboff_bare_hull_resistance"
+    ]
+    acceptance = acceptance_module.build_acceptance_assessment(
+        snapshot=snapshot,
+        solver_metrics={
+            "solver_completed": True,
+            "final_time_seconds": 200.0,
+            "latest_force_coefficients": {
+                "Cd": 0.00420,
+                "Cl": 0.0,
+                "Cs": 0.0,
+                "CmPitch": 0.0,
+            },
+            "mesh_summary": {"mesh_ok": True},
+            "residual_summary": {
+                "field_count": 2,
+                "latest_time": 200.0,
+                "max_final_residual": 1.4e-4,
+            },
+            "simulation_requirements": {
+                "inlet_velocity_mps": 3.05,
+                "end_time_seconds": 200.0,
+            },
+        },
+        selected_case=selected_case,
+        artifact_virtual_paths=snapshot.artifact_virtual_paths,
+    )
+
+    assert acceptance["status"] == "blocked"
+    assert acceptance["benchmark_comparisons"]
+    assert acceptance["benchmark_comparisons"][0]["metric_id"] == "cd_at_3_05_mps"
+    assert acceptance["benchmark_comparisons"][0]["status"] == "blocked"
+    assert any(
+        gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "blocked"
+        for gate in acceptance["gates"]
+    )
+
+
+def test_reporting_decomposition_module_summaries_build_experiment_compare_summary(
+    tmp_path,
+):
+    summaries_module = importlib.import_module(
+        "deerflow.domain.submarine.reporting_summaries"
+    )
+
+    outputs_dir = tmp_path / "outputs"
+    run_dir = outputs_dir / "submarine" / "solver-dispatch" / "compare-demo"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "experiment-manifest.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": "suboff-compare-demo",
+                "baseline_run_id": "baseline",
+                "run_records": [
+                    {
+                        "run_id": "baseline",
+                        "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/compare-demo/solver-results.json",
+                        "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/compare-demo/run-record.json",
+                    },
+                    {
+                        "run_id": "mesh_independence:coarse",
+                        "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/compare-demo/studies/mesh-independence/coarse/solver-results.json",
+                        "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/compare-demo/studies/mesh-independence/coarse/run-record.json",
+                    },
+                ],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/compare-demo/experiment-manifest.json",
+                ],
+                "experiment_status": "completed",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "run-compare-summary.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": "suboff-compare-demo",
+                "baseline_run_id": "baseline",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/compare-demo/run-compare-summary.json",
+                ],
+                "comparisons": [
+                    {
+                        "candidate_run_id": "mesh_independence:coarse",
+                        "study_type": "mesh_independence",
+                        "variant_id": "coarse",
+                        "compare_status": "completed",
+                        "notes": "Relative Cd shift stayed within tolerance.",
+                        "metric_deltas": {
+                            "Cd": {
+                                "baseline_value": 0.12,
+                                "candidate_value": 0.1212,
+                                "absolute_delta": 0.0012,
+                                "relative_delta": 0.01,
+                            }
+                        },
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    experiment_summary = summaries_module.build_experiment_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/solver-dispatch/compare-demo/experiment-manifest.json",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/compare-demo/run-compare-summary.json",
+        ],
+    )
+    experiment_compare_summary = summaries_module.build_experiment_compare_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/solver-dispatch/compare-demo/experiment-manifest.json",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/compare-demo/run-compare-summary.json",
+        ],
+    )
+
+    assert experiment_summary["experiment_id"] == "suboff-compare-demo"
+    assert experiment_summary["compare_count"] == 1
+    assert experiment_compare_summary["baseline_run_id"] == "baseline"
+    assert experiment_compare_summary["compare_count"] == 1
+    assert (
+        experiment_compare_summary["comparisons"][0]["candidate_run_id"]
+        == "mesh_independence:coarse"
+    )
+
+
+def test_reporting_decomposition_module_render_keeps_followup_and_requested_output_sections():
+    render_module = importlib.import_module("deerflow.domain.submarine.reporting_render")
+
+    payload = {
+        "report_title": "Decomposition Render Report",
+        "summary_zh": "Report render regression fixture.",
+        "source_runtime_stage": "result-reporting",
+        "task_type": "resistance",
+        "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+        "geometry_family": "DARPA SUBOFF",
+        "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case",
+        "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case/Allrun",
+        "source_artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/solver-results.json",
+        ],
+        "requested_outputs": [
+            {
+                "output_id": "surface_pressure_contour",
+                "label": "Surface pressure contour",
+                "requested_label": "Surface pressure contour",
+                "support_level": "supported",
+                "postprocess_spec": {
+                    "field": "p",
+                    "time_mode": "latest",
+                    "selector": {
+                        "type": "patch",
+                        "patches": ["hull"],
+                    },
+                    "formats": ["csv", "png", "report"],
+                },
+            }
+        ],
+        "scientific_followup_summary": {
+            "entry_count": 1,
+            "latest_outcome_status": "dispatch_refreshed_report",
+            "latest_handoff_status": "ready_for_auto_followup",
+            "latest_recommended_action_id": "execute-scientific-studies",
+            "latest_tool_name": "submarine_solver_dispatch",
+            "latest_dispatch_stage_status": "executed",
+            "report_refreshed": True,
+            "history_virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/scientific-followup-history.json",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/reports/suboff/scientific-followup-history.json",
+            ],
+        },
+        "final_artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/reports/suboff/final-report.md",
+        ],
+        "review_status": "ready_for_supervisor",
+        "next_recommended_stage": "supervisor-review",
+        "source_report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/dispatch-summary.md",
+        "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/scientific-remediation-handoff.json",
+        "output_delivery_plan": [],
+    }
+
+    markdown = render_module.render_markdown(payload)
+    html = render_module.render_html(payload)
+
+    assert "## Requested Outputs" in markdown
+    assert "selector=patch[hull]" in markdown
+    assert "## Scientific Follow-Up History" in markdown
+    assert "dispatch_refreshed_report" in markdown
+    assert "<h2>Scientific Follow-Up History</h2>" in html
+    assert "selector=patch[hull]" in html
