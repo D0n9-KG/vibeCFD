@@ -45,6 +45,7 @@ import {
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineResultCards,
   buildSubmarineScientificGateSummary,
+  buildSubmarineScientificRemediationHandoffSummary,
   buildSubmarineScientificRemediationSummary,
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
@@ -194,6 +195,22 @@ type FinalReportPayload = {
           status?: string | null;
           evidence_gap?: string | null;
           required_artifacts?: string[] | null;
+        }>
+      | null;
+  } | null;
+  scientific_remediation_handoff?: {
+    handoff_status?: string | null;
+    recommended_action_id?: string | null;
+    tool_name?: string | null;
+    tool_args?: Record<string, unknown> | null;
+    reason?: string | null;
+    artifact_virtual_paths?: string[] | null;
+    manual_actions?:
+      | Array<{
+          action_id?: string | null;
+          title?: string | null;
+          owner_stage?: string | null;
+          evidence_gap?: string | null;
         }>
       | null;
   } | null;
@@ -559,6 +576,10 @@ export function SubmarineRuntimePanel({
   );
   const scientificRemediationSummary = useMemo(
     () => buildSubmarineScientificRemediationSummary(finalReport),
+    [finalReport],
+  );
+  const scientificRemediationHandoffSummary = useMemo(
+    () => buildSubmarineScientificRemediationHandoffSummary(finalReport),
     [finalReport],
   );
   const experimentCompareSummary = useMemo(
@@ -1030,6 +1051,72 @@ export function SubmarineRuntimePanel({
                             </div>
                           </div>
                         ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {scientificRemediationHandoffSummary ? (
+                  <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <KeyValue
+                        label="Remediation Handoff"
+                        value={scientificRemediationHandoffSummary.handoffStatusLabel}
+                      />
+                      <KeyValue
+                        label="Recommended Action"
+                        value={scientificRemediationHandoffSummary.recommendedActionId}
+                      />
+                      <KeyValue
+                        label="Suggested Tool"
+                        value={scientificRemediationHandoffSummary.toolName}
+                      />
+                      <KeyValue
+                        label="Reason"
+                        value={scientificRemediationHandoffSummary.reason}
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      <LabeledList
+                        title="Handoff Artifacts"
+                        items={scientificRemediationHandoffSummary.artifactPaths}
+                        emptyText="No remediation handoff artifacts are recorded yet."
+                      />
+                      <LabeledList
+                        title="Suggested Tool Args"
+                        items={scientificRemediationHandoffSummary.toolArgs.map(
+                          (item) => `${item.key} = ${item.value}`,
+                        )}
+                        emptyText="No tool arguments are recorded for this handoff."
+                      />
+                      <LabeledList
+                        title="Manual Follow-Up"
+                        items={scientificRemediationHandoffSummary.manualActions.map(
+                          (item) =>
+                            `${item.title} | ${item.ownerStageLabel} | ${item.evidenceGap}`,
+                        )}
+                        emptyText="No manual follow-up actions are recorded."
+                      />
+                    </div>
+                    {scientificRemediationHandoffSummary.toolArgs.length > 0 ? (
+                      <div className="space-y-3">
+                        <div className="text-sm font-medium text-foreground">
+                          Suggested Tool Contract
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          {scientificRemediationHandoffSummary.toolArgs.map((item) => (
+                            <div
+                              key={item.key}
+                              className="rounded-xl border bg-muted/20 p-4"
+                            >
+                              <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                                {item.key}
+                              </div>
+                              <div className="mt-2 break-all text-sm text-foreground">
+                                {item.value}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ) : null}
                   </div>

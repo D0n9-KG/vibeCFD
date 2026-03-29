@@ -11,6 +11,7 @@ const {
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
   buildSubmarineScientificGateSummary,
+  buildSubmarineScientificRemediationHandoffSummary,
   buildSubmarineScientificRemediationSummary,
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
@@ -282,6 +283,24 @@ void test("returns stable labels for scientific supervisor gate artifacts", () =
     "Open scientific supervisor gate JSON in a new window",
   );
   assert.equal(groups[0]?.id, "report");
+});
+
+void test("returns stable labels for scientific remediation handoff artifacts", () => {
+  const meta = getSubmarineArtifactMeta(
+    "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
+  );
+  const groups = groupSubmarineArtifacts([
+    "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-plan.json",
+    "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
+  ]);
+
+  assert.equal(meta.label, "Scientific Remediation Handoff JSON");
+  assert.equal(
+    meta.externalLinkLabel,
+    "Open scientific remediation handoff JSON in a new window",
+  );
+  assert.equal(groups[0]?.id, "report");
+  assert.equal(groups[0]?.count, 2);
 });
 
 void test("builds an acceptance summary from the final report payload", () => {
@@ -992,3 +1011,55 @@ void test("builds a scientific remediation summary from the final report payload
     "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
   ]);
 });
+
+void test(
+  "builds a scientific remediation handoff summary from the final report payload",
+  () => {
+    const summary = buildSubmarineScientificRemediationHandoffSummary({
+      scientific_remediation_handoff: {
+        handoff_status: "ready_for_auto_followup",
+        recommended_action_id: "execute-scientific-studies",
+        tool_name: "submarine_solver_dispatch",
+        tool_args: {
+          geometry_path: "/mnt/user-data/uploads/suboff_solid.stl",
+          selected_case_id: "darpa_suboff_axisymmetric",
+          execute_scientific_studies: true,
+        },
+        reason:
+          "Scientific verification evidence is incomplete for this run and the next solver rerun can be prepared automatically.",
+        artifact_virtual_paths: [
+          "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
+        ],
+        manual_actions: [
+          {
+            action_id: "attach-validation-reference",
+            title: "Attach validation reference",
+            owner_stage: "supervisor-review",
+            evidence_gap:
+              "No applicable benchmark target was available for this run.",
+          },
+        ],
+      },
+    });
+
+    assert.equal(summary?.handoffStatusLabel, "Ready For Auto Follow-Up");
+    assert.equal(summary?.recommendedActionId, "execute-scientific-studies");
+    assert.equal(summary?.toolName, "submarine_solver_dispatch");
+    assert.equal(summary?.toolArgs.length, 3);
+    assert.deepEqual(summary?.toolArgs[0], {
+      key: "geometry_path",
+      value: "/mnt/user-data/uploads/suboff_solid.stl",
+    });
+    assert.deepEqual(summary?.toolArgs[2], {
+      key: "execute_scientific_studies",
+      value: "true",
+    });
+    assert.equal(
+      summary?.manualActions[0]?.ownerStageLabel,
+      "Supervisor Review",
+    );
+    assert.deepEqual(summary?.artifactPaths, [
+      "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
+    ]);
+  },
+);

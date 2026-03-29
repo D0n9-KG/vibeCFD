@@ -276,6 +276,25 @@ export type SubmarineScientificRemediationSummary = {
   }>;
 };
 
+export type SubmarineScientificRemediationHandoffSummary = {
+  handoffStatusLabel: string;
+  recommendedActionId: string;
+  toolName: string;
+  reason: string;
+  artifactPaths: string[];
+  toolArgs: Array<{
+    key: string;
+    value: string;
+  }>;
+  manualActions: Array<{
+    actionId: string;
+    title: string;
+    ownerStage: string;
+    ownerStageLabel: string;
+    evidenceGap: string;
+  }>;
+};
+
 export type SubmarineAcceptanceSummary = {
   statusLabel: string;
   confidenceLabel: string;
@@ -445,6 +464,12 @@ const SCIENTIFIC_REMEDIATION_EXECUTION_MODE_LABELS: Record<string, string> = {
 
 const SCIENTIFIC_REMEDIATION_ACTION_STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
+  not_needed: "Not Needed",
+};
+
+const SCIENTIFIC_REMEDIATION_HANDOFF_STATUS_LABELS: Record<string, string> = {
+  ready_for_auto_followup: "Ready For Auto Follow-Up",
+  manual_followup_required: "Manual Follow-Up Required",
   not_needed: "Not Needed",
 };
 
@@ -761,6 +786,13 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     },
   ],
   [
+    "/scientific-remediation-handoff.json",
+    {
+      label: "Scientific Remediation Handoff JSON",
+      externalLinkLabel: "Open scientific remediation handoff JSON in a new window",
+    },
+  ],
+  [
     "/final-report.md",
     {
       label: "最终报告",
@@ -940,6 +972,8 @@ function classifySubmarineArtifact(path: string): SubmarineArtifactGroupId {
     path.endsWith("/delivery-readiness.json") ||
     path.endsWith("/research-evidence-summary.json") ||
     path.endsWith("/supervisor-scientific-gate.json") ||
+    path.endsWith("/scientific-remediation-plan.json") ||
+    path.endsWith("/scientific-remediation-handoff.json") ||
     path.endsWith("/final-report.md") ||
     path.endsWith("/final-report.html") ||
     path.endsWith("/final-report.json")
@@ -1723,6 +1757,80 @@ export function buildSubmarineScientificRemediationSummary(
         "--",
       evidenceGap: item.evidence_gap ?? "--",
       requiredArtifacts: item.required_artifacts?.filter(Boolean) ?? [],
+    })),
+  };
+}
+
+function formatSummaryValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    const serialized = JSON.stringify(value);
+    return serialized ?? "--";
+  } catch {
+    return Object.prototype.toString.call(value);
+  }
+}
+
+export function buildSubmarineScientificRemediationHandoffSummary(
+  payload:
+    | {
+        scientific_remediation_handoff?:
+          | {
+              handoff_status?: string | null;
+              recommended_action_id?: string | null;
+              tool_name?: string | null;
+              tool_args?: Record<string, unknown> | null;
+              reason?: string | null;
+              artifact_virtual_paths?: string[] | null;
+              manual_actions?:
+                | Array<{
+                    action_id?: string | null;
+                    title?: string | null;
+                    owner_stage?: string | null;
+                    evidence_gap?: string | null;
+                  }>
+                | null;
+            }
+          | null;
+      }
+    | null
+    | undefined,
+): SubmarineScientificRemediationHandoffSummary | null {
+  const summary = payload?.scientific_remediation_handoff;
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    handoffStatusLabel:
+      SCIENTIFIC_REMEDIATION_HANDOFF_STATUS_LABELS[summary.handoff_status ?? ""] ??
+      summary.handoff_status ??
+      "--",
+    recommendedActionId: summary.recommended_action_id ?? "none",
+    toolName: summary.tool_name ?? "manual_only",
+    reason: summary.reason ?? "--",
+    artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
+    toolArgs: Object.entries(summary.tool_args ?? {}).map(([key, value]) => ({
+      key,
+      value: formatSummaryValue(value),
+    })),
+    manualActions: (summary.manual_actions ?? []).filter(Boolean).map((item) => ({
+      actionId: item.action_id ?? "unknown",
+      title: item.title ?? "--",
+      ownerStage: item.owner_stage ?? "--",
+      ownerStageLabel:
+        SCIENTIFIC_GATE_STAGE_LABELS[item.owner_stage ?? ""] ??
+        item.owner_stage ??
+        "--",
+      evidenceGap: item.evidence_gap ?? "--",
     })),
   };
 }
