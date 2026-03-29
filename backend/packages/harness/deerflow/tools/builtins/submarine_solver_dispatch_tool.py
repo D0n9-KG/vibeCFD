@@ -19,6 +19,9 @@ from deerflow.domain.submarine.contracts import (
     extend_runtime_timeline,
 )
 from deerflow.domain.submarine.geometry_check import SUPPORTED_GEOMETRY_SUFFIXES
+from deerflow.domain.submarine.runtime_plan import (
+    build_scientific_capability_updates_for_dispatch,
+)
 from deerflow.domain.submarine.solver_dispatch import run_solver_dispatch
 from deerflow.sandbox import get_sandbox_provider
 
@@ -239,6 +242,9 @@ def submarine_solver_dispatch_tool(
     else:
         execution_updates["solver-dispatch"] = "in_progress"
         execution_updates["result-reporting"] = "pending"
+    execution_updates.update(
+        build_scientific_capability_updates_for_dispatch(payload)
+    )
 
     runtime_snapshot = build_runtime_snapshot(
         current_stage="solver-dispatch",

@@ -46,6 +46,14 @@ def _write_ascii_stl(path: Path) -> None:
     )
 
 
+def _execution_plan_status(runtime_state: dict, role_id: str) -> str:
+    return next(
+        item["status"]
+        for item in runtime_state["execution_plan"]
+        if item["role_id"] == role_id
+    )
+
+
 def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypatch):
     report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
@@ -296,7 +304,102 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
     assert any(path.endswith("/final-report.json") for path in result.update["artifacts"])
     assert len(result.update["submarine_runtime"]["activity_timeline"]) == 3
     assert result.update["submarine_runtime"]["activity_timeline"][-1]["stage"] == "result-reporting"
-    assert result.update["submarine_runtime"]["execution_plan"][4]["status"] == "completed"
+    assert (
+        _execution_plan_status(result.update["submarine_runtime"], "result-reporting")
+        == "completed"
+    )
+
+
+def test_submarine_result_report_updates_scientific_capability_plan_statuses(
+    tmp_path, monkeypatch
+):
+    contracts_module = importlib.import_module("deerflow.domain.submarine.contracts")
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-capability-report"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["submarine_runtime"] = contracts_module.build_runtime_snapshot(
+        current_stage="solver-dispatch",
+        task_summary="执行并复核潜艇 CFD 研究链路",
+        task_type="resistance",
+        geometry_virtual_path="/mnt/user-data/uploads/capability-report.stl",
+        geometry_family="DARPA SUBOFF",
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        next_recommended_stage="result-reporting",
+        report_virtual_path="/mnt/user-data/outputs/submarine/solver-dispatch/capability-report/dispatch-summary.md",
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/solver-dispatch/capability-report/study-manifest.json"
+        ],
+        execution_plan=contracts_module.build_execution_plan(
+            confirmation_status="confirmed"
+        ),
+    ).model_dump(mode="json")
+
+    monkeypatch.setattr(
+        report_tool_module,
+        "run_result_report",
+        lambda **_: (
+            {
+                "summary_zh": "已完成研究证据链报告整理。",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "supervisor-review",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/capability-report/final-report.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/reports/capability-report/final-report.json",
+                    "/mnt/user-data/outputs/submarine/reports/capability-report/scientific-followup-history.json",
+                ],
+                "output_delivery_plan": [],
+                "scientific_supervisor_gate": {
+                    "gate_status": "claim_limited",
+                    "allowed_claim_level": "validated_with_gaps",
+                },
+                "scientific_gate_virtual_path": "/mnt/user-data/outputs/submarine/reports/capability-report/supervisor-scientific-gate.json",
+                "scientific_study_summary": {
+                    "study_execution_status": "completed",
+                },
+                "experiment_summary": {
+                    "experiment_status": "completed",
+                    "run_count": 4,
+                },
+                "experiment_compare_summary": {
+                    "compare_count": 3,
+                },
+                "scientific_verification_assessment": {
+                    "status": "needs_more_verification",
+                },
+                "scientific_remediation_handoff": {
+                    "handoff_status": "ready_for_auto_followup",
+                },
+                "scientific_followup_summary": {
+                    "history_virtual_path": "/mnt/user-data/outputs/submarine/reports/capability-report/scientific-followup-history.json",
+                    "entry_count": 1,
+                    "latest_outcome_status": "dispatch_refreshed_report",
+                },
+            },
+            [
+                "/mnt/user-data/outputs/submarine/reports/capability-report/final-report.md",
+                "/mnt/user-data/outputs/submarine/reports/capability-report/final-report.json",
+            ],
+        ),
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        tool_call_id="tc-capability-plan-report",
+    )
+
+    runtime_state = result.update["submarine_runtime"]
+
+    assert _execution_plan_status(runtime_state, "scientific-study") == "completed"
+    assert _execution_plan_status(runtime_state, "experiment-compare") == "completed"
+    assert _execution_plan_status(runtime_state, "scientific-verification") == "completed"
+    assert _execution_plan_status(runtime_state, "scientific-followup") == "completed"
 
 
 def test_submarine_result_report_emits_delivery_readiness_artifacts(tmp_path):

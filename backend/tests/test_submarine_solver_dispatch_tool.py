@@ -74,6 +74,14 @@ def _write_xt(path: Path) -> None:
     )
 
 
+def _execution_plan_status(runtime_state: dict, role_id: str) -> str:
+    return next(
+        item["status"]
+        for item in runtime_state["execution_plan"]
+        if item["role_id"] == role_id
+    )
+
+
 class _FakeSandbox:
     def __init__(self, output: str = "OpenFOAM run simulated") -> None:
         self.commands: list[str] = []
@@ -478,8 +486,12 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["report_virtual_path"].endswith("/dispatch-summary.md")
     assert runtime_state["selected_case_id"]
     assert runtime_state["execution_readiness"] == "stl_ready"
-    assert runtime_state["execution_plan"][2]["status"] == "completed"
-    assert runtime_state["execution_plan"][3]["status"] == "in_progress"
+    assert _execution_plan_status(runtime_state, "geometry-preflight") == "completed"
+    assert _execution_plan_status(runtime_state, "solver-dispatch") == "in_progress"
+    assert _execution_plan_status(runtime_state, "scientific-study") == "ready"
+    assert _execution_plan_status(runtime_state, "experiment-compare") == "pending"
+    assert _execution_plan_status(runtime_state, "scientific-verification") == "pending"
+    assert _execution_plan_status(runtime_state, "scientific-followup") == "pending"
     assert runtime_state["workspace_case_dir_virtual_path"].endswith("/openfoam-case")
     assert runtime_state["run_script_virtual_path"].endswith("/Allrun")
     assert runtime_state["supervisor_handoff_virtual_path"].endswith("/supervisor-handoff.json")

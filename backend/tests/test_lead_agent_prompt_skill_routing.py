@@ -8,7 +8,20 @@ def test_subagent_skill_routing_prompt_section_lists_recommendations(monkeypatch
         "submarine-task-intelligence": {"submarine-case-search"},
         "submarine-geometry-preflight": {"submarine-geometry-check"},
         "submarine-solver-dispatch": {"submarine-solver-dispatch"},
+        "submarine-scientific-study": {"submarine-solver-dispatch"},
+        "submarine-experiment-compare": {
+            "submarine-report",
+            "submarine-solver-dispatch",
+        },
+        "submarine-scientific-verification": {
+            "submarine-report",
+            "submarine-result-acceptance",
+        },
         "submarine-result-reporting": {"submarine-report", "submarine-result-acceptance"},
+        "submarine-scientific-followup": {
+            "submarine-report",
+            "submarine-solver-dispatch",
+        },
     }
 
     monkeypatch.setattr(
@@ -22,6 +35,8 @@ def test_subagent_skill_routing_prompt_section_lists_recommendations(monkeypatch
     assert "<subagent_skill_routing>" in section
     assert "target_skills" in section
     assert "- submarine-geometry-preflight: submarine-geometry-check" in section
+    assert "- submarine-scientific-study: submarine-solver-dispatch" in section
+    assert "- submarine-scientific-verification: submarine-report, submarine-result-acceptance" in section
     assert "- submarine-result-reporting: submarine-report, submarine-result-acceptance" in section
 
 

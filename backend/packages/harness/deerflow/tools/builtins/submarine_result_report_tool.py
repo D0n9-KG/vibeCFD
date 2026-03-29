@@ -19,6 +19,9 @@ from deerflow.domain.submarine.contracts import (
     extend_runtime_timeline,
 )
 from deerflow.domain.submarine.reporting import run_result_report
+from deerflow.domain.submarine.runtime_plan import (
+    build_scientific_capability_updates_for_report,
+)
 
 
 def _get_thread_dir(runtime: ToolRuntime[ContextT, ThreadState], key: str) -> Path:
@@ -59,6 +62,19 @@ def submarine_result_report_tool(
         return Command(update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id)]})
 
     scientific_followup_summary = payload.get("scientific_followup_summary") or {}
+    execution_updates = {
+        "claude-code-supervisor": "completed",
+        "task-intelligence": "completed",
+        "geometry-preflight": "completed",
+        "solver-dispatch": "completed",
+        "result-reporting": "completed",
+        "supervisor-review": (
+            "blocked" if payload["review_status"] == "blocked" else "ready"
+        ),
+    }
+    execution_updates.update(
+        build_scientific_capability_updates_for_report(payload)
+    )
     runtime_snapshot = build_runtime_snapshot(
         current_stage="result-reporting",
         task_summary=snapshot.task_summary,
@@ -84,16 +100,7 @@ def submarine_result_report_tool(
         execution_plan=build_execution_plan(
             confirmation_status="confirmed",
             existing_plan=snapshot.execution_plan,
-            stage_updates={
-                "claude-code-supervisor": "completed",
-                "task-intelligence": "completed",
-                "geometry-preflight": "completed",
-                "solver-dispatch": "completed",
-                "result-reporting": "completed",
-                "supervisor-review": (
-                    "blocked" if payload["review_status"] == "blocked" else "ready"
-                ),
-            },
+            stage_updates=execution_updates,
         ),
         review_status=payload["review_status"],
         scientific_gate_status=payload.get("scientific_supervisor_gate", {}).get(

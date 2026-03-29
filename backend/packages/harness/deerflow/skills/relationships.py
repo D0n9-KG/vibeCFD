@@ -58,7 +58,11 @@ SUBAGENT_STAGE_TARGETS: dict[str, set[str] | None] = {
     "submarine-task-intelligence": {"task"},
     "submarine-geometry-preflight": {"geometry"},
     "submarine-solver-dispatch": {"geometry", "solver"},
+    "submarine-scientific-study": {"solver"},
+    "submarine-experiment-compare": {"solver", "report"},
+    "submarine-scientific-verification": {"report"},
     "submarine-result-reporting": {"report"},
+    "submarine-scientific-followup": {"solver", "report"},
 }
 
 

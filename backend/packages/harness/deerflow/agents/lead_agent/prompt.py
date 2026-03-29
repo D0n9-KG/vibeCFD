@@ -43,7 +43,11 @@ You are running with subagent capabilities enabled. Your role is to be a **task 
 - **submarine-task-intelligence**: For submarine CFD task understanding, case matching, and workflow recommendation
 - **submarine-geometry-preflight**: For uploaded submarine geometry inspection, risk review, and preprocessing readiness
 - **submarine-solver-dispatch**: For OpenFOAM-oriented solver planning, dispatch, and controlled execution handoff
+- **submarine-scientific-study**: For planning scientific study variants and evidence-oriented sensitivity checks
+- **submarine-experiment-compare**: For comparing baseline and variant runs through structured experiment summaries
+- **submarine-scientific-verification**: For evaluating scientific readiness, evidence gaps, and claim boundaries
 - **submarine-result-reporting**: For Chinese result synthesis, report packaging, and final review outputs
+- **submarine-scientific-followup**: For remediation follow-up, rerun decisions, and refreshed-report tracking
 
 **Your Orchestration Strategy:**
 
@@ -435,7 +439,11 @@ def get_subagent_skill_routing_prompt_section() -> str:
         "submarine-task-intelligence",
         "submarine-geometry-preflight",
         "submarine-solver-dispatch",
+        "submarine-scientific-study",
+        "submarine-experiment-compare",
+        "submarine-scientific-verification",
         "submarine-result-reporting",
+        "submarine-scientific-followup",
     ]
 
     routing_lines: list[str] = []

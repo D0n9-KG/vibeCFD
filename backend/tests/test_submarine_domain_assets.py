@@ -438,6 +438,26 @@ def test_submarine_domain_execution_plan_includes_supervisor_review():
     assert plan[-1]["status"] == "pending"
 
 
+def test_submarine_domain_execution_plan_includes_scientific_capability_roles():
+    contracts_module = importlib.import_module("deerflow.domain.submarine.contracts")
+
+    plan = contracts_module.build_execution_plan(confirmation_status="confirmed")
+    role_ids = [item["role_id"] for item in plan]
+
+    assert role_ids == [
+        "claude-code-supervisor",
+        "task-intelligence",
+        "geometry-preflight",
+        "solver-dispatch",
+        "scientific-study",
+        "experiment-compare",
+        "scientific-verification",
+        "result-reporting",
+        "scientific-followup",
+        "supervisor-review",
+    ]
+
+
 def test_submarine_domain_builds_scientific_supervisor_gate_semantics():
     supervision_module = importlib.import_module("deerflow.domain.submarine.supervision")
 

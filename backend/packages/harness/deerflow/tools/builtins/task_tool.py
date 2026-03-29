@@ -41,10 +41,30 @@ _SUBMARINE_SUBAGENT_ROUTING: dict[str, dict[str, str]] = {
         "role_id": "solver-dispatch",
         "label": "solver-dispatch",
     },
+    "submarine-scientific-study": {
+        "stage": "scientific-study",
+        "role_id": "scientific-study",
+        "label": "scientific-study",
+    },
+    "submarine-experiment-compare": {
+        "stage": "experiment-compare",
+        "role_id": "experiment-compare",
+        "label": "experiment-compare",
+    },
+    "submarine-scientific-verification": {
+        "stage": "scientific-verification",
+        "role_id": "scientific-verification",
+        "label": "scientific-verification",
+    },
     "submarine-result-reporting": {
         "stage": "result-reporting",
         "role_id": "result-reporting",
         "label": "result-reporting",
+    },
+    "submarine-scientific-followup": {
+        "stage": "scientific-followup",
+        "role_id": "scientific-followup",
+        "label": "scientific-followup",
     },
 }
 
@@ -173,7 +193,11 @@ def task_tool(
         "submarine-task-intelligence",
         "submarine-geometry-preflight",
         "submarine-solver-dispatch",
+        "submarine-scientific-study",
+        "submarine-experiment-compare",
+        "submarine-scientific-verification",
         "submarine-result-reporting",
+        "submarine-scientific-followup",
     ],
     tool_call_id: Annotated[str, InjectedToolCallId],
     max_turns: int | None = None,
@@ -198,8 +222,16 @@ def task_tool(
       inspection, preprocessing readiness, and risk discovery.
     - **submarine-solver-dispatch**: Specialized for OpenFOAM-oriented solver planning,
       dispatch preparation, and execution assumptions.
+    - **submarine-scientific-study**: Specialized for planning structured scientific
+      study variants tied to verification evidence.
+    - **submarine-experiment-compare**: Specialized for comparing baseline and
+      scientific-study runs through experiment manifests and delta summaries.
+    - **submarine-scientific-verification**: Specialized for evaluating scientific
+      readiness, evidence gaps, and claim boundaries.
     - **submarine-result-reporting**: Specialized for Chinese result summaries, final
       reporting, and artifact-oriented synthesis.
+    - **submarine-scientific-followup**: Specialized for remediation follow-up,
+      rerun decisions, and refreshed-report tracking.
 
     When to use this tool:
     - Complex tasks requiring multiple steps or tools
@@ -227,7 +259,9 @@ def task_tool(
             f"Error: Unknown subagent type '{subagent_type}'. Available: "
             "general-purpose, bash, submarine-task-intelligence, "
             "submarine-geometry-preflight, submarine-solver-dispatch, "
-            "submarine-result-reporting"
+            "submarine-scientific-study, submarine-experiment-compare, "
+            "submarine-scientific-verification, submarine-result-reporting, "
+            "submarine-scientific-followup"
         )
 
     # Build config overrides

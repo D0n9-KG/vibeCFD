@@ -141,9 +141,29 @@ _EXECUTION_PLAN_TEMPLATE: tuple[tuple[str, str, str], ...] = (
         "Map the confirmed setup into an OpenFOAM case, run controlled execution, and capture CFD outputs.",
     ),
     (
+        "scientific-study",
+        "DeerFlow scientific-study",
+        "Plan and track deterministic scientific-study variants so baseline evidence can expand into research-grade sensitivity checks.",
+    ),
+    (
+        "experiment-compare",
+        "DeerFlow experiment-compare",
+        "Compare baseline and study-variant runs through structured experiment manifests and run-delta summaries.",
+    ),
+    (
+        "scientific-verification",
+        "DeerFlow scientific-verification",
+        "Evaluate study evidence, verification requirements, and scientific readiness before stronger claims are made.",
+    ),
+    (
         "result-reporting",
         "DeerFlow result-reporting",
         "Organize metrics, logs, and reports into reviewable artifacts for supervisor sign-off and user delivery.",
+    ),
+    (
+        "scientific-followup",
+        "DeerFlow scientific-followup",
+        "Execute or track remediation follow-ups after scientific review so the next iteration stays traceable.",
     ),
     (
         "supervisor-review",
@@ -172,7 +192,11 @@ def build_execution_plan(
             "task-intelligence": "ready",
             "geometry-preflight": "ready",
             "solver-dispatch": "pending",
+            "scientific-study": "pending",
+            "experiment-compare": "pending",
+            "scientific-verification": "pending",
             "result-reporting": "pending",
+            "scientific-followup": "pending",
             "supervisor-review": "pending",
         }
     else:
@@ -181,7 +205,11 @@ def build_execution_plan(
             "task-intelligence": "pending",
             "geometry-preflight": "pending",
             "solver-dispatch": "pending",
+            "scientific-study": "pending",
+            "experiment-compare": "pending",
+            "scientific-verification": "pending",
             "result-reporting": "pending",
+            "scientific-followup": "pending",
             "supervisor-review": "pending",
         }
 
