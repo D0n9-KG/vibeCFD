@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Annotated
 
 from langchain.tools import InjectedToolCallId, ToolRuntime, tool
@@ -12,8 +13,14 @@ from langgraph.typing import ContextT
 from deerflow.agents.thread_state import ThreadState
 from deerflow.domain.submarine.handoff import load_scientific_remediation_handoff
 from deerflow.tools.builtins.submarine_result_report_tool import (
+    submarine_result_report_tool,
+)
+from deerflow.tools.builtins.submarine_result_report_tool import (
     _get_runtime_snapshot,
     _get_thread_dir,
+)
+from deerflow.tools.builtins.submarine_solver_dispatch_tool import (
+    submarine_solver_dispatch_tool,
 )
 
 
@@ -69,13 +76,46 @@ def submarine_scientific_followup_tool(
             }
         )
 
+    tool_args = handoff.get("tool_args") or {}
+    if not isinstance(tool_args, Mapping):
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        (
+                            "Scientific follow-up could not execute because the handoff "
+                            f"tool_args payload is invalid. tool_name={tool_name}; "
+                            f"recommended_action_id={recommended_action_id}"
+                        ),
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+
+    if tool_name == "submarine_solver_dispatch":
+        dispatch_args = dict(tool_args)
+        dispatch_args["execute_now"] = True
+        return submarine_solver_dispatch_tool.func(
+            runtime=runtime,
+            tool_call_id=tool_call_id,
+            **dispatch_args,
+        )
+
+    if tool_name == "submarine_result_report":
+        return submarine_result_report_tool.func(
+            runtime=runtime,
+            tool_call_id=tool_call_id,
+            **dict(tool_args),
+        )
+
     return Command(
         update={
             "messages": [
                 ToolMessage(
                     (
                         "Scientific follow-up found an executable handoff, "
-                        f"but supported delegation is not implemented yet. "
+                        f"but the tool target is not supported yet. "
                         f"tool_name={tool_name}; "
                         f"recommended_action_id={recommended_action_id}; "
                         f"reason={reason}"
