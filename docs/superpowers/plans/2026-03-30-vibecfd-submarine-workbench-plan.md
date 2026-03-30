@@ -1425,8 +1425,9 @@ export function SubmarinePipeline({
   const layoutConfig = useMemo(() => getPipelineLayoutConfig(), []);
   const centerRef = useRef<HTMLDivElement>(null);
 
-  // ── Responsive chat toggle (mirrors existing workbench pattern) ────────────
-  const [chatOpen, setChatOpen] = useState(true);
+  // ── Responsive chat toggle ────────────────────────────────────────────────
+  // Default false: < xl starts with chat hidden; xl always shows chat via CSS
+  const [chatOpen, setChatOpen] = useState(false);
 
   // ── Run list from useThreads (filter submarine threads) ───────────────────
   const { data: allThreads = [] } = useThreads({ limit: 30 }, isMock);
@@ -2011,7 +2012,7 @@ Replace the entire `<main className="min-h-0 flex-1 overflow-hidden pt-14">` blo
           </main>
 ```
 
-The existing header `<Button>` that calls `setChatOpen` stays. It now drives `SubmarinePipeline`'s responsive chat toggle via the `chatOpen`/`onChatOpenChange` props.
+The existing header `<Button>` that calls `setChatOpen` stays, **but add `xl:hidden` to it** — on desktop the chat rail is always visible in the 3-pane ResizablePanelGroup and the toggle serves no purpose there. On mobile (< xl) it controls the chat rail visibility. It now drives `SubmarinePipeline`'s responsive chat toggle via the `chatOpen`/`onChatOpenChange` props.
 
 **Also update `SubmarinePipelineProps` in `submarine-pipeline.tsx`** to accept these two new props and thread them down to the internal state initializer:
 
@@ -2043,7 +2044,7 @@ export function SubmarinePipeline({
 }: SubmarinePipelineProps) {
   // ...existing hooks...
 
-  const [chatOpenInternal, setChatOpenInternal] = useState(true);
+  const [chatOpenInternal, setChatOpenInternal] = useState(false);
   const chatOpen = chatOpenProp ?? chatOpenInternal;
   const setChatOpen = onChatOpenChange ?? setChatOpenInternal;
 
