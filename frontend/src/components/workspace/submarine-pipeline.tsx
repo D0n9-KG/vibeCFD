@@ -8,6 +8,8 @@ import {
   getPipelineLayoutConfig,
   PIPELINE_STORAGE_KEY_CHAT,
   PIPELINE_STORAGE_KEY_SIDEBAR,
+  resolveStoredPanelPct,
+  toPanelPercentSize,
 } from "@/app/workspace/submarine/submarine-pipeline-layout";
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import {
@@ -24,6 +26,10 @@ import { cn } from "@/lib/utils";
 import { InputBox } from "./input-box";
 import { MessageList } from "./messages";
 import { useThread } from "./messages/context";
+import {
+  getSubmarinePipelineChatRailClassName,
+  getSubmarinePipelineDesktopShellConfig,
+} from "./submarine-pipeline-shell";
 import {
   type SidebarRunItem,
   SubmarinePipelineSidebar,
@@ -47,12 +53,19 @@ import {
 
 // ── Persistence helpers ───────────────────────────────────────────────────────
 
-function loadStoredPct(key: string, fallback: number): number {
+function loadStoredPct(
+  key: string,
+  fallback: number,
+  minPct: number,
+  maxPct: number,
+): number {
   if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
-  if (!raw) return fallback;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 && n < 100 ? n : fallback;
+
+  return resolveStoredPanelPct(window.localStorage.getItem(key), {
+    fallbackPct: fallback,
+    minPct,
+    maxPct,
+  });
 }
 
 // ── Runtime snapshot type (mirrors SubmarineRuntimePanel) ────────────────────
@@ -141,6 +154,10 @@ export function SubmarinePipeline({
   const { thread } = useThread();
   const [settings, setSettings] = useLocalSettings();
   const layoutConfig = useMemo(() => getPipelineLayoutConfig(), []);
+  const desktopShell = useMemo(
+    () => getSubmarinePipelineDesktopShellConfig(),
+    [],
+  );
   // centerRef scopes the xl desktop pane for stage-nav scroll
   const centerRef = useRef<HTMLDivElement>(null);
   // mobileCenterRef scopes the mobile pane separately to avoid duplicate-id querySelector conflicts
@@ -174,8 +191,15 @@ export function SubmarinePipeline({
       sidebar: loadStoredPct(
         PIPELINE_STORAGE_KEY_SIDEBAR,
         layoutConfig.sidebarDefaultPct,
+        layoutConfig.sidebarMinPct,
+        layoutConfig.sidebarMaxPct,
       ),
-      chat: loadStoredPct(PIPELINE_STORAGE_KEY_CHAT, layoutConfig.chatDefaultPct),
+      chat: loadStoredPct(
+        PIPELINE_STORAGE_KEY_CHAT,
+        layoutConfig.chatDefaultPct,
+        layoutConfig.chatMinPct,
+        layoutConfig.chatMaxPct,
+      ),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
     [],
@@ -381,17 +405,18 @@ export function SubmarinePipeline({
         </div>
       </div>
 
-      <ResizablePanelGroup
-        orientation="horizontal"
-        className="hidden min-h-0 flex-1 xl:flex"
-        onLayoutChanged={handleLayoutChanged}
-      >
+      <div className={desktopShell.containerClassName}>
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className={desktopShell.groupClassName}
+          onLayoutChanged={handleLayoutChanged}
+        >
         {/* Sidebar */}
         <ResizablePanel
           id="submarine-pipeline-sidebar"
-          defaultSize={defaultLayout.sidebar}
-          minSize={layoutConfig.sidebarMinPct}
-          maxSize={layoutConfig.sidebarMaxPct}
+          defaultSize={toPanelPercentSize(defaultLayout.sidebar)}
+          minSize={layoutConfig.sidebarMinSize}
+          maxSize={layoutConfig.sidebarMaxSize}
         >
           <SubmarinePipelineSidebar
             currentThreadId={threadId}
@@ -426,9 +451,9 @@ export function SubmarinePipeline({
         {/* Chat rail */}
         <ResizablePanel
           id="submarine-pipeline-chat"
-          defaultSize={defaultLayout.chat}
-          minSize={layoutConfig.chatMinPct}
-          maxSize={layoutConfig.chatMaxPct}
+          defaultSize={toPanelPercentSize(defaultLayout.chat)}
+          minSize={layoutConfig.chatMinSize}
+          maxSize={layoutConfig.chatMaxSize}
         >
           <PipelineChatRail
             thread={thread}
@@ -441,7 +466,8 @@ export function SubmarinePipeline({
             onStop={onStop}
           />
         </ResizablePanel>
-      </ResizablePanelGroup>
+        </ResizablePanelGroup>
+      </div>
     </div>
   );
 }
@@ -545,6 +571,7 @@ function PipelineChatRail({
   isUploading,
   settings,
   setSettings,
+  className,
   handleSubmit,
   onStop,
 }: {
@@ -554,11 +581,12 @@ function PipelineChatRail({
   isUploading: boolean;
   settings: ReturnType<typeof useLocalSettings>[0];
   setSettings: ReturnType<typeof useLocalSettings>[1];
+  className?: string;
   handleSubmit: (message: PromptInputMessage) => void;
   onStop: () => Promise<void>;
 }) {
   return (
-    <div className="flex min-h-0 flex-col border-l border-stone-200 bg-stone-50 xl:h-full">
+    <div className={cn(getSubmarinePipelineChatRailClassName(), className)}>
       {/* Chat header */}
       <div className="flex shrink-0 items-center gap-2 border-b border-stone-200 px-3.5 py-2.5">
         <span className="inline-block size-[6px] shrink-0 rounded-full bg-green-500" />
