@@ -3,6 +3,8 @@ import test from "node:test";
 
 const {
   getPipelineLayoutConfig,
+  getPipelineDefaultLayout,
+  getPipelineStoredLayout,
   PIPELINE_DEFAULT_VIEWPORT_WIDTH_PX,
   PIPELINE_WORKSPACE_SIDEBAR_WIDTH_PX,
   PIPELINE_SIDEBAR_MIN_PX,
@@ -107,5 +109,50 @@ void test("resolveStoredPanelPct clamps persisted sizes back into configured ran
       maxPct: config.chatMaxPct,
     }),
     config.chatDefaultPct,
+  );
+});
+
+void test("default pipeline layout uses stable server-safe percentages", () => {
+  const layout = getPipelineDefaultLayout();
+  const config = getPipelineLayoutConfig();
+
+  assert.equal(layout["submarine-pipeline-sidebar"], config.sidebarDefaultPct);
+  assert.equal(layout["submarine-pipeline-chat"], config.chatDefaultPct);
+  assert.equal(
+    Number(
+      (
+        layout["submarine-pipeline-sidebar"] +
+        layout["submarine-pipeline-center"] +
+        layout["submarine-pipeline-chat"]
+      ).toFixed(2),
+    ),
+    100,
+  );
+});
+
+void test("stored pipeline layout resolves persisted values against the live viewport", () => {
+  const layout = getPipelineStoredLayout({
+    viewportWidth: 2048,
+    sidebarRaw: "14",
+    chatRaw: "40",
+  });
+  const config = getPipelineLayoutConfig(2048);
+
+  assert.equal(layout["submarine-pipeline-sidebar"], 14);
+  assert.equal(layout["submarine-pipeline-chat"], config.chatMaxPct);
+  assert.equal(
+    Number(layout["submarine-pipeline-center"].toFixed(2)),
+    Number((100 - 14 - config.chatMaxPct).toFixed(2)),
+  );
+});
+
+void test("stored pipeline layout falls back to defaults when persistence is absent", () => {
+  assert.deepEqual(
+    getPipelineStoredLayout({
+      viewportWidth: 1600,
+      sidebarRaw: null,
+      chatRaw: undefined,
+    }),
+    getPipelineDefaultLayout(1600),
   );
 });

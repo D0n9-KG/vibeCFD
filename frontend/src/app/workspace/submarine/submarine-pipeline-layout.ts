@@ -34,6 +34,12 @@ export type PipelineLayoutConfig = {
   chatStorageKey: string;
 };
 
+export type PipelineGroupLayout = {
+  "submarine-pipeline-sidebar": number;
+  "submarine-pipeline-center": number;
+  "submarine-pipeline-chat": number;
+};
+
 export function toPanelPercentSize(value: number): PanelPercentSize {
   return `${value}%`;
 }
@@ -55,6 +61,20 @@ function estimateWorkbenchWidth(viewportWidth: number): number {
 
 function pxToPercent(px: number, totalWidth: number): number {
   return roundToTwoDecimals((px / totalWidth) * 100);
+}
+
+function toPipelineGroupLayout({
+  sidebarPct,
+  chatPct,
+}: {
+  sidebarPct: number;
+  chatPct: number;
+}): PipelineGroupLayout {
+  return {
+    "submarine-pipeline-sidebar": sidebarPct,
+    "submarine-pipeline-center": roundToTwoDecimals(100 - sidebarPct - chatPct),
+    "submarine-pipeline-chat": chatPct,
+  };
 }
 
 export function resolveStoredPanelPct(
@@ -98,4 +118,40 @@ export function getPipelineLayoutConfig(
     sidebarStorageKey: PIPELINE_STORAGE_KEY_SIDEBAR,
     chatStorageKey: PIPELINE_STORAGE_KEY_CHAT,
   };
+}
+
+export function getPipelineDefaultLayout(
+  viewportWidth = PIPELINE_DEFAULT_VIEWPORT_WIDTH_PX,
+): PipelineGroupLayout {
+  const config = getPipelineLayoutConfig(viewportWidth);
+
+  return toPipelineGroupLayout({
+    sidebarPct: config.sidebarDefaultPct,
+    chatPct: config.chatDefaultPct,
+  });
+}
+
+export function getPipelineStoredLayout({
+  viewportWidth = PIPELINE_DEFAULT_VIEWPORT_WIDTH_PX,
+  sidebarRaw,
+  chatRaw,
+}: {
+  viewportWidth?: number;
+  sidebarRaw: string | null | undefined;
+  chatRaw: string | null | undefined;
+}): PipelineGroupLayout {
+  const config = getPipelineLayoutConfig(viewportWidth);
+
+  return toPipelineGroupLayout({
+    sidebarPct: resolveStoredPanelPct(sidebarRaw, {
+      fallbackPct: config.sidebarDefaultPct,
+      minPct: config.sidebarMinPct,
+      maxPct: config.sidebarMaxPct,
+    }),
+    chatPct: resolveStoredPanelPct(chatRaw, {
+      fallbackPct: config.chatDefaultPct,
+      minPct: config.chatMinPct,
+      maxPct: config.chatMaxPct,
+    }),
+  });
 }

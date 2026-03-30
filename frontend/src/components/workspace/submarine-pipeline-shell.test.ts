@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const {
+  getSubmarinePipelineCenterPaneConfig,
   getSubmarinePipelineChatRailClassName,
   getSubmarinePipelineDesktopShellConfig,
 } = await import(
@@ -30,4 +31,20 @@ void test("chat rail uses an explicit mobile height instead of collapsing to zer
   assert.ok(className.includes("border-t"));
   assert.ok(className.includes("xl:h-full"));
   assert.ok(className.includes("xl:border-l"));
+});
+
+void test("center pane uses a desktop grid that fills large workbench space", () => {
+  const config = getSubmarinePipelineCenterPaneConfig();
+
+  assert.ok(config.scrollClassName.includes("overflow-y-auto"));
+  assert.ok(config.scrollClassName.includes("pb-6"));
+  assert.ok(config.overviewClassName.includes("rounded-2xl"));
+  assert.ok(config.overviewClassName.includes("shadow-sm"));
+  assert.ok(config.stageGridClassName.includes("grid"));
+  assert.ok(config.stageGridClassName.includes("gap-4"));
+  assert.ok(config.stageGridClassName.includes("xl:grid-cols-2"));
+  assert.ok(
+    config.stageGridClassName.includes("xl:auto-rows-[minmax(16rem,1fr)]"),
+  );
+  assert.ok(config.stageSectionClassName.includes("h-full"));
 });

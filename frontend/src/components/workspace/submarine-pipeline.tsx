@@ -2,14 +2,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { type GroupImperativeHandle } from "react-resizable-panels";
 
 import {
+  getPipelineDefaultLayout,
   getPipelineLayoutConfig,
+  getPipelineStoredLayout,
   PIPELINE_STORAGE_KEY_CHAT,
   PIPELINE_STORAGE_KEY_SIDEBAR,
-  resolveStoredPanelPct,
-  toPanelPercentSize,
 } from "@/app/workspace/submarine/submarine-pipeline-layout";
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import {
@@ -27,6 +28,7 @@ import { InputBox } from "./input-box";
 import { MessageList } from "./messages";
 import { useThread } from "./messages/context";
 import {
+  getSubmarinePipelineCenterPaneConfig,
   getSubmarinePipelineChatRailClassName,
   getSubmarinePipelineDesktopShellConfig,
 } from "./submarine-pipeline-shell";
@@ -54,26 +56,6 @@ import { WORKSPACE_RESIZABLE_IDS } from "./workspace-resizable-ids";
 
 // ── Persistence helpers ───────────────────────────────────────────────────────
 
-function loadStoredPanelSize(
-  key: string,
-  fallbackSize: string,
-  fallbackPct: number,
-  minPct: number,
-  maxPct: number,
-) {
-  if (typeof window === "undefined") return fallbackSize;
-
-  const raw = window.localStorage.getItem(key);
-  if (!raw) return fallbackSize;
-
-  return toPanelPercentSize(
-    resolveStoredPanelPct(raw, {
-      fallbackPct,
-      minPct,
-      maxPct,
-    }),
-  );
-}
 
 // ── Runtime snapshot type (mirrors SubmarineRuntimePanel) ────────────────────
 type SubmarineRuntimeSnapshot = {
@@ -160,17 +142,12 @@ export function SubmarinePipeline({
   const router = useRouter();
   const { thread } = useThread();
   const [settings, setSettings] = useLocalSettings();
-  const layoutConfig = useMemo(
-    () =>
-      getPipelineLayoutConfig(
-        typeof window === "undefined" ? undefined : window.innerWidth,
-      ),
-    [],
-  );
+  const layoutConfig = useMemo(() => getPipelineLayoutConfig(), []);
   const desktopShell = useMemo(
     () => getSubmarinePipelineDesktopShellConfig(),
     [],
   );
+  const pipelineGroupRef = useRef<GroupImperativeHandle | null>(null);
   // centerRef scopes the xl desktop pane for stage-nav scroll
   const centerRef = useRef<HTMLDivElement>(null);
   // mobileCenterRef scopes the mobile pane separately to avoid duplicate-id querySelector conflicts
@@ -199,26 +176,21 @@ export function SubmarinePipeline({
   }, [allThreads]);
 
   // ── Layout persistence ────────────────────────────────────────────────────
-  const defaultLayout = useMemo(
-    () => ({
-      sidebar: loadStoredPanelSize(
-        PIPELINE_STORAGE_KEY_SIDEBAR,
-        layoutConfig.sidebarDefaultSize,
-        layoutConfig.sidebarDefaultPct,
-        layoutConfig.sidebarMinPct,
-        layoutConfig.sidebarMaxPct,
-      ),
-      chat: loadStoredPanelSize(
-        PIPELINE_STORAGE_KEY_CHAT,
-        layoutConfig.chatDefaultSize,
-        layoutConfig.chatDefaultPct,
-        layoutConfig.chatMinPct,
-        layoutConfig.chatMaxPct,
-      ),
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
-    [],
-  );
+  const defaultLayout = useMemo(() => getPipelineDefaultLayout(), []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !pipelineGroupRef.current) {
+      return;
+    }
+
+    pipelineGroupRef.current.setLayout(
+      getPipelineStoredLayout({
+        viewportWidth: window.innerWidth,
+        sidebarRaw: window.localStorage.getItem(PIPELINE_STORAGE_KEY_SIDEBAR),
+        chatRaw: window.localStorage.getItem(PIPELINE_STORAGE_KEY_CHAT),
+      }),
+    );
+  }, []);
 
   const handleLayoutChanged = useCallback(
     (layout: Record<string, number>) => {
@@ -425,12 +397,14 @@ export function SubmarinePipeline({
           orientation="horizontal"
           className={desktopShell.groupClassName}
           onLayoutChanged={handleLayoutChanged}
+          defaultLayout={defaultLayout}
+          groupRef={pipelineGroupRef}
           id={WORKSPACE_RESIZABLE_IDS.submarinePipelineGroup}
         >
         {/* Sidebar */}
           <ResizablePanel
             id="submarine-pipeline-sidebar"
-            defaultSize={defaultLayout.sidebar}
+            defaultSize={layoutConfig.sidebarDefaultSize}
             minSize={layoutConfig.sidebarMinSize}
             maxSize={layoutConfig.sidebarMaxSize}
           >
@@ -473,7 +447,7 @@ export function SubmarinePipeline({
         {/* Chat rail */}
           <ResizablePanel
             id="submarine-pipeline-chat"
-            defaultSize={defaultLayout.chat}
+            defaultSize={layoutConfig.chatDefaultSize}
             minSize={layoutConfig.chatMinSize}
             maxSize={layoutConfig.chatMaxSize}
           >
@@ -524,8 +498,25 @@ function PipelineCenterPane({
     message: { role: "human"; content: string },
   ) => void;
 }) {
+  const centerPaneConfig = getSubmarinePipelineCenterPaneConfig();
+  const currentStageLabel = runtime?.current_stage
+    ? (STAGE_LABELS[runtime.current_stage] ?? runtime.current_stage)
+    : "等待建立研究 brief";
+  const submarineArtifactCount = Array.isArray(thread.values.artifacts)
+    ? thread.values.artifacts.filter((path) => path.includes("/submarine/")).length
+    : 0;
+  const outputStatus = finalReport
+    ? "结果报告已生成"
+    : designBrief
+      ? "已形成 design brief"
+      : "等待用户输入任务";
+  const summaryText =
+    designBrief?.summary_zh ??
+    runtime?.task_summary ??
+    "在右侧聊天中说明研究目标、工况、对比对象和交付物，工作台会把它整理成可确认的 CFD brief，并继续推进几何预检、求解、结果整理与复核。";
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.10),_transparent_32%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))]">
       {/* Center header — xl only (mobile header is in parent) */}
       <div className="hidden shrink-0 items-center gap-2.5 border-b border-stone-200 px-4 py-2.5 xl:flex">
         <span className="text-[14px] font-bold text-stone-900">
@@ -542,42 +533,140 @@ function PipelineCenterPane({
       {/* Stage list */}
       <div
         ref={centerRef}
-        className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3"
+        className={centerPaneConfig.scrollClassName}
       >
-        {/* data-stage-id instead of id to avoid duplicate-id issues when both
-            mobile and desktop panes are mounted simultaneously */}
-        <div data-stage-id="submarine-stage-task-intelligence">
-          <TaskIntelligenceCard
-            threadId={threadId}
-            snapshot={stageSnapshot}
-            designBrief={designBrief}
-            onConfirm={handleSend}
-          />
+        <div className={centerPaneConfig.overviewClassName}>
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0 flex-1 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-600">
+                  Research Cockpit
+                </span>
+                {runtime?.current_stage ? (
+                  <StageBadge stage={runtime.current_stage} />
+                ) : (
+                  <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-semibold text-stone-600">
+                    待启动
+                  </span>
+                )}
+                <span className="rounded-full bg-stone-900 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {outputStatus}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <h2 className="text-xl font-semibold tracking-tight text-stone-900 xl:text-2xl">
+                  {thread.values.title ?? "准备新的仿真研究"}
+                </h2>
+                <p className="max-w-3xl text-sm leading-6 text-stone-600">
+                  {summaryText}
+                </p>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <WorkbenchFocusTile
+                  label="当前阶段"
+                  value={currentStageLabel}
+                />
+                <WorkbenchFocusTile
+                  label="下一步"
+                  value={
+                    runtime?.next_recommended_stage
+                      ? STAGE_LABELS[runtime.next_recommended_stage] ??
+                        runtime.next_recommended_stage
+                      : "补充目标与 baseline"
+                  }
+                />
+                <WorkbenchFocusTile
+                  label="证据链"
+                  value={
+                    finalReport
+                      ? "已有报告与评估结论"
+                      : designBrief
+                        ? "brief 已确认，待生成数值证据"
+                        : "等待建立可确认的 study brief"
+                  }
+                />
+              </div>
+
+              {runtime?.simulation_requirements && (
+                <div className="flex flex-wrap gap-2">
+                  <SimReqTags reqs={runtime.simulation_requirements} />
+                </div>
+              )}
+            </div>
+
+            <div className="grid w-full gap-2 sm:grid-cols-3 xl:w-[22rem] xl:grid-cols-1">
+              <WorkbenchStatCard
+                label="子流程"
+                value={String(stageSnapshot?.execution_plan?.length ?? 0)}
+                meta="当前计划项"
+              />
+              <WorkbenchStatCard
+                label="对话消息"
+                value={String(thread.messages.length)}
+                meta="已纳入上下文"
+              />
+              <WorkbenchStatCard
+                label="Artifacts"
+                value={String(submarineArtifactCount)}
+                meta="研究产物"
+              />
+            </div>
+          </div>
         </div>
-        <div data-stage-id="submarine-stage-geometry-preflight">
-          <GeometryPreflightCard snapshot={stageSnapshot} geometry={geometry} />
-        </div>
-        <div data-stage-id="submarine-stage-solver-dispatch">
-          <SolverDispatchCard
-            snapshot={stageSnapshot}
-            solverMetrics={solverMetrics}
-            trendValues={trendValues}
-          />
-        </div>
-        <div data-stage-id="submarine-stage-result-reporting">
-          <ResultReportingCard
-            snapshot={stageSnapshot}
-            finalReport={finalReport}
-            solverMetrics={solverMetrics}
-            reportVirtualPath={runtime?.report_virtual_path}
-          />
-        </div>
-        <div data-stage-id="submarine-stage-supervisor-review">
-          <SupervisorReviewCard
-            threadId={threadId}
-            snapshot={stageSnapshot}
-            onConfirm={handleSend}
-          />
+
+        <div className={centerPaneConfig.stageGridClassName}>
+          {/* data-stage-id instead of id to avoid duplicate-id issues when both
+              mobile and desktop panes are mounted simultaneously */}
+          <div
+            className={centerPaneConfig.stageSectionClassName}
+            data-stage-id="submarine-stage-task-intelligence"
+          >
+            <TaskIntelligenceCard
+              threadId={threadId}
+              snapshot={stageSnapshot}
+              designBrief={designBrief}
+              onConfirm={handleSend}
+            />
+          </div>
+          <div
+            className={centerPaneConfig.stageSectionClassName}
+            data-stage-id="submarine-stage-geometry-preflight"
+          >
+            <GeometryPreflightCard snapshot={stageSnapshot} geometry={geometry} />
+          </div>
+          <div
+            className={centerPaneConfig.stageSectionClassName}
+            data-stage-id="submarine-stage-solver-dispatch"
+          >
+            <SolverDispatchCard
+              snapshot={stageSnapshot}
+              solverMetrics={solverMetrics}
+              trendValues={trendValues}
+            />
+          </div>
+          <div
+            className={centerPaneConfig.stageSectionClassName}
+            data-stage-id="submarine-stage-result-reporting"
+          >
+            <ResultReportingCard
+              snapshot={stageSnapshot}
+              finalReport={finalReport}
+              solverMetrics={solverMetrics}
+              reportVirtualPath={runtime?.report_virtual_path}
+            />
+          </div>
+          <div
+            className={cn(centerPaneConfig.stageSectionClassName, "xl:col-span-2")}
+            data-stage-id="submarine-stage-supervisor-review"
+          >
+            <SupervisorReviewCard
+              threadId={threadId}
+              snapshot={stageSnapshot}
+              onConfirm={handleSend}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -689,12 +778,56 @@ function SimReqTags({ reqs }: { reqs: SubmarineSimulationRequirements }) {
     tags.push(`${reqs.inlet_velocity_mps} m/s`);
   if (tags.length === 0) return null;
   return (
-    <div className="ml-auto flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {tags.map((t) => (
-        <span key={t} className="text-[11px] text-stone-400">
+        <span
+          key={t}
+          className="rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-medium text-stone-500"
+        >
           {t}
         </span>
       ))}
+    </div>
+  );
+}
+
+function WorkbenchFocusTile({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-200/80 bg-stone-50/80 px-3 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-medium leading-6 text-stone-700">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function WorkbenchStatCard({
+  label,
+  value,
+  meta,
+}: {
+  label: string;
+  value: string;
+  meta: string;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-200/80 bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-semibold tracking-tight text-stone-900">
+        {value}
+      </div>
+      <div className="mt-1 text-xs text-stone-500">{meta}</div>
     </div>
   );
 }

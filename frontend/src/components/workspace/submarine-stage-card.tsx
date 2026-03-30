@@ -18,6 +18,7 @@ export interface StageCardProps {
   children?: ReactNode;
   defaultExpanded?: boolean;
   className?: string;
+  bodyClassName?: string;
 }
 
 export function StageCard({
@@ -30,9 +31,10 @@ export function StageCard({
   children,
   defaultExpanded,
   className,
+  bodyClassName,
 }: StageCardProps) {
   const [expanded, setExpanded] = useState(
-    defaultExpanded ?? state === "active",
+    defaultExpanded ?? state !== "done",
   );
 
   const canToggle = state !== "active" && children != null;
@@ -41,14 +43,14 @@ export function StageCard({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg border border-stone-200",
+        "flex h-full flex-col overflow-hidden rounded-xl border border-stone-200 bg-white",
         className,
       )}
     >
       {/* Header */}
       <div
         className={cn(
-          "flex items-center gap-3 px-3.5 py-2.5",
+          "flex shrink-0 items-center gap-3 px-4 py-3",
           state === "done" && "bg-green-50",
           state === "active" &&
             "border-l-[3px] border-l-blue-500 bg-blue-50",
@@ -99,7 +101,12 @@ export function StageCard({
 
       {/* Body */}
       {showBody && (
-        <div className="border-t border-stone-200 bg-white px-3.5 py-3">
+        <div
+          className={cn(
+            "flex flex-1 flex-col border-t border-stone-200 bg-white px-4 py-3",
+            bodyClassName,
+          )}
+        >
           {children}
         </div>
       )}

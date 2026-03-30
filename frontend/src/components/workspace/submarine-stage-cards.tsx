@@ -115,7 +115,7 @@ export function TaskIntelligenceCard({
       index={1}
       name="任务理解"
       description={descriptionText}
-      defaultExpanded={state === "active"}
+      defaultExpanded={state !== "done"}
     >
       {/* Case retrieval */}
       {caseId && (
@@ -182,6 +182,17 @@ export function TaskIntelligenceCard({
         </div>
       )}
 
+      {!caseId && !simReq && openQuestions.length === 0 && (
+        <StageHintList
+          title="这一步会先形成可确认的研究 brief"
+          items={[
+            "抽取研究目标、关键工况、对比对象和交付要求",
+            "整理 baseline 与后续 scientific study 的切入点",
+            "如果信息不足，会在聊天区追问缺失条件而不是硬编码推进",
+          ]}
+        />
+      )}
+
       {/* Confirm actions — only when active and waiting for user */}
       {state === "active" && (
         <div className="mt-2 flex gap-2">
@@ -233,13 +244,23 @@ export function GeometryPreflightCard({
       index={2}
       name="几何预检"
       description={description}
-      defaultExpanded={state === "active"}
+      defaultExpanded={state !== "done"}
     >
       {geometry?.summary_zh && (
         <div className="text-[11px] text-stone-600">{geometry.summary_zh}</div>
       )}
       {!geometry && state === "active" && (
         <div className="text-[11px] text-stone-400">几何检查运行中…</div>
+      )}
+      {!geometry && state !== "done" && (
+        <StageHintList
+          title="预检会收敛几何与网格可用性"
+          items={[
+            "检查几何来源是否完整、是否需要转换或清理",
+            "确认边界命名、候选案例与求解设定是否匹配",
+            "为后续 solver dispatch 提供可追溯的几何依据",
+          ]}
+        />
       )}
     </StageCard>
   );
@@ -291,7 +312,7 @@ export function SolverDispatchCard({
           <span className="text-[11px] font-medium text-blue-500">运行中</span>
         ) : undefined
       }
-      defaultExpanded={state === "active"}
+      defaultExpanded={state !== "done"}
     >
       {/* Progress */}
       {totalSteps > 0 && (
@@ -336,6 +357,16 @@ export function SolverDispatchCard({
           {lastEvent.title ?? lastEvent.summary ?? "…"}
         </div>
       )}
+      {!solverMetrics && totalSteps === 0 && trendValues.length < 2 && (
+        <StageHintList
+          title="求解阶段会保留完整的 dispatch 与数值证据"
+          items={[
+            "生成可审计的执行计划，而不是直接跳到硬编码求解",
+            "记录 solver 产物、关键系数和收敛历史",
+            "为后续比较研究、报告和 scientific followup 提供基础数据",
+          ]}
+        />
+      )}
     </StageCard>
   );
 }
@@ -373,7 +404,7 @@ export function ResultReportingCard({
       index={4}
       name="结果整理"
       description={description}
-      defaultExpanded={state === "active"}
+      defaultExpanded={state !== "done"}
     >
       {/* Big Cd display */}
       {cd != null && (
@@ -405,6 +436,16 @@ export function ResultReportingCard({
 
       {state === "active" && !cd && (
         <div className="text-[11px] text-stone-400">正在整理计算结果…</div>
+      )}
+      {!finalReport && cd == null && (
+        <StageHintList
+          title="报告阶段会把数值结果转成科研交付物"
+          items={[
+            "汇总关键系数、验证结论与 claim level",
+            "沉淀对比、图表、报告路径和 followup 入口",
+            "确保结果不是只有终值，而是带证据链的可复查结论",
+          ]}
+        />
       )}
     </StageCard>
   );
@@ -469,7 +510,7 @@ export function SupervisorReviewCard({
       index={5}
       name="Supervisor 复核"
       description={description}
-      defaultExpanded={state === "active"}
+      defaultExpanded={state !== "done"}
     >
       {/* Review status badge */}
       {reviewStatus && (
@@ -515,6 +556,16 @@ export function SupervisorReviewCard({
       {state === "active" && !reviewStatus && (
         <div className="text-[11px] text-stone-400">Supervisor 正在复核…</div>
       )}
+      {!reviewStatus && !gateStatus && (
+        <StageHintList
+          title="复核阶段负责收口科研闭环"
+          items={[
+            "检查 claim level、验证状态与证据缺口",
+            "决定是否接受当前结果、要求重算或触发 followup",
+            "把用户确认与 scientific gate 串成完整交付闭环",
+          ]}
+        />
+      )}
     </StageCard>
   );
 }
@@ -546,6 +597,28 @@ function SectionLabel({
         )}
       />
       {children}
+    </div>
+  );
+}
+
+function StageHintList({
+  title,
+  items,
+}: {
+  title: string;
+  items: string[];
+}) {
+  return (
+    <div className="mt-auto rounded-xl border border-dashed border-stone-200 bg-stone-50/80 p-3">
+      <div className="text-[11px] font-semibold text-stone-700">{title}</div>
+      <ul className="mt-2 space-y-1.5">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2 text-[11px] leading-5 text-stone-500">
+            <span className="mt-[5px] inline-block size-1.5 shrink-0 rounded-full bg-sky-500" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
