@@ -10,7 +10,6 @@ import type {
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
   SubmarineSolverMetrics,
-  SubmarineDispatchPayload,
   SubmarineGeometryPayload,
   SubmarineSimulationRequirements,
 } from "./submarine-runtime-panel.contract";
@@ -586,25 +585,6 @@ function MetricChip({
       >
         {value}
       </div>
-    </div>
-  );
-}
-
-function _InfoRow({
-  label,
-  value,
-  valueClass,
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-stone-400">{label}</span>
-      <span className={cn("font-medium text-stone-800", valueClass)}>
-        {value}
-      </span>
     </div>
   );
 }

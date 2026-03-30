@@ -44,7 +44,7 @@ export function Welcome({
             <div className={cn("inline-block", !waved ? "animate-wave" : "")}>
               {isUltra ? "🚀" : "👋"}
             </div>
-            <AuroraText colors={colors}>{t.welcome.greeting}</AuroraText>
+            <AuroraText colors={colors}>VibeCFD</AuroraText>
           </div>
         )}
       </div>

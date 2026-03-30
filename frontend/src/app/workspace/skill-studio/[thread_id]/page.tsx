@@ -138,7 +138,6 @@ export default function SkillStudioWorkbenchPage() {
   }, [chatOpen]);
 
   const dashboardHref = withMock("/workspace/skill-studio", isMock);
-  const chatHref = withMock(`/workspace/chats/${threadId}`, isMock);
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
@@ -157,17 +156,11 @@ export default function SkillStudioWorkbenchPage() {
                   <ThreadTitle threadId={threadId} thread={thread} />
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Dedicated expert workbench
+                  领域专家 · Skill 创建工作台
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button asChild size="sm" variant="outline">
-                <Link href={chatHref}>
-                  <MessageSquareIcon className="size-4" />
-                  聊天视图
-                </Link>
-              </Button>
               <Button
                 size="sm"
                 variant="outline"

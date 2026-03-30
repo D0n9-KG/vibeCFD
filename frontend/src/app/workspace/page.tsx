@@ -16,5 +16,5 @@ export default function WorkspacePage() {
       return redirect(`/workspace/chats/${firstThread.name}`);
     }
   }
-  return redirect("/workspace/chats/new");
+  return redirect("/workspace/submarine/new");
 }

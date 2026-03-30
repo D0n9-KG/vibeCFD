@@ -137,7 +137,7 @@ const WORKBENCH_SECTIONS: Array<{ id: WorkbenchSectionId; label: string }> = [
   { id: "artifacts", label: "Artifacts" },
 ];
 
-const STAGE_ORDER: RuntimeStage[] = [
+export const STAGE_ORDER: RuntimeStage[] = [
   "task-intelligence",
   "geometry-preflight",
   "solver-dispatch",
@@ -145,7 +145,7 @@ const STAGE_ORDER: RuntimeStage[] = [
   "supervisor-review",
 ];
 
-const STAGE_LABELS: Record<RuntimeStage, string> = {
+export const STAGE_LABELS: Record<RuntimeStage, string> = {
   "task-intelligence": "任务理解",
   "geometry-preflight": "几何预检",
   "solver-dispatch": "求解执行",

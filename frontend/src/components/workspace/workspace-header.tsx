@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquarePlus } from "lucide-react";
+import { WavesIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -11,12 +11,10 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useI18n } from "@/core/i18n/hooks";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
 export function WorkspaceHeader({ className }: { className?: string }) {
-  const { t } = useI18n();
   const { state } = useSidebar();
   const pathname = usePathname();
   return (
@@ -29,20 +27,22 @@ export function WorkspaceHeader({ className }: { className?: string }) {
       >
         {state === "collapsed" ? (
           <div className="group-has-data-[collapsible=icon]/sidebar-wrapper:-translate-y flex w-full cursor-pointer items-center justify-center">
-            <div className="text-primary block pt-1 font-serif group-hover/workspace-header:hidden">
-              DF
+            <div className="text-primary block pt-1 font-serif text-sm font-semibold group-hover/workspace-header:hidden">
+              VC
             </div>
             <SidebarTrigger className="hidden pl-2 group-hover/workspace-header:block" />
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2">
             {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ? (
-              <Link href="/" className="text-primary ml-2 font-serif">
-                DeerFlow
+              <Link href="/" className="ml-2 flex flex-col leading-none">
+                <span className="text-primary font-serif text-base font-semibold">VibeCFD</span>
+                <span className="text-[10px] text-muted-foreground">Powered by DeerFlow</span>
               </Link>
             ) : (
-              <div className="text-primary ml-2 cursor-default font-serif">
-                DeerFlow
+              <div className="ml-2 flex cursor-default flex-col leading-none">
+                <span className="text-primary font-serif text-base font-semibold">VibeCFD</span>
+                <span className="text-[10px] text-muted-foreground">Powered by DeerFlow</span>
               </div>
             )}
             <SidebarTrigger />
@@ -52,12 +52,12 @@ export function WorkspaceHeader({ className }: { className?: string }) {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
-            isActive={pathname === "/workspace/chats/new"}
+            isActive={pathname === "/workspace/submarine/new"}
             asChild
           >
-            <Link className="text-muted-foreground" href="/workspace/chats/new">
-              <MessageSquarePlus size={16} />
-              <span>{t.sidebar.newChat}</span>
+            <Link className="text-muted-foreground" href="/workspace/submarine/new">
+              <WavesIcon size={16} />
+              <span>新建仿真</span>
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>

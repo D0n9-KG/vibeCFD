@@ -4,6 +4,11 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef } from "react";
 
+import {
+  getPipelineLayoutConfig,
+  PIPELINE_STORAGE_KEY_CHAT,
+  PIPELINE_STORAGE_KEY_SIDEBAR,
+} from "@/app/workspace/submarine/submarine-pipeline-layout";
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import {
   ResizableHandle,
@@ -19,11 +24,15 @@ import { cn } from "@/lib/utils";
 import { InputBox } from "./input-box";
 import { MessageList } from "./messages";
 import { useThread } from "./messages/context";
+import {
+  type SidebarRunItem,
+  SubmarinePipelineSidebar,
+} from "./submarine-pipeline-sidebar";
 import type {
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
-  SubmarineSolverMetrics,
   SubmarineGeometryPayload,
+  SubmarineSolverMetrics,
   SubmarineSimulationRequirements,
 } from "./submarine-runtime-panel.contract";
 import { buildSubmarineTrendSeries } from "./submarine-runtime-panel.trends";
@@ -35,15 +44,6 @@ import {
   TaskIntelligenceCard,
   type StageRuntimeSnapshot,
 } from "./submarine-stage-cards";
-import {
-  type SidebarRunItem,
-  SubmarinePipelineSidebar,
-} from "./submarine-pipeline-sidebar";
-import {
-  getPipelineLayoutConfig,
-  PIPELINE_STORAGE_KEY_SIDEBAR,
-  PIPELINE_STORAGE_KEY_CHAT,
-} from "@/app/workspace/submarine/submarine-pipeline-layout";
 
 // ── Persistence helpers ───────────────────────────────────────────────────────
 
@@ -132,10 +132,11 @@ export function SubmarinePipeline({
   isNewThread,
   isUploading,
   isMock = false,
-  chatOpen = false,
+  chatOpen: chatOpenProp,
   sendMessage,
   onStop,
 }: SubmarinePipelineProps) {
+  const chatOpen = chatOpenProp ?? false;
   const router = useRouter();
   const { thread } = useThread();
   const [settings, setSettings] = useLocalSettings();
@@ -151,7 +152,7 @@ export function SubmarinePipeline({
     return allThreads
       .filter((t) =>
         Array.isArray(t.values?.artifacts)
-          ? (t.values.artifacts as string[]).some(
+          ? t.values.artifacts.some(
               (p) =>
                 p.includes("/submarine/") &&
                 !p.includes("/submarine/skill-studio/"),
@@ -207,7 +208,7 @@ export function SubmarinePipeline({
       ? runtime.artifact_virtual_paths
       : [];
     const threadPaths = Array.isArray(thread.values.artifacts)
-      ? (thread.values.artifacts as string[])
+      ? thread.values.artifacts
       : [];
     return [...threadPaths, ...runtimePaths]
       .filter(
