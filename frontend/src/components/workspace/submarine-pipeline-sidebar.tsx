@@ -33,6 +33,8 @@ export interface SidebarRunItem {
 interface SubmarinePipelineSidebarProps {
   currentThreadId: string;
   currentStage?: string | null;
+  currentThreadRunLabel?: string;
+  currentThreadTone?: "ready" | "streaming" | "error";
   runs: SidebarRunItem[];
   onStageClick: (stageId: string) => void;
   onNewSimulation: () => void;
@@ -41,6 +43,8 @@ interface SubmarinePipelineSidebarProps {
 export function SubmarinePipelineSidebar({
   currentThreadId,
   currentStage,
+  currentThreadRunLabel,
+  currentThreadTone,
   runs,
   onStageClick,
   onNewSimulation,
@@ -98,9 +102,24 @@ export function SubmarinePipelineSidebar({
                 run.threadId === currentThreadId
                   ? "text-sky-400"
                   : "text-stone-400",
+                run.threadId === currentThreadId &&
+                  currentThreadTone === "error" &&
+                  "text-red-500",
               )}
             >
-              {run.isRunning ? "● 运行中" : run.isComplete ? "✓ 已完成" : "○ 待运行"}
+              {run.threadId === currentThreadId && currentThreadRunLabel
+                ? currentThreadTone === "error"
+                  ? `● ${currentThreadRunLabel}`
+                  : currentThreadRunLabel === "运行中"
+                    ? `● ${currentThreadRunLabel}`
+                    : currentThreadRunLabel === "待命"
+                      ? "○ 待命"
+                      : currentThreadRunLabel
+                : run.isRunning
+                  ? "● 运行中"
+                  : run.isComplete
+                    ? "✓ 已完成"
+                    : "○ 待运行"}
             </div>
           </div>
         ))}

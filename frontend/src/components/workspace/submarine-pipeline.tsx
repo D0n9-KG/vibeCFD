@@ -36,6 +36,10 @@ import {
   type SidebarRunItem,
   SubmarinePipelineSidebar,
 } from "./submarine-pipeline-sidebar";
+import {
+  getSubmarinePipelineStatus,
+  type SubmarinePipelineStatus,
+} from "./submarine-pipeline-status";
 import type {
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
@@ -323,6 +327,25 @@ export function SubmarinePipeline({
     };
   }, [runtime]);
 
+  const pipelineStatus = useMemo(
+    () =>
+      getSubmarinePipelineStatus({
+        threadError: thread.error,
+        threadIsLoading: thread.isLoading,
+        hasDesignBrief: Boolean(designBrief),
+        hasFinalReport: Boolean(finalReport),
+        designBriefSummary: designBrief?.summary_zh,
+        runtimeTaskSummary: runtime?.task_summary,
+      }),
+    [
+      designBrief,
+      finalReport,
+      runtime?.task_summary,
+      thread.error,
+      thread.isLoading,
+    ],
+  );
+
   // ── Callbacks ─────────────────────────────────────────────────────────────
   // Bridge from stage card { role, content } to PromptInputMessage { text, files }
   const handleSend = useCallback(
@@ -367,6 +390,7 @@ export function SubmarinePipeline({
           <PipelineCenterPane
             thread={thread}
             runtime={runtime}
+            pipelineStatus={pipelineStatus}
             centerRef={mobileCenterRef}
             threadId={threadId}
             stageSnapshot={stageSnapshot}
@@ -380,6 +404,7 @@ export function SubmarinePipeline({
           {chatOpen && (
             <PipelineChatRail
               thread={thread}
+              pipelineStatus={pipelineStatus}
               threadId={threadId}
               isNewThread={isNewThread}
               isUploading={isUploading}
@@ -411,6 +436,8 @@ export function SubmarinePipeline({
           <SubmarinePipelineSidebar
             currentThreadId={threadId}
             currentStage={runtime?.current_stage}
+            currentThreadRunLabel={pipelineStatus.runLabel}
+            currentThreadTone={pipelineStatus.tone}
             runs={runs}
             onStageClick={handleStageClick}
             onNewSimulation={handleNewSimulation}
@@ -427,6 +454,7 @@ export function SubmarinePipeline({
           <PipelineCenterPane
             thread={thread}
             runtime={runtime}
+            pipelineStatus={pipelineStatus}
             centerRef={centerRef}
             threadId={threadId}
             stageSnapshot={stageSnapshot}
@@ -453,6 +481,7 @@ export function SubmarinePipeline({
           >
           <PipelineChatRail
             thread={thread}
+            pipelineStatus={pipelineStatus}
             threadId={threadId}
             isNewThread={isNewThread}
             isUploading={isUploading}
@@ -473,6 +502,7 @@ export function SubmarinePipeline({
 function PipelineCenterPane({
   thread,
   runtime,
+  pipelineStatus,
   centerRef,
   threadId,
   stageSnapshot,
@@ -485,6 +515,7 @@ function PipelineCenterPane({
 }: {
   thread: ReturnType<typeof useThread>["thread"];
   runtime: SubmarineRuntimeSnapshot | null;
+  pipelineStatus: SubmarinePipelineStatus;
   centerRef: React.RefObject<HTMLDivElement | null>;
   threadId: string;
   stageSnapshot: StageRuntimeSnapshot | null;
@@ -505,16 +536,6 @@ function PipelineCenterPane({
   const submarineArtifactCount = Array.isArray(thread.values.artifacts)
     ? thread.values.artifacts.filter((path) => path.includes("/submarine/")).length
     : 0;
-  const outputStatus = finalReport
-    ? "结果报告已生成"
-    : designBrief
-      ? "已形成 design brief"
-      : "等待用户输入任务";
-  const summaryText =
-    designBrief?.summary_zh ??
-    runtime?.task_summary ??
-    "在右侧聊天中说明研究目标、工况、对比对象和交付物，工作台会把它整理成可确认的 CFD brief，并继续推进几何预检、求解、结果整理与复核。";
-
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.10),_transparent_32%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))]">
       {/* Center header — xl only (mobile header is in parent) */}
@@ -549,8 +570,15 @@ function PipelineCenterPane({
                     待启动
                   </span>
                 )}
-                <span className="rounded-full bg-stone-900 px-2.5 py-1 text-[11px] font-semibold text-white">
-                  {outputStatus}
+                <span
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-[11px] font-semibold text-white",
+                    pipelineStatus.tone === "error"
+                      ? "bg-red-600"
+                      : "bg-stone-900",
+                  )}
+                >
+                  {pipelineStatus.outputStatus}
                 </span>
               </div>
 
@@ -559,7 +587,7 @@ function PipelineCenterPane({
                   {thread.values.title ?? "准备新的仿真研究"}
                 </h2>
                 <p className="max-w-3xl text-sm leading-6 text-stone-600">
-                  {summaryText}
+                  {pipelineStatus.summaryText}
                 </p>
               </div>
 
@@ -592,6 +620,23 @@ function PipelineCenterPane({
               {runtime?.simulation_requirements && (
                 <div className="flex flex-wrap gap-2">
                   <SimReqTags reqs={runtime.simulation_requirements} />
+                </div>
+              )}
+
+              {pipelineStatus.errorBanner && (
+                <div className="rounded-2xl border border-red-200 bg-red-50/90 p-4 shadow-sm">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-red-600">
+                    Failure surfaced
+                  </div>
+                  <div className="mt-2 text-base font-semibold text-red-900">
+                    {pipelineStatus.errorBanner.title}
+                  </div>
+                  <p className="mt-1 text-sm leading-6 text-red-800">
+                    {pipelineStatus.errorBanner.guidance}
+                  </p>
+                  <div className="mt-3 rounded-xl border border-red-200 bg-white/80 px-3 py-2 text-xs leading-5 text-red-900">
+                    {pipelineStatus.errorBanner.message}
+                  </div>
                 </div>
               )}
             </div>
@@ -677,6 +722,7 @@ function PipelineCenterPane({
 
 function PipelineChatRail({
   thread,
+  pipelineStatus,
   threadId,
   isNewThread,
   isUploading,
@@ -687,6 +733,7 @@ function PipelineChatRail({
   onStop,
 }: {
   thread: ReturnType<typeof useThread>["thread"];
+  pipelineStatus: SubmarinePipelineStatus;
   threadId: string;
   isNewThread: boolean;
   isUploading: boolean;
@@ -700,11 +747,26 @@ function PipelineChatRail({
     <div className={cn(getSubmarinePipelineChatRailClassName(), className)}>
       {/* Chat header */}
       <div className="flex shrink-0 items-center gap-2 border-b border-stone-200 px-3.5 py-2.5">
-        <span className="inline-block size-[6px] shrink-0 rounded-full bg-green-500" />
+        <span
+          className={cn(
+            "inline-block size-[6px] shrink-0 rounded-full",
+            pipelineStatus.tone === "error"
+              ? "bg-red-500"
+              : pipelineStatus.tone === "streaming"
+                ? "bg-green-500"
+                : "bg-amber-500",
+          )}
+        />
         <span className="text-[12px] font-semibold text-stone-800">
-          Claude Code
+          {pipelineStatus.agentLabel}
         </span>
       </div>
+
+      {pipelineStatus.errorBanner && (
+        <div className="border-b border-red-200 bg-red-50 px-3.5 py-2 text-xs leading-5 text-red-800">
+          {pipelineStatus.errorBanner.message}
+        </div>
+      )}
 
       {/* Messages */}
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -724,7 +786,11 @@ function PipelineChatRail({
           threadId={threadId}
           autoFocus={isNewThread}
           status={
-            thread.error ? "error" : thread.isLoading ? "streaming" : "ready"
+            pipelineStatus.tone === "error"
+              ? "error"
+              : pipelineStatus.tone === "streaming"
+                ? "streaming"
+                : "ready"
           }
           context={settings.context}
           disabled={
