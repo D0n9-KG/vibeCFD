@@ -1,3 +1,35 @@
+function normalizeErrorMessage(message: string): string {
+  let normalized = message.trim();
+
+  const wrappedMatch = /^([A-Za-z]+Error)\((['"])([\s\S]*)\2\)$/.exec(
+    normalized,
+  );
+  if (wrappedMatch?.[3]) {
+    normalized = wrappedMatch[3].trim();
+  }
+
+  const providerMessageFromPayload = /['"]message['"]:\s*['"]([^'"]+)['"]/.exec(
+    normalized,
+  );
+  if (providerMessageFromPayload?.[1]?.trim()) {
+    return providerMessageFromPayload[1].trim();
+  }
+
+  const providerMessageFromAssignment = /message=("|')([^"']+)\1/.exec(
+    normalized,
+  );
+  if (providerMessageFromAssignment?.[2]?.trim()) {
+    return providerMessageFromAssignment[2].trim();
+  }
+
+  const errorCodePrefix = /^Error code:\s*\d+\s*-\s*(.+)$/.exec(normalized);
+  if (errorCodePrefix?.[1]) {
+    normalized = errorCodePrefix[1].trim();
+  }
+
+  return normalized;
+}
+
 function extractErrorMessage(error: unknown, depth = 0): string | null {
   if (depth > 4 || error == null) {
     return null;
@@ -45,5 +77,6 @@ export function getThreadErrorMessage(
   error: unknown,
   fallback = "Request failed.",
 ): string {
-  return extractErrorMessage(error) ?? fallback;
+  const message = extractErrorMessage(error);
+  return message ? normalizeErrorMessage(message) : fallback;
 }
