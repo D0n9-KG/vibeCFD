@@ -1259,9 +1259,11 @@ git commit -m "feat: add submarine stage card components (5 stages)"
 
 ---
 
-## Task 6: ActivityBar Component (inline in pipeline)
+## Task 6: (Removed — Activity Bar is already in WorkspaceLayout)
 
-The Activity Bar is a 48px fixed strip. It is included directly inside `submarine-pipeline.tsx` (no separate file — it's 30 lines). Define it in the pipeline file.
+The existing `WorkspaceSidebar` (rendered by `WorkspaceLayout`) already handles workbench switching between VibeCFD / Skill Studio / 通用对话 via `WorkspaceNavChatList`. Adding a duplicate Activity Bar inside `SubmarinePipeline` would create a nested navigation shell that conflicts with the existing `SidebarProvider`.
+
+**Decision:** No Activity Bar in `SubmarinePipeline`. The submarine-specific sidebar (run list + stage nav) is sufficient. Workbench navigation remains in the existing `WorkspaceSidebar`.
 
 ---
 
@@ -1271,9 +1273,11 @@ The Activity Bar is a 48px fixed strip. It is included directly inside `submarin
 - Create: `src/components/workspace/submarine-pipeline.tsx`
 
 This is the main component that replaces `SubmarineRuntimePanel`. It contains:
-- 48px Activity Bar (leftmost strip)
-- `ResizablePanelGroup` with sidebar, center (stage pipeline), and chat rail panels
-- Reads data from `useThread()` just like the existing panel
+- `ResizablePanelGroup` (orientation="horizontal") with: submarine sidebar, center (stage pipeline), and chat rail panels
+- `chatOpen` state for < xl responsive collapse (same pattern as the existing workbench)
+- `useThreads()` for the sidebar run list (filtered to submarine threads)
+- `onLayoutChanged` on the Group for panel size persistence to localStorage
+- Reads runtime data from `useThread()` just like the existing panel
 
 - [ ] **Step 1: Write `submarine-pipeline.tsx`**
 
@@ -1281,7 +1285,6 @@ This is the main component that replaces `SubmarineRuntimePanel`. It contains:
 // src/components/workspace/submarine-pipeline.tsx
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
@@ -1292,6 +1295,7 @@ import {
 } from "@/components/ui/resizable";
 import { useArtifactContent } from "@/core/artifacts/hooks";
 import { useLocalSettings } from "@/core/settings";
+import { useThreads } from "@/core/threads/hooks";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
@@ -1302,7 +1306,6 @@ import type {
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
   SubmarineSolverMetrics,
-  SubmarineDispatchPayload,
   SubmarineGeometryPayload,
 } from "./submarine-runtime-panel.contract";
 import {
@@ -1320,10 +1323,22 @@ import {
   type SidebarRunItem,
   SubmarinePipelineSidebar,
 } from "./submarine-pipeline-sidebar";
-
 import {
   getPipelineLayoutConfig,
+  PIPELINE_STORAGE_KEY_SIDEBAR,
+  PIPELINE_STORAGE_KEY_CHAT,
+  type PipelineLayoutConfig,
 } from "../../app/workspace/submarine/submarine-pipeline-layout";
+
+// ── Persistence helpers ───────────────────────────────────────────────────────
+
+function loadStoredPct(key: string, fallback: number): number {
+  if (typeof window === "undefined") return fallback;
+  const raw = window.localStorage.getItem(key);
+  if (!raw) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 && n < 100 ? n : fallback;
+}
 
 // ── Runtime snapshot type (mirrors SubmarineRuntimePanel) ────────────────────
 type SubmarineRuntimeSnapshot = {
@@ -1385,12 +1400,12 @@ interface SubmarinePipelineProps {
   threadId: string;
   isNewThread: boolean;
   isUploading: boolean;
+  isMock?: boolean;
   sendMessage: (
     threadId: string,
     message: PromptInputMessage,
   ) => Promise<void> | void;
   onStop: () => Promise<void>;
-  runs?: SidebarRunItem[];
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -1399,15 +1414,64 @@ export function SubmarinePipeline({
   threadId,
   isNewThread,
   isUploading,
+  isMock = false,
   sendMessage,
   onStop,
-  runs = [],
 }: SubmarinePipelineProps) {
-  const { thread, isMock } = useThread();
-  const router = useRouter();
+  const { thread } = useThread();
   const [settings, setSettings] = useLocalSettings();
   const layoutConfig = useMemo(() => getPipelineLayoutConfig(), []);
   const centerRef = useRef<HTMLDivElement>(null);
+
+  // ── Responsive chat toggle (mirrors existing workbench pattern) ────────────
+  const [chatOpen, setChatOpen] = useState(true);
+
+  // ── Run list from useThreads (filter submarine threads) ───────────────────
+  const { data: allThreads = [] } = useThreads({ limit: 30 }, isMock);
+  const runs = useMemo<SidebarRunItem[]>(() => {
+    return allThreads
+      .filter((t) =>
+        Array.isArray(t.values?.artifacts)
+          ? (t.values.artifacts as string[]).some((p) =>
+              p.includes("/submarine/") && !p.includes("/submarine/skill-studio/"),
+            )
+          : t.values?.submarine_runtime != null,
+      )
+      .map((t) => ({
+        threadId: t.thread_id,
+        title: (t.values?.title as string | undefined) ?? "",
+        isRunning: t.values?.submarine_runtime != null && !t.values?.is_complete,
+        isComplete: Boolean(t.values?.is_complete),
+      }));
+  }, [allThreads]);
+
+  // ── Layout persistence ────────────────────────────────────────────────────
+  const defaultLayout = useMemo(
+    () => ({
+      sidebar: loadStoredPct(PIPELINE_STORAGE_KEY_SIDEBAR, layoutConfig.sidebarDefaultPct),
+      chat: loadStoredPct(PIPELINE_STORAGE_KEY_CHAT, layoutConfig.chatDefaultPct),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+    [],
+  );
+
+  const handleLayoutChanged = useCallback(
+    (layout: Record<string, number>) => {
+      if (typeof layout.sidebar === "number") {
+        window.localStorage.setItem(
+          PIPELINE_STORAGE_KEY_SIDEBAR,
+          String(layout.sidebar),
+        );
+      }
+      if (typeof layout.chat === "number") {
+        window.localStorage.setItem(
+          PIPELINE_STORAGE_KEY_CHAT,
+          String(layout.chat),
+        );
+      }
+    },
+    [],
+  );
 
   // ── Runtime state ──────────────────────────────────────────────────────────
   const runtime = useMemo<SubmarineRuntimeSnapshot | null>(() => {
@@ -1533,28 +1597,72 @@ export function SubmarinePipeline({
   }, []);
 
   const handleNewSimulation = useCallback(() => {
-    router.push("/workspace/submarine/new");
-  }, [router]);
+    history.pushState(null, "", "/workspace/submarine/new");
+    window.location.href = "/workspace/submarine/new";
+  }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────
+  // xl+ : 3 panes (sidebar + center + chat)
+  // < xl : single column — center only, chat toggle button in header
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      {/* Activity Bar */}
-      <ActivityBar currentWorkbench="submarine" />
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {/* < xl header with chat toggle */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-stone-200 px-4 py-2 xl:hidden">
+        <span className="flex-1 truncate text-[13px] font-semibold text-stone-900">
+          {thread.title ?? "仿真任务"}
+        </span>
+        <button
+          type="button"
+          className="rounded-md border border-stone-200 px-3 py-1 text-[12px] text-stone-600 hover:bg-stone-50"
+          onClick={() => setChatOpen((v) => !v)}
+        >
+          {chatOpen ? "收起聊天" : "展开聊天"}
+        </button>
+      </div>
 
-      {/* 3-pane resizable layout */}
+      {/* 3-pane resizable layout — full height on xl, flex column on mobile */}
+      <div className="min-h-0 flex-1 xl:hidden">
+        {/* Mobile: center always visible, chat rail below toggle */}
+        <div className="flex h-full flex-col overflow-hidden">
+          <PipelineCenterPane
+            thread={thread}
+            runtime={runtime}
+            centerRef={centerRef}
+            threadId={threadId}
+            stageSnapshot={stageSnapshot}
+            designBrief={designBrief}
+            geometry={geometry}
+            solverMetrics={solverMetrics}
+            trendValues={trendValues}
+            finalReport={finalReport}
+            handleSend={handleSend}
+          />
+          {chatOpen && (
+            <PipelineChatRail
+              thread={thread}
+              threadId={threadId}
+              isNewThread={isNewThread}
+              isUploading={isUploading}
+              settings={settings}
+              setSettings={setSettings}
+              handleSubmit={handleSubmit}
+              onStop={onStop}
+            />
+          )}
+        </div>
+      </div>
+
       <ResizablePanelGroup
-        direction="horizontal"
-        className="min-h-0 flex-1"
-        id="submarine-pipeline-panels"
+        orientation="horizontal"
+        className="hidden min-h-0 flex-1 xl:flex"
+        onLayoutChanged={handleLayoutChanged}
       >
         {/* Sidebar */}
         <ResizablePanel
           id="submarine-pipeline-sidebar"
-          defaultSize={layoutConfig.sidebarDefaultPct}
+          defaultSize={defaultLayout.sidebar}
           minSize={layoutConfig.sidebarMinPct}
           maxSize={layoutConfig.sidebarMaxPct}
-          className="hidden xl:flex xl:flex-col"
         >
           <SubmarinePipelineSidebar
             currentThreadId={threadId}
@@ -1565,68 +1673,23 @@ export function SubmarinePipeline({
           />
         </ResizablePanel>
 
-        <ResizableHandle withHandle className="hidden xl:flex" />
+        <ResizableHandle withHandle />
 
         {/* Center — stage pipeline */}
-        <ResizablePanel
-          id="submarine-pipeline-center"
-          className="flex min-h-0 flex-col"
-        >
-          {/* Center header */}
-          <div className="flex shrink-0 items-center gap-2.5 border-b border-stone-200 px-4 py-2.5">
-            <span className="text-[14px] font-bold text-stone-900">
-              {thread.title ?? "仿真任务"}
-            </span>
-            {runtime?.current_stage && (
-              <StageBadge stage={runtime.current_stage} />
-            )}
-            {runtime?.simulation_requirements && (
-              <SimReqTags reqs={runtime.simulation_requirements} />
-            )}
-          </div>
-
-          {/* Stage list */}
-          <div
-            ref={centerRef}
-            className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3"
-          >
-            <div id="submarine-stage-task-intelligence">
-              <TaskIntelligenceCard
-                threadId={threadId}
-                snapshot={stageSnapshot}
-                designBrief={designBrief}
-                onConfirm={handleSend}
-              />
-            </div>
-            <div id="submarine-stage-geometry-preflight">
-              <GeometryPreflightCard
-                snapshot={stageSnapshot}
-                geometry={geometry}
-              />
-            </div>
-            <div id="submarine-stage-solver-dispatch">
-              <SolverDispatchCard
-                snapshot={stageSnapshot}
-                solverMetrics={solverMetrics}
-                trendValues={trendValues}
-              />
-            </div>
-            <div id="submarine-stage-result-reporting">
-              <ResultReportingCard
-                snapshot={stageSnapshot}
-                finalReport={finalReport}
-                solverMetrics={solverMetrics}
-                reportVirtualPath={runtime?.report_virtual_path}
-              />
-            </div>
-            <div id="submarine-stage-supervisor-review">
-              <SupervisorReviewCard
-                threadId={threadId}
-                snapshot={stageSnapshot}
-                onConfirm={handleSend}
-              />
-            </div>
-          </div>
+        <ResizablePanel id="submarine-pipeline-center">
+          <PipelineCenterPane
+            thread={thread}
+            runtime={runtime}
+            centerRef={centerRef}
+            threadId={threadId}
+            stageSnapshot={stageSnapshot}
+            designBrief={designBrief}
+            geometry={geometry}
+            solverMetrics={solverMetrics}
+            trendValues={trendValues}
+            finalReport={finalReport}
+            handleSend={handleSend}
+          />
         </ResizablePanel>
 
         <ResizableHandle withHandle />
@@ -1634,121 +1697,172 @@ export function SubmarinePipeline({
         {/* Chat rail */}
         <ResizablePanel
           id="submarine-pipeline-chat"
-          defaultSize={layoutConfig.chatDefaultPct}
+          defaultSize={defaultLayout.chat}
           minSize={layoutConfig.chatMinPct}
           maxSize={layoutConfig.chatMaxPct}
-          className="flex min-h-0 flex-col border-l border-stone-200 bg-stone-50"
         >
-          {/* Chat header */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-stone-200 px-3.5 py-2.5">
-            <span className="inline-block size-[6px] shrink-0 rounded-full bg-green-500" />
-            <span className="text-[12px] font-semibold text-stone-800">
-              Claude Code
-            </span>
-          </div>
-
-          {/* Messages */}
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <MessageList
-              className="flex-1 justify-start"
-              paddingBottom={32}
-              threadId={threadId}
-              thread={thread}
-            />
-          </div>
-
-          {/* Input */}
-          <div className="shrink-0 border-t border-stone-200 bg-white p-2.5">
-            <InputBox
-              className="w-full bg-white"
-              isNewThread={isNewThread}
-              threadId={threadId}
-              autoFocus={isNewThread}
-              status={
-                thread.error
-                  ? "error"
-                  : thread.isLoading
-                    ? "streaming"
-                    : "ready"
-              }
-              context={settings.context}
-              disabled={
-                env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || isUploading
-              }
-              onContextChange={(context) => setSettings("context", context)}
-              onSubmit={handleSubmit}
-              onStop={onStop}
-            />
-          </div>
+          <PipelineChatRail
+            thread={thread}
+            threadId={threadId}
+            isNewThread={isNewThread}
+            isUploading={isUploading}
+            settings={settings}
+            setSettings={setSettings}
+            handleSubmit={handleSubmit}
+            onStop={onStop}
+          />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
   );
 }
 
-// ── ActivityBar ──────────────────────────────────────────────────────────────
+// ── PipelineCenterPane (extracted to avoid JSX duplication between mobile/xl) ─
 
-function ActivityBar({
-  currentWorkbench,
+function PipelineCenterPane({
+  thread,
+  runtime,
+  centerRef,
+  threadId,
+  stageSnapshot,
+  designBrief,
+  geometry,
+  solverMetrics,
+  trendValues,
+  finalReport,
+  handleSend,
 }: {
-  currentWorkbench: "submarine" | "skill-studio" | "chats";
+  thread: ReturnType<typeof useThread>["thread"];
+  runtime: SubmarineRuntimeSnapshot | null;
+  centerRef: React.RefObject<HTMLDivElement | null>;
+  threadId: string;
+  stageSnapshot: StageRuntimeSnapshot | null;
+  designBrief: SubmarineDesignBriefPayload | null;
+  geometry: SubmarineGeometryPayload | null;
+  solverMetrics: SubmarineSolverMetrics | null;
+  trendValues: number[];
+  finalReport: SubmarineFinalReportPayload | null;
+  handleSend: (tid: string, message: { role: "human"; content: string }) => void;
 }) {
-  const router = useRouter();
   return (
-    <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-stone-200 bg-stone-50 py-3">
-      <ActivityItem
-        emoji="🌊"
-        label="VibeCFD 仿真"
-        active={currentWorkbench === "submarine"}
-        onClick={() => router.push("/workspace/submarine/new")}
-      />
-      <ActivityItem
-        emoji="🧩"
-        label="Skill Studio"
-        active={currentWorkbench === "skill-studio"}
-        onClick={() => router.push("/workspace/skill-studio/new")}
-      />
-      <ActivityItem
-        emoji="💬"
-        label="对话"
-        active={currentWorkbench === "chats"}
-        onClick={() => router.push("/workspace/chats/new")}
-      />
-      <div className="flex-1" />
-      <ActivityItem emoji="⚙️" label="设置" active={false} onClick={() => {}} />
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Center header — xl only (mobile header is in parent) */}
+      <div className="hidden shrink-0 items-center gap-2.5 border-b border-stone-200 px-4 py-2.5 xl:flex">
+        <span className="text-[14px] font-bold text-stone-900">
+          {thread.title ?? "仿真任务"}
+        </span>
+        {runtime?.current_stage && (
+          <StageBadge stage={runtime.current_stage} />
+        )}
+        {runtime?.simulation_requirements && (
+          <SimReqTags reqs={runtime.simulation_requirements} />
+        )}
+      </div>
+
+      {/* Stage list */}
+      <div
+        ref={centerRef}
+        className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3"
+      >
+        <div id="submarine-stage-task-intelligence">
+          <TaskIntelligenceCard
+            threadId={threadId}
+            snapshot={stageSnapshot}
+            designBrief={designBrief}
+            onConfirm={handleSend}
+          />
+        </div>
+        <div id="submarine-stage-geometry-preflight">
+          <GeometryPreflightCard snapshot={stageSnapshot} geometry={geometry} />
+        </div>
+        <div id="submarine-stage-solver-dispatch">
+          <SolverDispatchCard
+            snapshot={stageSnapshot}
+            solverMetrics={solverMetrics}
+            trendValues={trendValues}
+          />
+        </div>
+        <div id="submarine-stage-result-reporting">
+          <ResultReportingCard
+            snapshot={stageSnapshot}
+            finalReport={finalReport}
+            solverMetrics={solverMetrics}
+            reportVirtualPath={runtime?.report_virtual_path}
+          />
+        </div>
+        <div id="submarine-stage-supervisor-review">
+          <SupervisorReviewCard
+            threadId={threadId}
+            snapshot={stageSnapshot}
+            onConfirm={handleSend}
+          />
+        </div>
+      </div>
     </div>
   );
 }
 
-function ActivityItem({
-  emoji,
-  label,
-  active,
-  onClick,
+// ── PipelineChatRail ──────────────────────────────────────────────────────────
+
+function PipelineChatRail({
+  thread,
+  threadId,
+  isNewThread,
+  isUploading,
+  settings,
+  setSettings,
+  handleSubmit,
+  onStop,
 }: {
-  emoji: string;
-  label: string;
-  active: boolean;
-  onClick: () => void;
+  thread: ReturnType<typeof useThread>["thread"];
+  threadId: string;
+  isNewThread: boolean;
+  isUploading: boolean;
+  settings: ReturnType<typeof useLocalSettings>[0];
+  setSettings: ReturnType<typeof useLocalSettings>[1];
+  handleSubmit: (message: PromptInputMessage) => void;
+  onStop: () => Promise<void>;
 }) {
   return (
-    <button
-      type="button"
-      title={label}
-      className={cn(
-        "group relative flex size-9 items-center justify-center rounded-lg text-[15px] transition-colors",
-        active
-          ? "bg-sky-100 text-sky-700"
-          : "text-stone-500 hover:bg-stone-200 hover:text-stone-800",
-      )}
-      onClick={onClick}
-    >
-      {emoji}
-      {/* Tooltip */}
-      <span className="pointer-events-none absolute left-11 top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded bg-stone-900 px-2 py-1 text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100">
-        {label}
-      </span>
-    </button>
+    <div className="flex min-h-0 flex-col border-l border-stone-200 bg-stone-50 xl:h-full">
+      {/* Chat header */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-stone-200 px-3.5 py-2.5">
+        <span className="inline-block size-[6px] shrink-0 rounded-full bg-green-500" />
+        <span className="text-[12px] font-semibold text-stone-800">
+          Claude Code
+        </span>
+      </div>
+
+      {/* Messages */}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <MessageList
+          className="flex-1 justify-start"
+          paddingBottom={32}
+          threadId={threadId}
+          thread={thread}
+        />
+      </div>
+
+      {/* Input */}
+      <div className="shrink-0 border-t border-stone-200 bg-white p-2.5">
+        <InputBox
+          className="w-full bg-white"
+          isNewThread={isNewThread}
+          threadId={threadId}
+          autoFocus={isNewThread}
+          status={
+            thread.error ? "error" : thread.isLoading ? "streaming" : "ready"
+          }
+          context={settings.context}
+          disabled={
+            env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || isUploading
+          }
+          onContextChange={(context) => setSettings("context", context)}
+          onSubmit={handleSubmit}
+          onStop={onStop}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -1876,9 +1990,8 @@ Also remove the import of `getSubmarineWorkbenchLayout`:
 ```typescript
 import { getSubmarineWorkbenchLayout } from "../submarine-workbench-layout";
 ```
-(This import is no longer needed because SubmarinePipeline manages its own layout.)
 
-- [ ] **Step 3: Remove useMemo for layout**
+- [ ] **Step 3: Remove the layout useMemo**
 
 Remove:
 ```typescript
@@ -1888,18 +2001,13 @@ Remove:
   );
 ```
 
-Also remove the `chatOpen` state and `setChatOpen` / `focusChatRail` since the new layout doesn't have a separate chat toggle:
-```typescript
-  const [chatOpen, setChatOpen] = useState(true);
-```
+**Keep** `chatOpen` / `setChatOpen` / `focusChatRail` — `SubmarinePipeline` accepts `chatOpen`/`onChatOpenChange` props so the existing page-level toggle button in the header can still drive it (see Step 4).
 
-And remove the `focusChatRail` callback (lines 121–141).
-
-**Important:** Keep `handleSubmit`, `handleStop`, `isUploading`, `isNewThread`, `thread`, `sendMessage`, `settings`, `setSettings`, `showNotification`, `setArtifactsOpen` — all of these are still used.
+**Important:** Keep `handleSubmit`, `handleStop`, `isUploading`, `isNewThread`, `thread`, `sendMessage`, `settings`, `setSettings`, `showNotification`, `setArtifactsOpen`.
 
 - [ ] **Step 4: Replace the return block's main content**
 
-Replace the entire `<main className="min-h-0 flex-1 overflow-hidden pt-14">` block (currently contains the grid + SubmarineRuntimePanel + aside chat rail) with:
+Replace the entire `<main className="min-h-0 flex-1 overflow-hidden pt-14">` block with:
 
 ```tsx
           <main className="min-h-0 flex-1 overflow-hidden">
@@ -1907,29 +2015,40 @@ Replace the entire `<main className="min-h-0 flex-1 overflow-hidden pt-14">` blo
               threadId={threadId}
               isNewThread={isNewThread}
               isUploading={isUploading}
+              isMock={isMock}
+              chatOpen={chatOpen}
+              onChatOpenChange={setChatOpen}
               sendMessage={sendMessage}
               onStop={handleStop}
             />
           </main>
 ```
 
-Also simplify the header — remove the `<Button>` for toggling chat (no longer needed since chat rail is always visible in the new layout):
+The existing header `<Button>` that calls `setChatOpen` stays. It now drives `SubmarinePipeline`'s responsive chat toggle via the `chatOpen`/`onChatOpenChange` props.
 
-Find and remove:
+**Also update `SubmarinePipelineProps` in `submarine-pipeline.tsx`** to accept these two new props and thread them down to the internal state initializer:
+
 ```tsx
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setChatOpen((open) => !open)}
-              >
-                <MessageSquareIcon className="size-4" />
-                {chatOpen ? "收起聊天" : "展开聊天"}
-              </Button>
+interface SubmarinePipelineProps {
+  threadId: string;
+  isNewThread: boolean;
+  isUploading: boolean;
+  isMock?: boolean;
+  chatOpen?: boolean;             // controlled from page
+  onChatOpenChange?: (v: boolean) => void;
+  sendMessage: ...;
+  onStop: ...;
+}
 ```
 
-And remove unused imports: `MessageSquareIcon`, `useState` (if no longer used after removing `chatOpen`).
+And change the `chatOpen` state line in the component body:
+```tsx
+  const [chatOpenInternal, setChatOpenInternal] = useState(true);
+  const chatOpen = props.chatOpen ?? chatOpenInternal;
+  const setChatOpen = props.onChatOpenChange ?? setChatOpenInternal;
+```
 
-**Note:** `SubmarineLaunchpad` component at bottom of page.tsx can be removed — its "start conversation" prompt is superseded by the inline chat rail. Or it can be kept as an initial empty-state message above the stage pipeline. For this task, **leave `SubmarineLaunchpad` removed** (simplify the page).
+**Note:** `SubmarineLaunchpad` in page.tsx is no longer needed — its "start a conversation" prompt is replaced by the inline chat rail's `isNewThread` autoFocus. Remove it and its helper components (`RuntimePlaceholder`, `CollaborationStep`) from page.tsx.
 
 - [ ] **Step 5: Run type check and lint**
 
@@ -1948,10 +2067,12 @@ pnpm dev
 ```
 
 Navigate to `http://localhost:3000/workspace/submarine/new` and verify:
-- Activity Bar appears on left (48px)
-- Sidebar shows with "VibeCFD · DeerFlow" brand + new simulation button
-- Center shows stage pipeline
+- Existing WorkspaceSidebar still shows on the left (no duplicate shell)
+- Submarine sidebar shows "VibeCFD · DeerFlow" brand + stage nav + new simulation button
+- Center shows 5 stage cards
 - Right shows Claude Code chat rail
+- Resizing any panel persists after page reload (check localStorage for `submarine-pipeline-sidebar-size`)
+- On viewport < 1280px: sidebar hidden, chat rail hidden by default, toggle button visible
 - Page is not broken
 
 - [ ] **Step 7: Commit**
@@ -2037,24 +2158,22 @@ git commit -m "fix: address Codex review findings for submarine pipeline"
 
 | Spec section | Covered by |
 |-------------|-----------|
-| 3.1 Shell structure (4 panes) | SubmarinePipeline (Task 7) |
-| 3.2 Activity Bar | ActivityBar inside submarine-pipeline.tsx (Task 7) |
+| 3.1 Shell structure (3 panes inside workbench) | SubmarinePipeline ResizablePanelGroup (Task 7) |
+| 3.2 Activity Bar / workbench navigation | 已有 WorkspaceSidebar + WorkspaceNavChatList，不重复建；Task 6 已移除 |
 | 3.3 Color theme (light, stone/sky) | Tailwind classes throughout |
-| 4.1 Left sidebar | SubmarinePipelineSidebar (Task 3) |
+| 4.1 Left sidebar | SubmarinePipelineSidebar (Task 3)；run list 由 useThreads() 在 Task 7 内部查询 |
 | 4.2 Center stage cards (5 stages) | submarine-stage-cards.tsx (Task 5) |
 | 4.2 task-intelligence interactive | TaskIntelligenceCard + sendMessage (Task 5) |
 | 4.2 solver-dispatch Cd chart | SubmarineConvergenceChart + SolverDispatchCard (Tasks 4, 5) |
 | 4.2 result-reporting Cd display | ResultReportingCard (Task 5) |
 | 4.2 supervisor-review user confirm | SupervisorReviewCard (Task 5) |
-| 4.3 Chat rail (220-420px) | ResizablePanel in SubmarinePipeline (Task 7) |
+| 4.3 Chat rail (220-420px resizable) | ResizablePanel in SubmarinePipeline (Task 7) |
 | 6.1 Data sources (useThread, artifacts) | SubmarinePipeline data pipeline (Task 7) |
-| 7.1 Navigation rules | ActivityBar uses router.push; thread creation uses history.replaceState in page.tsx |
-| 7.2 Panel width persistence | `id` props on ResizablePanels (react-resizable-panels auto-persists via id in localStorage) |
-| 8. Migration boundary (providers preserved) | layout.tsx unchanged; page.tsx keeps ThreadContext, ChatBox wrappers |
-| 9. Responsive (xl breakpoint) | sidebar `hidden xl:flex`; chat rail always visible |
+| 7.1 Navigation rules | chatOpen/onChatOpenChange 桥接 page.tsx 现有 toggle；thread 创建用 history.replaceState（page.tsx 不变） |
+| 7.2 Panel width persistence | onLayoutChanged → localStorage；loadStoredPct → defaultLayout（Task 7） |
+| 8. Migration boundary (providers preserved) | layout.tsx / WorkspaceLayout 不动；page.tsx 保留 ThreadContext、ChatBox |
+| 9. Responsive (xl breakpoint) | < xl 单列 + chatOpen toggle；≥ xl ResizablePanelGroup |
 
-**No placeholders:** All code in every task is complete TypeScript, no "TBD" sections.
+**No placeholders:** 每个 task 的代码均完整，无 TBD。
 
-**Type consistency:** `StageRuntimeSnapshot` defined in `submarine-stage-cards.tsx` is a subset of `SubmarineRuntimeSnapshot` in `submarine-pipeline.tsx` — the pipeline maps to it via `stageSnapshot` useMemo. `sendMessage` signature from `useThreadStream` is `(threadId, message) => void | Promise<void>`, which matches the `onConfirm` prop type.
-
-**Known limitation:** The `SubmarineSolverMetrics` type's `cdHistory` field depends on `buildSubmarineTrendSeries` returning `{ cdHistory: number[] }`. Verify this field name exists in `submarine-runtime-panel.trends.ts` before Task 7 step 2. If the field is named differently (e.g., `values`), update `trendValues` derivation accordingly.
+**Type consistency:** `StageRuntimeSnapshot`（submarine-stage-cards.tsx）是 `SubmarineRuntimeSnapshot`（submarine-pipeline.tsx）的子集，通过 `stageSnapshot` useMemo 映射。`buildSubmarineTrendSeries` 返回 `SubmarineTrendSeries[]`，每条有 `id` + `values: TrendValue[]`，取 `id==="cd"` 的 `.values.map(v => v.value)` 得 `number[]`（已验证 trends.ts 类型）。
