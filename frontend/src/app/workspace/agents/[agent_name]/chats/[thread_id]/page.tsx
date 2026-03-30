@@ -43,13 +43,13 @@ export default function AgentChatPage() {
   const [thread, sendMessage] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
     context: { ...settings.context, agent_name: agent_name },
-    onStart: () => {
+    onStart: (createdThreadId) => {
       setIsNewThread(false);
       // ! Important: Never use next.js router for navigation in this case, otherwise it will cause the thread to re-mount and lose all states. Use native history API instead.
       history.replaceState(
         null,
         "",
-        `/workspace/agents/${agent_name}/chats/${threadId}`,
+        `/workspace/agents/${agent_name}/chats/${createdThreadId}`,
       );
     },
     onFinish: (state) => {

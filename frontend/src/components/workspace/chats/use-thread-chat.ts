@@ -5,25 +5,40 @@ import { useEffect, useState } from "react";
 
 import { uuid } from "@/core/utils/uuid";
 
+import { deriveThreadChatRouteState } from "./use-thread-chat.state";
+
 export function useThreadChat() {
   const { thread_id: threadIdFromPath } = useParams<{ thread_id: string }>();
   const pathname = usePathname();
 
   const searchParams = useSearchParams();
-  const [threadId, setThreadId] = useState(() => {
-    return threadIdFromPath === "new" ? uuid() : threadIdFromPath;
-  });
-
-  const [isNewThread, setIsNewThread] = useState(
-    () => threadIdFromPath === "new",
+  const [threadState, setThreadState] = useState(() =>
+    deriveThreadChatRouteState(threadIdFromPath, uuid),
   );
 
   useEffect(() => {
-    if (pathname.endsWith("/new")) {
-      setIsNewThread(true);
-      setThreadId(uuid());
-    }
-  }, [pathname]);
+    setThreadState((currentState) => {
+      const nextState = deriveThreadChatRouteState(threadIdFromPath, uuid);
+      if (
+        currentState.threadId === nextState.threadId &&
+        currentState.isNewThread === nextState.isNewThread
+      ) {
+        return currentState;
+      }
+      return nextState;
+    });
+  }, [pathname, threadIdFromPath]);
+
   const isMock = searchParams.get("mock") === "true";
-  return { threadId, isNewThread, setIsNewThread, isMock };
+  return {
+    isMock,
+    isNewThread: threadState.isNewThread,
+    setIsNewThread: (isNewThread: boolean) => {
+      setThreadState((currentState) => ({
+        ...currentState,
+        isNewThread,
+      }));
+    },
+    threadId: threadState.threadId,
+  };
 }

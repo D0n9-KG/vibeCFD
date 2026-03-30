@@ -17,6 +17,10 @@ import type { UploadedFileInfo } from "../uploads";
 import { uploadFiles } from "../uploads";
 
 import { getThreadErrorMessage } from "./error";
+import {
+  deriveThreadStreamBinding,
+  deriveThreadStreamSendState,
+} from "./use-thread-stream.state";
 import type { AgentThread, AgentThreadState } from "./types";
 
 export type ToolEndEvent = {
@@ -42,11 +46,16 @@ export function useThreadStream({
   onToolEnd,
 }: ThreadStreamOptions) {
   const { t } = useI18n();
+  const initialBinding = deriveThreadStreamBinding({
+    requestedThreadId: threadId,
+  });
   // Track the thread ID that is currently streaming to handle thread changes during streaming
-  const [onStreamThreadId, setOnStreamThreadId] = useState(() => threadId);
+  const [onStreamThreadId, setOnStreamThreadId] = useState(
+    () => initialBinding.streamThreadId,
+  );
   // Ref to track current thread ID across async callbacks without causing re-renders,
   // and to allow access to the current thread id in onUpdateEvent
-  const threadIdRef = useRef<string | null>(threadId ?? null);
+  const threadIdRef = useRef<string | null>(initialBinding.streamThreadId);
   const startedRef = useRef(false);
 
   const listeners = useRef({
@@ -61,13 +70,16 @@ export function useThreadStream({
   }, [onStart, onFinish, onToolEnd]);
 
   useEffect(() => {
-    const normalizedThreadId = threadId ?? null;
-    if (!normalizedThreadId) {
-      // Just reset for new thread creation when threadId becomes null/undefined
+    const binding = deriveThreadStreamBinding({
+      previousThreadId: threadIdRef.current,
+      requestedThreadId: threadId,
+    });
+
+    if (binding.shouldResetStarted) {
       startedRef.current = false;
-      setOnStreamThreadId(normalizedThreadId);
     }
-    threadIdRef.current = normalizedThreadId;
+    setOnStreamThreadId(binding.streamThreadId);
+    threadIdRef.current = binding.streamThreadId;
   }, [threadId]);
 
   const _handleOnStart = useCallback((id: string) => {
@@ -92,7 +104,7 @@ export function useThreadStream({
     client: getAPIClient(isMock),
     assistantId: "lead_agent",
     threadId: onStreamThreadId,
-    reconnectOnMount: true,
+    reconnectOnMount: onStreamThreadId !== null,
     fetchStateHistory: { limit: 1 },
     onCreated(meta) {
       handleStreamStart(meta.thread_id);
@@ -223,7 +235,13 @@ export function useThreadStream({
       }
       setOptimisticMessages(newOptimistic);
 
-      _handleOnStart(threadId);
+      const sendState = deriveThreadStreamSendState({
+        activeThreadId: threadIdRef.current,
+        requestedThreadId: threadId,
+      });
+      if (sendState.shouldSignalStartBeforeSubmit) {
+        _handleOnStart(threadId);
+      }
 
       let uploadedFileInfo: UploadedFileInfo[] = [];
 

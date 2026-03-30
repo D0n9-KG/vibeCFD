@@ -44,11 +44,11 @@ export default function SubmarineWorkbenchPage() {
     threadId: isNewThread ? undefined : threadId,
     context: settings.context,
     isMock,
-    onStart: () => {
+    onStart: (createdThreadId) => {
       setIsNewThread(false);
       const nextPath = isMock
-        ? `/workspace/submarine/${threadId}?mock=true`
-        : `/workspace/submarine/${threadId}`;
+        ? `/workspace/submarine/${createdThreadId}?mock=true`
+        : `/workspace/submarine/${createdThreadId}`;
       history.replaceState(null, "", nextPath);
     },
     onFinish: (state) => {
