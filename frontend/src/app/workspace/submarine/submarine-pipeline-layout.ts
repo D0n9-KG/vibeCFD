@@ -10,8 +10,8 @@ export const PIPELINE_CHAT_MIN_PX = 320;
 export const PIPELINE_CHAT_DEFAULT_PX = 380;
 export const PIPELINE_CHAT_MAX_PX = 480;
 
-export const PIPELINE_STORAGE_KEY_SIDEBAR = "submarine-pipeline-sidebar-size";
-export const PIPELINE_STORAGE_KEY_CHAT = "submarine-pipeline-chat-size";
+export const PIPELINE_STORAGE_KEY_SIDEBAR = "submarine-pipeline-sidebar-size-v2";
+export const PIPELINE_STORAGE_KEY_CHAT = "submarine-pipeline-chat-size-v2";
 
 export type PanelPercentSize = `${number}%`;
 export type PanelPixelSize = `${number}px`;
