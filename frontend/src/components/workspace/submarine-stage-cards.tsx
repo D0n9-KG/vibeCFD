@@ -20,7 +20,7 @@ import { type StageCardState, StageCard } from "./submarine-stage-card";
 export type StageRuntimeSnapshot = {
   current_stage?: string | null;
   task_summary?: string | null;
-  simulation_requirements?: Record<string, number | null> | null;
+  simulation_requirements?: SubmarineSimulationRequirements | null;
   stage_status?: string | null;
   review_status?: string | null;
   scientific_gate_status?: string | null;
@@ -97,9 +97,7 @@ export function TaskIntelligenceCard({
   }, [threadId, onConfirm]);
 
   const brief = designBrief;
-  const simReq: SubmarineSimulationRequirements | null | undefined =
-    brief?.simulation_requirements ??
-    (snapshot?.simulation_requirements as SubmarineSimulationRequirements | null | undefined);
+  const simReq = brief?.simulation_requirements ?? snapshot?.simulation_requirements;
   const caseId = brief?.selected_case_id ?? null;
   const openQuestions = brief?.open_questions ?? [];
 
