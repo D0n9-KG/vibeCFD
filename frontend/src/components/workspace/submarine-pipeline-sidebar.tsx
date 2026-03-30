@@ -71,7 +71,7 @@ export function SubmarinePipelineSidebar({
       </div>
 
       {/* Run list */}
-      <div className="max-h-48 overflow-y-auto px-2.5 pb-1 pt-2">
+      <div className="px-2.5 pb-1 pt-2">
         <div className="mb-1 px-1.5 text-[10px] font-semibold uppercase tracking-widest text-stone-400">
           仿真任务
         </div>
