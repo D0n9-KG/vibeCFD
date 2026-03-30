@@ -1259,11 +1259,11 @@ git commit -m "feat: add submarine stage card components (5 stages)"
 
 ---
 
-## Task 6: (Removed — Activity Bar is already in WorkspaceLayout)
+## Task 6: (Removed — Activity Bar deferred to Plan B)
 
-The existing `WorkspaceSidebar` (rendered by `WorkspaceLayout`) already handles workbench switching between VibeCFD / Skill Studio / 通用对话 via `WorkspaceNavChatList`. Adding a duplicate Activity Bar inside `SubmarinePipeline` would create a nested navigation shell that conflicts with the existing `SidebarProvider`.
+The existing `WorkspaceSidebar` (rendered by `WorkspaceLayout`) provides basic workbench switching links. It currently links to `/workspace/submarine/new` and `/workspace/skill-studio` without restore-last-thread logic. Adding a full Activity Bar with restore behavior is intentionally deferred to Plan B (Skill Studio workbench plan).
 
-**Decision:** No Activity Bar in `SubmarinePipeline`. The submarine-specific sidebar (run list + stage nav) is sufficient. Workbench navigation remains in the existing `WorkspaceSidebar`.
+**Decision:** No Activity Bar in `SubmarinePipeline`. The submarine-specific sidebar (run list + stage nav) is sufficient for Phase 1. This plan reuses the current `WorkspaceSidebar` as-is; navigation refinement (restore-last-thread, active-workbench highlight) is a Plan B concern.
 
 ---
 
@@ -1285,6 +1285,7 @@ This is the main component that replaces `SubmarineRuntimePanel`. It contains:
 // src/components/workspace/submarine-pipeline.tsx
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
@@ -1418,6 +1419,7 @@ export function SubmarinePipeline({
   sendMessage,
   onStop,
 }: SubmarinePipelineProps) {
+  const router = useRouter();
   const { thread } = useThread();
   const [settings, setSettings] = useLocalSettings();
   const layoutConfig = useMemo(() => getPipelineLayoutConfig(), []);
@@ -1597,29 +1599,14 @@ export function SubmarinePipeline({
   }, []);
 
   const handleNewSimulation = useCallback(() => {
-    history.pushState(null, "", "/workspace/submarine/new");
-    window.location.href = "/workspace/submarine/new";
-  }, []);
+    router.push("/workspace/submarine/new");
+  }, [router]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   // xl+ : 3 panes (sidebar + center + chat)
-  // < xl : single column — center only, chat toggle button in header
+  // < xl : single column — center only; chat toggle owned by page.tsx header button
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {/* < xl header with chat toggle */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-stone-200 px-4 py-2 xl:hidden">
-        <span className="flex-1 truncate text-[13px] font-semibold text-stone-900">
-          {thread.title ?? "仿真任务"}
-        </span>
-        <button
-          type="button"
-          className="rounded-md border border-stone-200 px-3 py-1 text-[12px] text-stone-600 hover:bg-stone-50"
-          onClick={() => setChatOpen((v) => !v)}
-        >
-          {chatOpen ? "收起聊天" : "展开聊天"}
-        </button>
-      </div>
-
       {/* 3-pane resizable layout — full height on xl, flex column on mobile */}
       <div className="min-h-0 flex-1 xl:hidden">
         {/* Mobile: center always visible, chat rail below toggle */}
