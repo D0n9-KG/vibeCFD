@@ -1,19 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { Message } from "@langchain/langgraph-sdk";
+
+import type { AgentThread } from "./types.ts";
 
 import {
+  deriveOptimisticMessagesAfterUpload,
+  deriveThreadsAfterWorkbenchStart,
   deriveThreadStreamBinding,
   deriveThreadStreamSendState,
 } from "./use-thread-stream.state.ts";
 
-test("deriveThreadStreamBinding disables reconnect when the route has no thread id", () => {
+test("deriveThreadStreamBinding keeps reconnect enabled for new-thread routes so active runs can rejoin after navigation", () => {
   assert.deepEqual(
     deriveThreadStreamBinding({
       previousThreadId: "old-thread",
       requestedThreadId: undefined,
     }),
     {
-      reconnectOnMount: false,
+      reconnectOnMount: true,
       shouldResetStarted: true,
       streamThreadId: null,
     },
@@ -69,5 +74,100 @@ test("deriveThreadStreamSendState eagerly signals start for existing threads", (
     {
       shouldSignalStartBeforeSubmit: true,
     },
+  );
+});
+
+test("deriveOptimisticMessagesAfterUpload removes the stale uploading placeholder once files are uploaded", () => {
+  const optimisticMessages: Message[] = [
+    {
+      type: "human",
+      id: "opt-human",
+      content: [{ type: "text", text: "Inspect the uploaded STL." }],
+      additional_kwargs: {
+        files: [
+          {
+            filename: "suboff_solid.stl",
+            size: 0,
+            status: "uploading",
+          },
+        ],
+      },
+    },
+    {
+      type: "ai",
+      id: "opt-ai",
+      content: "文件上传中，请稍候...",
+      additional_kwargs: { element: "task" },
+    },
+  ];
+
+  assert.deepEqual(
+    deriveOptimisticMessagesAfterUpload({
+      optimisticMessages,
+      uploadedFiles: [
+        {
+          filename: "suboff_solid.stl",
+          size: 1638084,
+          path: "/mnt/user-data/uploads/suboff_solid.stl",
+          status: "uploaded",
+        },
+      ],
+    }),
+    [
+      {
+        type: "human",
+        id: "opt-human",
+        content: [{ type: "text", text: "Inspect the uploaded STL." }],
+        additional_kwargs: {
+          files: [
+            {
+              filename: "suboff_solid.stl",
+              size: 1638084,
+              path: "/mnt/user-data/uploads/suboff_solid.stl",
+              status: "uploaded",
+            },
+          ],
+        },
+      },
+    ],
+  );
+});
+
+test("deriveThreadsAfterWorkbenchStart patches a created thread with a persisted workbench kind", () => {
+  assert.deepEqual(
+    deriveThreadsAfterWorkbenchStart({
+      threads: [
+        {
+          thread_id: "new-submarine-thread",
+          created_at: "2026-03-31T00:00:00.000Z",
+          updated_at: "2026-03-31T00:00:00.000Z",
+          status: "busy",
+          metadata: {},
+          values: null,
+          interrupts: {},
+        } as unknown as AgentThread,
+      ],
+      threadId: "new-submarine-thread",
+      workbenchKind: "submarine",
+      updatedAt: "2026-03-31T00:00:01.000Z",
+    }),
+    [
+      {
+        thread_id: "new-submarine-thread",
+        created_at: "2026-03-31T00:00:00.000Z",
+        updated_at: "2026-03-31T00:00:01.000Z",
+        status: "busy",
+        metadata: {},
+        interrupts: {},
+        config: undefined,
+        error: undefined,
+        values: {
+          artifacts: [],
+          messages: [],
+          title: "Untitled",
+          workspace_kind: "submarine",
+        },
+      },
+    ],
   );
 });

@@ -37,20 +37,15 @@ export default function AgentChatPage() {
 
   const { agent } = useAgent(agent_name);
 
-  const { threadId, isNewThread, setIsNewThread } = useThreadChat();
+  const { threadId, isNewThread, markThreadStarted } = useThreadChat();
 
   const { showNotification } = useNotification();
   const [thread, sendMessage] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
     context: { ...settings.context, agent_name: agent_name },
     onStart: (createdThreadId) => {
-      setIsNewThread(false);
-      // ! Important: Never use next.js router for navigation in this case, otherwise it will cause the thread to re-mount and lose all states. Use native history API instead.
-      history.replaceState(
-        null,
-        "",
-        `/workspace/agents/${agent_name}/chats/${createdThreadId}`,
-      );
+      markThreadStarted(createdThreadId);
+      router.replace(`/workspace/agents/${agent_name}/chats/${createdThreadId}`);
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import asyncio
+import types
+from types import SimpleNamespace
 
 import pytest
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
 
 from deerflow.models.claude_provider import ClaudeChatModel
 from deerflow.models.credential_loader import ClaudeCodeCredential, CodexCliCredential, OpenAIApiCredential
@@ -119,6 +123,297 @@ def test_openai_cli_provider_applies_loaded_base_url(monkeypatch):
     model = OpenAICliChatModel(model="gpt-5.4")
 
     assert model.openai_api_base == "https://gateway.example/v1"
+
+
+def test_openai_cli_provider_parses_sse_text_response(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+
+    sse_payload = "\n\n".join(
+        [
+            "event: response.created\ndata: "
+            + json.dumps(
+                {
+                    "type": "response.created",
+                    "response": {
+                        "id": "resp_123",
+                        "model": "gpt-5.4",
+                        "output": [],
+                        "usage": {},
+                    },
+                }
+            ),
+            "event: response.completed\ndata: "
+            + json.dumps(
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "id": "resp_123",
+                        "model": "gpt-5.4",
+                        "output": [
+                            {
+                                "type": "message",
+                                "role": "assistant",
+                                "content": [
+                                    {
+                                        "type": "output_text",
+                                        "text": "DEFAULT_OK",
+                                        "annotations": [],
+                                    }
+                                ],
+                            }
+                        ],
+                        "usage": {
+                            "input_tokens": 12,
+                            "output_tokens": 3,
+                            "total_tokens": 15,
+                        },
+                    },
+                }
+            ),
+        ]
+    )
+
+    normalized = model._normalize_responses_api_response(sse_payload)
+    result = model._build_chat_result_from_response_dict(normalized)
+
+    assert result.generations[0].message.content == "DEFAULT_OK"
+    assert result.llm_output["token_usage"] == {
+        "prompt_tokens": 12,
+        "completion_tokens": 3,
+        "total_tokens": 15,
+    }
+
+
+def test_openai_cli_provider_parses_sse_tool_response(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+
+    sse_payload = "\n\n".join(
+        [
+            "event: response.created\ndata: "
+            + json.dumps(
+                {
+                    "type": "response.created",
+                    "response": {
+                        "id": "resp_tool",
+                        "model": "gpt-5.4",
+                        "output": [],
+                        "usage": {},
+                    },
+                }
+            ),
+            "event: response.completed\ndata: "
+            + json.dumps(
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "id": "resp_tool",
+                        "model": "gpt-5.4",
+                        "output": [
+                            {
+                                "type": "function_call",
+                                "name": "echo_text",
+                                "arguments": json.dumps({"text": "DEFAULT_OK"}),
+                                "call_id": "call_123",
+                            }
+                        ],
+                        "usage": {
+                            "input_tokens": 22,
+                            "output_tokens": 8,
+                            "total_tokens": 30,
+                        },
+                    },
+                }
+            ),
+        ]
+    )
+
+    normalized = model._normalize_responses_api_response(sse_payload)
+    result = model._build_chat_result_from_response_dict(normalized)
+
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "echo_text",
+            "args": {"text": "DEFAULT_OK"},
+            "id": "call_123",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_generate_handles_sse_string_response(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+
+    sse_payload = "\n\n".join(
+        [
+            "event: response.created\ndata: "
+            + json.dumps(
+                {
+                    "type": "response.created",
+                    "response": {
+                        "id": "resp_456",
+                        "model": "gpt-5.4",
+                        "output": [],
+                        "usage": {},
+                    },
+                }
+            ),
+            "event: response.completed\ndata: "
+            + json.dumps(
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "id": "resp_456",
+                        "model": "gpt-5.4",
+                        "output": [
+                            {
+                                "type": "message",
+                                "role": "assistant",
+                                "content": [
+                                    {
+                                        "type": "output_text",
+                                        "text": "DEFAULT_OK",
+                                        "annotations": [],
+                                    }
+                                ],
+                            }
+                        ],
+                        "usage": {
+                            "input_tokens": 12,
+                            "output_tokens": 3,
+                            "total_tokens": 15,
+                        },
+                    },
+                }
+            ),
+        ]
+    )
+
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(create=lambda **_: sse_payload),
+    )
+
+    result = model._generate([HumanMessage(content="Reply with exactly DEFAULT_OK")])
+
+    assert result.generations[0].message.content == "DEFAULT_OK"
+
+
+def test_openai_cli_provider_stream_uses_non_stream_fallback(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    chat_result = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(
+                    content="DEFAULT_OK",
+                    response_metadata={
+                        "model": "gpt-5.4",
+                        "usage": {"input_tokens": 12, "output_tokens": 3, "total_tokens": 15},
+                    },
+                )
+            )
+        ],
+        llm_output={"model_name": "gpt-5.4"},
+    )
+
+    monkeypatch.setattr(
+        model,
+        "_generate",
+        lambda messages, stop=None, run_manager=None, **kwargs: chat_result,
+    )
+
+    chunks = list(model._stream([HumanMessage(content="Reply with exactly DEFAULT_OK")]))
+
+    assert len(chunks) == 1
+    assert chunks[0].message.content == "DEFAULT_OK"
+    assert chunks[0].message.chunk_position == "last"
+
+
+def test_openai_cli_provider_astream_uses_non_stream_fallback(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    chat_result = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "echo_text",
+                            "args": {"text": "DEFAULT_OK"},
+                            "id": "call_123",
+                            "type": "tool_call",
+                        }
+                    ],
+                    response_metadata={
+                        "model": "gpt-5.4",
+                        "usage": {"input_tokens": 22, "output_tokens": 8, "total_tokens": 30},
+                    },
+                )
+            )
+        ],
+        llm_output={"model_name": "gpt-5.4"},
+    )
+
+    async def _fake_agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        return chat_result
+
+    monkeypatch.setattr(model, "_agenerate", types.MethodType(_fake_agenerate, model))
+
+    async def _collect():
+        collected = []
+        async for chunk in model._astream([HumanMessage(content="Call echo_text with text DEFAULT_OK")]):
+            collected.append(chunk)
+        return collected
+
+    chunks = asyncio.run(_collect())
+
+    assert len(chunks) == 1
+    assert chunks[0].message.tool_calls == [
+        {
+            "name": "echo_text",
+            "args": {"text": "DEFAULT_OK"},
+            "id": "call_123",
+            "type": "tool_call",
+        }
+    ]
 
 
 def test_codex_provider_skips_terminal_sse_markers(monkeypatch):

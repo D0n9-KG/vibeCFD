@@ -18,10 +18,16 @@ import { uploadFiles } from "../uploads";
 
 import { getThreadErrorMessage } from "./error";
 import {
+  deriveOptimisticMessagesAfterUpload,
+  deriveThreadsAfterWorkbenchStart,
   deriveThreadStreamBinding,
   deriveThreadStreamSendState,
 } from "./use-thread-stream.state";
 import type { AgentThread, AgentThreadState } from "./types";
+import {
+  rememberWorkbenchKindForThread,
+  type ThreadWorkbenchKind,
+} from "./utils";
 
 export type ToolEndEvent = {
   name: string;
@@ -32,6 +38,7 @@ export type ThreadStreamOptions = {
   threadId?: string | null | undefined;
   context: LocalSettings["context"];
   isMock?: boolean;
+  workbenchKind?: Exclude<ThreadWorkbenchKind, "chat">;
   onStart?: (threadId: string) => void;
   onFinish?: (state: AgentThreadState) => void;
   onToolEnd?: (event: ToolEndEvent) => void;
@@ -41,6 +48,7 @@ export function useThreadStream({
   threadId,
   context,
   isMock,
+  workbenchKind,
   onStart,
   onFinish,
   onToolEnd,
@@ -99,14 +107,52 @@ export function useThreadStream({
 
   const queryClient = useQueryClient();
   const updateSubtask = useUpdateSubtask();
+  const apiClient = getAPIClient(isMock);
+
+  useEffect(() => {
+    if (threadId && workbenchKind) {
+      rememberWorkbenchKindForThread(threadId, workbenchKind);
+    }
+  }, [threadId, workbenchKind]);
+
+  const tagStartedWorkbenchThread = useCallback(
+    (startedThreadId: string) => {
+      if (!workbenchKind) {
+        return;
+      }
+
+      rememberWorkbenchKindForThread(startedThreadId, workbenchKind);
+
+      const updatedAt = new Date().toISOString();
+      void queryClient.setQueriesData(
+        {
+          queryKey: ["threads", "search"],
+          exact: false,
+        },
+        (oldData: Array<AgentThread> | undefined) => {
+          if (oldData == null) {
+            return oldData;
+          }
+          return deriveThreadsAfterWorkbenchStart({
+            threads: oldData,
+            threadId: startedThreadId,
+            workbenchKind,
+            updatedAt,
+          });
+        },
+      );
+    },
+    [queryClient, workbenchKind],
+  );
 
   const thread = useStream<AgentThreadState>({
-    client: getAPIClient(isMock),
+    client: apiClient,
     assistantId: "lead_agent",
     threadId: onStreamThreadId,
-    reconnectOnMount: onStreamThreadId !== null,
+    reconnectOnMount: initialBinding.reconnectOnMount,
     fetchStateHistory: { limit: 1 },
     onCreated(meta) {
+      tagStartedWorkbenchThread(meta.thread_id);
       handleStreamStart(meta.thread_id);
       setOnStreamThreadId(meta.thread_id);
     },
@@ -302,19 +348,12 @@ export function useThreadStream({
                   status: "uploaded" as const,
                 }),
               );
-              setOptimisticMessages((messages) => {
-                if (messages.length > 1 && messages[0]) {
-                  const humanMessage: Message = messages[0];
-                  return [
-                    {
-                      ...humanMessage,
-                      additional_kwargs: { files: uploadedFiles },
-                    },
-                    ...messages.slice(1),
-                  ];
-                }
-                return messages;
-              });
+              setOptimisticMessages((messages) =>
+                deriveOptimisticMessagesAfterUpload({
+                  optimisticMessages: messages,
+                  uploadedFiles,
+                }),
+              );
             }
           } catch (error) {
             console.error("Failed to upload files:", error);
@@ -426,7 +465,8 @@ export function useThreads(
       // Preserve prior semantics: if a non-positive limit is explicitly provided,
       // delegate to a single search call with the original parameters.
       if (maxResults !== undefined && maxResults <= 0) {
-        const response = await apiClient.threads.search<AgentThreadState>(params);
+        const response =
+          await apiClient.threads.search<AgentThreadState>(params);
         return response as AgentThread[];
       }
 

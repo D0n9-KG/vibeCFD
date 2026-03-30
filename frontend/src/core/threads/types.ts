@@ -7,6 +7,7 @@ export interface AgentThreadState extends Record<string, unknown> {
   messages: Message[];
   artifacts: string[];
   todos?: Todo[];
+  workspace_kind?: "submarine" | "skill-studio";
   submarine_runtime?: Record<string, unknown>;
   submarine_skill_studio?: {
     skill_name?: string;

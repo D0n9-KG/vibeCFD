@@ -60,54 +60,10 @@ import {
 } from "@/core/threads/utils";
 import { env } from "@/env";
 
-type ThreadGroup = {
-  label: string;
-  threads: AgentThread[];
-};
-
-function classifyThreads(threads: AgentThread[]): ThreadGroup[] {
-  const cfd: AgentThread[] = [];
-  const skill: AgentThread[] = [];
-  const chat: AgentThread[] = [];
-
-  for (const thread of threads) {
-    const hasCfdRuntime =
-      thread.values?.submarine_runtime != null &&
-      typeof thread.values.submarine_runtime === "object";
-    const hasSkillStudio =
-      thread.values?.submarine_skill_studio != null &&
-      typeof thread.values.submarine_skill_studio === "object";
-    const artifacts = thread.values?.artifacts;
-    const hasCfdArtifact =
-      Array.isArray(artifacts) &&
-      artifacts.some(
-        (a) =>
-          typeof a === "string" &&
-          a.includes("/submarine/") &&
-          !a.includes("/submarine/skill-studio/"),
-      );
-    const hasSkillArtifact =
-      Array.isArray(artifacts) &&
-      artifacts.some(
-        (a) =>
-          typeof a === "string" && a.includes("/submarine/skill-studio/"),
-      );
-
-    if (hasCfdRuntime || hasCfdArtifact) {
-      cfd.push(thread);
-    } else if (hasSkillStudio || hasSkillArtifact) {
-      skill.push(thread);
-    } else {
-      chat.push(thread);
-    }
-  }
-
-  return [
-    { label: "仿真任务", threads: cfd },
-    { label: "Skill 创建", threads: skill },
-    { label: "通用对话", threads: chat },
-  ].filter((g) => g.threads.length > 0);
-}
+import {
+  classifyThreadsForSidebar,
+  labelOfSidebarThreadGroup,
+} from "./recent-chat-list.state";
 
 export function RecentChatList() {
   const { t } = useI18n();
@@ -122,7 +78,7 @@ export function RecentChatList() {
   const [renameThreadId, setRenameThreadId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  const groups = useMemo(() => classifyThreads(threads), [threads]);
+  const groups = useMemo(() => classifyThreadsForSidebar(threads), [threads]);
 
   const handleDelete = useCallback(
     (threadId: string) => {
@@ -184,8 +140,10 @@ export function RecentChatList() {
   return (
     <>
       {groups.map((group) => (
-        <SidebarGroup key={group.label}>
-          <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+        <SidebarGroup key={group.kind}>
+          <SidebarGroupLabel>
+            {labelOfSidebarThreadGroup(group.kind)}
+          </SidebarGroupLabel>
           <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
             <SidebarMenu>
               <div className="flex w-full flex-col gap-1">
@@ -213,7 +171,9 @@ export function RecentChatList() {
                                   className="bg-background/50 hover:bg-background"
                                 >
                                   <MoreHorizontal />
-                                  <span className="sr-only">{t.common.more}</span>
+                                  <span className="sr-only">
+                                    {t.common.more}
+                                  </span>
                                 </SidebarMenuAction>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent
@@ -258,7 +218,9 @@ export function RecentChatList() {
                                 </DropdownMenuSub>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
-                                  onSelect={() => handleDelete(thread.thread_id)}
+                                  onSelect={() =>
+                                    handleDelete(thread.thread_id)
+                                  }
                                 >
                                   <Trash2 className="text-muted-foreground" />
                                   <span>{t.common.delete}</span>
@@ -295,7 +257,10 @@ export function RecentChatList() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setRenameDialogOpen(false)}
+            >
               {t.common.cancel}
             </Button>
             <Button onClick={handleRenameSubmit}>{t.common.save}</Button>

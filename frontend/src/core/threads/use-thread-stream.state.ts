@@ -1,3 +1,9 @@
+import type { Message } from "@langchain/langgraph-sdk";
+
+import type { FileInMessage } from "../messages/utils";
+import type { ThreadWorkbenchKind } from "./utils";
+import type { AgentThread } from "./types";
+
 export function deriveThreadStreamBinding({
   previousThreadId,
   requestedThreadId,
@@ -8,7 +14,9 @@ export function deriveThreadStreamBinding({
   const streamThreadId = requestedThreadId ?? null;
 
   return {
-    reconnectOnMount: streamThreadId !== null,
+    // useStream only reads reconnectOnMount on the initial mount, so new-thread
+    // routes must opt in immediately to preserve resumable run metadata.
+    reconnectOnMount: true,
     shouldResetStarted: (previousThreadId ?? null) !== streamThreadId,
     streamThreadId,
   };
@@ -25,4 +33,73 @@ export function deriveThreadStreamSendState({
     shouldSignalStartBeforeSubmit:
       (activeThreadId ?? null) === requestedThreadId,
   };
+}
+
+export function deriveOptimisticMessagesAfterUpload({
+  optimisticMessages,
+  uploadedFiles,
+}: {
+  optimisticMessages: Message[];
+  uploadedFiles: FileInMessage[];
+}) {
+  const [firstMessage, ...remainingMessages] = optimisticMessages;
+  if (!firstMessage || firstMessage.type !== "human") {
+    return optimisticMessages;
+  }
+
+  const nextHumanMessage: Message = {
+    ...firstMessage,
+    additional_kwargs: {
+      ...firstMessage.additional_kwargs,
+      files: uploadedFiles,
+    },
+  };
+
+  return [
+    nextHumanMessage,
+    ...remainingMessages.filter(
+      (message) => message.additional_kwargs?.element !== "task",
+    ),
+  ];
+}
+
+export function deriveThreadsAfterWorkbenchStart({
+  threads,
+  threadId,
+  workbenchKind,
+  updatedAt,
+}: {
+  threads: AgentThread[];
+  threadId: string;
+  workbenchKind: Exclude<ThreadWorkbenchKind, "chat">;
+  updatedAt: string;
+}) {
+  const normalizeThread = (thread?: AgentThread): AgentThread => ({
+    thread_id: thread?.thread_id ?? threadId,
+    created_at: thread?.created_at ?? updatedAt,
+    updated_at: updatedAt,
+    status: thread?.status ?? "busy",
+    metadata: thread?.metadata ?? {},
+    interrupts: thread?.interrupts ?? {},
+    config: thread?.config,
+    error: thread?.error,
+    values: {
+      title: thread?.values?.title ?? "Untitled",
+      messages: thread?.values?.messages ?? [],
+      artifacts: thread?.values?.artifacts ?? [],
+      ...thread?.values,
+      workspace_kind: workbenchKind,
+    },
+  });
+
+  const existingIndex = threads.findIndex(
+    (thread) => thread.thread_id === threadId,
+  );
+  if (existingIndex < 0) {
+    return [normalizeThread(), ...threads];
+  }
+
+  return threads.map((thread) =>
+    thread.thread_id === threadId ? normalizeThread(thread) : thread,
+  );
 }

@@ -6,19 +6,49 @@ export function pathOfThread(threadId: string) {
   return `/workspace/chats/${threadId}`;
 }
 
-export function pathOfThreadByState(thread: AgentThread): string {
-  const id = thread.thread_id;
+export type ThreadWorkbenchKind = "submarine" | "skill-studio" | "chat";
+const rememberedWorkbenchKinds = new Map<
+  string,
+  Exclude<ThreadWorkbenchKind, "chat">
+>();
+
+export function rememberWorkbenchKindForThread(
+  threadId: string,
+  workbenchKind: Exclude<ThreadWorkbenchKind, "chat">,
+) {
+  rememberedWorkbenchKinds.set(threadId, workbenchKind);
+}
+
+export function forgetWorkbenchKindForThread(threadId: string) {
+  rememberedWorkbenchKinds.delete(threadId);
+}
+
+export function workbenchKindOfThread(
+  thread: AgentThread,
+): ThreadWorkbenchKind {
+  if (
+    thread.values?.workspace_kind === "submarine" ||
+    thread.values?.workspace_kind === "skill-studio"
+  ) {
+    return thread.values.workspace_kind;
+  }
+  const rememberedWorkbenchKind = rememberedWorkbenchKinds.get(
+    thread.thread_id,
+  );
+  if (rememberedWorkbenchKind) {
+    return rememberedWorkbenchKind;
+  }
   if (
     thread.values?.submarine_runtime != null &&
     typeof thread.values.submarine_runtime === "object"
   ) {
-    return `/workspace/submarine/${id}`;
+    return "submarine";
   }
   if (
     thread.values?.submarine_skill_studio != null &&
     typeof thread.values.submarine_skill_studio === "object"
   ) {
-    return `/workspace/skill-studio/${id}`;
+    return "skill-studio";
   }
   const artifacts = thread.values?.artifacts;
   if (Array.isArray(artifacts)) {
@@ -28,13 +58,25 @@ export function pathOfThreadByState(thread: AgentThread): string {
         a.includes("/submarine/") &&
         !a.includes("/submarine/skill-studio/"),
     );
-    if (hasCfd) return `/workspace/submarine/${id}`;
+    if (hasCfd) return "submarine";
     const hasSkillStudio = artifacts.some(
       (a) => typeof a === "string" && a.includes("/submarine/skill-studio/"),
     );
-    if (hasSkillStudio) return `/workspace/skill-studio/${id}`;
+    if (hasSkillStudio) return "skill-studio";
   }
-  return `/workspace/chats/${id}`;
+  return "chat";
+}
+
+export function pathOfThreadByState(thread: AgentThread): string {
+  const id = thread.thread_id;
+  switch (workbenchKindOfThread(thread)) {
+    case "submarine":
+      return `/workspace/submarine/${id}`;
+    case "skill-studio":
+      return `/workspace/skill-studio/${id}`;
+    default:
+      return `/workspace/chats/${id}`;
+  }
 }
 
 export function pathAfterThreadDeletion(
@@ -51,14 +93,14 @@ export function pathAfterThreadDeletion(
     return pathOfThreadByState(nextThread);
   }
 
-  const deletedPath = pathOfThreadByState(threads[threadIndex]!);
-  if (deletedPath.startsWith("/workspace/submarine/")) {
-    return "/workspace/submarine/new";
+  switch (workbenchKindOfThread(threads[threadIndex]!)) {
+    case "submarine":
+      return "/workspace/submarine/new";
+    case "skill-studio":
+      return "/workspace/skill-studio";
+    default:
+      return "/workspace/chats/new";
   }
-  if (deletedPath.startsWith("/workspace/skill-studio/")) {
-    return "/workspace/skill-studio";
-  }
-  return "/workspace/chats/new";
 }
 
 export function textOfMessage(message: Message) {

@@ -5,7 +5,10 @@ import { useEffect, useState } from "react";
 
 import { uuid } from "@/core/utils/uuid";
 
-import { deriveThreadChatRouteState } from "./use-thread-chat.state";
+import {
+  deriveStartedThreadChatState,
+  deriveThreadChatRouteState,
+} from "./use-thread-chat.state";
 
 export function useThreadChat() {
   const { thread_id: threadIdFromPath } = useParams<{ thread_id: string }>();
@@ -33,6 +36,9 @@ export function useThreadChat() {
   return {
     isMock,
     isNewThread: threadState.isNewThread,
+    markThreadStarted: (createdThreadId: string) => {
+      setThreadState(deriveStartedThreadChatState(createdThreadId));
+    },
     setIsNewThread: (isNewThread: boolean) => {
       setThreadState((currentState) => ({
         ...currentState,

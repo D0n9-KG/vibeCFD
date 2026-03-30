@@ -3,9 +3,13 @@ import test from "node:test";
 
 import type { AgentThread } from "./types";
 
-const { pathAfterThreadDeletion, pathOfThreadByState } = await import(
-  new URL("./utils.ts", import.meta.url).href
-);
+const {
+  pathAfterThreadDeletion,
+  pathOfThreadByState,
+  rememberWorkbenchKindForThread,
+  forgetWorkbenchKindForThread,
+  workbenchKindOfThread,
+} = await import(new URL("./utils.ts", import.meta.url).href);
 
 function makeThread(
   threadId: string,
@@ -31,10 +35,7 @@ void test("pathOfThreadByState routes submarine runtime threads to the submarine
     submarine_runtime: { current_stage: "solver-dispatch" },
   });
 
-  assert.equal(
-    pathOfThreadByState(thread),
-    "/workspace/submarine/cfd-thread",
-  );
+  assert.equal(pathOfThreadByState(thread), "/workspace/submarine/cfd-thread");
 });
 
 void test("pathOfThreadByState routes skill studio threads to the skill workbench", () => {
@@ -46,6 +47,44 @@ void test("pathOfThreadByState routes skill studio threads to the skill workbenc
     pathOfThreadByState(thread),
     "/workspace/skill-studio/skill-thread",
   );
+});
+
+void test("pathOfThreadByState respects persisted workbench kind before runtime state arrives", () => {
+  const submarineThread = makeThread("tagged-submarine", {
+    workspace_kind: "submarine",
+  });
+  const skillThread = makeThread("tagged-skill", {
+    workspace_kind: "skill-studio",
+  });
+
+  assert.equal(workbenchKindOfThread(submarineThread), "submarine");
+  assert.equal(
+    pathOfThreadByState(submarineThread),
+    "/workspace/submarine/tagged-submarine",
+  );
+  assert.equal(workbenchKindOfThread(skillThread), "skill-studio");
+  assert.equal(
+    pathOfThreadByState(skillThread),
+    "/workspace/skill-studio/tagged-skill",
+  );
+});
+
+void test("workbenchKindOfThread uses remembered workbench routing while thread search state is still empty", () => {
+  const thread = makeThread("remembered-submarine", {
+    title: "Untitled",
+    messages: [],
+    artifacts: [],
+  });
+
+  rememberWorkbenchKindForThread("remembered-submarine", "submarine");
+
+  assert.equal(workbenchKindOfThread(thread), "submarine");
+  assert.equal(
+    pathOfThreadByState(thread),
+    "/workspace/submarine/remembered-submarine",
+  );
+
+  forgetWorkbenchKindForThread("remembered-submarine");
 });
 
 void test("pathOfThreadByState uses artifact prefixes when runtime state is absent", () => {
@@ -65,7 +104,10 @@ void test("pathOfThreadByState uses artifact prefixes when runtime state is abse
     pathOfThreadByState(skillThread),
     "/workspace/skill-studio/artifact-skill",
   );
-  assert.equal(pathOfThreadByState(chatThread), "/workspace/chats/artifact-chat");
+  assert.equal(
+    pathOfThreadByState(chatThread),
+    "/workspace/chats/artifact-chat",
+  );
 });
 
 void test("pathAfterThreadDeletion routes to the next available thread", () => {
@@ -87,7 +129,11 @@ void test("pathAfterThreadDeletion routes to the next available thread", () => {
 void test("pathAfterThreadDeletion falls back to a matching workbench when the deleted thread was the last one", () => {
   assert.equal(
     pathAfterThreadDeletion(
-      [makeThread("only-cfd", { submarine_runtime: { current_stage: "done" } })],
+      [
+        makeThread("only-cfd", {
+          submarine_runtime: { current_stage: "done" },
+        }),
+      ],
       "only-cfd",
     ),
     "/workspace/submarine/new",

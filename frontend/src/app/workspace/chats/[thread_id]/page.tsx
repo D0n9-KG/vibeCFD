@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
@@ -33,8 +34,9 @@ import { getChatPageLayout } from "../chat-layout";
 export default function ChatPage() {
   const { t } = useI18n();
   const [settings, setSettings] = useLocalSettings();
+  const router = useRouter();
 
-  const { threadId, isNewThread, setIsNewThread, isMock } = useThreadChat();
+  const { threadId, isNewThread, markThreadStarted, isMock } = useThreadChat();
   useSpecificChatMode();
 
   const { showNotification } = useNotification();
@@ -44,9 +46,8 @@ export default function ChatPage() {
     context: settings.context,
     isMock,
     onStart: (createdThreadId) => {
-      setIsNewThread(false);
-      // ! Important: Never use next.js router for navigation in this case, otherwise it will cause the thread to re-mount and lose all states. Use native history API instead.
-      history.replaceState(null, "", `/workspace/chats/${createdThreadId}`);
+      markThreadStarted(createdThreadId);
+      router.replace(`/workspace/chats/${createdThreadId}`);
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {

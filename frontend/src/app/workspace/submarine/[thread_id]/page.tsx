@@ -1,17 +1,14 @@
 "use client";
 
-import {
-  MessageSquareIcon,
-  WavesIcon,
-} from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { MessageSquareIcon, WavesIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { ArtifactTrigger, useArtifacts } from "@/components/workspace/artifacts";
+import {
+  ArtifactTrigger,
+  useArtifacts,
+} from "@/components/workspace/artifacts";
 import {
   ChatBox,
   useSpecificChatMode,
@@ -28,8 +25,9 @@ import { useThreadStream } from "@/core/threads/hooks";
 import { textOfMessage } from "@/core/threads/utils";
 
 export default function SubmarineWorkbenchPage() {
+  const router = useRouter();
   const [settings] = useLocalSettings();
-  const { threadId, isNewThread, setIsNewThread, isMock } = useThreadChat();
+  const { threadId, isNewThread, markThreadStarted, isMock } = useThreadChat();
   const { showNotification } = useNotification();
   const { setOpen: setArtifactsOpen } = useArtifacts();
   const [chatOpen, setChatOpen] = useState(false);
@@ -44,12 +42,13 @@ export default function SubmarineWorkbenchPage() {
     threadId: isNewThread ? undefined : threadId,
     context: settings.context,
     isMock,
+    workbenchKind: "submarine",
     onStart: (createdThreadId) => {
-      setIsNewThread(false);
+      markThreadStarted(createdThreadId);
       const nextPath = isMock
         ? `/workspace/submarine/${createdThreadId}?mock=true`
         : `/workspace/submarine/${createdThreadId}`;
-      history.replaceState(null, "", nextPath);
+      router.replace(nextPath);
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
@@ -77,14 +76,14 @@ export default function SubmarineWorkbenchPage() {
     <ThreadContext.Provider value={{ thread, isMock }}>
       <ChatBox threadId={threadId}>
         <div className="relative flex size-full min-h-0 flex-col">
-          <header className="absolute top-0 right-0 left-0 z-30 flex h-14 shrink-0 items-center border-b bg-background/85 px-4 backdrop-blur">
+          <header className="bg-background/85 absolute top-0 right-0 left-0 z-30 flex h-14 shrink-0 items-center border-b px-4 backdrop-blur">
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <WavesIcon className="size-4 shrink-0 text-muted-foreground" />
+              <WavesIcon className="text-muted-foreground size-4 shrink-0" />
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium">
                   <ThreadTitle threadId={threadId} thread={thread} />
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-muted-foreground text-xs">
                   VibeCFD · 仿真工作台
                 </div>
               </div>

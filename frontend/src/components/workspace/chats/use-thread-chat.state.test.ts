@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { deriveThreadChatRouteState } from "./use-thread-chat.state.ts";
+import {
+  deriveStartedThreadChatState,
+  deriveThreadChatRouteState,
+} from "./use-thread-chat.state.ts";
 
 test("deriveThreadChatRouteState creates a fresh thread id for new routes", () => {
   let calls = 0;
@@ -29,4 +32,14 @@ test("deriveThreadChatRouteState reuses the route thread id for existing threads
     threadId: "thread-123",
   });
   assert.equal(calls, 0);
+});
+
+test("deriveStartedThreadChatState locks the local thread state to the created thread id", () => {
+  assert.deepEqual(
+    deriveStartedThreadChatState("created-thread-id"),
+    {
+      isNewThread: false,
+      threadId: "created-thread-id",
+    },
+  );
 });
