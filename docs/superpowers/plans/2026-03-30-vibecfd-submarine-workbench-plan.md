@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace `SubmarineRuntimePanel` with a new 4-pane workbench (`SubmarinePipeline`) that shows an Activity Bar, resizable sidebar with run list + stage nav, a stage pipeline in the center, and a Claude Code chat rail on the right.
+**Goal:** Replace `SubmarineRuntimePanel` with a new workbench (`SubmarinePipeline`) that has a resizable submarine sidebar (run list + stage nav), a 5-stage pipeline in the center, and a Claude Code chat rail on the right. Workbench navigation stays in the existing `WorkspaceSidebar`.
 
 **Architecture:** `SubmarinePipeline` owns the full-height layout via `react-resizable-panels`. It reads runtime state through `useThread()` (same as the current panel) and accepts chat-rail props from page.tsx. Five stage cards render in order; the active card is auto-expanded and non-collapsible.
 
@@ -20,7 +20,7 @@
 | `src/components/workspace/submarine-pipeline-sidebar.tsx` | Create | Left sidebar: run list + stage nav mini-list + new simulation button |
 | `src/components/workspace/submarine-convergence-chart.tsx` | Create | SVG Cd convergence sparkline with area fill + convergence marker |
 | `src/components/workspace/submarine-stage-cards.tsx` | Create | Five stage-specific card components (one per RuntimeStage in STAGE_ORDER) |
-| `src/components/workspace/submarine-pipeline.tsx` | Create | Main container: Activity Bar + ResizablePanelGroup (sidebar + center + chat) |
+| `src/components/workspace/submarine-pipeline.tsx` | Create | Main container: ResizablePanelGroup (submarine sidebar + center + chat rail)，含 chatOpen 响应式逻辑和 onLayoutChanged 持久化 |
 | `src/app/workspace/submarine/[thread_id]/page.tsx` | Modify | Replace CSS-grid layout with `<SubmarinePipeline>` |
 
 ---
@@ -2034,18 +2034,33 @@ interface SubmarinePipelineProps {
   isNewThread: boolean;
   isUploading: boolean;
   isMock?: boolean;
-  chatOpen?: boolean;             // controlled from page
+  chatOpen?: boolean;
   onChatOpenChange?: (v: boolean) => void;
-  sendMessage: ...;
-  onStop: ...;
+  sendMessage: (threadId: string, message: PromptInputMessage) => Promise<void> | void;
+  onStop: () => Promise<void>;
 }
 ```
 
-And change the `chatOpen` state line in the component body:
+And update the component signature and `chatOpen` state to support controlled mode:
+
 ```tsx
+export function SubmarinePipeline({
+  threadId,
+  isNewThread,
+  isUploading,
+  isMock = false,
+  chatOpen: chatOpenProp,
+  onChatOpenChange,
+  sendMessage,
+  onStop,
+}: SubmarinePipelineProps) {
+  // ...existing hooks...
+
   const [chatOpenInternal, setChatOpenInternal] = useState(true);
-  const chatOpen = props.chatOpen ?? chatOpenInternal;
-  const setChatOpen = props.onChatOpenChange ?? setChatOpenInternal;
+  const chatOpen = chatOpenProp ?? chatOpenInternal;
+  const setChatOpen = onChatOpenChange ?? setChatOpenInternal;
+
+  // rest of component unchanged
 ```
 
 **Note:** `SubmarineLaunchpad` in page.tsx is no longer needed — its "start a conversation" prompt is replaced by the inline chat rail's `isNewThread` autoFocus. Remove it and its helper components (`RuntimePlaceholder`, `CollaborationStep`) from page.tsx.
