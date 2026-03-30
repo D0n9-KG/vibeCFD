@@ -50,6 +50,7 @@ import {
   TaskIntelligenceCard,
   type StageRuntimeSnapshot,
 } from "./submarine-stage-cards";
+import { WORKSPACE_RESIZABLE_IDS } from "./workspace-resizable-ids";
 
 // ── Persistence helpers ───────────────────────────────────────────────────────
 
@@ -410,6 +411,7 @@ export function SubmarinePipeline({
           orientation="horizontal"
           className={desktopShell.groupClassName}
           onLayoutChanged={handleLayoutChanged}
+          id={WORKSPACE_RESIZABLE_IDS.submarinePipelineGroup}
         >
         {/* Sidebar */}
         <ResizablePanel
@@ -427,7 +429,10 @@ export function SubmarinePipeline({
           />
         </ResizablePanel>
 
-        <ResizableHandle withHandle />
+        <ResizableHandle
+          id={WORKSPACE_RESIZABLE_IDS.submarinePipelineSidebarHandle}
+          withHandle
+        />
 
         {/* Center — stage pipeline */}
         <ResizablePanel id="submarine-pipeline-center">
@@ -446,7 +451,10 @@ export function SubmarinePipeline({
           />
         </ResizablePanel>
 
-        <ResizableHandle withHandle />
+        <ResizableHandle
+          id={WORKSPACE_RESIZABLE_IDS.submarinePipelineChatHandle}
+          withHandle
+        />
 
         {/* Chat rail */}
         <ResizablePanel

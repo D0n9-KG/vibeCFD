@@ -18,6 +18,7 @@ import {
   useArtifacts,
 } from "../artifacts";
 import { useThread } from "../messages/context";
+import { WORKSPACE_RESIZABLE_IDS } from "../workspace-resizable-ids";
 
 const CLOSE_MODE = { chat: 100, artifacts: 0 };
 const OPEN_MODE = { chat: 60, artifacts: 40 };
@@ -99,11 +100,13 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
       orientation="horizontal"
       defaultLayout={{ chat: 100, artifacts: 0 }}
       groupRef={layoutRef}
+      id={WORKSPACE_RESIZABLE_IDS.chatBoxGroup}
     >
       <ResizablePanel className="relative" defaultSize={100} id="chat">
         {children}
       </ResizablePanel>
       <ResizableHandle
+        id={WORKSPACE_RESIZABLE_IDS.chatBoxArtifactsHandle}
         className={cn(
           "opacity-33 hover:opacity-100",
           !artifactPanelOpen && "pointer-events-none opacity-0",
