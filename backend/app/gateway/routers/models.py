@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.gateway.model_availability import resolve_model_availability
 from deerflow.config import get_app_config
 
 router = APIRouter(prefix="/api", tags=["models"])
@@ -15,6 +16,11 @@ class ModelResponse(BaseModel):
     description: str | None = Field(None, description="Model description")
     supports_thinking: bool = Field(default=False, description="Whether model supports thinking mode")
     supports_reasoning_effort: bool = Field(default=False, description="Whether model supports reasoning effort")
+    is_available: bool = Field(default=True, description="Whether the model is runnable in the current environment")
+    availability_reason: str | None = Field(
+        None,
+        description="Why the model is unavailable in the current environment",
+    )
 
 
 class ModelsListResponse(BaseModel):
@@ -59,17 +65,22 @@ async def list_models() -> ModelsListResponse:
         ```
     """
     config = get_app_config()
-    models = [
-        ModelResponse(
-            name=model.name,
-            model=model.model,
-            display_name=model.display_name,
-            description=model.description,
-            supports_thinking=model.supports_thinking,
-            supports_reasoning_effort=model.supports_reasoning_effort,
+    models = []
+    for model in config.models:
+        is_available, availability_reason = resolve_model_availability(model)
+        models.append(
+            ModelResponse(
+                name=model.name,
+                model=model.model,
+                display_name=model.display_name,
+                description=model.description,
+                supports_thinking=model.supports_thinking,
+                supports_reasoning_effort=model.supports_reasoning_effort,
+                is_available=is_available,
+                availability_reason=availability_reason,
+            )
         )
-        for model in config.models
-    ]
+
     return ModelsListResponse(models=models)
 
 
@@ -106,6 +117,8 @@ async def get_model(model_name: str) -> ModelResponse:
     if model is None:
         raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found")
 
+    is_available, availability_reason = resolve_model_availability(model)
+
     return ModelResponse(
         name=model.name,
         model=model.model,
@@ -113,4 +126,6 @@ async def get_model(model_name: str) -> ModelResponse:
         description=model.description,
         supports_thinking=model.supports_thinking,
         supports_reasoning_effort=model.supports_reasoning_effort,
+        is_available=is_available,
+        availability_reason=availability_reason,
     )

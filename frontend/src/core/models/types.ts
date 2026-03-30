@@ -6,4 +6,6 @@ export interface Model {
   description?: string | null;
   supports_thinking?: boolean;
   supports_reasoning_effort?: boolean;
+  is_available?: boolean;
+  availability_reason?: string | null;
 }

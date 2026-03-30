@@ -163,7 +163,10 @@ export function InputBox({
       return;
     }
     const currentModel = models.find((m) => m.name === context.model_name);
-    const fallbackModel = currentModel ?? models[0]!;
+    const fallbackModel =
+      currentModel ??
+      models.find((m) => m.is_available !== false) ??
+      models[0]!;
     const supportsThinking = fallbackModel.supports_thinking ?? false;
     const nextModelName = fallbackModel.name;
     const nextMode = getResolvedMode(context.mode, supportsThinking);
@@ -193,6 +196,13 @@ export function InputBox({
 
   const supportReasoningEffort = useMemo(
     () => selectedModel?.supports_reasoning_effort ?? false,
+    [selectedModel],
+  );
+  const selectedModelUnavailableReason = useMemo(
+    () =>
+      selectedModel?.is_available === false
+        ? selectedModel.availability_reason ?? "This model is unavailable."
+        : null,
     [selectedModel],
   );
 
@@ -728,6 +738,11 @@ export function InputBox({
                       <span className="text-muted-foreground truncate text-[10px]">
                         {m.model}
                       </span>
+                      {m.is_available === false && m.availability_reason && (
+                        <span className="text-amber-600 truncate text-[10px]">
+                          {m.availability_reason}
+                        </span>
+                      )}
                     </div>
                     {m.name === context.model_name ? (
                       <CheckIcon className="ml-auto size-4" />
@@ -741,12 +756,17 @@ export function InputBox({
           </ModelSelector>
           <PromptInputSubmit
             className="rounded-full"
-            disabled={disabled}
+            disabled={(disabled ?? false) || selectedModel?.is_available === false}
             variant="outline"
             status={status}
           />
         </PromptInputTools>
       </PromptInputFooter>
+      {selectedModelUnavailableReason && (
+        <div className="px-3 pb-2 text-[10px] text-amber-600">
+          {selectedModelUnavailableReason}
+        </div>
+      )}
       {isNewThread && searchParams.get("mode") !== "skill" && (
         <div className="absolute right-0 -bottom-20 left-0 z-0 flex items-center justify-center">
           <SuggestionList />
