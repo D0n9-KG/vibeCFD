@@ -78,6 +78,8 @@ class ClaudeChatModel(ChatAnthropic):
             cred = load_claude_code_credential()
             if cred:
                 current_key = cred.access_token
+                if cred.base_url and self.anthropic_api_url == "https://api.anthropic.com":
+                    self.anthropic_api_url = cred.base_url
                 logger.info(f"Using Claude Code CLI credential (source: {cred.source})")
             else:
                 logger.warning("No Anthropic API key or explicit Claude Code OAuth credential found.")

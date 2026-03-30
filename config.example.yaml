@@ -34,6 +34,35 @@ token_usage:
 # Configure available LLM models for the agent to use
 
 models:
+  # The first configured model becomes the default runtime choice.
+  # Add multiple models here to let users switch in the workspace model selector.
+  - name: gpt-5.4
+    display_name: GPT-5.4 (Codex / OpenAI)
+    use: deerflow.models.openai_cli_provider:OpenAICliChatModel
+    model: gpt-5.4
+    supports_thinking: true
+    supports_reasoning_effort: true
+    use_responses_api: true
+    output_version: responses/v1
+    # On servers, set OPENAI_API_KEY normally.
+    # For local Codex development, this provider can also reuse ~/.codex/auth.json.
+    when_thinking_enabled:
+      extra_body:
+        thinking:
+          type: enabled
+
+  - name: claude-sonnet-4-6
+    display_name: Claude Sonnet 4.6 (Claude Code OAuth)
+    use: deerflow.models.claude_provider:ClaudeChatModel
+    model: claude-sonnet-4-6
+    max_tokens: 16384
+    supports_thinking: true
+    supports_vision: true
+    enable_prompt_caching: true
+    when_thinking_enabled:
+      thinking:
+        type: enabled
+
   # Example: Volcengine (Doubao) model
   # - name: doubao-seed-1.8
   #   display_name: Doubao-Seed-1.8

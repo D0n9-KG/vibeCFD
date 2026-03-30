@@ -6,6 +6,7 @@ Implements two credential strategies:
      - Requires anthropic-beta: oauth-2025-04-20,claude-code-20250219
      - Supports $CLAUDE_CODE_OAUTH_TOKEN, $CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR, and $ANTHROPIC_AUTH_TOKEN
      - Override path with $CLAUDE_CODE_CREDENTIALS_PATH
+     - Falls back to ~/.claude/settings.json env handoff when available
   2. Codex CLI token from ~/.codex/auth.json
      - Uses chatgpt.com/backend-api/codex/responses endpoint
      - Supports both legacy top-level tokens and current nested tokens shape
@@ -16,6 +17,7 @@ import json
 import logging
 import os
 import time
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -38,6 +40,7 @@ class ClaudeCodeCredential:
     access_token: str
     refresh_token: str = ""
     expires_at: int = 0
+    base_url: str = ""
     source: str = ""
 
     @property
@@ -56,11 +59,32 @@ class CodexCliCredential:
     source: str = ""
 
 
+@dataclass
+class OpenAIApiCredential:
+    """OpenAI API credential loaded from env or Codex auth handoff."""
+
+    api_key: str
+    base_url: str = ""
+    source: str = ""
+
+
 def _resolve_credential_path(env_var: str, default_relative_path: str) -> Path:
     configured_path = os.getenv(env_var)
     if configured_path:
         return Path(configured_path).expanduser()
-    return Path.home() / default_relative_path
+    return _home_dir() / default_relative_path
+
+
+def _home_dir() -> Path:
+    """Resolve the current user's home directory with explicit HOME support.
+
+    Python's Path.home() ignores HOME on Windows, but our tests and shell-based
+    launch flows often set HOME explicitly. Prefer that when available so the
+    credential lookup behaves consistently across platforms.
+    """
+    if home := os.getenv("HOME"):
+        return Path(home).expanduser()
+    return Path.home()
 
 
 def _load_json_file(path: Path, label: str) -> dict[str, Any] | None:
@@ -90,7 +114,8 @@ def _read_secret_from_file_descriptor(env_var: str) -> str | None:
         return None
 
     try:
-        secret = Path(f"/dev/fd/{fd}").read_text().strip()
+        with os.fdopen(os.dup(fd), "r", encoding="utf-8") as fh:
+            secret = fh.read().strip()
     except OSError as e:
         logger.warning(f"Failed to read {env_var}: {e}")
         return None
@@ -111,11 +136,35 @@ def _iter_claude_code_credential_paths() -> list[Path]:
     if override_path:
         paths.append(Path(override_path).expanduser())
 
-    default_path = Path.home() / ".claude/.credentials.json"
+    default_path = _home_dir() / ".claude/.credentials.json"
     if not paths or paths[-1] != default_path:
         paths.append(default_path)
 
     return paths
+
+
+def _load_claude_settings_env_credential() -> ClaudeCodeCredential | None:
+    settings_path = _home_dir() / ".claude/settings.json"
+    data = _load_json_file(settings_path, "Claude Code settings")
+    if data is None:
+        return None
+
+    env = data.get("env", {})
+    if not isinstance(env, dict):
+        logger.debug("Claude Code settings exist but env block is not a JSON object")
+        return None
+
+    token = str(env.get("CLAUDE_CODE_OAUTH_TOKEN") or env.get("ANTHROPIC_AUTH_TOKEN") or "").strip()
+    if not token:
+        logger.debug("Claude Code settings exist but no Claude auth token found in env block")
+        return None
+
+    base_url = str(env.get("ANTHROPIC_API_URL") or env.get("ANTHROPIC_BASE_URL") or "").strip()
+    return ClaudeCodeCredential(
+        access_token=token,
+        base_url=base_url,
+        source="claude-cli-settings",
+    )
 
 
 def _extract_claude_code_credential(data: dict[str, Any], source: str) -> ClaudeCodeCredential | None:
@@ -147,6 +196,7 @@ def load_claude_code_credential() -> ClaudeCodeCredential | None:
       2. $CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR
       3. $CLAUDE_CODE_CREDENTIALS_PATH
       4. ~/.claude/.credentials.json
+      5. ~/.claude/settings.json env handoff
 
     Exported credentials files contain:
     {
@@ -185,6 +235,11 @@ def load_claude_code_credential() -> ClaudeCodeCredential | None:
             logger.info(f"Loaded Claude Code OAuth credential from {source_label} (expires_at={cred.expires_at})")
             return cred
 
+    settings_cred = _load_claude_settings_env_credential()
+    if settings_cred:
+        logger.info("Loaded Claude Code credential from ~/.claude/settings.json env block")
+        return settings_cred
+
     return None
 
 
@@ -210,3 +265,71 @@ def load_codex_cli_credential() -> CodexCliCredential | None:
         account_id=account_id,
         source="codex-cli",
     )
+
+
+def load_openai_api_credential() -> OpenAIApiCredential | None:
+    """Load OpenAI API key from env or the local Codex auth handoff file."""
+    direct_key = str(os.getenv("OPENAI_API_KEY") or "").strip()
+    direct_base_url = str(os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE") or "").strip()
+    if direct_key:
+        logger.info("Loaded OpenAI API credential from environment")
+        return OpenAIApiCredential(
+            api_key=direct_key,
+            base_url=direct_base_url,
+            source="openai-api-env",
+        )
+
+    cred_path = _resolve_credential_path("CODEX_AUTH_PATH", ".codex/auth.json")
+    data = _load_json_file(cred_path, "Codex CLI credentials")
+    if data is None:
+        return None
+
+    api_key = str(
+        data.get("OPENAI_API_KEY")
+        or data.get("openai_api_key")
+        or "",
+    ).strip()
+    if not api_key:
+        logger.debug("Codex auth file exists but no OpenAI API key was found")
+        return None
+
+    logger.info("Loaded OpenAI API credential from Codex auth file")
+    return OpenAIApiCredential(
+        api_key=api_key,
+        base_url=_load_codex_openai_base_url(),
+        source="codex-auth-file",
+    )
+
+
+def _load_codex_openai_base_url() -> str:
+    config_path = _resolve_credential_path("CODEX_CONFIG_PATH", ".codex/config.toml")
+    if not config_path.exists() or config_path.is_dir():
+        return ""
+
+    try:
+        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError) as e:
+        logger.warning(f"Failed to read Codex config: {e}")
+        return ""
+
+    model_providers = data.get("model_providers", {})
+    if not isinstance(model_providers, dict):
+        return ""
+
+    provider_name = data.get("model_provider")
+    provider_config: dict[str, Any] | None = None
+    if isinstance(provider_name, str):
+        maybe_provider = model_providers.get(provider_name)
+        if isinstance(maybe_provider, dict):
+            provider_config = maybe_provider
+
+    if provider_config is None:
+        for candidate in model_providers.values():
+            if isinstance(candidate, dict) and candidate.get("requires_openai_auth"):
+                provider_config = candidate
+                break
+
+    if provider_config is None:
+        return ""
+
+    return str(provider_config.get("base_url") or "").strip()

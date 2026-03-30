@@ -4,6 +4,7 @@ from typing import Protocol
 from deerflow.models.credential_loader import (
     load_claude_code_credential,
     load_codex_cli_credential,
+    load_openai_api_credential,
 )
 
 
@@ -28,6 +29,11 @@ def resolve_model_availability(model: ModelConfigLike) -> tuple[bool, str | None
         if load_codex_cli_credential():
             return True, None
         return False, "Codex CLI credentials are not configured in this environment."
+
+    if provider.startswith("deerflow.models.openai_cli_provider:"):
+        if load_openai_api_credential():
+            return True, None
+        return False, "OpenAI / Codex API credentials are not configured in this environment."
 
     if provider.startswith("langchain_openai:"):
         if os.getenv("OPENAI_API_KEY"):

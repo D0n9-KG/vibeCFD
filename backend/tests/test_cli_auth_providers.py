@@ -6,7 +6,8 @@ import pytest
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from deerflow.models.claude_provider import ClaudeChatModel
-from deerflow.models.credential_loader import CodexCliCredential
+from deerflow.models.credential_loader import ClaudeCodeCredential, CodexCliCredential, OpenAIApiCredential
+from deerflow.models.openai_cli_provider import OpenAICliChatModel
 from deerflow.models.openai_codex_provider import CodexChatModel
 
 
@@ -63,6 +64,61 @@ def test_codex_provider_flattens_structured_text_blocks(monkeypatch):
 def test_claude_provider_rejects_non_positive_retry_attempts():
     with pytest.raises(ValueError, match="retry_max_attempts must be >= 1"):
         ClaudeChatModel(model="claude-sonnet-4-6", retry_max_attempts=0)
+
+
+def test_claude_provider_applies_base_url_from_loaded_settings(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.credential_loader.load_claude_code_credential",
+        lambda: ClaudeCodeCredential(
+            access_token="settings-auth-token",
+            base_url="https://example.invalid",
+            source="claude-cli-settings",
+        ),
+    )
+
+    model = ClaudeChatModel(model="claude-sonnet-4-6")
+
+    assert model.anthropic_api_url == "https://example.invalid"
+
+
+def test_openai_cli_provider_requires_credentials(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: None,
+    )
+
+    with pytest.raises(ValueError, match="OpenAI API credential not found"):
+        OpenAICliChatModel(model="gpt-5.4")
+
+
+def test_openai_cli_provider_uses_loaded_api_key(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4")
+
+    assert model.openai_api_key is not None
+    assert model.openai_api_key.get_secret_value() == "sk-openai-test"
+
+
+def test_openai_cli_provider_applies_loaded_base_url(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            base_url="https://gateway.example/v1",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4")
+
+    assert model.openai_api_base == "https://gateway.example/v1"
 
 
 def test_codex_provider_skips_terminal_sse_markers(monkeypatch):
