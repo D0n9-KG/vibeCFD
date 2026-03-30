@@ -182,17 +182,13 @@ export function SubmarinePipeline({
 
   const handleLayoutChanged = useCallback(
     (layout: Record<string, number>) => {
-      if (typeof layout.sidebar === "number") {
-        window.localStorage.setItem(
-          PIPELINE_STORAGE_KEY_SIDEBAR,
-          String(layout.sidebar),
-        );
+      const sidebarSize = layout["submarine-pipeline-sidebar"];
+      const chatSize = layout["submarine-pipeline-chat"];
+      if (typeof sidebarSize === "number") {
+        window.localStorage.setItem(PIPELINE_STORAGE_KEY_SIDEBAR, String(sidebarSize));
       }
-      if (typeof layout.chat === "number") {
-        window.localStorage.setItem(
-          PIPELINE_STORAGE_KEY_CHAT,
-          String(layout.chat),
-        );
+      if (typeof chatSize === "number") {
+        window.localStorage.setItem(PIPELINE_STORAGE_KEY_CHAT, String(chatSize));
       }
     },
     [],
