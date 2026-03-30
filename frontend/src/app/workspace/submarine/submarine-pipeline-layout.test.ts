@@ -3,12 +3,14 @@ import test from "node:test";
 
 const {
   getPipelineLayoutConfig,
-  PIPELINE_SIDEBAR_MIN_PCT,
-  PIPELINE_SIDEBAR_DEFAULT_PCT,
-  PIPELINE_SIDEBAR_MAX_PCT,
-  PIPELINE_CHAT_MIN_PCT,
-  PIPELINE_CHAT_DEFAULT_PCT,
-  PIPELINE_CHAT_MAX_PCT,
+  PIPELINE_DEFAULT_VIEWPORT_WIDTH_PX,
+  PIPELINE_WORKSPACE_SIDEBAR_WIDTH_PX,
+  PIPELINE_SIDEBAR_MIN_PX,
+  PIPELINE_SIDEBAR_DEFAULT_PX,
+  PIPELINE_SIDEBAR_MAX_PX,
+  PIPELINE_CHAT_MIN_PX,
+  PIPELINE_CHAT_DEFAULT_PX,
+  PIPELINE_CHAT_MAX_PX,
   PIPELINE_STORAGE_KEY_SIDEBAR,
   PIPELINE_STORAGE_KEY_CHAT,
   resolveStoredPanelPct,
@@ -18,30 +20,26 @@ const {
 
 void test("getPipelineLayoutConfig returns complete config", () => {
   const config = getPipelineLayoutConfig();
-  assert.equal(config.sidebarDefaultPct, PIPELINE_SIDEBAR_DEFAULT_PCT);
-  assert.equal(config.sidebarMinPct, PIPELINE_SIDEBAR_MIN_PCT);
-  assert.equal(config.sidebarMaxPct, PIPELINE_SIDEBAR_MAX_PCT);
-  assert.equal(config.chatDefaultPct, PIPELINE_CHAT_DEFAULT_PCT);
-  assert.equal(config.chatMinPct, PIPELINE_CHAT_MIN_PCT);
-  assert.equal(config.chatMaxPct, PIPELINE_CHAT_MAX_PCT);
+  assert.equal(config.sidebarDefaultSize, `${PIPELINE_SIDEBAR_DEFAULT_PX}px`);
+  assert.equal(config.sidebarMinSize, `${PIPELINE_SIDEBAR_MIN_PX}px`);
+  assert.equal(config.sidebarMaxSize, `${PIPELINE_SIDEBAR_MAX_PX}px`);
+  assert.equal(config.chatDefaultSize, `${PIPELINE_CHAT_DEFAULT_PX}px`);
+  assert.equal(config.chatMinSize, `${PIPELINE_CHAT_MIN_PX}px`);
+  assert.equal(config.chatMaxSize, `${PIPELINE_CHAT_MAX_PX}px`);
   assert.equal(config.sidebarStorageKey, PIPELINE_STORAGE_KEY_SIDEBAR);
   assert.equal(config.chatStorageKey, PIPELINE_STORAGE_KEY_CHAT);
-  assert.equal(config.sidebarDefaultSize, "14%");
-  assert.equal(config.sidebarMinSize, "10%");
-  assert.equal(config.sidebarMaxSize, "22%");
-  assert.equal(config.chatDefaultSize, "22%");
-  assert.equal(config.chatMinSize, "16%");
-  assert.equal(config.chatMaxSize, "32%");
+  assert.match(config.sidebarDefaultSize, /^\d+px$/);
+  assert.match(config.chatDefaultSize, /^\d+px$/);
 });
 
-void test("sidebar default is within min-max range", () => {
-  assert.ok(PIPELINE_SIDEBAR_DEFAULT_PCT > PIPELINE_SIDEBAR_MIN_PCT);
-  assert.ok(PIPELINE_SIDEBAR_DEFAULT_PCT < PIPELINE_SIDEBAR_MAX_PCT);
+void test("sidebar pixel defaults stay within min-max range", () => {
+  assert.ok(PIPELINE_SIDEBAR_DEFAULT_PX > PIPELINE_SIDEBAR_MIN_PX);
+  assert.ok(PIPELINE_SIDEBAR_DEFAULT_PX < PIPELINE_SIDEBAR_MAX_PX);
 });
 
-void test("chat default is within min-max range", () => {
-  assert.ok(PIPELINE_CHAT_DEFAULT_PCT > PIPELINE_CHAT_MIN_PCT);
-  assert.ok(PIPELINE_CHAT_DEFAULT_PCT < PIPELINE_CHAT_MAX_PCT);
+void test("chat pixel defaults stay within min-max range", () => {
+  assert.ok(PIPELINE_CHAT_DEFAULT_PX > PIPELINE_CHAT_MIN_PX);
+  assert.ok(PIPELINE_CHAT_DEFAULT_PX < PIPELINE_CHAT_MAX_PX);
 });
 
 void test("storage keys are distinct strings", () => {
@@ -50,31 +48,64 @@ void test("storage keys are distinct strings", () => {
   assert.equal(typeof PIPELINE_STORAGE_KEY_CHAT, "string");
 });
 
+void test("viewport-aware percentages still clamp stored layouts", () => {
+  const config = getPipelineLayoutConfig(2048);
+  assert.ok(config.sidebarMinPct > 0);
+  assert.ok(config.sidebarMaxPct < 100);
+  assert.ok(config.chatMinPct > 0);
+  assert.ok(config.chatMaxPct < 100);
+  assert.ok(config.sidebarMinPct < config.sidebarDefaultPct);
+  assert.ok(config.sidebarDefaultPct < config.sidebarMaxPct);
+  assert.ok(config.chatMinPct < config.chatDefaultPct);
+  assert.ok(config.chatDefaultPct < config.chatMaxPct);
+});
+
+void test("layout config uses workspace width instead of raw viewport width", () => {
+  const config = getPipelineLayoutConfig(PIPELINE_DEFAULT_VIEWPORT_WIDTH_PX);
+  const estimatedWorkbenchWidth =
+    PIPELINE_DEFAULT_VIEWPORT_WIDTH_PX - PIPELINE_WORKSPACE_SIDEBAR_WIDTH_PX;
+  const expectedSidebarDefaultPct =
+    (PIPELINE_SIDEBAR_DEFAULT_PX / estimatedWorkbenchWidth) * 100;
+  const expectedChatDefaultPct =
+    (PIPELINE_CHAT_DEFAULT_PX / estimatedWorkbenchWidth) * 100;
+
+  assert.equal(
+    Number(config.sidebarDefaultPct.toFixed(2)),
+    Number(expectedSidebarDefaultPct.toFixed(2)),
+  );
+  assert.equal(
+    Number(config.chatDefaultPct.toFixed(2)),
+    Number(expectedChatDefaultPct.toFixed(2)),
+  );
+});
+
 void test("resolveStoredPanelPct clamps persisted sizes back into configured range", () => {
+  const config = getPipelineLayoutConfig();
+
   assert.equal(
     resolveStoredPanelPct("1.039", {
-      fallbackPct: PIPELINE_SIDEBAR_DEFAULT_PCT,
-      minPct: PIPELINE_SIDEBAR_MIN_PCT,
-      maxPct: PIPELINE_SIDEBAR_MAX_PCT,
+      fallbackPct: config.sidebarDefaultPct,
+      minPct: config.sidebarMinPct,
+      maxPct: config.sidebarMaxPct,
     }),
-    PIPELINE_SIDEBAR_MIN_PCT,
+    config.sidebarMinPct,
   );
 
   assert.equal(
     resolveStoredPanelPct("101", {
-      fallbackPct: PIPELINE_CHAT_DEFAULT_PCT,
-      minPct: PIPELINE_CHAT_MIN_PCT,
-      maxPct: PIPELINE_CHAT_MAX_PCT,
+      fallbackPct: config.chatDefaultPct,
+      minPct: config.chatMinPct,
+      maxPct: config.chatMaxPct,
     }),
-    PIPELINE_CHAT_MAX_PCT,
+    config.chatMaxPct,
   );
 
   assert.equal(
     resolveStoredPanelPct(null, {
-      fallbackPct: PIPELINE_CHAT_DEFAULT_PCT,
-      minPct: PIPELINE_CHAT_MIN_PCT,
-      maxPct: PIPELINE_CHAT_MAX_PCT,
+      fallbackPct: config.chatDefaultPct,
+      minPct: config.chatMinPct,
+      maxPct: config.chatMaxPct,
     }),
-    PIPELINE_CHAT_DEFAULT_PCT,
+    config.chatDefaultPct,
   );
 });

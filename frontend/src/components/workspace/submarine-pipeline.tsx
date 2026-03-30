@@ -54,19 +54,25 @@ import { WORKSPACE_RESIZABLE_IDS } from "./workspace-resizable-ids";
 
 // ── Persistence helpers ───────────────────────────────────────────────────────
 
-function loadStoredPct(
+function loadStoredPanelSize(
   key: string,
-  fallback: number,
+  fallbackSize: string,
+  fallbackPct: number,
   minPct: number,
   maxPct: number,
-): number {
-  if (typeof window === "undefined") return fallback;
+) {
+  if (typeof window === "undefined") return fallbackSize;
 
-  return resolveStoredPanelPct(window.localStorage.getItem(key), {
-    fallbackPct: fallback,
-    minPct,
-    maxPct,
-  });
+  const raw = window.localStorage.getItem(key);
+  if (!raw) return fallbackSize;
+
+  return toPanelPercentSize(
+    resolveStoredPanelPct(raw, {
+      fallbackPct,
+      minPct,
+      maxPct,
+    }),
+  );
 }
 
 // ── Runtime snapshot type (mirrors SubmarineRuntimePanel) ────────────────────
@@ -154,7 +160,13 @@ export function SubmarinePipeline({
   const router = useRouter();
   const { thread } = useThread();
   const [settings, setSettings] = useLocalSettings();
-  const layoutConfig = useMemo(() => getPipelineLayoutConfig(), []);
+  const layoutConfig = useMemo(
+    () =>
+      getPipelineLayoutConfig(
+        typeof window === "undefined" ? undefined : window.innerWidth,
+      ),
+    [],
+  );
   const desktopShell = useMemo(
     () => getSubmarinePipelineDesktopShellConfig(),
     [],
@@ -189,14 +201,16 @@ export function SubmarinePipeline({
   // ── Layout persistence ────────────────────────────────────────────────────
   const defaultLayout = useMemo(
     () => ({
-      sidebar: loadStoredPct(
+      sidebar: loadStoredPanelSize(
         PIPELINE_STORAGE_KEY_SIDEBAR,
+        layoutConfig.sidebarDefaultSize,
         layoutConfig.sidebarDefaultPct,
         layoutConfig.sidebarMinPct,
         layoutConfig.sidebarMaxPct,
       ),
-      chat: loadStoredPct(
+      chat: loadStoredPanelSize(
         PIPELINE_STORAGE_KEY_CHAT,
+        layoutConfig.chatDefaultSize,
         layoutConfig.chatDefaultPct,
         layoutConfig.chatMinPct,
         layoutConfig.chatMaxPct,
@@ -414,12 +428,12 @@ export function SubmarinePipeline({
           id={WORKSPACE_RESIZABLE_IDS.submarinePipelineGroup}
         >
         {/* Sidebar */}
-        <ResizablePanel
-          id="submarine-pipeline-sidebar"
-          defaultSize={toPanelPercentSize(defaultLayout.sidebar)}
-          minSize={layoutConfig.sidebarMinSize}
-          maxSize={layoutConfig.sidebarMaxSize}
-        >
+          <ResizablePanel
+            id="submarine-pipeline-sidebar"
+            defaultSize={defaultLayout.sidebar}
+            minSize={layoutConfig.sidebarMinSize}
+            maxSize={layoutConfig.sidebarMaxSize}
+          >
           <SubmarinePipelineSidebar
             currentThreadId={threadId}
             currentStage={runtime?.current_stage}
@@ -457,12 +471,12 @@ export function SubmarinePipeline({
         />
 
         {/* Chat rail */}
-        <ResizablePanel
-          id="submarine-pipeline-chat"
-          defaultSize={toPanelPercentSize(defaultLayout.chat)}
-          minSize={layoutConfig.chatMinSize}
-          maxSize={layoutConfig.chatMaxSize}
-        >
+          <ResizablePanel
+            id="submarine-pipeline-chat"
+            defaultSize={defaultLayout.chat}
+            minSize={layoutConfig.chatMinSize}
+            maxSize={layoutConfig.chatMaxSize}
+          >
           <PipelineChatRail
             thread={thread}
             threadId={threadId}
