@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const {
+  deriveCompletedSubmarineRunIds,
+  deriveSubmarineRunDeletionPath,
   deriveSubmarineSidebarRuns,
   getSubmarineDisplayedNextStage,
   getSubmarineDisplayedStage,
@@ -88,4 +90,112 @@ void test("ignores history entries whose thread values payload is missing", () =
   ]);
 
   assert.deepEqual(runs, []);
+});
+
+void test("deriveCompletedSubmarineRunIds returns only completed submarine runs", () => {
+  assert.equal(typeof deriveCompletedSubmarineRunIds, "function");
+
+  assert.deepEqual(
+    deriveCompletedSubmarineRunIds([
+      {
+        threadId: "run-active",
+        title: "Running study",
+        isRunning: true,
+        isComplete: false,
+      },
+      {
+        threadId: "run-complete-a",
+        title: "Completed baseline",
+        isRunning: false,
+        isComplete: true,
+      },
+      {
+        threadId: "run-complete-b",
+        title: "Completed variant",
+        isRunning: false,
+        isComplete: true,
+      },
+    ]),
+    ["run-complete-a", "run-complete-b"],
+  );
+});
+
+void test("deriveSubmarineRunDeletionPath keeps cleanup navigation inside submarine runs", () => {
+  assert.equal(typeof deriveSubmarineRunDeletionPath, "function");
+
+  assert.equal(
+    deriveSubmarineRunDeletionPath(
+      [
+        {
+          thread_id: "run-current",
+          values: {
+            title: "Current completed run",
+            submarine_runtime: { current_stage: "result-reporting" },
+          },
+        },
+        {
+          thread_id: "skill-thread",
+          values: {
+            title: "Skill studio helper",
+            submarine_skill_studio: { skill_name: "mesh-doctor" },
+          },
+        },
+        {
+          thread_id: "run-next",
+          values: {
+            title: "Next submarine run",
+            submarine_runtime: { current_stage: "solver-dispatch" },
+          },
+        },
+      ],
+      ["run-current"],
+      "run-current",
+    ),
+    "/workspace/submarine/run-next",
+  );
+});
+
+void test("deriveSubmarineRunDeletionPath returns null when current run survives cleanup", () => {
+  assert.equal(
+    deriveSubmarineRunDeletionPath(
+      [
+        {
+          thread_id: "run-current",
+          values: {
+            title: "Current active run",
+            submarine_runtime: { current_stage: "solver-dispatch" },
+          },
+        },
+        {
+          thread_id: "run-complete",
+          values: {
+            title: "Completed run",
+            submarine_runtime: { current_stage: "result-reporting" },
+          },
+        },
+      ],
+      ["run-complete"],
+      "run-current",
+    ),
+    null,
+  );
+});
+
+void test("deriveSubmarineRunDeletionPath falls back to a fresh submarine workspace when nothing remains", () => {
+  assert.equal(
+    deriveSubmarineRunDeletionPath(
+      [
+        {
+          thread_id: "run-current",
+          values: {
+            title: "Only completed run",
+            submarine_runtime: { current_stage: "result-reporting" },
+          },
+        },
+      ],
+      ["run-current"],
+      "run-current",
+    ),
+    "/workspace/submarine/new",
+  );
 });

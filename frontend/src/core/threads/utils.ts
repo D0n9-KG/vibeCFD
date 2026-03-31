@@ -23,6 +23,14 @@ export function forgetWorkbenchKindForThread(threadId: string) {
   rememberedWorkbenchKinds.delete(threadId);
 }
 
+export function deriveThreadsAfterDeletion(
+  threads: AgentThread[] | undefined,
+  deletedThreadId: string,
+) {
+  forgetWorkbenchKindForThread(deletedThreadId);
+  return threads?.filter((thread) => thread.thread_id !== deletedThreadId);
+}
+
 export function workbenchKindOfThread(
   thread: AgentThread,
 ): ThreadWorkbenchKind {

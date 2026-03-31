@@ -43,9 +43,7 @@ const TERMINAL_STAGE_STATUSES = new Set([
 function normalizeRuntime(
   runtime: ThreadValuesLike["submarine_runtime"],
 ): SubmarineRuntimeLike | null {
-  return runtime && typeof runtime === "object"
-    ? (runtime as SubmarineRuntimeLike)
-    : null;
+  return runtime && typeof runtime === "object" ? runtime : null;
 }
 
 function normalizeArtifacts(artifacts: unknown): string[] {
@@ -177,4 +175,55 @@ export function deriveSubmarineSidebarRuns(
         isComplete: complete,
       };
     });
+}
+
+export function deriveCompletedSubmarineRunIds(runs: SidebarRunItem[]) {
+  return runs
+    .filter((run) => run.isComplete)
+    .map((run) => run.threadId);
+}
+
+export function deriveSubmarineRunDeletionPath(
+  threads: Array<Pick<AgentThread, "thread_id" | "values">>,
+  deletedThreadIds: string[],
+  currentThreadId: string,
+) {
+  const deletedIds = new Set(deletedThreadIds);
+  if (!deletedIds.has(currentThreadId)) {
+    return null;
+  }
+
+  const currentThreadIndex = threads.findIndex(
+    (thread) => thread.thread_id === currentThreadId,
+  );
+  if (currentThreadIndex < 0) {
+    return "/workspace/submarine/new";
+  }
+
+  const findCandidateAt = (index: number) => {
+    const thread = threads[index];
+    if (!thread) {
+      return null;
+    }
+    if (deletedIds.has(thread.thread_id)) {
+      return null;
+    }
+    return isSubmarineThread(thread.values)
+      ? `/workspace/submarine/${thread.thread_id}`
+      : null;
+  };
+
+  for (let offset = 1; offset < threads.length; offset += 1) {
+    const rightCandidate = findCandidateAt(currentThreadIndex + offset);
+    if (rightCandidate) {
+      return rightCandidate;
+    }
+
+    const leftCandidate = findCandidateAt(currentThreadIndex - offset);
+    if (leftCandidate) {
+      return leftCandidate;
+    }
+  }
+
+  return "/workspace/submarine/new";
 }

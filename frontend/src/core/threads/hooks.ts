@@ -17,15 +17,16 @@ import type { UploadedFileInfo } from "../uploads";
 import { uploadFiles } from "../uploads";
 
 import { getThreadErrorMessage } from "./error";
+import { prepareThreadUploadFiles } from "./thread-upload-files";
+import type { AgentThread, AgentThreadState } from "./types";
 import {
   deriveOptimisticMessagesAfterUpload,
   deriveThreadsAfterWorkbenchStart,
   deriveThreadStreamBinding,
   deriveThreadStreamSendState,
 } from "./use-thread-stream.state";
-import { prepareThreadUploadFiles } from "./thread-upload-files";
-import type { AgentThread, AgentThreadState } from "./types";
 import {
+  deriveThreadsAfterDeletion,
   rememberWorkbenchKindForThread,
   type ThreadWorkbenchKind,
 } from "./utils";
@@ -545,7 +546,7 @@ export function useDeleteThread() {
           if (oldData == null) {
             return oldData;
           }
-          return oldData.filter((t) => t.thread_id !== threadId);
+          return deriveThreadsAfterDeletion(oldData, threadId);
         },
       );
     },

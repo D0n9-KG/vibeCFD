@@ -2,8 +2,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type GroupImperativeHandle } from "react-resizable-panels";
+import { toast } from "sonner";
 
 import {
   getPipelineDefaultLayout,
@@ -20,7 +21,7 @@ import {
 } from "@/components/ui/resizable";
 import { useArtifactContent } from "@/core/artifacts/hooks";
 import { useLocalSettings } from "@/core/settings";
-import { useThreads } from "@/core/threads/hooks";
+import { useDeleteThread, useThreads } from "@/core/threads/hooks";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
@@ -28,16 +29,18 @@ import { InputBox } from "./input-box";
 import { MessageList } from "./messages";
 import { useThread } from "./messages/context";
 import {
+  deriveCompletedSubmarineRunIds,
+  deriveSubmarineRunDeletionPath,
+  deriveSubmarineSidebarRuns,
+  getSubmarineDisplayedNextStage,
+  getSubmarineDisplayedStage,
+} from "./submarine-pipeline-runs";
+import {
   getSubmarinePipelineCenterPaneConfig,
   getSubmarinePipelineChatRailClassName,
   getSubmarinePipelineChatViewportClassName,
   getSubmarinePipelineDesktopShellConfig,
 } from "./submarine-pipeline-shell";
-import {
-  deriveSubmarineSidebarRuns,
-  getSubmarineDisplayedNextStage,
-  getSubmarineDisplayedStage,
-} from "./submarine-pipeline-runs";
 import {
   type SidebarRunItem,
   SubmarinePipelineSidebar,
@@ -152,6 +155,7 @@ export function SubmarinePipeline({
   const router = useRouter();
   const { thread } = useThread();
   const [settings, setSettings] = useLocalSettings();
+  const [isCleaningRuns, setIsCleaningRuns] = useState(false);
   const layoutConfig = useMemo(() => getPipelineLayoutConfig(), []);
   const desktopShell = useMemo(
     () => getSubmarinePipelineDesktopShellConfig(),
@@ -165,9 +169,14 @@ export function SubmarinePipeline({
 
   // ── Run list from useThreads (filter submarine threads) ───────────────────
   const { data: allThreads = [] } = useThreads({ limit: 30 }, isMock);
+  const { mutateAsync: deleteThread } = useDeleteThread();
   const runs = useMemo<SidebarRunItem[]>(() => {
     return deriveSubmarineSidebarRuns(allThreads);
   }, [allThreads]);
+  const completedRunIds = useMemo(
+    () => deriveCompletedSubmarineRunIds(runs),
+    [runs],
+  );
 
   // ── Layout persistence ────────────────────────────────────────────────────
   const defaultLayout = useMemo(() => getPipelineDefaultLayout(), []);
@@ -378,6 +387,77 @@ export function SubmarinePipeline({
     router.push("/workspace/submarine/new");
   }, [router]);
 
+  const handleDeleteRun = useCallback(
+    async (runThreadId: string) => {
+      setIsCleaningRuns(true);
+      try {
+        await deleteThread({ threadId: runThreadId });
+        const nextPath = deriveSubmarineRunDeletionPath(
+          allThreads,
+          [runThreadId],
+          threadId,
+        );
+        if (nextPath) {
+          router.replace(nextPath);
+        }
+        toast.success("已删除该仿真任务，并同步清理关联对话、上传与产物。");
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "删除仿真任务失败，请稍后重试。",
+        );
+      } finally {
+        setIsCleaningRuns(false);
+      }
+    },
+    [allThreads, deleteThread, router, threadId],
+  );
+
+  const handleCleanupCompletedRuns = useCallback(async () => {
+    if (completedRunIds.length === 0) {
+      toast.info("当前没有可清理的已完成仿真任务。");
+      return;
+    }
+
+    setIsCleaningRuns(true);
+    const deletedRunIds: string[] = [];
+    const failedRunIds: string[] = [];
+
+    try {
+      for (const runThreadId of completedRunIds) {
+        try {
+          await deleteThread({ threadId: runThreadId });
+          deletedRunIds.push(runThreadId);
+        } catch {
+          failedRunIds.push(runThreadId);
+        }
+      }
+
+      const nextPath = deriveSubmarineRunDeletionPath(
+        allThreads,
+        deletedRunIds,
+        threadId,
+      );
+      if (nextPath) {
+        router.replace(nextPath);
+      }
+
+      if (failedRunIds.length > 0) {
+        toast.error(
+          deletedRunIds.length > 0
+            ? `已清理 ${deletedRunIds.length} 个已完成任务，但还有 ${failedRunIds.length} 个删除失败，请重试。`
+            : "清理已完成任务失败，请稍后重试。",
+        );
+        return;
+      }
+
+      toast.success(
+        `已清理 ${deletedRunIds.length} 个已完成仿真任务，对话、上传与产物已同步删除。`,
+      );
+    } finally {
+      setIsCleaningRuns(false);
+    }
+  }, [allThreads, completedRunIds, deleteThread, router, threadId]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   // xl+ : 3 panes (sidebar + center + chat)
   // < xl : single column — center only; chat toggle owned by page.tsx header button
@@ -441,7 +521,11 @@ export function SubmarinePipeline({
             currentThreadRunLabel={pipelineStatus.runLabel}
             currentThreadTone={pipelineStatus.tone}
             runs={runs}
+            completedRunCount={completedRunIds.length}
+            isCleanupPending={isCleaningRuns}
             onStageClick={handleStageClick}
+            onDeleteRun={handleDeleteRun}
+            onCleanupCompletedRuns={handleCleanupCompletedRuns}
             onNewSimulation={handleNewSimulation}
           />
         </ResizablePanel>

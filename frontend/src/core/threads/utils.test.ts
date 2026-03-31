@@ -4,6 +4,7 @@ import test from "node:test";
 import type { AgentThread } from "./types";
 
 const {
+  deriveThreadsAfterDeletion,
   pathAfterThreadDeletion,
   pathOfThreadByState,
   rememberWorkbenchKindForThread,
@@ -85,6 +86,41 @@ void test("workbenchKindOfThread uses remembered workbench routing while thread 
   );
 
   forgetWorkbenchKindForThread("remembered-submarine");
+});
+
+void test("deriveThreadsAfterDeletion clears remembered workbench routing for deleted threads", () => {
+  const deletedThread = makeThread("deleted-submarine", {
+    title: "Deleted run",
+    messages: [],
+    artifacts: [],
+  });
+  const survivingThread = makeThread("surviving-chat");
+
+  rememberWorkbenchKindForThread("deleted-submarine", "submarine");
+
+  assert.equal(workbenchKindOfThread(deletedThread), "submarine");
+  assert.deepEqual(
+    deriveThreadsAfterDeletion([deletedThread, survivingThread], "deleted-submarine"),
+    [survivingThread],
+  );
+  assert.equal(workbenchKindOfThread(deletedThread), "chat");
+});
+
+void test("deriveThreadsAfterDeletion still clears remembered workbench routing when thread cache is empty", () => {
+  const deletedThread = makeThread("deleted-without-cache", {
+    title: "Deleted run",
+    messages: [],
+    artifacts: [],
+  });
+
+  rememberWorkbenchKindForThread("deleted-without-cache", "submarine");
+
+  assert.equal(workbenchKindOfThread(deletedThread), "submarine");
+  assert.equal(
+    deriveThreadsAfterDeletion(undefined, "deleted-without-cache"),
+    undefined,
+  );
+  assert.equal(workbenchKindOfThread(deletedThread), "chat");
 });
 
 void test("pathOfThreadByState uses artifact prefixes when runtime state is absent", () => {
