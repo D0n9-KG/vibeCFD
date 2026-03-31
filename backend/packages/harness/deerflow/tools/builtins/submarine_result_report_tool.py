@@ -78,6 +78,8 @@ def submarine_result_report_tool(
     runtime_snapshot = build_runtime_snapshot(
         current_stage="result-reporting",
         task_summary=snapshot.task_summary,
+        confirmation_status=snapshot.confirmation_status,
+        execution_preference=snapshot.execution_preference,
         task_type=snapshot.task_type,
         geometry_virtual_path=snapshot.geometry_virtual_path,
         geometry_family=snapshot.geometry_family,
@@ -98,7 +100,7 @@ def submarine_result_report_tool(
         report_virtual_path=payload["report_virtual_path"],
         artifact_virtual_paths=payload["artifact_virtual_paths"],
         execution_plan=build_execution_plan(
-            confirmation_status="confirmed",
+            confirmation_status=snapshot.confirmation_status,
             existing_plan=snapshot.execution_plan,
             stage_updates=execution_updates,
         ),

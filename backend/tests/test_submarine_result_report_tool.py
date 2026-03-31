@@ -326,6 +326,8 @@ def test_submarine_result_report_updates_scientific_capability_plan_statuses(
     runtime = _make_runtime(paths, thread_id)
     runtime.state["submarine_runtime"] = contracts_module.build_runtime_snapshot(
         current_stage="solver-dispatch",
+        confirmation_status="confirmed",
+        execution_preference="preflight_then_execute",
         task_summary="执行并复核潜艇 CFD 研究链路",
         task_type="resistance",
         geometry_virtual_path="/mnt/user-data/uploads/capability-report.stl",
@@ -396,6 +398,8 @@ def test_submarine_result_report_updates_scientific_capability_plan_statuses(
 
     runtime_state = result.update["submarine_runtime"]
 
+    assert runtime_state["confirmation_status"] == "confirmed"
+    assert runtime_state["execution_preference"] == "preflight_then_execute"
     assert _execution_plan_status(runtime_state, "scientific-study") == "completed"
     assert _execution_plan_status(runtime_state, "experiment-compare") == "completed"
     assert _execution_plan_status(runtime_state, "scientific-verification") == "completed"
