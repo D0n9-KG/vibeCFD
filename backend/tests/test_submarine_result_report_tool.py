@@ -3204,5 +3204,8 @@ def test_reporting_decomposition_module_render_keeps_followup_and_requested_outp
     assert "selector=patch[hull]" in markdown
     assert "## Scientific Follow-Up History" in markdown
     assert "dispatch_refreshed_report" in markdown
+    assert "## 建议" in markdown
     assert "<h2>Scientific Follow-Up History</h2>" in html
     assert "selector=patch[hull]" in html
+    assert "<h2>建议</h2>" in html
+    assert "由 Claude Code Supervisor 审阅当前阶段结论" in html

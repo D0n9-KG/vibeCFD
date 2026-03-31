@@ -1080,6 +1080,13 @@ def _summarize_postprocess_spec(spec: object) -> str | None:
     return "; ".join(parts) if parts else None
 
 
+_REPORT_RECOMMENDATIONS: tuple[str, ...] = (
+    "由 Claude Code Supervisor 审阅当前阶段结论，再决定是否进入下一次 DeerFlow run。",
+    "若当前仅完成几何预检，请在继续前补全工况、案例和求解参数确认。",
+    "若当前已完成求解派发或执行，请继续补齐结果整理与后处理展示。",
+)
+
+
 def render_markdown(payload: dict) -> str:
     source_artifacts = "\n".join(f"- `{path}`" for path in payload["source_artifact_virtual_paths"]) or "- 暂无"
     final_artifacts = "\n".join(f"- `{path}`" for path in payload["final_artifact_virtual_paths"])
@@ -1352,6 +1359,13 @@ def _render_scientific_followup_html(scientific_followup_summary: dict | None) -
     )
 
 
+def _render_recommendations_html() -> str:
+    items = "".join(
+        f"<li>{escape(item)}</li>" for item in _REPORT_RECOMMENDATIONS
+    )
+    return f'<section class="panel"><h2>建议</h2><ul>{items}</ul></section>'
+
+
 def render_html(payload: dict) -> str:
     source_items = "".join(f"<li>{escape(path)}</li>" for path in payload["source_artifact_virtual_paths"]) or "<li>暂无</li>"
     final_items = "".join(f"<li>{escape(path)}</li>" for path in payload["final_artifact_virtual_paths"])
@@ -1408,6 +1422,7 @@ def render_html(payload: dict) -> str:
         + "</ul></section>"
     )
     output_delivery_section = _render_output_delivery_html(payload.get("output_delivery_plan"))
+    recommendations_section = _render_recommendations_html()
     return f"""<!doctype html>
 <html lang="zh-CN">
   <head>
@@ -1484,6 +1499,7 @@ def render_html(payload: dict) -> str:
       <h2>本阶段产物</h2>
       <ul>{final_items}</ul>
     </section>
+    {recommendations_section}
   </body>
 </html>
 """
