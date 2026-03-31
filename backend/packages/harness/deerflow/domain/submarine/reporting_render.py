@@ -1087,6 +1087,15 @@ _REPORT_RECOMMENDATIONS: tuple[str, ...] = (
 )
 
 
+def _build_dynamic_report_recommendations(payload: dict) -> list[str]:
+    review_status = str(payload.get("review_status") or "").strip()
+    next_stage = str(payload.get("next_recommended_stage") or "").strip()
+    if review_status != "blocked" or not next_stage:
+        return []
+
+    return [f"回到 `{next_stage}` 补齐验证或整改项后，再刷新最终报告。"]
+
+
 def render_markdown(payload: dict) -> str:
     source_artifacts = "\n".join(f"- `{path}`" for path in payload["source_artifact_virtual_paths"]) or "- 暂无"
     final_artifacts = "\n".join(f"- `{path}`" for path in payload["final_artifact_virtual_paths"])
@@ -1133,6 +1142,15 @@ def render_markdown(payload: dict) -> str:
         "## 来源证据",
         source_artifacts,
     ]
+    dynamic_recommendations = _build_dynamic_report_recommendations(payload)
+    if dynamic_recommendations:
+        lines.extend(
+            [
+                "",
+                "### 行动提示",
+                *(f"- {item}" for item in dynamic_recommendations),
+            ]
+        )
     lines.extend(
         [
             "",
@@ -1359,8 +1377,14 @@ def _render_scientific_followup_html(scientific_followup_summary: dict | None) -
     )
 
 
-def _render_recommendations_html() -> str:
+def _render_recommendations_html(payload: dict) -> str:
+    dynamic_recommendations = [
+        item.replace("`", "<code>", 1).replace("`", "</code>", 1)
+        for item in _build_dynamic_report_recommendations(payload)
+    ]
     items = "".join(
+        f"<li>{item}</li>" for item in dynamic_recommendations
+    ) + "".join(
         f"<li>{escape(item)}</li>" for item in _REPORT_RECOMMENDATIONS
     )
     return f'<section class="panel"><h2>建议</h2><ul>{items}</ul></section>'
@@ -1422,7 +1446,7 @@ def render_html(payload: dict) -> str:
         + "</ul></section>"
     )
     output_delivery_section = _render_output_delivery_html(payload.get("output_delivery_plan"))
-    recommendations_section = _render_recommendations_html()
+    recommendations_section = _render_recommendations_html(payload)
     return f"""<!doctype html>
 <html lang="zh-CN">
   <head>

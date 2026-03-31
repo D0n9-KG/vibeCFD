@@ -2710,6 +2710,12 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
     final_report_path = (
         outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
     )
+    markdown_report_path = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.md"
+    )
+    html_report_path = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.html"
+    )
     evidence_path = (
         outputs_dir
         / "submarine"
@@ -2718,6 +2724,8 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
         / "research-evidence-summary.json"
     )
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    markdown = markdown_report_path.read_text(encoding="utf-8")
+    html = html_report_path.read_text(encoding="utf-8")
     research = final_payload["research_evidence_summary"]
     gate = final_payload["scientific_supervisor_gate"]
 
@@ -2732,6 +2740,8 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
     assert final_payload["scientific_gate_virtual_path"].endswith(
         "/supervisor-scientific-gate.json"
     )
+    assert "回到 `solver-dispatch` 补齐验证或整改项后，再刷新最终报告。" in markdown
+    assert "回到 <code>solver-dispatch</code> 补齐验证或整改项后，再刷新最终报告。" in html
     assert result.update["submarine_runtime"]["review_status"] == "blocked"
     assert result.update["submarine_runtime"]["scientific_gate_status"] == "blocked"
     assert result.update["submarine_runtime"]["execution_plan"][-1]["status"] == "blocked"
