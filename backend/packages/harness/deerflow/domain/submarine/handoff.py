@@ -89,6 +89,12 @@ def build_scientific_remediation_handoff(
                 "selected_case_id": runtime_snapshot.get("selected_case_id"),
                 "execute_scientific_studies": True,
             }
+            confirmation_status = runtime_snapshot.get("confirmation_status")
+            execution_preference = runtime_snapshot.get("execution_preference")
+            if confirmation_status:
+                tool_args["confirmation_status"] = confirmation_status
+            if execution_preference:
+                tool_args["execution_preference"] = execution_preference
             simulation_requirements = runtime_snapshot.get("simulation_requirements") or {}
             if isinstance(simulation_requirements, Mapping):
                 tool_args.update(

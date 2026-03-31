@@ -621,6 +621,8 @@ def test_submarine_domain_builds_scientific_remediation_handoff_semantics():
         snapshot={
             "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
             "task_summary": "Assess missing scientific study evidence",
+            "confirmation_status": "confirmed",
+            "execution_preference": "preflight_then_execute",
             "task_type": "resistance",
             "selected_case_id": "darpa_suboff_bare_hull_resistance",
             "simulation_requirements": {
@@ -647,6 +649,8 @@ def test_submarine_domain_builds_scientific_remediation_handoff_semantics():
     assert auto_handoff["recommended_action_id"] == "execute-scientific-studies"
     assert auto_handoff["tool_name"] == "submarine_solver_dispatch"
     assert auto_handoff["tool_args"]["geometry_path"] == "/mnt/user-data/uploads/suboff_solid.stl"
+    assert auto_handoff["tool_args"]["confirmation_status"] == "confirmed"
+    assert auto_handoff["tool_args"]["execution_preference"] == "preflight_then_execute"
     assert auto_handoff["tool_args"]["execute_scientific_studies"] is True
 
     manual_handoff = handoff_module.build_scientific_remediation_handoff(
