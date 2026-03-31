@@ -69,10 +69,15 @@ def _augment_runtime_update(
     snapshot,
     history_virtual_path: str,
 ) -> dict[str, object]:
-    if isinstance(runtime_update, Mapping):
-        updated_runtime = dict(runtime_update)
+    if isinstance(snapshot, Mapping):
+        base_runtime = dict(snapshot)
     else:
-        updated_runtime = snapshot.model_dump(mode="json")
+        base_runtime = snapshot.model_dump(mode="json")
+
+    if isinstance(runtime_update, Mapping):
+        updated_runtime = {**base_runtime, **dict(runtime_update)}
+    else:
+        updated_runtime = base_runtime
 
     artifact_virtual_paths = merge_artifacts(
         updated_runtime.get("artifact_virtual_paths")

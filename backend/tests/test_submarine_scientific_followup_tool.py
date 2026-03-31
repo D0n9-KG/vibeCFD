@@ -239,6 +239,10 @@ def test_submarine_scientific_followup_executes_solver_dispatch_handoff(
         thread_id=thread_id,
         supervisor_handoff_virtual_path=handoff_virtual_path,
     )
+    runtime.state["submarine_runtime"]["confirmation_status"] = "confirmed"
+    runtime.state["submarine_runtime"]["execution_preference"] = (
+        "preflight_then_execute"
+    )
 
     captured: dict[str, object] = {}
 
@@ -281,6 +285,15 @@ def test_submarine_scientific_followup_executes_solver_dispatch_handoff(
     assert captured["execute_now"] is True
     assert captured["tool_call_id"] == "tc-followup-dispatch"
     assert result.update["submarine_runtime"]["current_stage"] == "solver-dispatch"
+    assert (
+        result.update["submarine_runtime"]["task_summary"]
+        == "Continue the scientific CFD remediation flow"
+    )
+    assert result.update["submarine_runtime"]["confirmation_status"] == "confirmed"
+    assert (
+        result.update["submarine_runtime"]["execution_preference"]
+        == "preflight_then_execute"
+    )
     assert "Scientific studies dispatched" in result.update["messages"][0].content
 
 
