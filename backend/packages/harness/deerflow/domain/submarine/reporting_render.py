@@ -1456,6 +1456,13 @@ def render_html(payload: dict) -> str:
       <p><strong>Run script:</strong> {escape(str(payload.get('run_script_virtual_path') or '当前阶段无'))}</p>
     </section>
     <section class="panel">
+      <h2>当前阶段判断</h2>
+      <p><strong>review_status:</strong> {escape(str(payload['review_status']))}</p>
+      <p><strong>next_recommended_stage:</strong> {escape(str(payload['next_recommended_stage']))}</p>
+      <p><strong>source_report_virtual_path:</strong> {escape(str(payload['source_report_virtual_path']))}</p>
+      <p><strong>supervisor_handoff_virtual_path:</strong> {escape(str(payload.get('supervisor_handoff_virtual_path') or '当前阶段无'))}</p>
+    </section>
+    <section class="panel">
       <h2>来源证据</h2>
       <ul>{source_items}</ul>
     </section>

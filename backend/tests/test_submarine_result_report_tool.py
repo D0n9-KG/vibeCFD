@@ -316,6 +316,16 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
     assert "execute_now" in html
     assert "<strong>执行就绪状态:</strong> stl_ready" in html
     assert "<strong>选定案例:</strong> darpa_suboff_bare_hull_resistance" in html
+    assert f"<strong>review_status:</strong> {payload['review_status']}" in html
+    assert f"<strong>next_recommended_stage:</strong> {payload['next_recommended_stage']}" in html
+    assert (
+        f"<strong>source_report_virtual_path:</strong> {payload['source_report_virtual_path']}"
+        in html
+    )
+    assert (
+        f"<strong>supervisor_handoff_virtual_path:</strong> {payload['supervisor_handoff_virtual_path']}"
+        in html
+    )
     assert any(path.endswith("/final-report.json") for path in result.update["artifacts"])
     assert len(result.update["submarine_runtime"]["activity_timeline"]) == 3
     assert result.update["submarine_runtime"]["activity_timeline"][-1]["stage"] == "result-reporting"
