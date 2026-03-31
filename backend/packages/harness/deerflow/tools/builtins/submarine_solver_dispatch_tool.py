@@ -25,7 +25,10 @@ from deerflow.domain.submarine.runtime_plan import (
 from deerflow.domain.submarine.solver_dispatch import run_solver_dispatch
 from deerflow.sandbox import get_sandbox_provider
 from deerflow.tools.builtins.submarine_runtime_context import (
+    build_user_confirmation_block_message,
     load_existing_design_brief_payload,
+    requires_user_confirmation,
+    resolve_confirmation_status,
     resolve_execution_preference,
 )
 
@@ -116,48 +119,6 @@ def _get_execute_command(runtime: ToolRuntime[ContextT, ThreadState]):
     return sandbox.execute_command
 
 
-def _resolved_confirmation_status(existing_runtime: dict, existing_brief: dict) -> str:
-    return (
-        str(existing_brief.get("confirmation_status") or "").strip()
-        or str(existing_runtime.get("confirmation_status") or "").strip()
-        or "draft"
-    )
-
-
-def _requires_user_confirmation(existing_runtime: dict, existing_brief: dict) -> bool:
-    if _resolved_confirmation_status(existing_runtime, existing_brief) == "confirmed":
-        return False
-
-    review_status = (
-        existing_brief.get("review_status")
-        or existing_runtime.get("review_status")
-    )
-    next_stage = (
-        existing_brief.get("next_recommended_stage")
-        or existing_runtime.get("next_recommended_stage")
-    )
-    return (
-        review_status == "needs_user_confirmation"
-        or next_stage == "user-confirmation"
-    )
-
-
-def _build_user_confirmation_block_message(
-    existing_runtime: dict,
-    existing_brief: dict,
-) -> str:
-    task_summary = (
-        existing_brief.get("task_description")
-        or existing_runtime.get("task_summary")
-        or "the current submarine CFD brief"
-    )
-    return (
-        "Solver dispatch is blocked until user confirmation is complete for the current design brief. "
-        f"Please resolve the missing operating-condition questions for {task_summary} in chat, "
-        "update the design brief, and then retry submarine_solver_dispatch."
-    )
-
-
 @tool("submarine_solver_dispatch", parse_docstring=True)
 def submarine_solver_dispatch_tool(
     runtime: ToolRuntime[ContextT, ThreadState],
@@ -202,14 +163,19 @@ def submarine_solver_dispatch_tool(
             outputs_dir=outputs_dir,
             state=runtime.state,
         )
-        if _requires_user_confirmation(existing_runtime, existing_brief):
+        if requires_user_confirmation(
+            existing_runtime=existing_runtime,
+            existing_brief=existing_brief,
+        ):
             return Command(
                 update={
                     "messages": [
                         ToolMessage(
-                            _build_user_confirmation_block_message(
-                                existing_runtime,
-                                existing_brief,
+                            build_user_confirmation_block_message(
+                                existing_runtime=existing_runtime,
+                                existing_brief=existing_brief,
+                                blocked_stage_label="Solver dispatch",
+                                retry_tool_name="submarine_solver_dispatch",
                             ),
                             tool_call_id=tool_call_id,
                         )
@@ -254,9 +220,9 @@ def submarine_solver_dispatch_tool(
         resolved_geometry_path = _resolve_geometry_path(runtime, resolved_geometry_input)
         workspace_dir = _get_thread_dir(runtime, "workspace_path")
         geometry_virtual_path = _to_virtual_thread_path(runtime, resolved_geometry_path)
-        resolved_confirmation_status = _resolved_confirmation_status(
-            existing_runtime,
-            existing_brief,
+        resolved_confirmation_status = resolve_confirmation_status(
+            existing_runtime=existing_runtime,
+            existing_brief=existing_brief,
         )
         resolved_execution_preference = resolve_execution_preference(
             explicit_preference=None,

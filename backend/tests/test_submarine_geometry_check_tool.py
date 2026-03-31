@@ -241,3 +241,119 @@ def test_submarine_geometry_check_updates_runtime_state(tmp_path, monkeypatch):
     assert len(runtime_state["activity_timeline"]) == 1
     assert runtime_state["activity_timeline"][0]["stage"] == "geometry-preflight"
     assert runtime_state["activity_timeline"][0]["actor"] == "geometry-preflight"
+
+
+def test_submarine_geometry_check_requires_user_confirmation_before_preflight(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-awaiting-confirmation"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "awaiting-confirmation.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["submarine_runtime"] = {
+        "current_stage": "task-intelligence",
+        "task_summary": "Confirm the baseline conditions before geometry preflight",
+        "task_type": "resistance",
+        "geometry_virtual_path": "/mnt/user-data/uploads/awaiting-confirmation.stl",
+        "confirmation_status": "draft",
+        "review_status": "needs_user_confirmation",
+        "next_recommended_stage": "user-confirmation",
+        "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/awaiting-confirmation/cfd-design-brief.md",
+        "artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/design-brief/awaiting-confirmation/cfd-design-brief.json"
+        ],
+    }
+
+    result = tool_module.submarine_geometry_check_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/awaiting-confirmation.stl",
+        task_description="Try to run geometry preflight before the brief is confirmed",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        tool_call_id="tc-geometry-awaiting-confirmation",
+    )
+
+    geometry_check_path = (
+        outputs_dir
+        / "submarine"
+        / "geometry-check"
+        / "awaiting-confirmation"
+        / "geometry-check.json"
+    )
+
+    assert not geometry_check_path.exists()
+    assert "messages" in result.update
+    assert "artifacts" not in result.update
+    assert "submarine_runtime" not in result.update
+    assert "user confirmation" in result.update["messages"][0].content.lower()
+
+
+def test_submarine_geometry_check_preserves_confirmed_brief_context(
+    tmp_path, monkeypatch
+):
+    design_brief_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_design_brief_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-confirmed-geometry-preflight"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "confirmed-geometry-preflight.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(design_brief_tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    design_brief_result = design_brief_tool_module.submarine_design_brief_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/confirmed-geometry-preflight.stl",
+        task_description="确认方案后先预检再执行这次潜艇基线 CFD。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        confirmation_status="confirmed",
+        selected_case_id="user-confirmed-case",
+        inlet_velocity_mps=5.0,
+        fluid_density_kg_m3=1025.0,
+        kinematic_viscosity_m2ps=1.05e-06,
+        end_time_seconds=200.0,
+        delta_t_seconds=1.0,
+        write_interval_steps=50,
+        expected_outputs=["阻力系数 Cd"],
+        open_questions=[],
+        tool_call_id="tc-design-brief-confirmed-geometry-preflight",
+    )
+
+    runtime.state["artifacts"] = design_brief_result.update["artifacts"]
+    runtime.state["submarine_runtime"] = {}
+
+    result = tool_module.submarine_geometry_check_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/confirmed-geometry-preflight.stl",
+        task_description="Run geometry preflight for the already confirmed brief",
+        task_type="resistance",
+        geometry_family_hint=None,
+        tool_call_id="tc-geometry-confirmed-brief",
+    )
+
+    runtime_state = result.update["submarine_runtime"]
+
+    assert runtime_state["confirmation_status"] == "confirmed"
+    assert runtime_state["execution_preference"] == "preflight_then_execute"
+    assert runtime_state["selected_case_id"] == "user-confirmed-case"
+    assert runtime_state["simulation_requirements"]["inlet_velocity_mps"] == 5.0
+    assert runtime_state["execution_plan"][2]["status"] == "completed"
+    assert runtime_state["execution_plan"][3]["status"] == "ready"

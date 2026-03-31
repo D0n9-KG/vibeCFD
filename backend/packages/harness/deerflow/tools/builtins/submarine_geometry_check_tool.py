@@ -24,7 +24,10 @@ from deerflow.domain.submarine.geometry_check import (
 )
 from deerflow.domain.submarine.solver_dispatch import STL_READY_EXECUTION
 from deerflow.tools.builtins.submarine_runtime_context import (
+    build_user_confirmation_block_message,
     load_existing_design_brief_payload,
+    requires_user_confirmation,
+    resolve_confirmation_status,
     resolve_execution_preference,
 )
 
@@ -116,8 +119,33 @@ def submarine_geometry_check_tool(
         geometry_family_hint: Optional family hint such as `DARPA SUBOFF` or `Type 209`.
     """
     try:
-        resolved_geometry_path = _resolve_geometry_path(runtime, geometry_path)
+        existing_runtime = (runtime.state or {}).get("submarine_runtime") or {}
         outputs_dir = _get_thread_dir(runtime, "outputs_path")
+        existing_brief = load_existing_design_brief_payload(
+            outputs_dir=outputs_dir,
+            state=runtime.state,
+        )
+        if requires_user_confirmation(
+            existing_runtime=existing_runtime,
+            existing_brief=existing_brief,
+        ):
+            return Command(
+                update={
+                    "messages": [
+                        ToolMessage(
+                            build_user_confirmation_block_message(
+                                existing_runtime=existing_runtime,
+                                existing_brief=existing_brief,
+                                blocked_stage_label="Geometry preflight",
+                                retry_tool_name="submarine_geometry_check",
+                            ),
+                            tool_call_id=tool_call_id,
+                        )
+                    ]
+                }
+            )
+
+        resolved_geometry_path = _resolve_geometry_path(runtime, geometry_path)
         result, artifacts = run_geometry_check(
             geometry_path=resolved_geometry_path,
             outputs_dir=outputs_dir,
@@ -132,19 +160,14 @@ def submarine_geometry_check_tool(
             }
         )
 
-    existing_runtime = (runtime.state or {}).get("submarine_runtime")
-    existing_brief = load_existing_design_brief_payload(
-        outputs_dir=outputs_dir,
-        state=runtime.state,
+    resolved_confirmation_status = resolve_confirmation_status(
+        existing_runtime=existing_runtime,
+        existing_brief=existing_brief,
     )
     runtime_snapshot = build_runtime_snapshot(
         current_stage="geometry-preflight",
         task_summary=task_description,
-        confirmation_status=(
-            (existing_runtime or {}).get("confirmation_status")
-            or existing_brief.get("confirmation_status")
-            or "draft"
-        ),
+        confirmation_status=resolved_confirmation_status,
         execution_preference=resolve_execution_preference(
             explicit_preference=None,
             existing_runtime=existing_runtime or {},
@@ -159,7 +182,11 @@ def submarine_geometry_check_tool(
         geometry_virtual_path=_to_virtual_thread_path(runtime, resolved_geometry_path),
         geometry_family=result.geometry.geometry_family,
         execution_readiness=STL_READY_EXECUTION,
-        selected_case_id=result.candidate_cases[0].case_id if result.candidate_cases else None,
+        selected_case_id=(
+            (existing_runtime or {}).get("selected_case_id")
+            or existing_brief.get("selected_case_id")
+            or (result.candidate_cases[0].case_id if result.candidate_cases else None)
+        ),
         simulation_requirements=(
             (existing_runtime or {}).get("simulation_requirements")
             or existing_brief.get("simulation_requirements")
@@ -173,7 +200,7 @@ def submarine_geometry_check_tool(
         report_virtual_path=result.report_virtual_path,
         artifact_virtual_paths=result.artifact_virtual_paths,
         execution_plan=build_execution_plan(
-            confirmation_status="confirmed",
+            confirmation_status=resolved_confirmation_status,
             existing_plan=(existing_runtime or {}).get("execution_plan"),
             stage_updates={
                 "claude-code-supervisor": "completed",

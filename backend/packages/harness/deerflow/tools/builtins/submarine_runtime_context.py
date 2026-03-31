@@ -111,6 +111,66 @@ def resolve_execution_preference(
     return infer_execution_preference(task_description)
 
 
+def resolve_confirmation_status(
+    *,
+    existing_runtime: Mapping[str, Any] | None,
+    existing_brief: Mapping[str, Any] | None,
+) -> Literal["draft", "confirmed"]:
+    raw_status = (
+        str((existing_brief or {}).get("confirmation_status") or "").strip()
+        or str((existing_runtime or {}).get("confirmation_status") or "").strip()
+        or "draft"
+    )
+    return "confirmed" if raw_status == "confirmed" else "draft"
+
+
+def requires_user_confirmation(
+    *,
+    existing_runtime: Mapping[str, Any] | None,
+    existing_brief: Mapping[str, Any] | None,
+) -> bool:
+    if (
+        resolve_confirmation_status(
+            existing_runtime=existing_runtime,
+            existing_brief=existing_brief,
+        )
+        == "confirmed"
+    ):
+        return False
+
+    review_status = (
+        (existing_brief or {}).get("review_status")
+        or (existing_runtime or {}).get("review_status")
+    )
+    next_stage = (
+        (existing_brief or {}).get("next_recommended_stage")
+        or (existing_runtime or {}).get("next_recommended_stage")
+    )
+    return (
+        review_status == "needs_user_confirmation"
+        or next_stage == "user-confirmation"
+    )
+
+
+def build_user_confirmation_block_message(
+    *,
+    existing_runtime: Mapping[str, Any] | None,
+    existing_brief: Mapping[str, Any] | None,
+    blocked_stage_label: str,
+    retry_tool_name: str,
+) -> str:
+    task_summary = (
+        (existing_brief or {}).get("task_description")
+        or (existing_runtime or {}).get("task_summary")
+        or "the current submarine CFD brief"
+    )
+    return (
+        f"{blocked_stage_label} is blocked until user confirmation is complete for the current design brief. "
+        f"Please resolve the missing operating-condition questions for {task_summary} in chat, "
+        f"update the design brief, and then retry {retry_tool_name}."
+    )
+
+
 def load_existing_design_brief_payload(
     *,
     outputs_dir: Path,
