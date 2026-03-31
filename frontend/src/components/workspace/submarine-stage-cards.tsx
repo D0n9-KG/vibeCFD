@@ -104,7 +104,10 @@ export function TaskIntelligenceCard({
     state === "done"
       ? brief?.task_description?.slice(0, 60) ?? "已确认方案"
       : state === "active"
-        ? snapshot?.stage_status === "waiting_user"
+        ? brief?.confirmation_status !== "confirmed" ||
+            openQuestions.length > 0 ||
+            snapshot?.review_status === "needs_user_confirmation" ||
+            snapshot?.stage_status === "waiting_user"
           ? "方案待确认"
           : "正在分析任务…"
         : "等待开始";

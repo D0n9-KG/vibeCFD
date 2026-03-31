@@ -36,13 +36,17 @@ export function getSubmarinePipelineChatRailClassName(): string {
   ].join(" ");
 }
 
+export function getSubmarinePipelineChatViewportClassName(): string {
+  return ["flex-1", "min-h-0", "justify-start", "overflow-y-auto"].join(" ");
+}
+
 export function getSubmarinePipelineCenterPaneConfig(): SubmarinePipelineCenterPaneConfig {
   return {
     scrollClassName: "min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4",
     overviewClassName:
       "mb-4 rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-sm backdrop-blur-sm",
     stageGridClassName:
-      "grid gap-4 xl:grid-cols-2 xl:auto-rows-[minmax(16rem,1fr)]",
-    stageSectionClassName: "h-full",
+      "grid gap-4 xl:grid-cols-2 xl:auto-rows-[minmax(16rem,auto)]",
+    stageSectionClassName: "min-h-0",
   };
 }

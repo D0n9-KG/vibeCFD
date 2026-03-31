@@ -112,6 +112,22 @@ def _get_execute_command(runtime: ToolRuntime[ContextT, ThreadState]):
     return sandbox.execute_command
 
 
+def _requires_user_confirmation(existing_runtime: dict) -> bool:
+    return (
+        existing_runtime.get("review_status") == "needs_user_confirmation"
+        or existing_runtime.get("next_recommended_stage") == "user-confirmation"
+    )
+
+
+def _build_user_confirmation_block_message(existing_runtime: dict) -> str:
+    task_summary = existing_runtime.get("task_summary") or "the current submarine CFD brief"
+    return (
+        "Solver dispatch is blocked until user confirmation is complete for the current design brief. "
+        f"Please resolve the missing operating-condition questions for {task_summary} in chat, "
+        "update the design brief, and then retry submarine_solver_dispatch."
+    )
+
+
 @tool("submarine_solver_dispatch", parse_docstring=True)
 def submarine_solver_dispatch_tool(
     runtime: ToolRuntime[ContextT, ThreadState],
@@ -151,6 +167,17 @@ def submarine_solver_dispatch_tool(
     """
     try:
         existing_runtime = (runtime.state or {}).get("submarine_runtime") or {}
+        if _requires_user_confirmation(existing_runtime):
+            return Command(
+                update={
+                    "messages": [
+                        ToolMessage(
+                            _build_user_confirmation_block_message(existing_runtime),
+                            tool_call_id=tool_call_id,
+                        )
+                    ]
+                }
+            )
         existing_requirements = existing_runtime.get("simulation_requirements") or {}
         resolved_task_description = (
             task_description

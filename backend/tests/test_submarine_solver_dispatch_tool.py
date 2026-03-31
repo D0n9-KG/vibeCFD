@@ -1815,3 +1815,64 @@ def test_solver_dispatch_decomposition_results_module_detects_failure_markers():
 
     assert results_module.looks_like_solver_failure("FOAM FATAL ERROR: divergence")
     assert not results_module.looks_like_solver_failure("Time = 200\nEnd")
+
+
+def test_submarine_solver_dispatch_requires_user_confirmation_before_dispatch(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-awaiting-confirmation"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "awaiting-confirmation.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["submarine_runtime"] = {
+        "current_stage": "task-intelligence",
+        "task_summary": "Clarify the baseline CFD operating condition before dispatch",
+        "task_type": "resistance",
+        "geometry_virtual_path": "/mnt/user-data/uploads/awaiting-confirmation.stl",
+        "geometry_family": "DARPA SUBOFF",
+        "simulation_requirements": {
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1025.0,
+            "kinematic_viscosity_m2ps": 1.05e-06,
+        },
+        "stage_status": "draft",
+        "review_status": "needs_user_confirmation",
+        "next_recommended_stage": "user-confirmation",
+        "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/awaiting-confirmation/cfd-design-brief.md",
+        "artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/design-brief/awaiting-confirmation/cfd-design-brief.json"
+        ],
+    }
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/awaiting-confirmation.stl",
+        task_description="Try to dispatch even though the user has not confirmed the case",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=False,
+        tool_call_id="tc-dispatch-awaiting-confirmation",
+    )
+
+    dispatch_request_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "awaiting-confirmation"
+        / "openfoam-request.json"
+    )
+
+    assert not dispatch_request_path.exists()
+    assert "messages" in result.update
+    assert "artifacts" not in result.update
+    assert "submarine_runtime" not in result.update
+    assert "user confirmation" in result.update["messages"][0].content.lower()

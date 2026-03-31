@@ -4,6 +4,7 @@ import test from "node:test";
 const {
   getSubmarinePipelineCenterPaneConfig,
   getSubmarinePipelineChatRailClassName,
+  getSubmarinePipelineChatViewportClassName,
   getSubmarinePipelineDesktopShellConfig,
 } = await import(
   new URL("./submarine-pipeline-shell.ts", import.meta.url).href
@@ -24,6 +25,7 @@ void test(
 
 void test("chat rail uses an explicit mobile height instead of collapsing to zero", () => {
   const className = getSubmarinePipelineChatRailClassName();
+  const viewportClassName = getSubmarinePipelineChatViewportClassName();
 
   assert.ok(className.includes("h-[42vh]"));
   assert.ok(className.includes("min-h-[18rem]"));
@@ -31,9 +33,12 @@ void test("chat rail uses an explicit mobile height instead of collapsing to zer
   assert.ok(className.includes("border-t"));
   assert.ok(className.includes("xl:h-full"));
   assert.ok(className.includes("xl:border-l"));
+  assert.ok(viewportClassName.includes("min-h-0"));
+  assert.ok(viewportClassName.includes("flex-1"));
+  assert.ok(viewportClassName.includes("overflow-y-auto"));
 });
 
-void test("center pane uses a desktop grid that fills large workbench space", () => {
+void test("center pane uses a scroll-friendly desktop grid instead of clipping stage content", () => {
   const config = getSubmarinePipelineCenterPaneConfig();
 
   assert.ok(config.scrollClassName.includes("overflow-y-auto"));
@@ -43,8 +48,6 @@ void test("center pane uses a desktop grid that fills large workbench space", ()
   assert.ok(config.stageGridClassName.includes("grid"));
   assert.ok(config.stageGridClassName.includes("gap-4"));
   assert.ok(config.stageGridClassName.includes("xl:grid-cols-2"));
-  assert.ok(
-    config.stageGridClassName.includes("xl:auto-rows-[minmax(16rem,1fr)]"),
-  );
-  assert.ok(config.stageSectionClassName.includes("h-full"));
+  assert.ok(config.stageGridClassName.includes("xl:auto-rows-[minmax(16rem,auto)]"));
+  assert.ok(!config.stageSectionClassName.includes("h-full"));
 });

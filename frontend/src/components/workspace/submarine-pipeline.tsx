@@ -30,8 +30,14 @@ import { useThread } from "./messages/context";
 import {
   getSubmarinePipelineCenterPaneConfig,
   getSubmarinePipelineChatRailClassName,
+  getSubmarinePipelineChatViewportClassName,
   getSubmarinePipelineDesktopShellConfig,
 } from "./submarine-pipeline-shell";
+import {
+  deriveSubmarineSidebarRuns,
+  getSubmarineDisplayedNextStage,
+  getSubmarineDisplayedStage,
+} from "./submarine-pipeline-runs";
 import {
   type SidebarRunItem,
   SubmarinePipelineSidebar,
@@ -160,23 +166,7 @@ export function SubmarinePipeline({
   // ── Run list from useThreads (filter submarine threads) ───────────────────
   const { data: allThreads = [] } = useThreads({ limit: 30 }, isMock);
   const runs = useMemo<SidebarRunItem[]>(() => {
-    return allThreads
-      .filter((t) =>
-        Array.isArray(t.values?.artifacts)
-          ? t.values.artifacts.some(
-              (p) =>
-                p.includes("/submarine/") &&
-                !p.includes("/submarine/skill-studio/"),
-            )
-          : t.values?.submarine_runtime != null,
-      )
-      .map((t) => ({
-        threadId: t.thread_id,
-        title: (t.values?.title as string | undefined) ?? "",
-        isRunning:
-          t.values?.submarine_runtime != null && !t.values?.is_complete,
-        isComplete: Boolean(t.values?.is_complete),
-      }));
+    return deriveSubmarineSidebarRuns(allThreads);
   }, [allThreads]);
 
   // ── Layout persistence ────────────────────────────────────────────────────
@@ -299,8 +289,9 @@ export function SubmarinePipeline({
   // ── Snapshot for stage cards ───────────────────────────────────────────────
   const stageSnapshot = useMemo<StageRuntimeSnapshot | null>(() => {
     if (!runtime) return null;
+    const displayedStage = getSubmarineDisplayedStage(runtime, designBrief);
     return {
-      current_stage: runtime.current_stage,
+      current_stage: displayedStage,
       task_summary: runtime.task_summary,
       simulation_requirements: runtime.simulation_requirements,
       stage_status: runtime.stage_status,
@@ -325,7 +316,16 @@ export function SubmarinePipeline({
         timestamp: item.timestamp,
       })) ?? null,
     };
-  }, [runtime]);
+  }, [designBrief, runtime]);
+
+  const displayedCurrentStage = useMemo(
+    () => getSubmarineDisplayedStage(runtime, designBrief),
+    [designBrief, runtime],
+  );
+  const displayedNextStage = useMemo(
+    () => getSubmarineDisplayedNextStage(runtime, designBrief),
+    [designBrief, runtime],
+  );
 
   const pipelineStatus = useMemo(
     () =>
@@ -390,6 +390,8 @@ export function SubmarinePipeline({
           <PipelineCenterPane
             thread={thread}
             runtime={runtime}
+            displayedCurrentStage={displayedCurrentStage}
+            displayedNextStage={displayedNextStage}
             pipelineStatus={pipelineStatus}
             centerRef={mobileCenterRef}
             threadId={threadId}
@@ -435,7 +437,7 @@ export function SubmarinePipeline({
           >
           <SubmarinePipelineSidebar
             currentThreadId={threadId}
-            currentStage={runtime?.current_stage}
+            currentStage={displayedCurrentStage}
             currentThreadRunLabel={pipelineStatus.runLabel}
             currentThreadTone={pipelineStatus.tone}
             runs={runs}
@@ -454,6 +456,8 @@ export function SubmarinePipeline({
           <PipelineCenterPane
             thread={thread}
             runtime={runtime}
+            displayedCurrentStage={displayedCurrentStage}
+            displayedNextStage={displayedNextStage}
             pipelineStatus={pipelineStatus}
             centerRef={centerRef}
             threadId={threadId}
@@ -502,6 +506,8 @@ export function SubmarinePipeline({
 function PipelineCenterPane({
   thread,
   runtime,
+  displayedCurrentStage,
+  displayedNextStage,
   pipelineStatus,
   centerRef,
   threadId,
@@ -515,6 +521,8 @@ function PipelineCenterPane({
 }: {
   thread: ReturnType<typeof useThread>["thread"];
   runtime: SubmarineRuntimeSnapshot | null;
+  displayedCurrentStage: string | null;
+  displayedNextStage: string | null;
   pipelineStatus: SubmarinePipelineStatus;
   centerRef: React.RefObject<HTMLDivElement | null>;
   threadId: string;
@@ -530,21 +538,26 @@ function PipelineCenterPane({
   ) => void;
 }) {
   const centerPaneConfig = getSubmarinePipelineCenterPaneConfig();
-  const currentStageLabel = runtime?.current_stage
-    ? (STAGE_LABELS[runtime.current_stage] ?? runtime.current_stage)
+  const currentStageLabel = displayedCurrentStage
+    ? (STAGE_LABELS[displayedCurrentStage] ?? displayedCurrentStage)
     : "等待建立研究 brief";
+  const hasPendingBriefConfirmation = Boolean(
+    designBrief &&
+      (designBrief.confirmation_status !== "confirmed" ||
+        (designBrief.open_questions?.filter(Boolean).length ?? 0) > 0),
+  );
   const submarineArtifactCount = Array.isArray(thread.values.artifacts)
     ? thread.values.artifacts.filter((path) => path.includes("/submarine/")).length
     : 0;
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.10),_transparent_32%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))]">
+    <div className="flex h-full min-h-0 flex-col bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.10),_transparent_32%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))]">
       {/* Center header — xl only (mobile header is in parent) */}
       <div className="hidden shrink-0 items-center gap-2.5 border-b border-stone-200 px-4 py-2.5 xl:flex">
         <span className="text-[14px] font-bold text-stone-900">
           {thread.values.title ?? "仿真任务"}
         </span>
         {runtime?.current_stage && (
-          <StageBadge stage={runtime.current_stage} />
+          <StageBadge stage={displayedCurrentStage ?? runtime.current_stage} />
         )}
         {runtime?.simulation_requirements && (
           <SimReqTags reqs={runtime.simulation_requirements} />
@@ -564,7 +577,9 @@ function PipelineCenterPane({
                   Research Cockpit
                 </span>
                 {runtime?.current_stage ? (
-                  <StageBadge stage={runtime.current_stage} />
+                  <StageBadge
+                    stage={displayedCurrentStage ?? runtime.current_stage}
+                  />
                 ) : (
                   <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-semibold text-stone-600">
                     待启动
@@ -599,9 +614,8 @@ function PipelineCenterPane({
                 <WorkbenchFocusTile
                   label="下一步"
                   value={
-                    runtime?.next_recommended_stage
-                      ? STAGE_LABELS[runtime.next_recommended_stage] ??
-                        runtime.next_recommended_stage
+                    displayedNextStage
+                      ? STAGE_LABELS[displayedNextStage] ?? displayedNextStage
                       : "补充目标与 baseline"
                   }
                 />
@@ -610,7 +624,9 @@ function PipelineCenterPane({
                   value={
                     finalReport
                       ? "已有报告与评估结论"
-                      : designBrief
+                      : hasPendingBriefConfirmation
+                        ? "Brief awaiting user confirmation before solver dispatch"
+                        : designBrief
                         ? "brief 已确认，待生成数值证据"
                         : "等待建立可确认的 study brief"
                   }
@@ -769,9 +785,9 @@ function PipelineChatRail({
       )}
 
       {/* Messages */}
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <MessageList
-          className="flex-1 justify-start"
+          className={getSubmarinePipelineChatViewportClassName()}
           paddingBottom={32}
           threadId={threadId}
           thread={thread}
