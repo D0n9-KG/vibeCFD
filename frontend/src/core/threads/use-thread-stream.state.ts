@@ -1,8 +1,9 @@
 import type { Message } from "@langchain/langgraph-sdk";
 
 import type { FileInMessage } from "../messages/utils";
-import type { ThreadWorkbenchKind } from "./utils";
+
 import type { AgentThread } from "./types";
+import type { ThreadWorkbenchKind } from "./utils";
 
 export function deriveThreadStreamBinding({
   previousThreadId,
@@ -35,6 +36,7 @@ export function deriveThreadStreamSendState({
     shouldCreateThreadBeforeSubmit,
     shouldSignalStartBeforeSubmit:
       !shouldCreateThreadBeforeSubmit && requestedThreadId.length > 0,
+    shouldSignalStartAfterSubmitStart: shouldCreateThreadBeforeSubmit,
     shouldUseReboundThreadAfterCreate: shouldCreateThreadBeforeSubmit,
   };
 }

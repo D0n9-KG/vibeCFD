@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+
 import type { Message } from "@langchain/langgraph-sdk";
 
 import type { AgentThread } from "./types.ts";
-
 import {
   deriveOptimisticMessagesAfterUpload,
   deriveThreadsAfterWorkbenchStart,
@@ -11,7 +11,7 @@ import {
   deriveThreadStreamSendState,
 } from "./use-thread-stream.state.ts";
 
-test("deriveThreadStreamBinding keeps reconnect enabled for new-thread routes so active runs can rejoin after navigation", () => {
+void test("deriveThreadStreamBinding keeps reconnect enabled for new-thread routes so active runs can rejoin after navigation", () => {
   assert.deepEqual(
     deriveThreadStreamBinding({
       previousThreadId: "old-thread",
@@ -25,7 +25,7 @@ test("deriveThreadStreamBinding keeps reconnect enabled for new-thread routes so
   );
 });
 
-test("deriveThreadStreamBinding tracks explicit thread switches", () => {
+void test("deriveThreadStreamBinding tracks explicit thread switches", () => {
   assert.deepEqual(
     deriveThreadStreamBinding({
       previousThreadId: "old-thread",
@@ -39,7 +39,7 @@ test("deriveThreadStreamBinding tracks explicit thread switches", () => {
   );
 });
 
-test("deriveThreadStreamBinding keeps reconnect enabled for the same thread", () => {
+void test("deriveThreadStreamBinding keeps reconnect enabled for the same thread", () => {
   assert.deepEqual(
     deriveThreadStreamBinding({
       previousThreadId: "same-thread",
@@ -53,7 +53,7 @@ test("deriveThreadStreamBinding keeps reconnect enabled for the same thread", ()
   );
 });
 
-test("deriveThreadStreamSendState flags new-thread submits to wait for the rebound stream binding", () => {
+void test("deriveThreadStreamSendState flags new-thread submits to wait for the rebound stream binding", () => {
   assert.deepEqual(
     deriveThreadStreamSendState({
       requestedThreadId: "generated-thread-id",
@@ -62,12 +62,13 @@ test("deriveThreadStreamSendState flags new-thread submits to wait for the rebou
     {
       shouldCreateThreadBeforeSubmit: true,
       shouldSignalStartBeforeSubmit: false,
+      shouldSignalStartAfterSubmitStart: true,
       shouldUseReboundThreadAfterCreate: true,
     },
   );
 });
 
-test("deriveThreadStreamSendState waits for thread creation before signaling start on new routes", () => {
+void test("deriveThreadStreamSendState waits for thread creation before signaling start on new routes", () => {
   assert.deepEqual(
     deriveThreadStreamSendState({
       requestedThreadId: "generated-thread-id",
@@ -76,12 +77,13 @@ test("deriveThreadStreamSendState waits for thread creation before signaling sta
     {
       shouldCreateThreadBeforeSubmit: true,
       shouldSignalStartBeforeSubmit: false,
+      shouldSignalStartAfterSubmitStart: true,
       shouldUseReboundThreadAfterCreate: true,
     },
   );
 });
 
-test("deriveThreadStreamSendState eagerly signals start for existing threads", () => {
+void test("deriveThreadStreamSendState eagerly signals start for existing threads", () => {
   assert.deepEqual(
     deriveThreadStreamSendState({
       requestedThreadId: "existing-thread-id",
@@ -90,12 +92,13 @@ test("deriveThreadStreamSendState eagerly signals start for existing threads", (
     {
       shouldCreateThreadBeforeSubmit: false,
       shouldSignalStartBeforeSubmit: true,
+      shouldSignalStartAfterSubmitStart: false,
       shouldUseReboundThreadAfterCreate: false,
     },
   );
 });
 
-test("deriveOptimisticMessagesAfterUpload removes the stale uploading placeholder once files are uploaded", () => {
+void test("deriveOptimisticMessagesAfterUpload removes the stale uploading placeholder once files are uploaded", () => {
   const optimisticMessages: Message[] = [
     {
       type: "human",
@@ -151,7 +154,7 @@ test("deriveOptimisticMessagesAfterUpload removes the stale uploading placeholde
   );
 });
 
-test("deriveThreadsAfterWorkbenchStart patches a created thread with a persisted workbench kind", () => {
+void test("deriveThreadsAfterWorkbenchStart patches a created thread with a persisted workbench kind", () => {
   assert.deepEqual(
     deriveThreadsAfterWorkbenchStart({
       threads: [

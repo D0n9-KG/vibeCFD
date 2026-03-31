@@ -94,7 +94,7 @@ export function useThreadStream({
     threadIdRef.current = binding.streamThreadId;
   }, [threadId]);
 
-  const _handleOnStart = useCallback((id: string) => {
+  const notifyKnownThreadStart = useCallback((id: string) => {
     if (!startedRef.current) {
       listeners.current.onStart?.(id);
       startedRef.current = true;
@@ -141,14 +141,21 @@ export function useThreadStream({
     [queryClient, workbenchKind],
   );
 
-  const handleKnownThreadStart = useCallback(
+  const bindKnownThreadStart = useCallback(
     (startedThreadId: string) => {
       threadIdRef.current = startedThreadId;
       setOnStreamThreadId(startedThreadId);
       tagStartedWorkbenchThread(startedThreadId);
-      _handleOnStart(startedThreadId);
     },
-    [_handleOnStart, tagStartedWorkbenchThread],
+    [tagStartedWorkbenchThread],
+  );
+
+  const handleKnownThreadStart = useCallback(
+    (startedThreadId: string) => {
+      bindKnownThreadStart(startedThreadId);
+      notifyKnownThreadStart(startedThreadId);
+    },
+    [bindKnownThreadStart, notifyKnownThreadStart],
   );
 
   const thread = useStream<AgentThreadState>({
@@ -299,9 +306,9 @@ export function useThreadStream({
           ifExists: "do_nothing",
           threadId,
         });
-        handleKnownThreadStart(threadId);
+        bindKnownThreadStart(threadId);
       } else if (sendState.shouldSignalStartBeforeSubmit) {
-        _handleOnStart(threadId);
+        notifyKnownThreadStart(threadId);
       }
 
       let submitTarget = thread;
@@ -372,7 +379,7 @@ export function useThreadStream({
           }),
         );
 
-        await submitTarget.submit(
+        const submitPromise = submitTarget.submit(
           {
             messages: [
               {
@@ -414,6 +421,10 @@ export function useThreadStream({
             },
           },
         );
+        if (sendState.shouldSignalStartAfterSubmitStart) {
+          notifyKnownThreadStart(threadId);
+        }
+        await submitPromise;
         void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
       } catch (error) {
         setOptimisticMessages([]);
@@ -425,13 +436,13 @@ export function useThreadStream({
     },
     [
       apiClient,
+      bindKnownThreadStart,
       context,
-      handleKnownThreadStart,
       isNewThread,
+      notifyKnownThreadStart,
       queryClient,
       t.uploads.uploadingFiles,
       thread,
-      _handleOnStart,
     ],
   );
 
