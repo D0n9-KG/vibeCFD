@@ -14,9 +14,13 @@ import {
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
+import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
+
 export function WorkspaceHeader({ className }: { className?: string }) {
   const { state } = useSidebar();
   const pathname = usePathname();
+  const chrome = getWorkspaceSidebarChrome();
+
   return (
     <>
       <div
@@ -33,29 +37,41 @@ export function WorkspaceHeader({ className }: { className?: string }) {
             <SidebarTrigger className="hidden pl-2 group-hover/workspace-header:block" />
           </div>
         ) : (
-          <div className="flex items-center justify-between gap-2">
+          <div className={cn("flex items-center gap-2", chrome.headerPanelClassName)}>
             {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ? (
-              <Link href="/" className="ml-2 flex flex-col leading-none">
-                <span className="text-primary font-serif text-base font-semibold">VibeCFD</span>
-                <span className="text-[10px] text-muted-foreground">Powered by DeerFlow</span>
+              <Link href="/" className="min-w-0 flex-1 leading-none">
+                <span className={chrome.brandEyebrowClassName}>Studio Rail</span>
+                <span className="text-primary mt-1 block truncate font-serif text-base font-semibold">
+                  VibeCFD
+                </span>
+                <span className={chrome.brandMetaClassName}>
+                  Powered by DeerFlow
+                </span>
               </Link>
             ) : (
-              <div className="ml-2 flex cursor-default flex-col leading-none">
-                <span className="text-primary font-serif text-base font-semibold">VibeCFD</span>
-                <span className="text-[10px] text-muted-foreground">Powered by DeerFlow</span>
+              <div className="min-w-0 flex-1 cursor-default leading-none">
+                <span className={chrome.brandEyebrowClassName}>Studio Rail</span>
+                <span className="text-primary mt-1 block truncate font-serif text-base font-semibold">
+                  VibeCFD
+                </span>
+                <span className={chrome.brandMetaClassName}>
+                  Powered by DeerFlow
+                </span>
               </div>
             )}
-            <SidebarTrigger />
+            <SidebarTrigger className="shrink-0 rounded-lg bg-white/70" />
           </div>
         )}
       </div>
+
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
             isActive={pathname === "/workspace/submarine/new"}
+            className={chrome.headerQuickActionClassName}
             asChild
           >
-            <Link className="text-muted-foreground" href="/workspace/submarine/new">
+            <Link className="text-inherit" href="/workspace/submarine/new">
               <WavesIcon size={16} />
               <span>新建仿真</span>
             </Link>

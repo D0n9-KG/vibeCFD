@@ -26,6 +26,7 @@ import {
 import { useI18n } from "@/core/i18n/hooks";
 
 import { SettingsDialog } from "./settings";
+import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
 
 function NavMenuButtonContent({
   isSidebarOpen,
@@ -55,6 +56,7 @@ export function WorkspaceNavMenu() {
   const [mounted, setMounted] = useState(false);
   const { open: isSidebarOpen } = useSidebar();
   const { t } = useI18n();
+  const chrome = getWorkspaceSidebarChrome();
 
   useEffect(() => {
     setMounted(true);
@@ -74,7 +76,7 @@ export function WorkspaceNavMenu() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  className={chrome.footerMenuButtonClassName}
                 >
                   <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
                 </SidebarMenuButton>
@@ -125,7 +127,10 @@ export function WorkspaceNavMenu() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <SidebarMenuButton size="lg" className="pointer-events-none">
+            <SidebarMenuButton
+              size="lg"
+              className={`${chrome.footerMenuButtonClassName} pointer-events-none`}
+            >
               <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
             </SidebarMenuButton>
           )}

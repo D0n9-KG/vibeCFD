@@ -64,6 +64,7 @@ import {
   classifyThreadsForSidebar,
   labelOfSidebarThreadGroup,
 } from "./recent-chat-list.state";
+import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
 
 export function RecentChatList() {
   const { t } = useI18n();
@@ -77,6 +78,7 @@ export function RecentChatList() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameThreadId, setRenameThreadId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const chrome = getWorkspaceSidebarChrome();
 
   const groups = useMemo(() => classifyThreadsForSidebar(threads), [threads]);
 
@@ -140,8 +142,8 @@ export function RecentChatList() {
   return (
     <>
       {groups.map((group) => (
-        <SidebarGroup key={group.kind}>
-          <SidebarGroupLabel>
+        <SidebarGroup key={group.kind} className={chrome.historyGroupClassName}>
+          <SidebarGroupLabel className={chrome.groupLabelClassName}>
             {labelOfSidebarThreadGroup(group.kind)}
           </SidebarGroupLabel>
           <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
@@ -155,10 +157,14 @@ export function RecentChatList() {
                       key={thread.thread_id}
                       className="group/side-menu-item"
                     >
-                      <SidebarMenuButton isActive={isActive} asChild>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        className={chrome.historyButtonClassName}
+                        asChild
+                      >
                         <div>
                           <Link
-                            className="text-muted-foreground block w-full whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
+                            className="block w-full whitespace-nowrap text-inherit group-hover/side-menu-item:overflow-hidden"
                             href={href}
                           >
                             {titleOfThread(thread)}

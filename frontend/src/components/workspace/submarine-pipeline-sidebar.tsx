@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
+import { getSubmarineMissionSidebarChrome } from "./workspace-sidebar-shell";
+
 const STAGE_ORDER = [
   "task-intelligence",
   "geometry-preflight",
@@ -62,33 +64,22 @@ function renderRunStatus({
   run,
   currentThreadId,
   currentThreadRunLabel,
-  currentThreadTone,
 }: {
   run: SidebarRunItem;
   currentThreadId: string;
   currentThreadRunLabel?: string;
-  currentThreadTone?: "ready" | "streaming" | "error";
 }) {
   if (run.threadId === currentThreadId && currentThreadRunLabel) {
-    if (currentThreadTone === "error") {
-      return `● ${currentThreadRunLabel}`;
-    }
-    if (currentThreadRunLabel === "运行中") {
-      return `● ${currentThreadRunLabel}`;
-    }
-    if (currentThreadRunLabel === "待命") {
-      return "● 待命";
-    }
     return currentThreadRunLabel;
   }
 
   if (run.isRunning) {
-    return "● 运行中";
+    return "运行中";
   }
   if (run.isComplete) {
-    return "✓ 已完成";
+    return "已完成";
   }
-  return "● 待运行";
+  return "待运行";
 }
 
 export function SubmarinePipelineSidebar({
@@ -105,6 +96,7 @@ export function SubmarinePipelineSidebar({
   onNewSimulation,
 }: SubmarinePipelineSidebarProps) {
   const router = useRouter();
+  const chrome = getSubmarineMissionSidebarChrome();
   const [deleteTarget, setDeleteTarget] = useState<SidebarRunItem | null>(null);
   const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
 
@@ -124,105 +116,109 @@ export function SubmarinePipelineSidebar({
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-stone-50">
-      <div className="border-b border-stone-200 px-3 py-3">
-        <div className="text-[14px] font-extrabold tracking-tight text-sky-500">
-          VibeCFD{" "}
-          <span className="text-[10px] font-normal text-stone-400">
-            · DeerFlow
-          </span>
+    <div className={chrome.rootClassName}>
+      <div className={chrome.headerWrapClassName}>
+        <div className={chrome.headerCardClassName}>
+          <div className={chrome.headerEyebrowClassName}>Mission Board</div>
+          <div className={chrome.headerTitleClassName}>
+            {currentRun?.title ?? "当前潜艇研究任务"}
+          </div>
+          <p className={chrome.headerMetaClassName}>
+            聚焦当前 run、阶段推进与清理操作；左侧米色栏继续负责全局工作台导航和历史会话。
+          </p>
         </div>
       </div>
 
-      <div className="px-2.5 pb-1 pt-2">
-        <div className="mb-1 flex items-center justify-between gap-2 px-1.5">
-          <div className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">
-            仿真任务
-          </div>
+      <div className={chrome.runsSectionClassName}>
+        <div className="mb-1 flex items-center justify-between gap-2 px-1">
+          <div className={chrome.sectionLabelClassName}>仿真任务</div>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-[11px] font-medium text-stone-500 hover:text-stone-900"
+            className={chrome.secondaryActionClassName}
             disabled={completedRunCount === 0 || isCleanupPending}
             onClick={() => setCleanupDialogOpen(true)}
           >
-            清理已完成{completedRunCount > 0 ? ` (${completedRunCount})` : ""}
+            清理已完成
+            {completedRunCount > 0 ? ` (${completedRunCount})` : ""}
           </Button>
         </div>
-        {runs.length === 0 && (
-          <div className="px-1.5 py-2 text-[11px] text-stone-400">
-            暂无仿真任务
-          </div>
-        )}
-        {runs.map((run) => (
-          <div
-            key={run.threadId}
-            className={cn(
-              "mx-0.5 my-0.5 flex items-start gap-1 rounded-md px-2 py-1.5 text-[12px]",
-              run.threadId === currentThreadId
-                ? "bg-sky-100 font-semibold text-sky-700"
-                : "text-stone-500 hover:bg-stone-100",
-            )}
-          >
-            <button
-              type="button"
-              className="min-w-0 flex-1 text-left"
-              onClick={() => handleRunClick(run.threadId)}
-            >
-              <div className="truncate">
-                {run.title || run.threadId.slice(0, 8)}
-              </div>
+
+        <div className={chrome.sectionCardClassName}>
+          {runs.length === 0 && (
+            <div className="px-2.5 py-3 text-[11px] leading-5 text-stone-400">
+              暂无潜艇仿真任务。
+            </div>
+          )}
+
+          {runs.map((run) => {
+            const isActive = run.threadId === currentThreadId;
+            return (
               <div
+                key={run.threadId}
                 className={cn(
-                  "mt-0.5 text-[10px]",
-                  run.threadId === currentThreadId
-                    ? "text-sky-400"
-                    : "text-stone-400",
-                  run.threadId === currentThreadId &&
-                    currentThreadTone === "error" &&
-                    "text-red-500",
+                  "mb-1 flex items-start gap-1.5 rounded-xl px-2.5 py-2",
+                  isActive ? chrome.activeRunClassName : chrome.idleRunClassName,
                 )}
               >
-                {renderRunStatus({
-                  run,
-                  currentThreadId,
-                  currentThreadRunLabel,
-                  currentThreadTone,
-                })}
-              </div>
-            </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-stone-400 transition hover:bg-white/70 hover:text-stone-700 disabled:pointer-events-none disabled:opacity-50"
-                  disabled={isCleanupPending}
-                  aria-label="More run actions"
+                  className="min-w-0 flex-1 cursor-pointer text-left"
+                  onClick={() => handleRunClick(run.threadId)}
                 >
-                  <MoreHorizontal className="size-4" />
+                  <div className="truncate text-[12px] font-medium">
+                    {run.title ?? run.threadId.slice(0, 8)}
+                  </div>
+                  <div
+                    className={cn(
+                      "mt-1 text-[10px] font-medium",
+                      isActive
+                        ? chrome.statusTextActiveClassName
+                        : chrome.statusTextIdleClassName,
+                      isActive &&
+                        currentThreadTone === "error" &&
+                        "text-red-600",
+                    )}
+                  >
+                    {renderRunStatus({
+                      run,
+                      currentThreadId,
+                      currentThreadRunLabel,
+                    })}
+                  </div>
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem
-                  className="text-red-600 focus:text-red-700"
-                  onSelect={() => setDeleteTarget(run)}
-                >
-                  <Trash2 className="size-4" />
-                  删除仿真
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ))}
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-white/80 hover:text-stone-700 disabled:pointer-events-none disabled:opacity-50"
+                      disabled={isCleanupPending}
+                      aria-label="More run actions"
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem
+                      className="text-red-600 focus:text-red-700"
+                      onSelect={() => setDeleteTarget(run)}
+                    >
+                      <Trash2 className="size-4" />
+                      删除仿真
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2.5 pb-1 pt-2">
-        <div className="mb-1 px-1.5 text-[10px] font-semibold uppercase tracking-widest text-stone-400">
-          当前阶段
-        </div>
-        <div className="space-y-0.5 px-1">
+      <div className={chrome.stageSectionClassName}>
+        <div className={chrome.sectionLabelClassName}>当前阶段</div>
+        <div className={chrome.sectionCardClassName}>
           {STAGE_ORDER.map((stageId, idx) => {
             const isDone = currentStageIndex > idx;
             const isActive = currentStageIndex === idx;
@@ -231,33 +227,33 @@ export function SubmarinePipelineSidebar({
                 key={stageId}
                 type="button"
                 className={cn(
-                  "flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-[11px] text-left hover:bg-stone-100",
-                  isActive && "bg-sky-100 font-semibold text-sky-700",
+                  chrome.stageButtonClassName,
+                  isActive && chrome.stageButtonActiveClassName,
                 )}
                 onClick={() => onStageClick(stageId)}
               >
                 <span
                   className={cn(
-                    "inline-block size-[7px] shrink-0 rounded-full",
-                    isDone && "bg-green-500",
-                    isActive && "animate-pulse bg-sky-500",
+                    "inline-block size-2 shrink-0 rounded-full",
+                    isDone && "bg-emerald-500",
+                    isActive && "bg-sky-500",
                     !isDone && !isActive && "bg-stone-300",
                   )}
                 />
-                {STAGE_LABELS[stageId]}
+                <span>{STAGE_LABELS[stageId]}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className="border-t border-stone-200 p-2.5">
+      <div className={chrome.footerClassName}>
         <button
           type="button"
-          className="w-full rounded-md bg-sky-500 py-1.5 text-[12px] font-semibold text-white hover:bg-sky-600"
+          className={chrome.primaryActionClassName}
           onClick={onNewSimulation}
         >
-          ＋ 新建仿真
+          + 新建仿真
         </button>
       </div>
 
