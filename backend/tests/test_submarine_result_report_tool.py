@@ -314,6 +314,8 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
     assert "<strong>任务摘要:</strong> 真实 OpenFOAM 结果整理" in html
     assert "confirmed" in html
     assert "execute_now" in html
+    assert "<strong>执行就绪状态:</strong> stl_ready" in html
+    assert "<strong>选定案例:</strong> darpa_suboff_bare_hull_resistance" in html
     assert any(path.endswith("/final-report.json") for path in result.update["artifacts"])
     assert len(result.update["submarine_runtime"]["activity_timeline"]) == 3
     assert result.update["submarine_runtime"]["activity_timeline"][-1]["stage"] == "result-reporting"

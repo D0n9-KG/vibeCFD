@@ -1450,6 +1450,8 @@ def render_html(payload: dict) -> str:
       <p><strong>任务类型:</strong> {escape(str(payload['task_type']))}</p>
       <p><strong>几何文件:</strong> {escape(str(payload['geometry_virtual_path']))}</p>
       <p><strong>几何家族:</strong> {escape(str(payload.get('geometry_family') or '待确认'))}</p>
+      <p><strong>执行就绪状态:</strong> {escape(str(payload.get('execution_readiness') or '待判定'))}</p>
+      <p><strong>选定案例:</strong> {escape(str(payload.get('selected_case_id') or '未固定'))}</p>
       <p><strong>Workspace case:</strong> {escape(str(payload.get('workspace_case_dir_virtual_path') or '当前阶段无'))}</p>
       <p><strong>Run script:</strong> {escape(str(payload.get('run_script_virtual_path') or '当前阶段无'))}</p>
     </section>
