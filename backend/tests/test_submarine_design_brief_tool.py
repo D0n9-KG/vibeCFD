@@ -343,3 +343,48 @@ def test_submarine_design_brief_includes_scientific_verification_requirements(
     )
     assert "科研验证要求" in markdown
     assert "mesh_independence_study" in markdown
+
+
+def test_submarine_design_brief_captures_direct_execution_preference(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-execution-preference"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "execution-preference.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/execution-preference.stl",
+        task_description="直接发起 5 m/s 基线 CFD 计算，并尽力得到 Cd 与阻力结果。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        confirmation_status="confirmed",
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        inlet_velocity_mps=5.0,
+        fluid_density_kg_m3=1025.0,
+        kinematic_viscosity_m2ps=1.05e-06,
+        expected_outputs=["闃诲姏绯绘暟 Cd", "涓枃缁撴灉鎶ュ憡"],
+        open_questions=[],
+        tool_call_id="tc-design-brief-execution-preference",
+    )
+
+    json_path = (
+        outputs_dir
+        / "submarine"
+        / "design-brief"
+        / "execution-preference"
+        / "cfd-design-brief.json"
+    )
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    runtime_state = result.update["submarine_runtime"]
+
+    assert payload["execution_preference"] == "execute_now"
+    assert runtime_state["execution_preference"] == "execute_now"

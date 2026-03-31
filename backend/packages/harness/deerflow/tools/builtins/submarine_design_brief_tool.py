@@ -21,6 +21,10 @@ from deerflow.domain.submarine.contracts import (
 )
 from deerflow.domain.submarine.design_brief import run_design_brief
 from deerflow.domain.submarine.geometry_check import SUPPORTED_GEOMETRY_SUFFIXES
+from deerflow.tools.builtins.submarine_runtime_context import (
+    load_existing_design_brief_payload,
+    resolve_execution_preference,
+)
 
 
 def _get_thread_id(runtime: ToolRuntime[ContextT, ThreadState]) -> str:
@@ -82,37 +86,6 @@ def _to_virtual_thread_path(runtime: ToolRuntime[ContextT, ThreadState], actual_
     return f"{VIRTUAL_PATH_PREFIX}/{relative.as_posix()}"
 
 
-def _load_existing_design_brief(runtime: ToolRuntime[ContextT, ThreadState]) -> dict | None:
-    thread_id = _get_thread_id(runtime)
-    runtime_state = (runtime.state or {}).get("submarine_runtime") or {}
-    artifact_candidates: list[str] = []
-
-    report_virtual_path = runtime_state.get("report_virtual_path")
-    if isinstance(report_virtual_path, str) and report_virtual_path.endswith("/cfd-design-brief.md"):
-        artifact_candidates.append(report_virtual_path[:-3] + "json")
-
-    for path in runtime_state.get("artifact_virtual_paths") or []:
-        if isinstance(path, str) and path.endswith("/cfd-design-brief.json"):
-            artifact_candidates.append(path)
-
-    for path in (runtime.state or {}).get("artifacts") or []:
-        if isinstance(path, str) and path.endswith("/cfd-design-brief.json"):
-            artifact_candidates.append(path)
-
-    seen: set[str] = set()
-    for virtual_path in artifact_candidates:
-        if virtual_path in seen:
-            continue
-        seen.add(virtual_path)
-        try:
-            actual_path = get_paths().resolve_virtual_path(thread_id, virtual_path)
-        except ValueError:
-            continue
-        if actual_path.exists() and actual_path.is_file():
-            return json.loads(actual_path.read_text(encoding="utf-8"))
-    return None
-
-
 @tool("submarine_design_brief", parse_docstring=True)
 def submarine_design_brief_tool(
     runtime: ToolRuntime[ContextT, ThreadState],
@@ -120,6 +93,12 @@ def submarine_design_brief_tool(
     geometry_path: str | None = None,
     task_type: str | None = "resistance",
     confirmation_status: Literal["draft", "confirmed"] | None = "draft",
+    execution_preference: Literal[
+        "plan_only",
+        "execute_now",
+        "preflight_then_execute",
+    ]
+    | None = None,
     geometry_family_hint: str | None = None,
     selected_case_id: str | None = None,
     inlet_velocity_mps: float | None = None,
@@ -157,7 +136,11 @@ def submarine_design_brief_tool(
         open_questions: Optional list of unresolved questions Claude Code still needs to confirm.
     """
     try:
-        existing_payload = _load_existing_design_brief(runtime) or {}
+        outputs_dir = _get_thread_dir(runtime, "outputs_path")
+        existing_payload = load_existing_design_brief_payload(
+            outputs_dir=outputs_dir,
+            state=runtime.state,
+        )
         existing_requirements = existing_payload.get("simulation_requirements") or {}
 
         resolved_task_description = task_description or existing_payload.get("task_description")
@@ -181,16 +164,22 @@ def submarine_design_brief_tool(
             else existing_payload.get("selected_case_id")
         )
         resolved_geometry_input = geometry_path or existing_payload.get("geometry_virtual_path")
-        outputs_dir = _get_thread_dir(runtime, "outputs_path")
         resolved_geometry_path = _resolve_geometry_path(runtime, resolved_geometry_input)
         geometry_virtual_path = (
             _to_virtual_thread_path(runtime, resolved_geometry_path) if resolved_geometry_path is not None else None
+        )
+        resolved_execution_preference = resolve_execution_preference(
+            explicit_preference=execution_preference,
+            existing_runtime=(runtime.state or {}).get("submarine_runtime"),
+            existing_brief=existing_payload,
+            task_description=resolved_task_description,
         )
         payload, artifacts = run_design_brief(
             outputs_dir=outputs_dir,
             task_description=resolved_task_description,
             task_type=resolved_task_type,
             confirmation_status=resolved_confirmation_status,
+            execution_preference=resolved_execution_preference,
             geometry_virtual_path=geometry_virtual_path,
             geometry_family_hint=resolved_geometry_family_hint,
             selected_case_id=resolved_selected_case_id,
@@ -257,6 +246,8 @@ def submarine_design_brief_tool(
     runtime_snapshot = build_runtime_snapshot(
         current_stage="task-intelligence",
         task_summary=payload["task_description"],
+        confirmation_status=payload["confirmation_status"],
+        execution_preference=payload["execution_preference"],
         task_type=payload["task_type"],
         geometry_virtual_path=payload.get("geometry_virtual_path") or "",
         geometry_family=payload.get("geometry_family_hint"),

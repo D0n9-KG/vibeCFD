@@ -13,6 +13,11 @@ class SubmarineRuntimeRequest(BaseModel):
 
     task_summary: str
     confirmation_status: Literal["draft", "confirmed"] = "draft"
+    execution_preference: Literal[
+        "plan_only",
+        "execute_now",
+        "preflight_then_execute",
+    ] = "plan_only"
     uploaded_geometry_path: str
     task_type: str = "resistance"
     geometry_family_hint: str | None = None
@@ -241,6 +246,12 @@ class SubmarineRuntimeSnapshot(BaseModel):
         "result-reporting",
     ]
     task_summary: str
+    confirmation_status: Literal["draft", "confirmed"] = "draft"
+    execution_preference: Literal[
+        "plan_only",
+        "execute_now",
+        "preflight_then_execute",
+    ] = "plan_only"
     task_type: str
     geometry_virtual_path: str
     geometry_family: str | None = None
@@ -295,6 +306,12 @@ def build_runtime_snapshot(
         "result-reporting",
     ],
     task_summary: str,
+    confirmation_status: Literal["draft", "confirmed"] = "draft",
+    execution_preference: Literal[
+        "plan_only",
+        "execute_now",
+        "preflight_then_execute",
+    ] = "plan_only",
     task_type: str,
     geometry_virtual_path: str,
     geometry_family: str | None,
@@ -321,6 +338,8 @@ def build_runtime_snapshot(
     return SubmarineRuntimeSnapshot(
         current_stage=current_stage,
         task_summary=task_summary,
+        confirmation_status=confirmation_status,
+        execution_preference=execution_preference,
         task_type=task_type,
         geometry_virtual_path=geometry_virtual_path,
         geometry_family=geometry_family,

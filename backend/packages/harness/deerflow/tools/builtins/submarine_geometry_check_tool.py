@@ -23,6 +23,10 @@ from deerflow.domain.submarine.geometry_check import (
     run_geometry_check,
 )
 from deerflow.domain.submarine.solver_dispatch import STL_READY_EXECUTION
+from deerflow.tools.builtins.submarine_runtime_context import (
+    load_existing_design_brief_payload,
+    resolve_execution_preference,
+)
 
 
 def _get_thread_id(runtime: ToolRuntime[ContextT, ThreadState]) -> str:
@@ -129,16 +133,41 @@ def submarine_geometry_check_tool(
         )
 
     existing_runtime = (runtime.state or {}).get("submarine_runtime")
+    existing_brief = load_existing_design_brief_payload(
+        outputs_dir=outputs_dir,
+        state=runtime.state,
+    )
     runtime_snapshot = build_runtime_snapshot(
         current_stage="geometry-preflight",
         task_summary=task_description,
+        confirmation_status=(
+            (existing_runtime or {}).get("confirmation_status")
+            or existing_brief.get("confirmation_status")
+            or "draft"
+        ),
+        execution_preference=resolve_execution_preference(
+            explicit_preference=None,
+            existing_runtime=existing_runtime or {},
+            existing_brief=existing_brief,
+            task_description=(
+                (existing_runtime or {}).get("task_summary")
+                or existing_brief.get("task_description")
+                or task_description
+            ),
+        ),
         task_type=task_type or "resistance",
         geometry_virtual_path=_to_virtual_thread_path(runtime, resolved_geometry_path),
         geometry_family=result.geometry.geometry_family,
         execution_readiness=STL_READY_EXECUTION,
         selected_case_id=result.candidate_cases[0].case_id if result.candidate_cases else None,
-        simulation_requirements=(existing_runtime or {}).get("simulation_requirements"),
-        requested_outputs=(existing_runtime or {}).get("requested_outputs"),
+        simulation_requirements=(
+            (existing_runtime or {}).get("simulation_requirements")
+            or existing_brief.get("simulation_requirements")
+        ),
+        requested_outputs=(
+            (existing_runtime or {}).get("requested_outputs")
+            or existing_brief.get("requested_outputs")
+        ),
         output_delivery_plan=(existing_runtime or {}).get("output_delivery_plan"),
         next_recommended_stage=result.next_recommended_stage,
         report_virtual_path=result.report_virtual_path,

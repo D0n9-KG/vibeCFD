@@ -24,6 +24,10 @@ from deerflow.domain.submarine.runtime_plan import (
 )
 from deerflow.domain.submarine.solver_dispatch import run_solver_dispatch
 from deerflow.sandbox import get_sandbox_provider
+from deerflow.tools.builtins.submarine_runtime_context import (
+    load_existing_design_brief_payload,
+    resolve_execution_preference,
+)
 
 
 def _get_thread_id(runtime: ToolRuntime[ContextT, ThreadState]) -> str:
@@ -112,15 +116,41 @@ def _get_execute_command(runtime: ToolRuntime[ContextT, ThreadState]):
     return sandbox.execute_command
 
 
-def _requires_user_confirmation(existing_runtime: dict) -> bool:
+def _resolved_confirmation_status(existing_runtime: dict, existing_brief: dict) -> str:
     return (
-        existing_runtime.get("review_status") == "needs_user_confirmation"
-        or existing_runtime.get("next_recommended_stage") == "user-confirmation"
+        str(existing_brief.get("confirmation_status") or "").strip()
+        or str(existing_runtime.get("confirmation_status") or "").strip()
+        or "draft"
     )
 
 
-def _build_user_confirmation_block_message(existing_runtime: dict) -> str:
-    task_summary = existing_runtime.get("task_summary") or "the current submarine CFD brief"
+def _requires_user_confirmation(existing_runtime: dict, existing_brief: dict) -> bool:
+    if _resolved_confirmation_status(existing_runtime, existing_brief) == "confirmed":
+        return False
+
+    review_status = (
+        existing_brief.get("review_status")
+        or existing_runtime.get("review_status")
+    )
+    next_stage = (
+        existing_brief.get("next_recommended_stage")
+        or existing_runtime.get("next_recommended_stage")
+    )
+    return (
+        review_status == "needs_user_confirmation"
+        or next_stage == "user-confirmation"
+    )
+
+
+def _build_user_confirmation_block_message(
+    existing_runtime: dict,
+    existing_brief: dict,
+) -> str:
+    task_summary = (
+        existing_brief.get("task_description")
+        or existing_runtime.get("task_summary")
+        or "the current submarine CFD brief"
+    )
     return (
         "Solver dispatch is blocked until user confirmation is complete for the current design brief. "
         f"Please resolve the missing operating-condition questions for {task_summary} in chat, "
@@ -142,7 +172,7 @@ def submarine_solver_dispatch_tool(
     end_time_seconds: float | None = None,
     delta_t_seconds: float | None = None,
     write_interval_steps: int | None = None,
-    execute_now: bool = False,
+    execute_now: bool | None = None,
     execute_scientific_studies: bool = False,
     solver_command: str | None = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
@@ -151,7 +181,7 @@ def submarine_solver_dispatch_tool(
 
     Args:
         geometry_path: Optional geometry file path. Prefer `/mnt/user-data/uploads/...`. When omitted, use the runtime-bound path or latest uploaded `.stl`.
-        task_description: Task goal in natural language, for example `为这个潜艇几何准备 OpenFOAM 阻力分析`.
+        task_description: Task goal in natural language.
         task_type: CFD task type such as `resistance`, `pressure_distribution`, or `wake_field`.
         geometry_family_hint: Optional family hint such as `DARPA SUBOFF` or `Type 209`.
         selected_case_id: Optional case ID to force the selected template.
@@ -161,54 +191,97 @@ def submarine_solver_dispatch_tool(
         end_time_seconds: Optional solver end time.
         delta_t_seconds: Optional solver deltaT.
         write_interval_steps: Optional write interval in time steps.
-        execute_now: Whether to execute the dispatch command immediately inside the current DeerFlow sandbox.
+        execute_now: Whether to execute the dispatch command immediately inside the current DeerFlow sandbox. When omitted, recover the latest confirmed execution intent from the design brief.
         execute_scientific_studies: Whether to execute the planned scientific study variants in addition to the baseline run.
         solver_command: Optional command to run when `execute_now=true`, for example `simpleFoam -case /mnt/user-data/workspace/case`.
     """
     try:
         existing_runtime = (runtime.state or {}).get("submarine_runtime") or {}
-        if _requires_user_confirmation(existing_runtime):
+        outputs_dir = _get_thread_dir(runtime, "outputs_path")
+        existing_brief = load_existing_design_brief_payload(
+            outputs_dir=outputs_dir,
+            state=runtime.state,
+        )
+        if _requires_user_confirmation(existing_runtime, existing_brief):
             return Command(
                 update={
                     "messages": [
                         ToolMessage(
-                            _build_user_confirmation_block_message(existing_runtime),
+                            _build_user_confirmation_block_message(
+                                existing_runtime,
+                                existing_brief,
+                            ),
                             tool_call_id=tool_call_id,
                         )
                     ]
                 }
             )
-        existing_requirements = existing_runtime.get("simulation_requirements") or {}
+
+        existing_requirements = (
+            existing_runtime.get("simulation_requirements")
+            or existing_brief.get("simulation_requirements")
+            or {}
+        )
         resolved_task_description = (
             task_description
             or existing_runtime.get("task_summary")
-            or "生成潜艇求解派发方案"
+            or existing_brief.get("task_description")
+            or "Prepare a submarine solver dispatch plan"
         )
-        resolved_task_type = task_type or existing_runtime.get("task_type") or "resistance"
+        resolved_task_type = (
+            task_type
+            or existing_runtime.get("task_type")
+            or existing_brief.get("task_type")
+            or "resistance"
+        )
         resolved_geometry_family_hint = (
             geometry_family_hint
             if geometry_family_hint is not None
             else existing_runtime.get("geometry_family")
+            or existing_brief.get("geometry_family_hint")
         )
         resolved_selected_case_id = (
             selected_case_id
             if selected_case_id is not None
             else existing_runtime.get("selected_case_id")
+            or existing_brief.get("selected_case_id")
         )
         resolved_geometry_input = (
-            geometry_path or existing_runtime.get("geometry_virtual_path")
+            geometry_path
+            or existing_runtime.get("geometry_virtual_path")
+            or existing_brief.get("geometry_virtual_path")
         )
         resolved_geometry_path = _resolve_geometry_path(runtime, resolved_geometry_input)
-        outputs_dir = _get_thread_dir(runtime, "outputs_path")
         workspace_dir = _get_thread_dir(runtime, "workspace_path")
         geometry_virtual_path = _to_virtual_thread_path(runtime, resolved_geometry_path)
-        execute_command = _get_execute_command(runtime) if execute_now else None
+        resolved_confirmation_status = _resolved_confirmation_status(
+            existing_runtime,
+            existing_brief,
+        )
+        resolved_execution_preference = resolve_execution_preference(
+            explicit_preference=None,
+            existing_runtime=existing_runtime,
+            existing_brief=existing_brief,
+            task_description=resolved_task_description,
+        )
+        resolved_execute_now = execute_now
+        if resolved_execute_now is None:
+            resolved_execute_now = (
+                execute_scientific_studies
+                or (
+                    resolved_confirmation_status == "confirmed"
+                    and resolved_execution_preference == "execute_now"
+                )
+            )
+        execute_command = _get_execute_command(runtime) if resolved_execute_now else None
         payload, artifacts = run_solver_dispatch(
             geometry_path=resolved_geometry_path,
             outputs_dir=outputs_dir,
             workspace_dir=workspace_dir,
             task_description=resolved_task_description,
             task_type=resolved_task_type,
+            confirmation_status=resolved_confirmation_status,
+            execution_preference=resolved_execution_preference,
             geometry_family_hint=resolved_geometry_family_hint,
             selected_case_id=resolved_selected_case_id,
             geometry_virtual_path=geometry_virtual_path,
@@ -242,9 +315,12 @@ def submarine_solver_dispatch_tool(
                 if write_interval_steps is not None
                 else existing_requirements.get("write_interval_steps")
             ),
-            requested_outputs=existing_runtime.get("requested_outputs"),
+            requested_outputs=(
+                existing_runtime.get("requested_outputs")
+                or existing_brief.get("requested_outputs")
+            ),
             solver_command=solver_command,
-            execute_now=execute_now,
+            execute_now=resolved_execute_now,
             execute_scientific_studies=execute_scientific_studies,
             execute_command=execute_command,
         )
@@ -269,13 +345,13 @@ def submarine_solver_dispatch_tool(
     else:
         execution_updates["solver-dispatch"] = "in_progress"
         execution_updates["result-reporting"] = "pending"
-    execution_updates.update(
-        build_scientific_capability_updates_for_dispatch(payload)
-    )
+    execution_updates.update(build_scientific_capability_updates_for_dispatch(payload))
 
     runtime_snapshot = build_runtime_snapshot(
         current_stage="solver-dispatch",
         task_summary=resolved_task_description,
+        confirmation_status=resolved_confirmation_status,
+        execution_preference=resolved_execution_preference,
         task_type=resolved_task_type,
         geometry_virtual_path=geometry_virtual_path,
         geometry_family=(payload.get("geometry") or {}).get("geometry_family"),
@@ -292,7 +368,7 @@ def submarine_solver_dispatch_tool(
         report_virtual_path=payload["report_virtual_path"],
         artifact_virtual_paths=payload["artifact_virtual_paths"],
         execution_plan=build_execution_plan(
-            confirmation_status="confirmed",
+            confirmation_status=resolved_confirmation_status,
             existing_plan=existing_runtime.get("execution_plan"),
             stage_updates=execution_updates,
         ),
@@ -302,7 +378,7 @@ def submarine_solver_dispatch_tool(
             build_runtime_event(
                 stage="solver-dispatch",
                 actor="solver-dispatch",
-                title="更新 OpenFOAM 求解派发",
+                title="Updated OpenFOAM solver dispatch",
                 summary=payload["summary_zh"],
                 status=dispatch_status,
             ),
@@ -311,7 +387,7 @@ def submarine_solver_dispatch_tool(
     detail_lines = "\n".join(f"- {artifact}" for artifact in artifacts)
     message = (
         f"{payload['summary_zh']}\n"
-        f"已登记 {len(artifacts)} 个 DeerFlow artifacts，可在工作区直接查看：\n{detail_lines}"
+        f"Registered {len(artifacts)} DeerFlow artifacts for this dispatch:\n{detail_lines}"
     )
     return Command(
         update={

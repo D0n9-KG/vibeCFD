@@ -1876,3 +1876,112 @@ def test_submarine_solver_dispatch_requires_user_confirmation_before_dispatch(
     assert "artifacts" not in result.update
     assert "submarine_runtime" not in result.update
     assert "user confirmation" in result.update["messages"][0].content.lower()
+
+
+def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design_brief_artifact(
+    tmp_path, monkeypatch
+):
+    design_brief_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_design_brief_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-confirmed-execute-intent"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "confirmed-execute-intent.stl"
+    _write_ascii_stl(geometry_path)
+
+    fake_sandbox = _FakePostprocessSandbox(
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "confirmed-execute-intent"
+        / "openfoam-case"
+    )
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(design_brief_tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(
+        tool_module,
+        "get_sandbox_provider",
+        lambda: _FakeProvider(fake_sandbox),
+    )
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["sandbox"] = {"sandbox_id": "local"}
+
+    design_brief_result = design_brief_tool_module.submarine_design_brief_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/confirmed-execute-intent.stl",
+        task_description="直接发起 5 m/s 基线 CFD 计算，并尽力得到 Cd 与阻力结果。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        confirmation_status="confirmed",
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        inlet_velocity_mps=5.0,
+        fluid_density_kg_m3=1025.0,
+        kinematic_viscosity_m2ps=1.05e-06,
+        end_time_seconds=200.0,
+        delta_t_seconds=1.0,
+        write_interval_steps=50,
+        expected_outputs=["闃诲姏绯绘暟 Cd", "涓枃缁撴灉鎶ュ憡"],
+        open_questions=[],
+        tool_call_id="tc-design-brief-confirmed-execute-intent",
+    )
+
+    runtime.state["artifacts"] = design_brief_result.update["artifacts"]
+    runtime.state["submarine_runtime"] = {
+        "current_stage": "geometry-preflight",
+        "task_summary": "Geometry preflight completed for the uploaded STL.",
+        "task_type": "resistance",
+        "geometry_virtual_path": "/mnt/user-data/uploads/confirmed-execute-intent.stl",
+        "geometry_family": "DARPA SUBOFF",
+        "selected_case_id": "darpa_suboff_bare_hull_resistance",
+        "simulation_requirements": None,
+        "review_status": "ready_for_supervisor",
+        "next_recommended_stage": "geometry-preflight",
+        "report_virtual_path": "/mnt/user-data/outputs/submarine/geometry-check/confirmed-execute-intent/geometry-check.md",
+        "artifact_virtual_paths": [
+            *design_brief_result.update["artifacts"],
+            "/mnt/user-data/outputs/submarine/geometry-check/confirmed-execute-intent/geometry-check.json",
+        ],
+    }
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/confirmed-execute-intent.stl",
+        task_description="",
+        task_type="resistance",
+        geometry_family_hint=None,
+        tool_call_id="tc-dispatch-confirmed-execute-intent",
+    )
+
+    request_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "confirmed-execute-intent"
+        / "openfoam-request.json"
+    )
+    handoff_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "confirmed-execute-intent"
+        / "supervisor-handoff.json"
+    )
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
+
+    assert fake_sandbox.commands
+    assert payload["dispatch_status"] == "executed"
+    assert payload["solver_results"]["solver_completed"] is True
+    assert payload["simulation_requirements"]["inlet_velocity_mps"] == 5.0
+    assert handoff["confirmation_status"] == "confirmed"
+    assert result.update["submarine_runtime"]["stage_status"] == "executed"

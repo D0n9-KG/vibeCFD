@@ -271,6 +271,8 @@ def run_solver_dispatch(
     workspace_dir: Path | None,
     task_description: str,
     task_type: str,
+    confirmation_status: str = "draft",
+    execution_preference: str = "plan_only",
     geometry_family_hint: str | None = None,
     selected_case_id: str | None = None,
     geometry_virtual_path: str | None = None,
@@ -528,14 +530,14 @@ def run_solver_dispatch(
                         {},
                     )
                     for variant in definition.variants:
-                        variant_output_path = (
+                        variant_output_path = _platform_fs_path(
                             artifact_dir
                             / "studies"
                             / _study_slug(definition.study_type)
                             / variant.variant_id
                             / "solver-results.json"
                         )
-                        variant_run_record_path = (
+                        variant_run_record_path = _platform_fs_path(
                             artifact_dir
                             / "studies"
                             / _study_slug(definition.study_type)
@@ -711,7 +713,7 @@ def run_solver_dispatch(
                 study_execution_status = scientific_study_manifest_model.study_execution_status
                 for definition in scientific_study_manifest_model.study_definitions:
                     for variant in definition.variants:
-                        variant_output_path = (
+                        variant_output_path = _platform_fs_path(
                             artifact_dir
                             / "studies"
                             / _study_slug(definition.study_type)
@@ -882,6 +884,8 @@ def run_solver_dispatch(
     payload = {
         "task_description": task_description,
         "task_type": task_type,
+        "confirmation_status": confirmation_status,
+        "execution_preference": execution_preference,
         "geometry": geometry.model_dump(mode="json"),
         "candidate_cases": [case.model_dump(mode="json") for case in candidate_cases],
         "selected_case": selected_case.model_dump(mode="json") if selected_case else None,
@@ -917,7 +921,8 @@ def run_solver_dispatch(
 
     supervisor_handoff = {
         "task_summary": task_description,
-        "confirmation_status": "confirmed" if dispatch_status == "executed" else "draft",
+        "confirmation_status": confirmation_status,
+        "execution_preference": execution_preference,
         "uploaded_geometry_path": geometry_virtual_path or geometry.file_name,
         "task_type": task_type,
         "geometry_family_hint": geometry.geometry_family,
