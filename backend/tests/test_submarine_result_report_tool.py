@@ -206,6 +206,8 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
             },
             "submarine_runtime": {
                 "current_stage": "solver-dispatch",
+                "confirmation_status": "confirmed",
+                "execution_preference": "execute_now",
                 "task_summary": "真实 OpenFOAM 结果整理",
                 "task_type": "resistance",
                 "geometry_virtual_path": "/mnt/user-data/uploads/metrics-demo.stl",
@@ -285,11 +287,15 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
 
     json_path = outputs_dir / "submarine" / "reports" / "metrics-demo" / "final-report.json"
     md_path = outputs_dir / "submarine" / "reports" / "metrics-demo" / "final-report.md"
+    html_path = outputs_dir / "submarine" / "reports" / "metrics-demo" / "final-report.html"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     markdown = md_path.read_text(encoding="utf-8")
+    html = html_path.read_text(encoding="utf-8")
 
     assert payload["report_title"] == "潜艇 CFD 结果指标报告"
     assert "CFD 指标" in payload["summary_zh"]
+    assert payload["confirmation_status"] == "confirmed"
+    assert payload["execution_preference"] == "execute_now"
     assert payload["execution_readiness"] == "stl_ready"
     assert payload["solver_metrics"]["latest_force_coefficients"]["Cd"] == 0.12
     assert payload["solver_metrics"]["latest_forces"]["total_force"][0] == 8.0
@@ -301,6 +307,10 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
     assert "write_interval_steps" in markdown
     assert "网格质量摘要" in markdown
     assert "残差收敛摘要" in markdown
+    assert "confirmed" in markdown
+    assert "execute_now" in markdown
+    assert "confirmed" in html
+    assert "execute_now" in html
     assert any(path.endswith("/final-report.json") for path in result.update["artifacts"])
     assert len(result.update["submarine_runtime"]["activity_timeline"]) == 3
     assert result.update["submarine_runtime"]["activity_timeline"][-1]["stage"] == "result-reporting"

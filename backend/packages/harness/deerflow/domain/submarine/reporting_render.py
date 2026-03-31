@@ -1103,6 +1103,8 @@ def render_markdown(payload: dict) -> str:
         "",
         "## 运行上下文",
         f"- 来源阶段: `{payload['source_runtime_stage']}`",
+        f"- 确认状态: `{payload.get('confirmation_status') or 'draft'}`",
+        f"- 执行偏好: `{payload.get('execution_preference') or 'plan_only'}`",
         f"- 任务类型: `{payload['task_type']}`",
         f"- 几何文件: `{payload['geometry_virtual_path']}`",
         f"- 几何家族: `{payload.get('geometry_family') or '待确认'}`",
@@ -1441,6 +1443,8 @@ def render_html(payload: dict) -> str:
     <section class="panel">
       <h2>运行上下文</h2>
       <p><strong>来源阶段:</strong> {escape(str(payload['source_runtime_stage']))}</p>
+      <p><strong>确认状态:</strong> {escape(str(payload.get('confirmation_status') or 'draft'))}</p>
+      <p><strong>执行偏好:</strong> {escape(str(payload.get('execution_preference') or 'plan_only'))}</p>
       <p><strong>任务类型:</strong> {escape(str(payload['task_type']))}</p>
       <p><strong>几何文件:</strong> {escape(str(payload['geometry_virtual_path']))}</p>
       <p><strong>几何家族:</strong> {escape(str(payload.get('geometry_family') or '待确认'))}</p>

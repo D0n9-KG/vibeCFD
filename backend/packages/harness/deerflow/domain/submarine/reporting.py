@@ -276,6 +276,8 @@ def run_result_report(
         "summary_zh": _compose_summary(snapshot, report_title, solver_metrics),
         "source_runtime_stage": snapshot.current_stage,
         "task_summary": snapshot.task_summary,
+        "confirmation_status": snapshot.confirmation_status,
+        "execution_preference": snapshot.execution_preference,
         "task_type": snapshot.task_type,
         "geometry_virtual_path": snapshot.geometry_virtual_path,
         "geometry_family": snapshot.geometry_family,
