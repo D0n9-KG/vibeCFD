@@ -366,7 +366,7 @@ def run_geometry_check(
         _artifact_virtual_path(run_dir_name, "geometry-check.json"),
     ]
     review = build_supervisor_review_contract(
-        next_recommended_stage="geometry-preflight",
+        next_recommended_stage="solver-dispatch",
         report_virtual_path=artifacts[0],
         artifact_virtual_paths=artifacts,
     )

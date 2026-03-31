@@ -203,7 +203,7 @@ def test_submarine_geometry_check_includes_review_fields(tmp_path, monkeypatch):
     payload = json.loads(json_path.read_text(encoding="utf-8"))
 
     assert payload["review_status"] == "ready_for_supervisor"
-    assert payload["next_recommended_stage"] == "geometry-preflight"
+    assert payload["next_recommended_stage"] == "solver-dispatch"
     assert payload["report_virtual_path"].endswith("/geometry-check.md")
 
 
@@ -234,6 +234,7 @@ def test_submarine_geometry_check_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["current_stage"] == "geometry-preflight"
     assert runtime_state["task_type"] == "resistance"
     assert runtime_state["geometry_virtual_path"] == "/mnt/user-data/uploads/runtime-demo.stl"
+    assert runtime_state["next_recommended_stage"] == "solver-dispatch"
     assert runtime_state["report_virtual_path"].endswith("/geometry-check.md")
     assert runtime_state["artifact_virtual_paths"]
     assert runtime_state["execution_plan"][2]["status"] == "completed"
