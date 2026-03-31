@@ -111,6 +111,7 @@ export default function SkillStudioWorkbenchPage() {
 
   const [thread, sendMessage, isUploading] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
+    isNewThread,
     context: settings.context,
     isMock,
     workbenchKind: "skill-studio",

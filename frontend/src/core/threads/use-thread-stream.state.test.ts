@@ -53,14 +53,30 @@ test("deriveThreadStreamBinding keeps reconnect enabled for the same thread", ()
   );
 });
 
+test("deriveThreadStreamSendState flags new-thread submits to wait for the rebound stream binding", () => {
+  assert.deepEqual(
+    deriveThreadStreamSendState({
+      requestedThreadId: "generated-thread-id",
+      isNewThread: true,
+    }),
+    {
+      shouldCreateThreadBeforeSubmit: true,
+      shouldSignalStartBeforeSubmit: false,
+      shouldUseReboundThreadAfterCreate: true,
+    },
+  );
+});
+
 test("deriveThreadStreamSendState waits for thread creation before signaling start on new routes", () => {
   assert.deepEqual(
     deriveThreadStreamSendState({
-      activeThreadId: null,
       requestedThreadId: "generated-thread-id",
+      isNewThread: true,
     }),
     {
+      shouldCreateThreadBeforeSubmit: true,
       shouldSignalStartBeforeSubmit: false,
+      shouldUseReboundThreadAfterCreate: true,
     },
   );
 });
@@ -68,11 +84,13 @@ test("deriveThreadStreamSendState waits for thread creation before signaling sta
 test("deriveThreadStreamSendState eagerly signals start for existing threads", () => {
   assert.deepEqual(
     deriveThreadStreamSendState({
-      activeThreadId: "existing-thread-id",
       requestedThreadId: "existing-thread-id",
+      isNewThread: false,
     }),
     {
+      shouldCreateThreadBeforeSubmit: false,
       shouldSignalStartBeforeSubmit: true,
+      shouldUseReboundThreadAfterCreate: false,
     },
   );
 });

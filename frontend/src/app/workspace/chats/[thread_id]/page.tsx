@@ -43,6 +43,7 @@ export default function ChatPage() {
 
   const [thread, sendMessage, isUploading] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
+    isNewThread,
     context: settings.context,
     isMock,
     onStart: (createdThreadId) => {

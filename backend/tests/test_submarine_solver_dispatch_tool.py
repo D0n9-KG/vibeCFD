@@ -1571,6 +1571,164 @@ def test_solver_dispatch_decomposition_case_module_writes_scaffold(tmp_path):
     assert "rhoInf          997.0;" in control_dict
 
 
+def test_solver_dispatch_case_scaffold_includes_pressure_reference(tmp_path):
+    case_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch_case"
+    )
+    geometry_module = importlib.import_module("deerflow.domain.submarine.geometry_check")
+
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    geometry_path = tmp_path / "pressure-reference.stl"
+    _write_ascii_stl(geometry_path)
+    geometry = geometry_module.inspect_geometry_file(geometry_path, "DARPA SUBOFF")
+
+    simulation_requirements = case_module.resolve_simulation_requirements(
+        inlet_velocity_mps=5.0,
+        fluid_density_kg_m3=1025.0,
+        kinematic_viscosity_m2ps=1.05e-06,
+        end_time_seconds=2.0,
+        delta_t_seconds=0.001,
+        write_interval_steps=200,
+    )
+    case_module.write_openfoam_case_scaffold(
+        workspace_dir=workspace_dir,
+        run_dir_name="pressure-reference",
+        geometry_path=geometry_path,
+        geometry=geometry,
+        selected_case=None,
+        simulation_requirements=simulation_requirements,
+    )
+
+    fv_solution = (
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "pressure-reference"
+        / "openfoam-case"
+        / "system"
+        / "fvSolution"
+    ).read_text(encoding="utf-8")
+
+    assert "pRefCell" in fv_solution
+    assert "pRefValue" in fv_solution
+
+
+def test_solver_dispatch_case_scaffold_normalizes_reference_area_for_mm_scale_geometry(
+    tmp_path,
+):
+    case_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch_case"
+    )
+    models_module = importlib.import_module("deerflow.domain.submarine.models")
+
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    geometry_path = tmp_path / "suboff-mm-scale.stl"
+    _write_ascii_stl(geometry_path)
+
+    geometry = models_module.GeometryInspection(
+        file_name="suboff-mm-scale.stl",
+        file_size_bytes=geometry_path.stat().st_size,
+        input_format="stl",
+        geometry_family="DARPA SUBOFF",
+        source_application="stl-mesh",
+        estimated_length_m=4.356,
+        triangle_count=32760,
+        bounding_box=models_module.GeometryBoundingBox(
+            min_x=0.0,
+            max_x=4355.94775390625,
+            min_y=-476.29052734375,
+            max_y=254.0,
+            min_z=-254.0,
+            max_z=254.0,
+        ),
+        notes=[],
+    )
+    simulation_requirements = case_module.resolve_simulation_requirements(
+        inlet_velocity_mps=5.0,
+        fluid_density_kg_m3=1025.0,
+        kinematic_viscosity_m2ps=1.05e-06,
+        end_time_seconds=2.0,
+        delta_t_seconds=0.001,
+        write_interval_steps=200,
+    )
+    scaffold = case_module.write_openfoam_case_scaffold(
+        workspace_dir=workspace_dir,
+        run_dir_name="suboff-mm-scale",
+        geometry_path=geometry_path,
+        geometry=geometry,
+        selected_case=None,
+        simulation_requirements=simulation_requirements,
+    )
+
+    control_dict = (
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "suboff-mm-scale"
+        / "openfoam-case"
+        / "system"
+        / "controlDict"
+    ).read_text(encoding="utf-8")
+
+    assert 0.3 < scaffold["reference_area_m2"] < 0.5
+    assert "Aref            370987.587891;" not in control_dict
+
+
+def test_solver_dispatch_case_scaffold_uses_open_farfield_boundaries(tmp_path):
+    case_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch_case"
+    )
+    geometry_module = importlib.import_module("deerflow.domain.submarine.geometry_check")
+
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    geometry_path = tmp_path / "open-farfield.stl"
+    _write_ascii_stl(geometry_path)
+    geometry = geometry_module.inspect_geometry_file(geometry_path, "DARPA SUBOFF")
+
+    simulation_requirements = case_module.resolve_simulation_requirements(
+        inlet_velocity_mps=5.0,
+        fluid_density_kg_m3=1025.0,
+        kinematic_viscosity_m2ps=1.05e-06,
+        end_time_seconds=2.0,
+        delta_t_seconds=0.001,
+        write_interval_steps=200,
+    )
+    case_module.write_openfoam_case_scaffold(
+        workspace_dir=workspace_dir,
+        run_dir_name="open-farfield",
+        geometry_path=geometry_path,
+        geometry=geometry,
+        selected_case=None,
+        simulation_requirements=simulation_requirements,
+    )
+
+    case_dir = (
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "open-farfield"
+        / "openfoam-case"
+    )
+    velocity = (case_dir / "0" / "U").read_text(encoding="utf-8")
+    pressure = (case_dir / "0" / "p").read_text(encoding="utf-8")
+    turbulent_kinetic_energy = (case_dir / "0" / "k").read_text(encoding="utf-8")
+    specific_dissipation_rate = (case_dir / "0" / "omega").read_text(encoding="utf-8")
+    block_mesh = (case_dir / "system" / "blockMeshDict").read_text(encoding="utf-8")
+
+    assert "outlet" not in velocity
+    assert "type            freestreamVelocity;" in velocity
+    assert "freestreamValue uniform (5.0 0 0);" in velocity
+    assert "outlet" not in pressure
+    assert "type            freestreamPressure;" in pressure
+    assert "freestreamValue uniform 0;" in pressure
+    assert "type            inletOutlet;" in turbulent_kinetic_energy
+    assert "type            inletOutlet;" in specific_dissipation_rate
+    assert "outlet" not in block_mesh
+
+
 def test_solver_dispatch_decomposition_results_module_collects_solver_outputs(
     tmp_path,
 ):

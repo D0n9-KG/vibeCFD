@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { ChatStatus, FileUIPart } from "ai";
+import type { ChatStatus } from "ai";
 import {
   ArrowUpIcon,
   ImageIcon,
@@ -47,7 +47,6 @@ import {
   UploadIcon,
   XIcon,
 } from "lucide-react";
-import { nanoid } from "nanoid";
 import {
   type ChangeEvent,
   type ChangeEventHandler,
@@ -71,14 +70,19 @@ import {
   useState,
 } from "react";
 
-import { preparePromptInputSubmitFiles } from "./prompt-input.files";
+import {
+  createPromptInputAttachment,
+  type PromptInputAttachment,
+  type PromptInputSubmitFile,
+  preparePromptInputSubmitFiles,
+} from "./prompt-input.files";
 
 // ============================================================================
 // Provider Context & Types
 // ============================================================================
 
 export type AttachmentsContext = {
-  files: (FileUIPart & { id: string })[];
+  files: PromptInputAttachment[];
   add: (files: File[] | FileList) => void;
   remove: (id: string) => void;
   clear: () => void;
@@ -153,9 +157,9 @@ export function PromptInputProvider({
   const clearInput = useCallback(() => setTextInput(""), []);
 
   // ----- attachments state (global when wrapped)
-  const [attachmentFiles, setAttachmentFiles] = useState<
-    (FileUIPart & { id: string })[]
-  >([]);
+  const [attachmentFiles, setAttachmentFiles] = useState<PromptInputAttachment[]>(
+    [],
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const openRef = useRef<() => void>(() => {});
 
@@ -166,15 +170,7 @@ export function PromptInputProvider({
     }
 
     setAttachmentFiles((prev) =>
-      prev.concat(
-        incoming.map((file) => ({
-          id: nanoid(),
-          type: "file" as const,
-          url: URL.createObjectURL(file),
-          mediaType: file.type,
-          filename: file.name,
-        })),
-      ),
+      prev.concat(incoming.map(createPromptInputAttachment)),
     );
   }, []);
 
@@ -280,7 +276,7 @@ export const usePromptInputAttachments = () => {
 };
 
 export type PromptInputAttachmentProps = HTMLAttributes<HTMLDivElement> & {
-  data: FileUIPart & { id: string };
+  data: PromptInputAttachment;
   className?: string;
 };
 
@@ -379,7 +375,7 @@ export type PromptInputAttachmentsProps = Omit<
   HTMLAttributes<HTMLDivElement>,
   "children"
 > & {
-  children: (attachment: FileUIPart & { id: string }) => ReactNode;
+  children: (attachment: PromptInputAttachment) => ReactNode;
 };
 
 export function PromptInputAttachments({
@@ -434,7 +430,7 @@ export const PromptInputActionAddAttachments = ({
 
 export type PromptInputMessage = {
   text: string;
-  files: FileUIPart[];
+  files: PromptInputSubmitFile[];
 };
 
 export type PromptInputProps = Omit<
@@ -484,7 +480,7 @@ export const PromptInput = ({
   const formRef = useRef<HTMLFormElement | null>(null);
 
   // ----- Local attachments (only used when no provider)
-  const [items, setItems] = useState<(FileUIPart & { id: string })[]>([]);
+  const [items, setItems] = useState<PromptInputAttachment[]>([]);
   const files = usingProvider ? controller.attachments.files : items;
 
   // Keep a ref to files for cleanup on unmount (avoids stale closure)
@@ -552,16 +548,7 @@ export const PromptInput = ({
             message: "Too many files. Some were not added.",
           });
         }
-        const next: (FileUIPart & { id: string })[] = [];
-        for (const file of capped) {
-          next.push({
-            id: nanoid(),
-            type: "file",
-            url: URL.createObjectURL(file),
-            mediaType: file.type,
-            filename: file.name,
-          });
-        }
+        const next = capped.map(createPromptInputAttachment);
         return prev.concat(next);
       });
     },

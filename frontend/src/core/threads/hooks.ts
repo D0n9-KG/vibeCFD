@@ -23,6 +23,7 @@ import {
   deriveThreadStreamBinding,
   deriveThreadStreamSendState,
 } from "./use-thread-stream.state";
+import { prepareThreadUploadFiles } from "./thread-upload-files";
 import type { AgentThread, AgentThreadState } from "./types";
 import {
   rememberWorkbenchKindForThread,
@@ -36,6 +37,7 @@ export type ToolEndEvent = {
 
 export type ThreadStreamOptions = {
   threadId?: string | null | undefined;
+  isNewThread?: boolean;
   context: LocalSettings["context"];
   isMock?: boolean;
   workbenchKind?: Exclude<ThreadWorkbenchKind, "chat">;
@@ -46,6 +48,7 @@ export type ThreadStreamOptions = {
 
 export function useThreadStream({
   threadId,
+  isNewThread = false,
   context,
   isMock,
   workbenchKind,
@@ -97,14 +100,6 @@ export function useThreadStream({
     }
   }, []);
 
-  const handleStreamStart = useCallback(
-    (_threadId: string) => {
-      threadIdRef.current = _threadId;
-      _handleOnStart(_threadId);
-    },
-    [_handleOnStart],
-  );
-
   const queryClient = useQueryClient();
   const updateSubtask = useUpdateSubtask();
   const apiClient = getAPIClient(isMock);
@@ -145,6 +140,16 @@ export function useThreadStream({
     [queryClient, workbenchKind],
   );
 
+  const handleKnownThreadStart = useCallback(
+    (startedThreadId: string) => {
+      threadIdRef.current = startedThreadId;
+      setOnStreamThreadId(startedThreadId);
+      tagStartedWorkbenchThread(startedThreadId);
+      _handleOnStart(startedThreadId);
+    },
+    [_handleOnStart, tagStartedWorkbenchThread],
+  );
+
   const thread = useStream<AgentThreadState>({
     client: apiClient,
     assistantId: "lead_agent",
@@ -152,9 +157,7 @@ export function useThreadStream({
     reconnectOnMount: initialBinding.reconnectOnMount,
     fetchStateHistory: { limit: 1 },
     onCreated(meta) {
-      tagStartedWorkbenchThread(meta.thread_id);
-      handleStreamStart(meta.thread_id);
-      setOnStreamThreadId(meta.thread_id);
+      handleKnownThreadStart(meta.thread_id);
     },
     onLangChainEvent(event) {
       if (event.event === "on_tool_end") {
@@ -222,8 +225,13 @@ export function useThreadStream({
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const sendInFlightRef = useRef(false);
+  const threadStreamRef = useRef(thread);
   // Track message count before sending so we know when server has responded
   const prevMsgCountRef = useRef(thread.messages.length);
+
+  useEffect(() => {
+    threadStreamRef.current = thread;
+  }, [thread]);
 
   // Clear optimistic when server messages arrive (count increases)
   useEffect(() => {
@@ -282,11 +290,28 @@ export function useThreadStream({
       setOptimisticMessages(newOptimistic);
 
       const sendState = deriveThreadStreamSendState({
-        activeThreadId: threadIdRef.current,
         requestedThreadId: threadId,
+        isNewThread,
       });
-      if (sendState.shouldSignalStartBeforeSubmit) {
+      if (sendState.shouldCreateThreadBeforeSubmit) {
+        await apiClient.threads.create({
+          ifExists: "do_nothing",
+          threadId,
+        });
+        handleKnownThreadStart(threadId);
+      } else if (sendState.shouldSignalStartBeforeSubmit) {
         _handleOnStart(threadId);
+      }
+
+      let submitTarget = thread;
+      if (sendState.shouldUseReboundThreadAfterCreate) {
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          if (threadStreamRef.current !== thread) {
+            submitTarget = threadStreamRef.current;
+            break;
+          }
+        }
       }
 
       let uploadedFileInfo: UploadedFileInfo[] = [];
@@ -296,40 +321,7 @@ export function useThreadStream({
         if (message.files && message.files.length > 0) {
           setIsUploading(true);
           try {
-            // Convert FileUIPart to File objects by fetching blob URLs
-            const filePromises = message.files.map(async (fileUIPart) => {
-              if (fileUIPart.url && fileUIPart.filename) {
-                try {
-                  // Fetch the blob URL to get the file data
-                  const response = await fetch(fileUIPart.url);
-                  const blob = await response.blob();
-
-                  // Create a File object from the blob
-                  return new File([blob], fileUIPart.filename, {
-                    type: fileUIPart.mediaType || blob.type,
-                  });
-                } catch (error) {
-                  console.error(
-                    `Failed to fetch file ${fileUIPart.filename}:`,
-                    error,
-                  );
-                  return null;
-                }
-              }
-              return null;
-            });
-
-            const conversionResults = await Promise.all(filePromises);
-            const files = conversionResults.filter(
-              (file): file is File => file !== null,
-            );
-            const failedConversions = conversionResults.length - files.length;
-
-            if (failedConversions > 0) {
-              throw new Error(
-                `Failed to prepare ${failedConversions} attachment(s) for upload. Please retry.`,
-              );
-            }
+            const files = await prepareThreadUploadFiles(message.files);
 
             if (!threadId) {
               throw new Error("Thread is not ready for file upload.");
@@ -379,7 +371,7 @@ export function useThreadStream({
           }),
         );
 
-        await thread.submit(
+        await submitTarget.submit(
           {
             messages: [
               {
@@ -430,7 +422,16 @@ export function useThreadStream({
         sendInFlightRef.current = false;
       }
     },
-    [thread, _handleOnStart, t.uploads.uploadingFiles, context, queryClient],
+    [
+      apiClient,
+      context,
+      handleKnownThreadStart,
+      isNewThread,
+      queryClient,
+      t.uploads.uploadingFiles,
+      thread,
+      _handleOnStart,
+    ],
   );
 
   // Merge thread with optimistic messages for display

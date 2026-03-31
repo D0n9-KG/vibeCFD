@@ -40,6 +40,7 @@ export default function SubmarineWorkbenchPage() {
 
   const [thread, sendMessage, isUploading] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
+    isNewThread,
     context: settings.context,
     isMock,
     workbenchKind: "submarine",

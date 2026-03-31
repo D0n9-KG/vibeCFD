@@ -63,10 +63,27 @@ def _reference_length_m(geometry: GeometryInspection) -> float:
     return round(max(geometry.estimated_length_m or 4.0, 0.1), 6)
 
 
+def _geometry_length_scale(geometry: GeometryInspection) -> float:
+    if geometry.bounding_box is None or geometry.estimated_length_m is None:
+        return 1.0
+    raw_length = max(
+        geometry.bounding_box.max_x - geometry.bounding_box.min_x,
+        geometry.bounding_box.max_y - geometry.bounding_box.min_y,
+        geometry.bounding_box.max_z - geometry.bounding_box.min_z,
+    )
+    if raw_length <= 0:
+        return 1.0
+    normalized_length = max(geometry.estimated_length_m, 0.0)
+    if normalized_length <= 0:
+        return 1.0
+    return normalized_length / raw_length
+
+
 def _reference_area_m2(geometry: GeometryInspection) -> float:
     if geometry.bounding_box is not None:
-        beam = max(geometry.bounding_box.max_y - geometry.bounding_box.min_y, 0.0)
-        draft = max(geometry.bounding_box.max_z - geometry.bounding_box.min_z, 0.0)
+        scale = _geometry_length_scale(geometry)
+        beam = max(geometry.bounding_box.max_y - geometry.bounding_box.min_y, 0.0) * scale
+        draft = max(geometry.bounding_box.max_z - geometry.bounding_box.min_z, 0.0) * scale
         if beam > 0 and draft > 0:
             return round(max(beam * draft, 1e-4), 6)
     reference_length = _reference_length_m(geometry)
@@ -273,6 +290,8 @@ SIMPLE
 {
     nNonOrthogonalCorrectors 1;
     consistent yes;
+    pRefCell 0;
+    pRefValue 0;
 }
 
 relaxationFactors
@@ -373,18 +392,15 @@ boundaryField
         type fixedValue;
         value uniform ({inlet_velocity_mps} 0 0);
     }}
-    outlet
-    {{
-        type zeroGradient;
-    }}
     hull
     {{
-        type fixedValue;
-        value uniform (0 0 0);
+        type            noSlip;
     }}
     farfield
     {{
-        type slip;
+        type            freestreamVelocity;
+        freestreamValue uniform ({inlet_velocity_mps} 0 0);
+        value           uniform ({inlet_velocity_mps} 0 0);
     }}
 }}
 """
@@ -408,18 +424,15 @@ boundaryField
     {
         type zeroGradient;
     }
-    outlet
-    {
-        type fixedValue;
-        value uniform 0;
-    }
     hull
     {
         type zeroGradient;
     }
     farfield
     {
-        type zeroGradient;
+        type            freestreamPressure;
+        freestreamValue uniform 0;
+        value           uniform 0;
     }
 }
 """
@@ -444,10 +457,6 @@ boundaryField
         type fixedValue;
         value uniform 0.00375;
     }
-    outlet
-    {
-        type zeroGradient;
-    }
     hull
     {
         type kqRWallFunction;
@@ -455,8 +464,9 @@ boundaryField
     }
     farfield
     {
-        type fixedValue;
-        value uniform 0.00375;
+        type            inletOutlet;
+        inletValue      uniform 0.00375;
+        value           uniform 0.00375;
     }
 }
 """
@@ -481,10 +491,6 @@ boundaryField
         type fixedValue;
         value uniform 10;
     }
-    outlet
-    {
-        type zeroGradient;
-    }
     hull
     {
         type omegaWallFunction;
@@ -492,8 +498,9 @@ boundaryField
     }
     farfield
     {
-        type fixedValue;
-        value uniform 10;
+        type            inletOutlet;
+        inletValue      uniform 10;
+        value           uniform 10;
     }
 }
 """
@@ -514,11 +521,6 @@ internalField   uniform 0;
 boundaryField
 {
     inlet
-    {
-        type calculated;
-        value uniform 0;
-    }
-    outlet
     {
         type calculated;
         value uniform 0;
@@ -584,16 +586,12 @@ boundary
         type patch;
         faces ((0 4 7 3));
     }}
-    outlet
-    {{
-        type patch;
-        faces ((1 2 6 5));
-    }}
     farfield
     {{
         type patch;
         faces
         (
+            (1 2 6 5)
             (0 1 5 4)
             (3 7 6 2)
             (0 3 2 1)

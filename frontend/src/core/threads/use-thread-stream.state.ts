@@ -23,15 +23,19 @@ export function deriveThreadStreamBinding({
 }
 
 export function deriveThreadStreamSendState({
-  activeThreadId,
   requestedThreadId,
+  isNewThread = false,
 }: {
-  activeThreadId?: string | null | undefined;
   requestedThreadId: string;
+  isNewThread?: boolean;
 }) {
+  const shouldCreateThreadBeforeSubmit = isNewThread;
+
   return {
+    shouldCreateThreadBeforeSubmit,
     shouldSignalStartBeforeSubmit:
-      (activeThreadId ?? null) === requestedThreadId,
+      !shouldCreateThreadBeforeSubmit && requestedThreadId.length > 0,
+    shouldUseReboundThreadAfterCreate: shouldCreateThreadBeforeSubmit,
   };
 }
 
