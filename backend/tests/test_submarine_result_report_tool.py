@@ -294,6 +294,7 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
 
     assert payload["report_title"] == "潜艇 CFD 结果指标报告"
     assert "CFD 指标" in payload["summary_zh"]
+    assert payload["task_summary"] == "真实 OpenFOAM 结果整理"
     assert payload["confirmation_status"] == "confirmed"
     assert payload["execution_preference"] == "execute_now"
     assert payload["execution_readiness"] == "stl_ready"
@@ -307,8 +308,10 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
     assert "write_interval_steps" in markdown
     assert "网格质量摘要" in markdown
     assert "残差收敛摘要" in markdown
+    assert "- 任务摘要: `真实 OpenFOAM 结果整理`" in markdown
     assert "confirmed" in markdown
     assert "execute_now" in markdown
+    assert "<strong>任务摘要:</strong> 真实 OpenFOAM 结果整理" in html
     assert "confirmed" in html
     assert "execute_now" in html
     assert any(path.endswith("/final-report.json") for path in result.update["artifacts"])
