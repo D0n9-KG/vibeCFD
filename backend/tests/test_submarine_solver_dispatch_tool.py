@@ -1935,6 +1935,16 @@ def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design
         tool_call_id="tc-design-brief-confirmed-execute-intent",
     )
 
+    design_brief_payload = json.loads(
+        (
+            outputs_dir
+            / "submarine"
+            / "design-brief"
+            / "confirmed-execute-intent"
+            / "cfd-design-brief.json"
+        ).read_text(encoding="utf-8")
+    )
+
     runtime.state["artifacts"] = design_brief_result.update["artifacts"]
     runtime.state["submarine_runtime"] = {
         "current_stage": "geometry-preflight",
@@ -1981,7 +1991,13 @@ def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design
 
     assert fake_sandbox.commands
     assert payload["dispatch_status"] == "executed"
+    assert payload["task_description"] == design_brief_payload["task_description"]
     assert payload["solver_results"]["solver_completed"] is True
     assert payload["simulation_requirements"]["inlet_velocity_mps"] == 5.0
+    assert handoff["task_summary"] == design_brief_payload["task_description"]
     assert handoff["confirmation_status"] == "confirmed"
+    assert (
+        result.update["submarine_runtime"]["task_summary"]
+        == design_brief_payload["task_description"]
+    )
     assert result.update["submarine_runtime"]["stage_status"] == "executed"

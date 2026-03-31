@@ -30,6 +30,7 @@ from deerflow.tools.builtins.submarine_runtime_context import (
     requires_user_confirmation,
     resolve_confirmation_status,
     resolve_execution_preference,
+    resolve_task_summary,
 )
 
 
@@ -188,11 +189,11 @@ def submarine_solver_dispatch_tool(
             or existing_brief.get("simulation_requirements")
             or {}
         )
-        resolved_task_description = (
-            task_description
-            or existing_runtime.get("task_summary")
-            or existing_brief.get("task_description")
-            or "Prepare a submarine solver dispatch plan"
+        resolved_task_description = resolve_task_summary(
+            explicit_task_description=task_description,
+            existing_runtime=existing_runtime,
+            existing_brief=existing_brief,
+            fallback_task_description="Prepare a submarine solver dispatch plan",
         )
         resolved_task_type = (
             task_type

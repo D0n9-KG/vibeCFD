@@ -338,6 +338,16 @@ def test_submarine_geometry_check_preserves_confirmed_brief_context(
         tool_call_id="tc-design-brief-confirmed-geometry-preflight",
     )
 
+    design_brief_payload = json.loads(
+        (
+            outputs_dir
+            / "submarine"
+            / "design-brief"
+            / "confirmed-geometry-preflight"
+            / "cfd-design-brief.json"
+        ).read_text(encoding="utf-8")
+    )
+
     runtime.state["artifacts"] = design_brief_result.update["artifacts"]
     runtime.state["submarine_runtime"] = {}
 
@@ -354,6 +364,7 @@ def test_submarine_geometry_check_preserves_confirmed_brief_context(
 
     assert runtime_state["confirmation_status"] == "confirmed"
     assert runtime_state["execution_preference"] == "preflight_then_execute"
+    assert runtime_state["task_summary"] == design_brief_payload["task_description"]
     assert runtime_state["selected_case_id"] == "user-confirmed-case"
     assert runtime_state["simulation_requirements"]["inlet_velocity_mps"] == 5.0
     assert runtime_state["execution_plan"][2]["status"] == "completed"

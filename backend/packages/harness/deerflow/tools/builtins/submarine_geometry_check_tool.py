@@ -29,6 +29,7 @@ from deerflow.tools.builtins.submarine_runtime_context import (
     requires_user_confirmation,
     resolve_confirmation_status,
     resolve_execution_preference,
+    resolve_task_summary,
 )
 
 
@@ -145,6 +146,16 @@ def submarine_geometry_check_tool(
                 }
             )
 
+        resolved_task_summary = resolve_task_summary(
+            explicit_task_description=task_description,
+            existing_runtime=existing_runtime,
+            existing_brief=existing_brief,
+            fallback_task_description=(
+                task_description
+                or "Inspect the uploaded submarine geometry for CFD readiness"
+            ),
+        )
+        task_description = resolved_task_summary
         resolved_geometry_path = _resolve_geometry_path(runtime, geometry_path)
         result, artifacts = run_geometry_check(
             geometry_path=resolved_geometry_path,

@@ -111,6 +111,29 @@ def resolve_execution_preference(
     return infer_execution_preference(task_description)
 
 
+def resolve_task_summary(
+    *,
+    explicit_task_description: str | None,
+    existing_runtime: Mapping[str, Any] | None,
+    existing_brief: Mapping[str, Any] | None,
+    fallback_task_description: str,
+) -> str:
+    brief_task_description = (
+        str((existing_brief or {}).get("task_description") or "").strip()
+    )
+    runtime_task_summary = (
+        str((existing_runtime or {}).get("task_summary") or "").strip()
+    )
+    explicit_task_summary = str(explicit_task_description or "").strip()
+    fallback_summary = str(fallback_task_description or "").strip()
+    return (
+        brief_task_description
+        or runtime_task_summary
+        or explicit_task_summary
+        or fallback_summary
+    )
+
+
 def resolve_confirmation_status(
     *,
     existing_runtime: Mapping[str, Any] | None,
