@@ -5,6 +5,10 @@ import { useCallback, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
+import {
+  buildClarificationRequestMessage,
+  buildConfirmExecutionMessage,
+} from "./submarine-confirmation-actions";
 import { SubmarineConvergenceChart } from "./submarine-convergence-chart";
 import type {
   SubmarineDesignBriefPayload,
@@ -236,15 +240,18 @@ export function TaskIntelligenceCard({
 
   const handleConfirm = useCallback(() => {
     setConfirming(true);
-    onConfirm(threadId, { role: "human", content: "确认方案，开始执行。" });
-  }, [threadId, onConfirm]);
+    onConfirm(threadId, {
+      role: "human",
+      content: buildConfirmExecutionMessage(designBrief),
+    });
+  }, [designBrief, threadId, onConfirm]);
 
   const handleModify = useCallback(() => {
     onConfirm(threadId, {
       role: "human",
-      content: "我需要补充并调整当前 CFD 方案，请继续和我确认工况、输出与约束。",
+      content: buildClarificationRequestMessage(designBrief),
     });
-  }, [threadId, onConfirm]);
+  }, [designBrief, threadId, onConfirm]);
 
   const brief = designBrief;
   const simReq = brief?.simulation_requirements ?? snapshot?.simulation_requirements;

@@ -20,7 +20,7 @@ SubmarineExecutionPreference = Literal[
 _DIRECT_EXECUTION_KEYWORDS = (
     "直接执行",
     "直接发起",
-    "直接开展",
+    "直接开始",
     "立即执行",
     "立即计算",
     "真实求解",
@@ -29,6 +29,7 @@ _DIRECT_EXECUTION_KEYWORDS = (
 )
 _PREFLIGHT_THEN_EXECUTE_KEYWORDS = (
     "先做预检",
+    "先预检再执行",
     "若通过再继续",
     "预检后再执行",
     "preflight then execute",
@@ -41,17 +42,49 @@ _PLAN_ONLY_KEYWORDS = (
     "不执行计算",
     "plan only",
 )
+_CONFIRMATION_KEYWORDS = (
+    "确认方案",
+    "确认当前方案",
+    "确认后",
+    "按当前方案",
+    "沿当前方案",
+    "confirm the plan",
+    "confirm current brief",
+)
+_CONTINUE_EXECUTION_KEYWORDS = (
+    "开始执行",
+    "继续执行",
+    "开始计算",
+    "继续计算",
+    "开始算",
+    "继续算",
+    "start execution",
+    "continue execution",
+    "proceed with execution",
+)
+
+
+def _contains_any(description: str, keywords: tuple[str, ...]) -> bool:
+    return any(keyword in description for keyword in keywords)
+
+
+def _looks_like_confirm_then_execute(description: str) -> bool:
+    return _contains_any(description, _CONFIRMATION_KEYWORDS) and _contains_any(
+        description, _CONTINUE_EXECUTION_KEYWORDS
+    )
 
 
 def infer_execution_preference(
     task_description: str | None,
 ) -> SubmarineExecutionPreference:
     description = (task_description or "").strip().lower()
-    if any(keyword in description for keyword in _PLAN_ONLY_KEYWORDS):
+    if _contains_any(description, _PLAN_ONLY_KEYWORDS):
         return "plan_only"
-    if any(keyword in description for keyword in _PREFLIGHT_THEN_EXECUTE_KEYWORDS):
+    if _contains_any(description, _PREFLIGHT_THEN_EXECUTE_KEYWORDS) or (
+        _looks_like_confirm_then_execute(description)
+    ):
         return "preflight_then_execute"
-    if any(keyword in description for keyword in _DIRECT_EXECUTION_KEYWORDS):
+    if _contains_any(description, _DIRECT_EXECUTION_KEYWORDS):
         return "execute_now"
     return "plan_only"
 
@@ -122,4 +155,3 @@ def load_existing_design_brief_payload(
 
     _, payload = loaded
     return payload
-
