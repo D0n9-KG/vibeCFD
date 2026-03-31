@@ -8,6 +8,8 @@ import zipfile
 from html import escape
 from pathlib import Path
 
+from deerflow.config.agents_config import load_agent_config
+
 ASSISTANT_MODE = "claude-code-skill-creator"
 ASSISTANT_LABEL = "Claude Code · Skill Creator"
 BUILTIN_SKILLS = ["skill-creator", "writing-skills"]
@@ -21,6 +23,30 @@ def _slugify_skill_name(value: str) -> str:
 
 def _artifact_virtual_path(skill_slug: str, filename: str) -> str:
     return f"/mnt/user-data/outputs/submarine/skill-studio/{skill_slug}/{filename}"
+
+
+def _fallback_assistant_label(agent_name: str) -> str:
+    if agent_name == "codex-skill-creator":
+        return "Codex · Skill Creator"
+    if agent_name == ASSISTANT_MODE:
+        return ASSISTANT_LABEL
+    label = " ".join(part.capitalize() for part in agent_name.split("-") if part)
+    return label or ASSISTANT_LABEL
+
+
+def _resolve_assistant_profile(agent_name: str | None) -> tuple[str, str]:
+    assistant_mode = agent_name or ASSISTANT_MODE
+    try:
+        agent_config = load_agent_config(assistant_mode)
+    except (FileNotFoundError, ValueError):
+        agent_config = None
+
+    assistant_label = (
+        agent_config.display_name
+        if agent_config and agent_config.display_name
+        else _fallback_assistant_label(assistant_mode)
+    )
+    return assistant_mode, assistant_label
 
 
 def _build_skill_archive(*, draft_dir: Path, archive_path: Path, skill_slug: str) -> None:
@@ -441,6 +467,7 @@ def run_skill_studio(
     expert_rules: list[str] | None,
     acceptance_criteria: list[str] | None,
     test_scenarios: list[str] | None,
+    assistant_mode: str | None = None,
 ) -> tuple[dict, list[str]]:
     cleaned_triggers = [item.strip() for item in trigger_conditions or [] if item and item.strip()]
     cleaned_workflow = [item.strip() for item in workflow_steps or [] if item and item.strip()]
@@ -455,6 +482,9 @@ def run_skill_studio(
 
     skill_title = skill_name.strip()
     skill_slug = _slugify_skill_name(skill_title)
+    resolved_assistant_mode, resolved_assistant_label = _resolve_assistant_profile(
+        assistant_mode,
+    )
     description = _build_description(
         skill_purpose=skill_purpose.strip(),
         trigger_conditions=cleaned_triggers,
@@ -507,8 +537,8 @@ def run_skill_studio(
         "skill_title": skill_title,
         "skill_purpose": skill_purpose.strip(),
         "description": description,
-        "assistant_mode": ASSISTANT_MODE,
-        "assistant_label": ASSISTANT_LABEL,
+        "assistant_mode": resolved_assistant_mode,
+        "assistant_label": resolved_assistant_label,
         "workspace_mode": "expert_skill_studio",
         "builtin_skills": BUILTIN_SKILLS,
         "trigger_conditions": cleaned_triggers,
@@ -548,8 +578,8 @@ def run_skill_studio(
     package_payload = {
         "skill_name": skill_slug,
         "skill_title": skill_title,
-        "assistant_mode": ASSISTANT_MODE,
-        "assistant_label": ASSISTANT_LABEL,
+        "assistant_mode": resolved_assistant_mode,
+        "assistant_label": resolved_assistant_label,
         "workspace_mode": payload["workspace_mode"],
         "builtin_skills": BUILTIN_SKILLS,
         "validation_status": validation_payload["status"],

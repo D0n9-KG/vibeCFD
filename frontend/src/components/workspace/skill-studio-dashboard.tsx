@@ -178,7 +178,7 @@ export function SkillStudioDashboard() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">{featured.assistantMode}</Badge>
+                    <Badge variant="outline">{featured.assistantLabel}</Badge>
                     <Badge variant="outline">
                       {formatSkillStudioStatus(featured.validationStatus)}
                     </Badge>
@@ -348,7 +348,7 @@ function SkillStudioEntryCard({
           </div>
           <div className="mt-1 text-sm text-muted-foreground">{entry.title}</div>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant="outline">{entry.assistantMode}</Badge>
+            <Badge variant="outline">{entry.assistantLabel}</Badge>
             <Badge variant="outline">
               {formatSkillStudioStatus(entry.validationStatus)}
             </Badge>

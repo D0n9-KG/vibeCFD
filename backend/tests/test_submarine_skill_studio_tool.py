@@ -132,3 +132,50 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
     assert studio_state["error_count"] == 0
     assert studio_state["report_virtual_path"].endswith("/validation-report.md")
     assert studio_state["artifact_virtual_paths"]
+
+
+def test_submarine_skill_studio_tool_uses_selected_skill_creator_agent_profile(
+    tmp_path,
+    monkeypatch,
+):
+    from deerflow.config.agents_config import AgentConfig
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-1"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(
+        "deerflow.domain.submarine.skill_studio.load_agent_config",
+        lambda name: AgentConfig(
+            name=name or "codex-skill-creator",
+            description="Dedicated Codex agent for Skill Studio.",
+            display_name="Codex · Skill Creator",
+            model="gpt-5.4",
+        ),
+    )
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.context["agent_name"] = "codex-skill-creator"
+
+    result = tool_module.submarine_skill_studio_tool.func(
+        runtime=runtime,
+        skill_name="Submarine Result Acceptance",
+        skill_purpose="Draft a reviewable submarine acceptance skill package.",
+        tool_call_id="tc-skill-studio-codex",
+    )
+
+    draft_dir = outputs_dir / "submarine" / "skill-studio" / "submarine-result-acceptance"
+    payload = json.loads((draft_dir / "skill-draft.json").read_text(encoding="utf-8"))
+    package_payload = json.loads(
+        (draft_dir / "skill-package.json").read_text(encoding="utf-8"),
+    )
+    studio_state = result.update["submarine_skill_studio"]
+
+    assert payload["assistant_mode"] == "codex-skill-creator"
+    assert payload["assistant_label"] == "Codex · Skill Creator"
+    assert package_payload["assistant_mode"] == "codex-skill-creator"
+    assert package_payload["assistant_label"] == "Codex · Skill Creator"
+    assert studio_state["assistant_mode"] == "codex-skill-creator"
+    assert studio_state["assistant_label"] == "Codex · Skill Creator"

@@ -20,6 +20,7 @@ class AgentConfig(BaseModel):
 
     name: str
     description: str = ""
+    display_name: str | None = None
     model: str | None = None
     tool_groups: list[str] | None = None
 

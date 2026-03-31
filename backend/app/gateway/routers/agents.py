@@ -22,6 +22,7 @@ class AgentResponse(BaseModel):
 
     name: str = Field(..., description="Agent name (hyphen-case)")
     description: str = Field(default="", description="Agent description")
+    display_name: str | None = Field(default=None, description="Optional UI-facing display name")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     soul: str | None = Field(default=None, description="SOUL.md content (included on GET /{name})")
@@ -38,6 +39,7 @@ class AgentCreateRequest(BaseModel):
 
     name: str = Field(..., description="Agent name (must match ^[A-Za-z0-9-]+$, stored as lowercase)")
     description: str = Field(default="", description="Agent description")
+    display_name: str | None = Field(default=None, description="Optional UI-facing display name")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     soul: str = Field(default="", description="SOUL.md content — agent personality and behavioral guardrails")
@@ -47,6 +49,7 @@ class AgentUpdateRequest(BaseModel):
     """Request body for updating a custom agent."""
 
     description: str | None = Field(default=None, description="Updated description")
+    display_name: str | None = Field(default=None, description="Updated UI-facing display name")
     model: str | None = Field(default=None, description="Updated model override")
     tool_groups: list[str] | None = Field(default=None, description="Updated tool group whitelist")
     soul: str | None = Field(default=None, description="Updated SOUL.md content")
@@ -82,6 +85,7 @@ def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False
     return AgentResponse(
         name=agent_cfg.name,
         description=agent_cfg.description,
+        display_name=agent_cfg.display_name,
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
         soul=soul,
@@ -196,6 +200,8 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
         config_data: dict = {"name": normalized_name}
         if request.description:
             config_data["description"] = request.description
+        if request.display_name:
+            config_data["display_name"] = request.display_name
         if request.model is not None:
             config_data["model"] = request.model
         if request.tool_groups is not None:
@@ -255,13 +261,24 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
 
     try:
         # Update config if any config fields changed
-        config_changed = any(v is not None for v in [request.description, request.model, request.tool_groups])
+        config_changed = any(
+            v is not None
+            for v in [
+                request.description,
+                request.display_name,
+                request.model,
+                request.tool_groups,
+            ]
+        )
 
         if config_changed:
             updated: dict = {
                 "name": agent_cfg.name,
                 "description": request.description if request.description is not None else agent_cfg.description,
             }
+            new_display_name = request.display_name if request.display_name is not None else agent_cfg.display_name
+            if new_display_name is not None:
+                updated["display_name"] = new_display_name
             new_model = request.model if request.model is not None else agent_cfg.model
             if new_model is not None:
                 updated["model"] = new_model

@@ -1,3 +1,8 @@
+import {
+  DEFAULT_SKILL_STUDIO_AGENT,
+  labelOfSkillStudioAgentName,
+} from "./skill-studio-agent-options.ts";
+
 export type SkillStudioArtifactGroup = {
   id: "package" | "validation" | "testing" | "publish" | "other";
   label: string;
@@ -20,6 +25,20 @@ export type SkillStudioReadinessSummary = {
   validationLabel: string;
   testLabel: string;
   publishLabel: string;
+};
+
+export type SkillStudioAssistantIdentityInput = {
+  draftAssistantMode?: string | null;
+  draftAssistantLabel?: string | null;
+  packageAssistantMode?: string | null;
+  packageAssistantLabel?: string | null;
+  stateAssistantMode?: string | null;
+  stateAssistantLabel?: string | null;
+};
+
+export type SkillStudioAssistantIdentity = {
+  assistantMode: string;
+  assistantLabel: string;
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -157,5 +176,26 @@ export function buildSkillStudioReadinessSummary(
     validationLabel: formatSkillStudioStatus(input.validationStatus),
     testLabel: formatSkillStudioStatus(input.testStatus),
     publishLabel: formatSkillStudioStatus(input.publishStatus),
+  };
+}
+
+export function resolveSkillStudioAssistantIdentity(
+  input: SkillStudioAssistantIdentityInput,
+): SkillStudioAssistantIdentity {
+  const assistantMode =
+    input.draftAssistantMode ??
+    input.packageAssistantMode ??
+    input.stateAssistantMode ??
+    DEFAULT_SKILL_STUDIO_AGENT;
+
+  const assistantLabel =
+    input.draftAssistantLabel ??
+    input.packageAssistantLabel ??
+    input.stateAssistantLabel ??
+    labelOfSkillStudioAgentName(assistantMode);
+
+  return {
+    assistantMode,
+    assistantLabel,
   };
 }

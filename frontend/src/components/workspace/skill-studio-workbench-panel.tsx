@@ -38,6 +38,7 @@ import {
   buildSkillStudioReadinessSummary,
   formatSkillStudioStatus,
   groupSkillStudioArtifacts,
+  resolveSkillStudioAssistantIdentity,
 } from "./skill-studio-workbench.utils";
 
 type SkillStudioState = {
@@ -286,10 +287,15 @@ export function SkillStudioWorkbenchPanel({
     return null;
   }
 
-  const assistantLabel =
-    draft?.assistant_label ??
-    studioState?.assistant_label ??
-    "Claude Code · Skill Creator";
+  const { assistantMode, assistantLabel } =
+    resolveSkillStudioAssistantIdentity({
+      draftAssistantMode: draft?.assistant_mode,
+      draftAssistantLabel: draft?.assistant_label,
+      packageAssistantMode: skillPackage?.assistant_mode,
+      packageAssistantLabel: skillPackage?.assistant_label,
+      stateAssistantMode: studioState?.assistant_mode,
+      stateAssistantLabel: studioState?.assistant_label,
+    });
   const builtinSkills =
     draft?.builtin_skills ??
     skillPackage?.builtin_skills ??
@@ -374,8 +380,7 @@ export function SkillStudioWorkbenchPanel({
               <div className="space-y-2">
                 <CardTitle className="text-2xl">{skillTitle}</CardTitle>
                 <CardDescription className="max-w-3xl text-sm leading-6">
-                  这是领域专家专用的 Skill Creator 工作台。Claude Code 会以独立的
-                  Skill Creator 代理身份协助整理规则、生成 skill 包、准备测试矩阵，并在发布前给出清晰的就绪判断。
+                  This workbench is dedicated to domain experts. {assistantLabel} helps structure rules, generate a reviewable skill package, prepare scenario tests, and make publish readiness explicit before release.
                 </CardDescription>
               </div>
             </div>
@@ -459,9 +464,9 @@ export function SkillStudioWorkbenchPanel({
 
           <Tabs defaultValue="package">
             <TabsList variant="line">
-              <TabsTrigger value="package">技能包</TabsTrigger>
-              <TabsTrigger value="validation">校验与测试</TabsTrigger>
-              <TabsTrigger value="publish">发布就绪</TabsTrigger>
+              <TabsTrigger value="package">Package</TabsTrigger>
+              <TabsTrigger value="validation">Validation &amp; tests</TabsTrigger>
+              <TabsTrigger value="publish">Publish readiness</TabsTrigger>
               <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
               <TabsTrigger value="graph">Skill graph</TabsTrigger>
             </TabsList>
@@ -470,20 +475,16 @@ export function SkillStudioWorkbenchPanel({
               <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">专属 Skill Creator 代理</CardTitle>
+                    <CardTitle className="text-base">Dedicated Skill Creator agent</CardTitle>
                     <CardDescription>
-                      Skill Studio 使用独立的 Claude Code 代理身份，默认围绕 skill-creator 与 writing-skills 方法论协作。
+                      Skill Studio keeps a dedicated Skill Creator identity for the thread. This conversation is currently anchored to {assistantLabel} and keeps the `skill-creator` plus `writing-skills` workflow visible.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-1">
                       <div className="text-sm font-medium">{assistantLabel}</div>
                       <div className="text-sm text-muted-foreground">
-                        Agent mode:{" "}
-                        {draft?.assistant_mode ??
-                          skillPackage?.assistant_mode ??
-                          studioState?.assistant_mode ??
-                          "claude-code-skill-creator"}
+                        Agent mode: {assistantMode}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -497,7 +498,7 @@ export function SkillStudioWorkbenchPanel({
                     <BulletList
                       items={[
                         "Experts provide domain rules, thresholds, and exceptions.",
-                        "Claude Code turns those decisions into a reviewable skill package.",
+                        `${assistantLabel} turns those decisions into a reviewable skill package.`,
                         "Validation, scenario testing, and publish gates stay visible in the workbench.",
                       ]}
                     />
@@ -506,9 +507,9 @@ export function SkillStudioWorkbenchPanel({
 
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Skill 包摘要</CardTitle>
+                    <CardTitle className="text-base">Skill package summary</CardTitle>
                     <CardDescription>
-                      这份摘要会和 SKILL.md、UI metadata、测试矩阵一起进入 artifacts，方便专家审阅和发布前复核。
+                      This summary sits alongside `SKILL.md`, UI metadata, and scenario-test artifacts so the expert can review the whole package before publishing.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -665,7 +666,7 @@ export function SkillStudioWorkbenchPanel({
                     </div>
                     <StudioListCard
                       title="Top relationship types"
-                      items={graphOverview.topRelationships.map((item) => `${item.label} · ${item.count}`)}
+                      items={graphOverview.topRelationships.map((item) => `${item.label} - ${item.count}`)}
                       emptyText="Relationship analysis is not available yet."
                       compact
                     />
@@ -706,7 +707,7 @@ export function SkillStudioWorkbenchPanel({
                           </div>
                           <div className="mt-3 space-y-1 text-xs leading-5 text-muted-foreground">
                             {item.reasons.map((reason) => (
-                              <div key={reason}>• {reason}</div>
+                              <div key={reason}>- {reason}</div>
                             ))}
                           </div>
                         </div>
@@ -734,7 +735,7 @@ export function SkillStudioWorkbenchPanel({
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Publish gates</CardTitle>
                     <CardDescription>
-                      发布前必须通过这些门槛，避免专家直接把未验证的 draft 推进到 live skills。
+                      These gates must pass before publish so a draft skill does not get pushed into the live project by accident.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -756,7 +757,7 @@ export function SkillStudioWorkbenchPanel({
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Next actions</CardTitle>
                     <CardDescription>
-                      专家和 Skill Creator 下一步需要做的事会固定在这里，避免工作台只停留在“看草稿”。
+                      The next actions between the expert and Skill Creator stay explicit here so the workbench does not stall at a draft.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">

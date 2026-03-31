@@ -74,6 +74,7 @@ def submarine_skill_studio_tool(
             expert_rules=expert_rules,
             acceptance_criteria=acceptance_criteria,
             test_scenarios=test_scenarios,
+            assistant_mode=runtime.context.get("agent_name") if runtime.context else None,
         )
     except ValueError as exc:
         return Command(

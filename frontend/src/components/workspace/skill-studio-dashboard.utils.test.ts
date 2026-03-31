@@ -19,6 +19,7 @@ void test("extracts skill-studio entries from thread search results", () => {
         submarine_skill_studio: {
           skill_name: "submarine-result-acceptance",
           assistant_mode: "claude-code-skill-creator",
+          assistant_label: "Claude Code · Skill Creator",
           validation_status: "ready_for_review",
           test_status: "ready_for_dry_run",
           publish_status: "ready_for_review",
@@ -49,6 +50,7 @@ void test("extracts skill-studio entries from thread search results", () => {
   assert.equal(entries[0]?.threadId, "submarine-skill-studio-demo");
   assert.equal(entries[0]?.skillName, "submarine-result-acceptance");
   assert.equal(entries[0]?.assistantMode, "claude-code-skill-creator");
+  assert.equal(entries[0]?.assistantLabel, "Claude Code · Skill Creator");
   assert.equal(entries[0]?.validationStatus, "ready_for_review");
   assert.equal(entries[0]?.testStatus, "ready_for_dry_run");
   assert.equal(entries[0]?.publishStatus, "ready_for_review");

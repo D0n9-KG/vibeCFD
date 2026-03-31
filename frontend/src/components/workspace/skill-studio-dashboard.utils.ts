@@ -1,8 +1,11 @@
 import type { AgentThread } from "@/core/threads/types";
 
+import { labelOfSkillStudioAgentName } from "./skill-studio-agent-options.ts";
+
 type SkillStudioThreadState = {
   skill_name?: string | null;
   assistant_mode?: string | null;
+  assistant_label?: string | null;
   validation_status?: string | null;
   test_status?: string | null;
   publish_status?: string | null;
@@ -17,6 +20,7 @@ export type SkillStudioDashboardEntry = {
   title: string;
   skillName: string;
   assistantMode: string;
+  assistantLabel: string;
   validationStatus: string;
   testStatus: string;
   publishStatus: string;
@@ -78,7 +82,12 @@ export function buildSkillStudioEntries(
           studioState?.skill_name ??
           extractSkillSlugFromArtifacts(artifactSet),
         assistantMode:
-          studioState?.assistant_mode ?? "claude-code-skill-creator",
+          studioState?.assistant_mode ?? "codex-skill-creator",
+        assistantLabel:
+          studioState?.assistant_label ??
+          labelOfSkillStudioAgentName(
+            studioState?.assistant_mode ?? "codex-skill-creator",
+          ),
         validationStatus: studioState?.validation_status ?? "draft_only",
         testStatus: studioState?.test_status ?? "draft_only",
         publishStatus: studioState?.publish_status ?? "draft_only",

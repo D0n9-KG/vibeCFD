@@ -5,6 +5,7 @@ const {
   buildSkillStudioReadinessSummary,
   formatSkillStudioStatus,
   groupSkillStudioArtifacts,
+  resolveSkillStudioAssistantIdentity,
 } = await import(
   new URL("./skill-studio-workbench.utils.ts", import.meta.url).href,
 );
@@ -48,4 +49,36 @@ void test("formats statuses into stable labels", () => {
   assert.equal(formatSkillStudioStatus("needs_revision"), "Needs revision");
   assert.equal(formatSkillStudioStatus("draft_only"), "Draft only");
   assert.equal(formatSkillStudioStatus("custom_status"), "Custom Status");
+});
+
+void test("resolves skill studio assistant identity with codex-first fallback", () => {
+  assert.deepEqual(
+    resolveSkillStudioAssistantIdentity({
+      draftAssistantMode: null,
+      draftAssistantLabel: null,
+      packageAssistantMode: "claude-code-skill-creator",
+      packageAssistantLabel: null,
+      stateAssistantMode: null,
+      stateAssistantLabel: null,
+    }),
+    {
+      assistantMode: "claude-code-skill-creator",
+      assistantLabel: "Claude Code · Skill Creator",
+    },
+  );
+
+  assert.deepEqual(
+    resolveSkillStudioAssistantIdentity({
+      draftAssistantMode: null,
+      draftAssistantLabel: null,
+      packageAssistantMode: null,
+      packageAssistantLabel: null,
+      stateAssistantMode: null,
+      stateAssistantLabel: null,
+    }),
+    {
+      assistantMode: "codex-skill-creator",
+      assistantLabel: "Codex · Skill Creator",
+    },
+  );
 });
