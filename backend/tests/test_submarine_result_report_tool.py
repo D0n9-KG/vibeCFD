@@ -2339,8 +2339,10 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     assert handoff_payload["handoff_status"] == "manual_followup_required"
     assert "## Scientific Remediation Plan" in final_markdown
     assert "attach-validation-reference" in final_markdown
+    assert "进入 `supervisor-review` 审阅当前 claim level，并确认是否需要执行手动整改项。" in final_markdown
     assert "<h2>Scientific Remediation Plan</h2>" in final_html
     assert "attach-validation-reference" in final_html
+    assert "进入 <code>supervisor-review</code> 审阅当前 claim level，并确认是否需要执行手动整改项。" in final_html
     assert result.update["submarine_runtime"]["supervisor_handoff_virtual_path"].endswith(
         "/scientific-remediation-handoff.json"
     )

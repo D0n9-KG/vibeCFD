@@ -1090,10 +1090,16 @@ _REPORT_RECOMMENDATIONS: tuple[str, ...] = (
 def _build_dynamic_report_recommendations(payload: dict) -> list[str]:
     review_status = str(payload.get("review_status") or "").strip()
     next_stage = str(payload.get("next_recommended_stage") or "").strip()
-    if review_status != "blocked" or not next_stage:
-        return []
-
-    return [f"回到 `{next_stage}` 补齐验证或整改项后，再刷新最终报告。"]
+    recommendations: list[str] = []
+    if review_status == "blocked" and next_stage:
+        recommendations.append(
+            f"回到 `{next_stage}` 补齐验证或整改项后，再刷新最终报告。"
+        )
+    if review_status == "ready_for_supervisor" and next_stage == "supervisor-review":
+        recommendations.append(
+            "进入 `supervisor-review` 审阅当前 claim level，并确认是否需要执行手动整改项。"
+        )
+    return recommendations
 
 
 def render_markdown(payload: dict) -> str:
