@@ -402,6 +402,10 @@ def test_submarine_scientific_followup_refreshes_report_after_executed_dispatch(
         thread_id=thread_id,
         supervisor_handoff_virtual_path=handoff_virtual_path,
     )
+    runtime.state["submarine_runtime"]["confirmation_status"] = "confirmed"
+    runtime.state["submarine_runtime"]["execution_preference"] = (
+        "preflight_then_execute"
+    )
 
     dispatch_captured: dict[str, object] = {}
     report_captured: dict[str, object] = {}
@@ -450,6 +454,14 @@ def test_submarine_scientific_followup_refreshes_report_after_executed_dispatch(
         assert (
             chained_runtime.state["submarine_runtime"]["current_stage"]
             == "solver-dispatch"
+        )
+        assert (
+            chained_runtime.state["submarine_runtime"]["confirmation_status"]
+            == "confirmed"
+        )
+        assert (
+            chained_runtime.state["submarine_runtime"]["execution_preference"]
+            == "preflight_then_execute"
         )
         assert chained_runtime.state["thread_data"] == runtime.state["thread_data"]
         assert chained_runtime.context == runtime.context

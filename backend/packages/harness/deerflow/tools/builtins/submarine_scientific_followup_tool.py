@@ -38,7 +38,14 @@ def _build_chained_runtime(
     submarine_runtime: Mapping[str, object],
 ) -> SimpleNamespace:
     chained_state = dict(runtime.state or {})
-    chained_state["submarine_runtime"] = dict(submarine_runtime)
+    existing_runtime = chained_state.get("submarine_runtime")
+    if isinstance(existing_runtime, Mapping):
+        chained_state["submarine_runtime"] = {
+            **dict(existing_runtime),
+            **dict(submarine_runtime),
+        }
+    else:
+        chained_state["submarine_runtime"] = dict(submarine_runtime)
     return SimpleNamespace(
         state=chained_state,
         context=runtime.context,
