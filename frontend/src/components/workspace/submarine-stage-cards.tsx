@@ -14,6 +14,7 @@ import type {
   SubmarineSimulationRequirements,
 } from "./submarine-runtime-panel.contract";
 import { type StageCardState, StageCard } from "./submarine-stage-card";
+import { buildTaskIntelligenceViewModel } from "./submarine-task-intelligence-view";
 
 // ── Shared runtime snapshot type (re-declared locally to avoid coupling) ──────
 export type StageRuntimeSnapshot = {
@@ -74,7 +75,7 @@ interface TaskIntelligenceCardProps {
   onConfirm: (threadId: string, message: { role: "human"; content: string }) => void;
 }
 
-export function TaskIntelligenceCard({
+function LegacyTaskIntelligenceCard({
   threadId,
   snapshot,
   designBrief,
@@ -221,6 +222,274 @@ export function TaskIntelligenceCard({
 }
 
 // ── GeometryPreflightCard ─────────────────────────────────────────────────────
+
+void LegacyTaskIntelligenceCard;
+
+export function TaskIntelligenceCard({
+  threadId,
+  snapshot,
+  designBrief,
+  onConfirm,
+}: TaskIntelligenceCardProps) {
+  const state = resolveStageState("task-intelligence", snapshot?.current_stage);
+  const [confirming, setConfirming] = useState(false);
+
+  const handleConfirm = useCallback(() => {
+    setConfirming(true);
+    onConfirm(threadId, { role: "human", content: "确认方案，开始执行。" });
+  }, [threadId, onConfirm]);
+
+  const handleModify = useCallback(() => {
+    onConfirm(threadId, {
+      role: "human",
+      content: "我需要补充并调整当前 CFD 方案，请继续和我确认工况、输出与约束。",
+    });
+  }, [threadId, onConfirm]);
+
+  const brief = designBrief;
+  const simReq = brief?.simulation_requirements ?? snapshot?.simulation_requirements;
+  const caseId = brief?.selected_case_id ?? null;
+  const viewModel = buildTaskIntelligenceViewModel({
+    designBrief,
+    snapshot,
+  });
+
+  const descriptionText =
+    state === "done"
+      ? brief?.task_description?.slice(0, 60) ?? "方案已确认"
+      : state === "active"
+        ? viewModel.confirmationState === "needs_clarification"
+          ? "仍有关键工况待确认"
+          : viewModel.confirmationState === "ready_to_confirm"
+            ? "详细方案已生成，等待用户确认"
+            : viewModel.confirmationState === "confirmed"
+              ? "方案已确认，等待进入预检或执行"
+              : "正在分析任务..."
+        : "等待开始";
+
+  return (
+    <StageCard
+      state={state}
+      index={1}
+      name="任务理解"
+      description={descriptionText}
+      defaultExpanded={state !== "done"}
+    >
+      {caseId && (
+        <div className="mb-4">
+          <SectionLabel color="sky">匹配案例</SectionLabel>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                baseline
+              </span>
+              <div className="text-[12px] font-semibold text-stone-800">
+                {caseId}
+              </div>
+            </div>
+            {simReq?.inlet_velocity_mps != null && (
+              <div className="mt-1 text-[11px] text-stone-500">
+                入口速度 {simReq.inlet_velocity_mps} m/s
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {viewModel.confirmationState !== "idle" && (
+        <div
+          className={cn(
+            "mb-4 rounded-xl border px-3.5 py-3 text-[11px] leading-5 shadow-sm",
+            viewModel.confirmationState === "confirmed"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+              : viewModel.confirmationState === "needs_clarification"
+                ? "border-amber-200 bg-amber-50 text-amber-900"
+                : "border-sky-200 bg-sky-50 text-sky-900",
+          )}
+        >
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+            {viewModel.confirmationState === "confirmed"
+              ? "Plan Locked"
+              : viewModel.confirmationState === "needs_clarification"
+                ? "Needs Clarification"
+                : "Awaiting Confirmation"}
+          </div>
+          <div className="mt-1">
+            {viewModel.confirmationState === "confirmed"
+              ? "当前计算方案已经确认，后续预检与求解应严格沿用这一版 brief 中的工况、输出和验证要求。"
+              : viewModel.confirmationState === "needs_clarification"
+                ? "当前 brief 仍有待确认条件，主智能体应先和用户协商补齐，再进入执行。"
+                : "当前已经形成可审阅的计算方案，请先确认方案，再启动后续预检与求解。"}
+          </div>
+        </div>
+      )}
+
+      {viewModel.planItems.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="amber">计算方案</SectionLabel>
+          <div className="grid gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 sm:grid-cols-2 xl:grid-cols-3">
+            {viewModel.planItems.map((item) => (
+              <PlanItem key={item.label} label={item.label} value={item.value} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {viewModel.requestedOutputs.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="sky">预期输出</SectionLabel>
+          <div className="space-y-2">
+            {viewModel.requestedOutputs.map((output) => (
+              <div
+                key={output.outputId}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-[12px] font-semibold text-stone-800">
+                    {output.label}
+                  </div>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-stone-600">
+                    {output.supportLevel}
+                  </span>
+                </div>
+                <div className="mt-1 text-[11px] text-stone-600">
+                  用户请求: {output.requestedLabel}
+                </div>
+                {output.selectorSummary && (
+                  <div className="mt-1 text-[10px] font-mono text-stone-500">
+                    selector={output.selectorSummary}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {viewModel.verificationRequirements.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="sky">科研验证要求</SectionLabel>
+          <div className="space-y-2">
+            {viewModel.verificationRequirements.map((requirement) => (
+              <div
+                key={requirement.requirementId}
+                className="rounded-xl border border-slate-200 bg-white px-3.5 py-3"
+              >
+                <div className="text-[12px] font-semibold text-stone-800">
+                  {requirement.label}
+                </div>
+                <div className="mt-1 font-mono text-[10px] text-stone-500">
+                  {requirement.checkType}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {viewModel.userConstraints.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="sky">用户约束</SectionLabel>
+          <div className="rounded-xl border border-stone-200 bg-white px-3.5 py-3">
+            <ul className="space-y-1.5">
+              {viewModel.userConstraints.map((constraint) => (
+                <li
+                  key={constraint}
+                  className="flex gap-1.5 text-[11px] text-stone-600"
+                >
+                  <span className="shrink-0 text-sky-500">•</span>
+                  {constraint}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {viewModel.openQuestions.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="red">待确认问题</SectionLabel>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+            <ul className="space-y-1.5">
+              {viewModel.openQuestions.map((question) => (
+                <li
+                  key={question}
+                  className="flex gap-1.5 text-[11px] text-stone-700"
+                >
+                  <span className="shrink-0 text-amber-500">?</span>
+                  {question}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {viewModel.executionSteps.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="sky">执行分工</SectionLabel>
+          <div className="space-y-2">
+            {viewModel.executionSteps.map((step) => (
+              <div
+                key={step.roleId}
+                className="rounded-xl border border-stone-200 bg-white px-3.5 py-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-[12px] font-semibold text-stone-800">
+                    {step.owner}
+                  </div>
+                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600">
+                    {step.status}
+                  </span>
+                </div>
+                <div className="mt-1 text-[10px] font-mono text-stone-500">
+                  {step.roleId}
+                </div>
+                <div className="mt-1 text-[11px] text-stone-600">{step.goal}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!caseId &&
+        !simReq &&
+        viewModel.openQuestions.length === 0 &&
+        viewModel.requestedOutputs.length === 0 && (
+          <StageHintList
+            title="这一步会先形成可确认的研究 brief"
+            items={[
+              "抽取研究目标、关键工况、对比对象和交付要求",
+              "整理 baseline 与后续 scientific study 的切入点",
+              "如果信息不足，会在聊天区继续协商缺失条件，而不是硬编码推进",
+            ]}
+          />
+        )}
+
+      {state === "active" && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {viewModel.canConfirmExecution && (
+            <button
+              type="button"
+              disabled={confirming}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+              onClick={handleConfirm}
+            >
+              {confirming ? "发送中..." : "确认方案，开始执行"}
+            </button>
+          )}
+          <button
+            type="button"
+            className="rounded-xl border border-stone-200 bg-white px-4 py-2 text-[12px] text-stone-700 transition hover:bg-stone-50"
+            onClick={handleModify}
+          >
+            {viewModel.openQuestions.length > 0 ? "补充待确认条件" : "调整参数"}
+          </button>
+        </div>
+      )}
+    </StageCard>
+  );
+}
 
 interface GeometryPreflightCardProps {
   snapshot: StageRuntimeSnapshot | null;

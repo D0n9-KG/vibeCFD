@@ -250,6 +250,8 @@ User: "staging"
 You: "Deploying to staging..." [proceed]
 </clarification_system>
 
+{submarine_workflow_section}
+
 {skills_section}
 
 {deferred_tools_section}
@@ -471,6 +473,26 @@ Recommended starting skill groups:
 </subagent_skill_routing>"""
 
 
+def get_submarine_workflow_prompt_section() -> str:
+    """Describe the required supervisor workflow for submarine CFD requests."""
+
+    return """<submarine_workflow_protocol>
+For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resistance/wake/pressure analysis, or research-grade result delivery, follow this protocol strictly:
+
+1. ALWAYS capture or refresh the structured plan with `submarine_design_brief` first.
+   The brief must carry the current task objective, operating conditions, requested outputs, scientific verification requirements, constraints, and open questions.
+2. After writing the brief, present the detailed calculation plan to the user from the brief contents.
+   Do NOT answer submarine CFD requests directly from general reasoning and do NOT skip the brief just because the task sounds familiar.
+3. If any operating condition, deliverable, comparison target, or verification requirement is still unresolved, call `ask_clarification` and stop.
+   Do not continue to execution while the brief still has open questions.
+4. Only after the user explicitly confirms the plan may you continue.
+   Mark the brief as confirmed, wait for explicit user confirmation, and then proceed with `submarine_geometry_check` and `submarine_solver_dispatch`.
+5. When execution is approved, execution must follow the confirmed brief.
+   Reuse the confirmed case selection, simulation requirements, requested outputs, and verification expectations instead of inventing a different execution path.
+6. Use `submarine_result_report` only after preflight or solver artifacts exist and the report can be grounded in actual DeerFlow evidence.
+</submarine_workflow_protocol>"""
+
+
 def get_agent_soul(agent_name: str | None) -> str:
     # Append SOUL.md (agent personality) if present
     soul = load_agent_soul(agent_name)
@@ -535,6 +557,7 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
     skill_routing_section = (
         get_subagent_skill_routing_prompt_section() if subagent_enabled else ""
     )
+    submarine_workflow_section = get_submarine_workflow_prompt_section()
 
     # Get deferred tools section (tool_search)
     deferred_tools_section = get_deferred_tools_prompt_section()
@@ -543,6 +566,7 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
     prompt = SYSTEM_PROMPT_TEMPLATE.format(
         agent_name=agent_name or "DeerFlow 2.0",
         soul=get_agent_soul(agent_name),
+        submarine_workflow_section=submarine_workflow_section,
         skills_section="\n\n".join(
             section for section in [skills_section, skill_routing_section] if section
         ),
