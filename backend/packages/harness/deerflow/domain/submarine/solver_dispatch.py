@@ -7,6 +7,10 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
+from .artifact_store import (
+    build_canonical_solver_dispatch_artifact_bundle,
+    build_solver_dispatch_artifact_virtual_path,
+)
 from .contracts import SubmarineRequestedOutput, build_supervisor_review_contract
 from .experiments import (
     build_experiment_id,
@@ -60,7 +64,7 @@ def _slugify(value: str) -> str:
 
 
 def _artifact_virtual_path(run_dir_name: str, filename: str) -> str:
-    return f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/{filename}"
+    return build_solver_dispatch_artifact_virtual_path(run_dir_name, filename)
 
 
 def _study_slug(study_type: str) -> str:
@@ -175,6 +179,13 @@ def _render_markdown(payload: dict) -> str:
 
     if payload.get("execution_log_virtual_path"):
         lines.append(f"- 执行日志: `{payload['execution_log_virtual_path']}`")
+
+    if payload.get("solver_results_virtual_path"):
+        lines.append(f"- 姹傝В缁撴灉 JSON: `{payload['solver_results_virtual_path']}`")
+    if payload.get("solver_results_markdown_virtual_path"):
+        lines.append(
+            f"- 姹傝В缁撴灉 Markdown: `{payload['solver_results_markdown_virtual_path']}`"
+        )
 
     if payload.get("solver_command"):
         lines.extend(
@@ -325,6 +336,12 @@ def run_solver_dispatch(
     experiment_manifest_path = artifact_dir / "experiment-manifest.json"
     baseline_run_record_path = artifact_dir / "run-record.json"
     run_compare_summary_path = artifact_dir / "run-compare-summary.json"
+    request_virtual_path = _artifact_virtual_path(run_dir_name, "openfoam-request.json")
+    report_virtual_path = _artifact_virtual_path(run_dir_name, "dispatch-summary.md")
+    supervisor_handoff_virtual_path = _artifact_virtual_path(
+        run_dir_name,
+        "supervisor-handoff.json",
+    )
 
     selected_case_definition = None
     if selected_case is not None:
@@ -403,6 +420,8 @@ def run_solver_dispatch(
 
     dispatch_status = "planned"
     execution_log_virtual_path: str | None = None
+    solver_results_virtual_path: str | None = None
+    solver_results_markdown_virtual_path: str | None = None
     solver_results: dict | None = None
     requested_postprocess_artifacts: list[str] = []
     scientific_study_artifacts: list[str] = []
@@ -429,6 +448,14 @@ def run_solver_dispatch(
             solver_results_md_path.write_text(
                 _render_solver_results_markdown_enriched(solver_results),
                 encoding="utf-8",
+            )
+            solver_results_virtual_path = _solver_results_virtual_path(
+                run_dir_name,
+                "solver-results.json",
+            )
+            solver_results_markdown_virtual_path = _solver_results_virtual_path(
+                run_dir_name,
+                "solver-results.md",
             )
             requested_postprocess_artifacts = collect_requested_postprocess_artifacts(
                 case_dir=case_dir,
@@ -833,31 +860,16 @@ def run_solver_dispatch(
         experiment_manifest = experiment_manifest_model.model_dump(mode="json")
         run_compare_summary = run_compare_summary_model.model_dump(mode="json")
 
-    artifacts = [
-        _artifact_virtual_path(run_dir_name, "dispatch-summary.md"),
-        _artifact_virtual_path(run_dir_name, "dispatch-summary.html"),
-        _artifact_virtual_path(run_dir_name, "openfoam-request.json"),
-        _artifact_virtual_path(run_dir_name, "supervisor-handoff.json"),
-    ]
-    if scientific_study_manifest is not None:
-        artifacts.extend(
-            [
-                _artifact_virtual_path(run_dir_name, "study-plan.json"),
-                _artifact_virtual_path(run_dir_name, "study-manifest.json"),
-            ]
-        )
-    if execution_log_virtual_path:
-        artifacts.append(execution_log_virtual_path)
-    if solver_results is not None:
-        artifacts.extend(
-            [
-                _solver_results_virtual_path(run_dir_name, "solver-results.json"),
-                _solver_results_virtual_path(run_dir_name, "solver-results.md"),
-            ]
-        )
-    artifacts.extend(requested_postprocess_artifacts)
-    artifacts.extend(scientific_study_artifacts)
-    artifacts.extend(experiment_artifacts)
+    artifacts = build_canonical_solver_dispatch_artifact_bundle(
+        run_dir_name=run_dir_name,
+        include_scientific_study_plan=scientific_study_manifest is not None,
+        execution_log_virtual_path=execution_log_virtual_path,
+        solver_results_virtual_path=solver_results_virtual_path,
+        solver_results_markdown_virtual_path=solver_results_markdown_virtual_path,
+        requested_postprocess_artifacts=requested_postprocess_artifacts,
+        scientific_study_artifacts=scientific_study_artifacts,
+        experiment_artifacts=experiment_artifacts,
+    )
 
     review_status = "ready_for_supervisor"
     next_stage = "result-reporting" if dispatch_status == "executed" else "solver-dispatch"
@@ -870,7 +882,7 @@ def run_solver_dispatch(
 
     review = build_supervisor_review_contract(
         next_recommended_stage=next_stage,
-        report_virtual_path=artifacts[0],
+        report_virtual_path=report_virtual_path,
         artifact_virtual_paths=artifacts,
         review_status=review_status,
     )
@@ -891,9 +903,11 @@ def run_solver_dispatch(
         "selected_case": selected_case.model_dump(mode="json") if selected_case else None,
         "dispatch_status": dispatch_status,
         "solver_command": effective_solver_command,
-        "request_virtual_path": _artifact_virtual_path(run_dir_name, "openfoam-request.json"),
+        "request_virtual_path": request_virtual_path,
         "report_virtual_path": review.report_virtual_path,
         "execution_log_virtual_path": execution_log_virtual_path,
+        "solver_results_virtual_path": solver_results_virtual_path,
+        "solver_results_markdown_virtual_path": solver_results_markdown_virtual_path,
         "solver_results": solver_results,
         "simulation_requirements": simulation_requirements,
         "requested_outputs": normalized_requested_outputs,
@@ -910,7 +924,7 @@ def run_solver_dispatch(
         "solver_application": case_scaffold.get("solver_application"),
         "requires_geometry_conversion": case_scaffold.get("requires_geometry_conversion", False),
         "execution_readiness": case_scaffold.get("execution_readiness", STL_READY_EXECUTION),
-        "supervisor_handoff_virtual_path": _artifact_virtual_path(run_dir_name, "supervisor-handoff.json"),
+        "supervisor_handoff_virtual_path": supervisor_handoff_virtual_path,
         "summary_zh": _compose_summary(
             geometry=geometry,
             selected_case=selected_case,
@@ -928,10 +942,14 @@ def run_solver_dispatch(
         "geometry_family_hint": geometry.geometry_family,
         "selected_case_id": selected_case.case_id if selected_case else None,
         "requested_outputs": normalized_requested_outputs,
+        "output_delivery_plan": output_delivery_plan,
         "review_status": payload["review_status"],
         "next_recommended_stage": payload["next_recommended_stage"],
         "report_virtual_path": payload["report_virtual_path"],
         "artifact_virtual_paths": payload["artifact_virtual_paths"],
+        "request_virtual_path": request_virtual_path,
+        "execution_log_virtual_path": execution_log_virtual_path,
+        "solver_results_virtual_path": solver_results_virtual_path,
         "workspace_case_dir_virtual_path": payload["workspace_case_dir_virtual_path"],
         "run_script_virtual_path": payload["run_script_virtual_path"],
         "solver_application": payload["solver_application"],

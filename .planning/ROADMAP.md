@@ -45,8 +45,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: Wire confirmed solver dispatch to sandbox execution and collect canonical runtime artifacts
-- [ ] 02-02: Persist and expose solver metrics plus execution logs through thread outputs and UI models
+- [x] 02-01: Wire confirmed solver dispatch to sandbox execution and collect canonical runtime artifacts
+- [x] 02-02: Persist and expose solver metrics plus execution logs through thread outputs and UI models
 - [ ] 02-03: Support refresh, resume, and recovery behavior for running or completed submarine jobs
 
 ### Phase 3: Scientific Verification Gates
@@ -114,7 +114,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. End-to-End Workbench Bootstrap | 3/3 | Complete | 2026-04-01 |
-| 2. Runtime Solver Productization | 0/3 | Not started | - |
+| 2. Runtime Solver Productization | 2/3 | In progress | - |
 | 3. Scientific Verification Gates | 0/3 | Not started | - |
 | 4. Geometry and Case Intelligence Hardening | 0/3 | Not started | - |
 | 5. Experiment Ops and Reproducibility | 0/3 | Not started | - |

@@ -1,0 +1,123 @@
+{
+  "report_title": "潜艇 CFD 设计简报",
+  "summary_zh": "Claude Code 已将当前对话整理为第一版潜艇 CFD 方案：先基于 DARPA SUBOFF 裸艇进行阻力基线计算，确认单工况稳健跑通后，再决定是否扩展更多工况。",
+  "task_description": "基于上传的 DARPA SUBOFF 几何完成裸艇阻力基线计算，并交付可审阅的结果报告。",
+  "task_type": "resistance",
+  "confirmation_status": "draft",
+  "geometry_virtual_path": "/mnt/user-data/uploads/live-forces-suboff.stl",
+  "geometry_family_hint": "DARPA SUBOFF",
+  "selected_case_id": "darpa_suboff_bare_hull_resistance",
+  "simulation_requirements": {
+    "inlet_velocity_mps": 5,
+    "fluid_density_kg_m3": 1000,
+    "kinematic_viscosity_m2ps": 0.000001,
+    "end_time_seconds": 200,
+    "delta_t_seconds": 1,
+    "write_interval_steps": 50
+  },
+  "expected_outputs": [
+    "阻力系数 Cd",
+    "总阻力与力矩摘要",
+    "中文结果报告"
+  ],
+  "user_constraints": [
+    "先做单工况稳健基线，不做参数扫描",
+    "输出结果必须进入 DeerFlow artifact 体系"
+  ],
+  "open_questions": [
+    "是否需要追加 3 m/s 和 7 m/s 对比工况"
+  ],
+  "execution_outline": [
+    {
+      "role_id": "claude-code-supervisor",
+      "owner": "Claude Code",
+      "goal": "与用户持续确认任务目标、交付物和边界条件。"
+    },
+    {
+      "role_id": "task-intelligence",
+      "owner": "DeerFlow",
+      "goal": "确定潜艇案例模板和执行路径。"
+    },
+    {
+      "role_id": "geometry-preflight",
+      "owner": "DeerFlow",
+      "goal": "完成几何检查与前处理就绪性判断。"
+    },
+    {
+      "role_id": "solver-dispatch",
+      "owner": "DeerFlow",
+      "goal": "准备并执行 OpenFOAM 基线求解。"
+    },
+    {
+      "role_id": "result-reporting",
+      "owner": "DeerFlow",
+      "goal": "整理结果数据与中文报告。"
+    }
+  ],
+  "review_status": "needs_user_confirmation",
+  "next_recommended_stage": "user-confirmation",
+  "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.md",
+  "requested_outputs": [
+    {
+      "output_id": "drag_coefficient",
+      "label": "???? Cd",
+      "requested_label": "???? Cd",
+      "support_level": "supported",
+      "notes": "?????? solver-results.json ???????????"
+    },
+    {
+      "output_id": "force_breakdown",
+      "label": "????",
+      "requested_label": "????????",
+      "support_level": "supported",
+      "notes": "?????????????????????"
+    },
+    {
+      "output_id": "residual_history",
+      "label": "??????",
+      "requested_label": "??????",
+      "support_level": "supported",
+      "notes": "??????? solver ???????????????"
+    },
+    {
+      "output_id": "chinese_report",
+      "label": "??????",
+      "requested_label": "??????",
+      "support_level": "supported",
+      "notes": "???????????????????????"
+    },
+    {
+      "output_id": "wake_velocity_slice",
+      "label": "??????",
+      "requested_label": "??????",
+      "support_level": "supported",
+      "postprocess_spec": {
+        "field": "U",
+        "time_mode": "latest",
+        "selector": {
+          "type": "plane",
+          "origin_mode": "x_by_lref",
+          "origin_value": 1.25,
+          "normal": [
+            1,
+            0,
+            0
+          ]
+        },
+        "formats": [
+          "csv",
+          "png",
+          "report"
+        ]
+      },
+      "notes": "???????????????????? run ????????????"
+    },
+    {
+      "output_id": "streamlines",
+      "label": "???",
+      "requested_label": "???",
+      "support_level": "not_yet_supported",
+      "notes": "????????????? artifact?"
+    }
+  ]
+}

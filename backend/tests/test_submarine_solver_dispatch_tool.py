@@ -397,6 +397,8 @@ def test_submarine_solver_dispatch_tool_can_execute_in_sandbox(tmp_path, monkeyp
     assert log_path.exists()
     assert "OpenFOAM run simulated" in log_path.read_text(encoding="utf-8")
     assert payload["dispatch_status"] == "executed"
+    assert payload["request_virtual_path"].endswith("/openfoam-request.json")
+    assert payload["execution_log_virtual_path"].endswith("/openfoam-run.log")
     assert any(path.endswith("/openfoam-run.log") for path in result.update["artifacts"])
 
 
@@ -494,6 +496,9 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
     assert _execution_plan_status(runtime_state, "scientific-followup") == "pending"
     assert runtime_state["workspace_case_dir_virtual_path"].endswith("/openfoam-case")
     assert runtime_state["run_script_virtual_path"].endswith("/Allrun")
+    assert runtime_state["request_virtual_path"].endswith("/openfoam-request.json")
+    assert runtime_state["execution_log_virtual_path"] is None
+    assert runtime_state["solver_results_virtual_path"] is None
     assert runtime_state["supervisor_handoff_virtual_path"].endswith("/supervisor-handoff.json")
     assert len(runtime_state["activity_timeline"]) == 2
     assert runtime_state["activity_timeline"][-1]["stage"] == "solver-dispatch"
@@ -699,6 +704,9 @@ def test_submarine_solver_dispatch_preserves_requested_outputs(tmp_path, monkeyp
     assert payload["output_delivery_plan"][1]["delivery_status"] == "planned"
     assert payload["output_delivery_plan"][2]["delivery_status"] == "planned"
     assert runtime_state["requested_outputs"] == payload["requested_outputs"]
+    assert runtime_state["output_delivery_plan"] == payload["output_delivery_plan"]
+    assert runtime_state["request_virtual_path"] == payload["request_virtual_path"]
+    assert result.update["artifacts"] == payload["artifact_virtual_paths"]
 
 
 def test_submarine_solver_dispatch_requested_outputs_configure_function_objects(tmp_path, monkeypatch):
@@ -940,6 +948,9 @@ def test_submarine_solver_dispatch_writes_solver_results_artifact(tmp_path, monk
 
     assert any(path.endswith("/solver-results.json") for path in artifacts)
     assert any(path.endswith("/solver-results.md") for path in artifacts)
+    assert payload["request_virtual_path"].endswith("/openfoam-request.json")
+    assert payload["solver_results_virtual_path"].endswith("/solver-results.json")
+    assert payload["solver_results_markdown_virtual_path"].endswith("/solver-results.md")
     assert payload["solver_results"]["solver_completed"] is True
     assert payload["solver_results"]["latest_force_coefficients"]["Cd"] == 0.12
     assert payload["solver_results"]["latest_forces"]["total_force"][0] == 8.0
@@ -958,6 +969,9 @@ def test_submarine_solver_dispatch_writes_solver_results_artifact(tmp_path, monk
     assert solver_results["residual_summary"]["latest_by_field"]["p"]["final_residual"] == 0.00014
     assert solver_results["residual_summary"]["latest_by_field"]["Ux"]["initial_residual"] == 0.00031
     assert len(solver_results["residual_summary"]["history"]) == 8
+    assert result.update["submarine_runtime"]["solver_results_virtual_path"] == (
+        payload["solver_results_virtual_path"]
+    )
 
 
 def test_submarine_solver_dispatch_emits_baseline_experiment_artifacts(

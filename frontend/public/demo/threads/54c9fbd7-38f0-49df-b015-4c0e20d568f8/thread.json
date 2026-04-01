@@ -1,0 +1,333 @@
+{
+  "values": {
+    "messages": [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "???? DARPA SUBOFF ?? STL???????? CFD ????????"
+          }
+        ],
+        "additional_kwargs": {},
+        "response_metadata": {},
+        "type": "human",
+        "name": null,
+        "id": "submarine-human-1"
+      },
+      {
+        "content": "<uploaded_files>\nThe following files have been uploaded and are available for use:\n\n- live-forces-suboff.stl (243 B)\n  Path: /mnt/user-data/uploads/live-forces-suboff.stl\n\nYou can read these files using the `read_file` tool with the paths shown above.\n</uploaded_files>",
+        "additional_kwargs": {},
+        "response_metadata": {},
+        "type": "system",
+        "name": null,
+        "id": "submarine-system-1"
+      },
+      {
+        "content": "????? CFD ???????????? DARPA SUBOFF?OpenFOAM ??????? Time=200????? dispatch request??????solver ?????????????? runtime ??? artifacts ???????",
+        "additional_kwargs": {},
+        "response_metadata": {
+          "finish_reason": "stop",
+          "model_name": "claude-code-supervisor"
+        },
+        "type": "ai",
+        "name": null,
+        "id": "submarine-ai-1",
+        "tool_calls": [],
+        "invalid_tool_calls": [],
+        "usage_metadata": null
+      }
+    ],
+    "title": "?? CFD ??????",
+    "artifacts": [
+      "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.md",
+      "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.html",
+      "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.html",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-request.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/supervisor-handoff.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.md",
+      "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+      "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.html",
+      "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.json"
+    ],
+    "submarine_runtime": {
+      "current_stage": "result-reporting",
+      "task_summary": "????? DARPA SUBOFF ?? STL??? DeerFlow + OpenFOAM ????????? request/log/results/report ?????????",
+      "task_type": "resistance",
+      "geometry_virtual_path": "/mnt/user-data/uploads/live-forces-suboff.stl",
+      "geometry_family": "DARPA SUBOFF",
+      "selected_case_id": "darpa_suboff_bare_hull_resistance",
+      "simulation_requirements": {
+        "inlet_velocity_mps": 5,
+        "fluid_density_kg_m3": 1000,
+        "kinematic_viscosity_m2ps": 0.000001,
+        "end_time_seconds": 200,
+        "delta_t_seconds": 1,
+        "write_interval_steps": 50
+      },
+      "execution_plan": [
+        {
+          "role_id": "claude-code-supervisor",
+          "owner": "Claude Code",
+          "goal": "?????????????????????????????? brief ???",
+          "status": "completed",
+          "target_skills": [
+            "submarine-case-search",
+            "submarine-orchestrator"
+          ]
+        },
+        {
+          "role_id": "task-intelligence",
+          "owner": "DeerFlow task-intelligence",
+          "goal": "?????????????? SUBOFF ???????????????",
+          "status": "completed",
+          "target_skills": [
+            "submarine-geometry-check"
+          ]
+        },
+        {
+          "role_id": "geometry-preflight",
+          "owner": "DeerFlow geometry-preflight",
+          "goal": "?? STL ????????????????????????",
+          "status": "completed",
+          "target_skills": [
+            "submarine-solver-dispatch",
+            "submarine-geometry-check"
+          ]
+        },
+        {
+          "role_id": "solver-dispatch",
+          "owner": "DeerFlow solver-dispatch",
+          "goal": "?? OpenFOAM case??????????? request/log/results ?????????",
+          "status": "completed",
+          "target_skills": [
+            "submarine-report",
+            "submarine-result-acceptance"
+          ]
+        },
+        {
+          "role_id": "result-reporting",
+          "owner": "DeerFlow result-reporting",
+          "goal": "???????????????????? Supervisor ????????",
+          "status": "completed"
+        }
+      ],
+      "stage_status": "executed",
+      "review_status": "ready_for_supervisor",
+      "next_recommended_stage": "supervisor-review",
+      "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+      "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case",
+      "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case/Allrun",
+      "activity_timeline": [
+        {
+          "stage": "task-intelligence",
+          "actor": "claude-code-supervisor",
+          "title": "?? CFD ????",
+          "summary": "???? SUBOFF ?? 5 m/s ?????????????????",
+          "status": "draft",
+          "timestamp": "2026-03-26T10:10:00+00:00"
+        },
+        {
+          "stage": "geometry-preflight",
+          "actor": "geometry-preflight",
+          "role_id": "geometry-preflight",
+          "title": "??????",
+          "summary": "???????? DARPA SUBOFF ??????? OpenFOAM ???????",
+          "status": "ready_for_supervisor",
+          "skill_names": [
+            "submarine-geometry-check"
+          ],
+          "timestamp": "2026-03-26T10:15:00+00:00"
+        },
+        {
+          "stage": "solver-dispatch",
+          "actor": "solver-dispatch",
+          "role_id": "solver-dispatch",
+          "title": "?? OpenFOAM ?????",
+          "summary": "??? request??????solver-results ? handoff?????? Time=200?",
+          "status": "executed",
+          "skill_names": [
+            "submarine-solver-dispatch",
+            "submarine-geometry-check"
+          ],
+          "timestamp": "2026-03-26T10:22:00+00:00"
+        },
+        {
+          "stage": "result-reporting",
+          "actor": "result-reporting",
+          "role_id": "result-reporting",
+          "title": "????????",
+          "summary": "???????????? requested output ????????? runtime?",
+          "status": "ready_for_supervisor",
+          "skill_names": [
+            "submarine-report",
+            "submarine-result-acceptance"
+          ],
+          "timestamp": "2026-03-26T10:25:00+00:00"
+        }
+      ],
+      "artifact_virtual_paths": [
+        "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.md",
+        "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.html",
+        "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.html",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-request.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/supervisor-handoff.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.md",
+        "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+        "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.html",
+        "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.json"
+      ],
+      "requested_outputs": [
+        {
+          "output_id": "drag_coefficient",
+          "label": "???? Cd",
+          "requested_label": "???? Cd",
+          "support_level": "supported",
+          "notes": "?????? solver-results.json ???????????"
+        },
+        {
+          "output_id": "force_breakdown",
+          "label": "????",
+          "requested_label": "????????",
+          "support_level": "supported",
+          "notes": "?????????????????????"
+        },
+        {
+          "output_id": "residual_history",
+          "label": "??????",
+          "requested_label": "??????",
+          "support_level": "supported",
+          "notes": "??????? solver ???????????????"
+        },
+        {
+          "output_id": "chinese_report",
+          "label": "??????",
+          "requested_label": "??????",
+          "support_level": "supported",
+          "notes": "???????????????????????"
+        },
+        {
+          "output_id": "wake_velocity_slice",
+          "label": "??????",
+          "requested_label": "??????",
+          "support_level": "supported",
+          "postprocess_spec": {
+            "field": "U",
+            "time_mode": "latest",
+            "selector": {
+              "type": "plane",
+              "origin_mode": "x_by_lref",
+              "origin_value": 1.25,
+              "normal": [
+                1,
+                0,
+                0
+              ]
+            },
+            "formats": [
+              "csv",
+              "png",
+              "report"
+            ]
+          },
+          "notes": "???????????????????? run ????????????"
+        },
+        {
+          "output_id": "streamlines",
+          "label": "???",
+          "requested_label": "???",
+          "support_level": "not_yet_supported",
+          "notes": "????????????? artifact?"
+        }
+      ],
+      "output_delivery_plan": [
+        {
+          "output_id": "drag_coefficient",
+          "label": "???? Cd",
+          "delivery_status": "delivered",
+          "detail": "?? solver-results.json ???? Cd = 0.003295?",
+          "artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json"
+          ]
+        },
+        {
+          "output_id": "force_breakdown",
+          "label": "????",
+          "delivery_status": "delivered",
+          "detail": "??? pressure/viscous/total force ? moment ???",
+          "artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json"
+          ]
+        },
+        {
+          "output_id": "residual_history",
+          "label": "??????",
+          "delivery_status": "delivered",
+          "detail": "??? solver ????? openfoam-run.log?????????",
+          "artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log"
+          ]
+        },
+        {
+          "output_id": "chinese_report",
+          "label": "??????",
+          "delivery_status": "delivered",
+          "detail": "??????????????",
+          "artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+            "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.html",
+            "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.json"
+          ]
+        },
+        {
+          "output_id": "wake_velocity_slice",
+          "label": "??????",
+          "delivery_status": "not_available_for_this_run",
+          "detail": "?? run ??????? artifact???????????????",
+          "artifact_virtual_paths": []
+        },
+        {
+          "output_id": "streamlines",
+          "label": "???",
+          "delivery_status": "not_yet_supported",
+          "detail": "????????????? artifact?",
+          "artifact_virtual_paths": []
+        }
+      ],
+      "request_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-request.json",
+      "execution_log_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log",
+      "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+      "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/supervisor-handoff.json"
+    }
+  },
+  "next": [],
+  "tasks": [],
+  "metadata": {
+    "model_name": "claude-code-supervisor",
+    "graph_id": "lead_agent",
+    "thread_id": "54c9fbd7-38f0-49df-b015-4c0e20d568f8",
+    "source": "mock"
+  },
+  "created_at": "2026-03-26T00:00:00+00:00",
+  "checkpoint": {
+    "checkpoint_id": "54c9fbd7-38f0-49df-b015-4c0e20d568f8-checkpoint",
+    "thread_id": "54c9fbd7-38f0-49df-b015-4c0e20d568f8",
+    "checkpoint_ns": ""
+  },
+  "parent_checkpoint": {
+    "checkpoint_id": "54c9fbd7-38f0-49df-b015-4c0e20d568f8-parent",
+    "thread_id": "54c9fbd7-38f0-49df-b015-4c0e20d568f8",
+    "checkpoint_ns": ""
+  },
+  "interrupts": [],
+  "checkpoint_id": "54c9fbd7-38f0-49df-b015-4c0e20d568f8-checkpoint",
+  "parent_checkpoint_id": "54c9fbd7-38f0-49df-b015-4c0e20d568f8-parent"
+}

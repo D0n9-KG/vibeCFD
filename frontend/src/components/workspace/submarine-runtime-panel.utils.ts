@@ -2,6 +2,8 @@ import type {
   SubmarineDesignBriefPayload,
   SubmarineExecutionOutlineItem,
   SubmarineFinalReportPayload,
+  SubmarineOutputDeliveryPlanItem,
+  SubmarineRequestedOutputPayload,
 } from "./submarine-runtime-panel.contract";
 
 export type SubmarineArtifactGroupId =
@@ -236,13 +238,7 @@ export type SubmarineAcceptanceSummary = {
   blockingIssues: string[];
   warnings: string[];
   passedChecks: string[];
-  outputDelivery: Array<{
-    outputId: string;
-    label: string;
-    deliveryStatus: string;
-    specSummary: string;
-    detail: string;
-  }>;
+  outputDelivery: SubmarineOutputDeliverySummaryItem[];
   benchmarkComparisons: Array<{
     metricId: string;
     quantity: string;
@@ -251,6 +247,15 @@ export type SubmarineAcceptanceSummary = {
     referenceValue: string;
     relativeError: string;
   }>;
+};
+
+export type SubmarineOutputDeliverySummaryItem = {
+  outputId: string;
+  label: string;
+  deliveryStatus: string;
+  specSummary: string;
+  detail: string;
+  artifactPaths: string[];
 };
 
 export type SubmarineResultCardArtifact = {
@@ -1252,6 +1257,38 @@ export function buildSubmarineDesignBriefSummary(
   };
 }
 
+export function buildSubmarineOutputDeliverySummary({
+  requestedOutputs,
+  outputDeliveryPlan,
+}: {
+  requestedOutputs?:
+    | SubmarineRequestedOutputPayload[]
+    | SubmarineDesignBriefPayload["requested_outputs"]
+    | null;
+  outputDeliveryPlan?:
+    | SubmarineOutputDeliveryPlanItem[]
+    | SubmarineFinalReportPayload["output_delivery_plan"]
+    | null;
+}): SubmarineOutputDeliverySummaryItem[] {
+  const requestedOutputSpecById = new Map(
+    (requestedOutputs ?? [])
+      .filter(Boolean)
+      .map((item) => [
+        item.output_id ?? "unknown",
+        formatPostprocessSpecSummary(item.postprocess_spec ?? null),
+      ]),
+  );
+
+  return (outputDeliveryPlan ?? []).filter(Boolean).map((item) => ({
+    outputId: item.output_id ?? "unknown",
+    label: item.label ?? "--",
+    deliveryStatus: item.delivery_status ?? "--",
+    specSummary: requestedOutputSpecById.get(item.output_id ?? "unknown") ?? "--",
+    detail: item.detail ?? "--",
+    artifactPaths: item.artifact_virtual_paths?.filter(Boolean) ?? [],
+  }));
+}
+
 export function buildSubmarineAcceptanceSummary(
   payload: SubmarineFinalReportPayload | null | undefined,
 ): SubmarineAcceptanceSummary | null {
@@ -1279,24 +1316,10 @@ export function buildSubmarineAcceptanceSummary(
           ? `${(item.relative_error * 100).toFixed(2)}%`
           : "--",
     }));
-  const requestedOutputSpecById = new Map(
-    (payload?.requested_outputs ?? [])
-      .filter(Boolean)
-      .map((item) => [
-        item.output_id ?? "unknown",
-        formatPostprocessSpecSummary(item.postprocess_spec ?? null),
-      ]),
-  );
-  const outputDelivery = (payload?.output_delivery_plan ?? [])
-    .filter(Boolean)
-    .map((item) => ({
-      outputId: item.output_id ?? "unknown",
-      label: item.label ?? "--",
-      deliveryStatus: item.delivery_status ?? "--",
-      specSummary:
-        requestedOutputSpecById.get(item.output_id ?? "unknown") ?? "--",
-      detail: item.detail ?? "--",
-    }));
+  const outputDelivery = buildSubmarineOutputDeliverySummary({
+    requestedOutputs: payload?.requested_outputs,
+    outputDeliveryPlan: payload?.output_delivery_plan,
+  });
 
   return {
     statusLabel:
@@ -1783,6 +1806,7 @@ export function buildSubmarineResultCards({
         : [],
     );
     const combinedArtifactPaths = mergeArtifactPaths(
+      deliveryItem?.artifactPaths ?? [],
       matchedArtifactPaths,
       figureArtifactPaths,
     );

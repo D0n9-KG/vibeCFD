@@ -53,6 +53,7 @@ import type {
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
   SubmarineGeometryPayload,
+  SubmarineRuntimeSnapshotPayload,
   SubmarineSolverMetrics,
   SubmarineSimulationRequirements,
 } from "./submarine-runtime-panel.contract";
@@ -71,40 +72,7 @@ import { WORKSPACE_RESIZABLE_IDS } from "./workspace-resizable-ids";
 
 
 // ── Runtime snapshot type (mirrors SubmarineRuntimePanel) ────────────────────
-type SubmarineRuntimeSnapshot = {
-  current_stage?: string | null;
-  task_summary?: string | null;
-  task_type?: string | null;
-  geometry_virtual_path?: string | null;
-  geometry_family?: string | null;
-  selected_case_id?: string | null;
-  simulation_requirements?: SubmarineSimulationRequirements | null;
-  stage_status?: string | null;
-  review_status?: string | null;
-  scientific_gate_status?: string | null;
-  allowed_claim_level?: string | null;
-  scientific_gate_virtual_path?: string | null;
-  next_recommended_stage?: string | null;
-  report_virtual_path?: string | null;
-  artifact_virtual_paths?: string[];
-  execution_plan?: Array<{
-    role_id?: string | null;
-    owner?: string | null;
-    goal?: string | null;
-    status?: string | null;
-    target_skills?: string[] | null;
-  }> | null;
-  activity_timeline?: Array<{
-    stage?: string;
-    actor?: string;
-    role_id?: string | null;
-    title?: string;
-    summary?: string;
-    status?: string | null;
-    skill_names?: string[] | null;
-    timestamp?: string | null;
-  }> | null;
-};
+type SubmarineRuntimeSnapshot = SubmarineRuntimeSnapshotPayload;
 
 function safeJsonParse<T>(content?: string | null): T | null {
   if (!content) return null;
@@ -238,9 +206,9 @@ export function SubmarinePipeline({
   const finalReportJson = submarineArtifacts.find((p) =>
     p.endsWith("/final-report.json"),
   );
-  const solverResultsJson = submarineArtifacts.find((p) =>
-    p.endsWith("/solver-results.json"),
-  );
+  const solverResultsJson =
+    runtime?.solver_results_virtual_path ??
+    submarineArtifacts.find((p) => p.endsWith("/solver-results.json"));
   const geometryJson = submarineArtifacts.find((p) =>
     p.endsWith("/geometry-check.json"),
   );
@@ -300,8 +268,8 @@ export function SubmarinePipeline({
     if (!runtime) return null;
     const displayedStage = getSubmarineDisplayedStage(runtime, designBrief);
     return {
-      current_stage: displayedStage,
-      task_summary: runtime.task_summary,
+      current_stage: displayedStage ?? undefined,
+      task_summary: runtime.task_summary ?? undefined,
       simulation_requirements: runtime.simulation_requirements,
       stage_status: runtime.stage_status,
       review_status: runtime.review_status,
@@ -317,10 +285,10 @@ export function SubmarinePipeline({
       })) ?? null,
       // Strip fields not in StageRuntimeSnapshot (role_id, skill_names)
       activity_timeline: runtime.activity_timeline?.map((item) => ({
-        stage: item.stage,
-        actor: item.actor,
-        title: item.title,
-        summary: item.summary,
+        stage: item.stage ?? undefined,
+        actor: item.actor ?? undefined,
+        title: item.title ?? undefined,
+        summary: item.summary ?? undefined,
         status: item.status,
         timestamp: item.timestamp,
       })) ?? null,

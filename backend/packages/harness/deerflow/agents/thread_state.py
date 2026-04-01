@@ -24,9 +24,14 @@ class SubmarineRuntimeState(TypedDict):
     execution_readiness: NotRequired[str | None]
     selected_case_id: NotRequired[str | None]
     simulation_requirements: NotRequired[dict[str, float | int] | None]
+    requested_outputs: NotRequired[list[dict] | None]
+    output_delivery_plan: NotRequired[list[dict] | None]
     stage_status: NotRequired[str | None]
     workspace_case_dir_virtual_path: NotRequired[str | None]
     run_script_virtual_path: NotRequired[str | None]
+    request_virtual_path: NotRequired[str | None]
+    execution_log_virtual_path: NotRequired[str | None]
+    solver_results_virtual_path: NotRequired[str | None]
     supervisor_handoff_virtual_path: NotRequired[str | None]
     scientific_followup_history_virtual_path: NotRequired[str | None]
     review_status: NotRequired[str]
@@ -67,6 +72,14 @@ _EXECUTION_PLAN_STATUS_ORDER = {
     "in_progress": 2,
     "completed": 3,
     "blocked": 4,
+}
+
+_OUTPUT_DELIVERY_STATUS_ORDER = {
+    "planned": 0,
+    "pending": 1,
+    "not_yet_supported": 2,
+    "not_available_for_this_run": 3,
+    "delivered": 4,
 }
 
 
@@ -122,12 +135,20 @@ def _merge_unique_dict_list(existing: list[dict] | None, new: list[dict] | None)
 
 
 def _prefer_execution_plan_status(existing: object, new: object) -> object:
+    return _prefer_ranked_status(existing, new, _EXECUTION_PLAN_STATUS_ORDER)
+
+
+def _prefer_ranked_status(
+    existing: object,
+    new: object,
+    rank_order: dict[str, int],
+) -> object:
     if not isinstance(existing, str):
         return new
     if not isinstance(new, str):
         return existing
-    existing_rank = _EXECUTION_PLAN_STATUS_ORDER.get(existing, -1)
-    new_rank = _EXECUTION_PLAN_STATUS_ORDER.get(new, -1)
+    existing_rank = rank_order.get(existing, -1)
+    new_rank = rank_order.get(new, -1)
     return existing if existing_rank >= new_rank else new
 
 
@@ -136,6 +157,8 @@ def _merge_keyed_dict_list(
     new: list[dict] | None,
     *,
     id_key: str,
+    status_key: str | None = None,
+    status_order: dict[str, int] | None = None,
 ) -> list[dict]:
     merged: list[dict] = []
     index_by_id: dict[str, int] = {}
@@ -157,15 +180,25 @@ def _merge_keyed_dict_list(
 
         prior = merged[existing_index]
         combined = {**prior, **item_dict}
-        if "status" in prior or "status" in item_dict:
-            combined["status"] = _prefer_execution_plan_status(
-                prior.get("status"),
-                item_dict.get("status"),
+        if (
+            status_key
+            and status_order
+            and (status_key in prior or status_key in item_dict)
+        ):
+            combined[status_key] = _prefer_ranked_status(
+                prior.get(status_key),
+                item_dict.get(status_key),
+                status_order,
             )
         if "target_skills" in prior or "target_skills" in item_dict:
             combined["target_skills"] = _merge_string_list(
                 prior.get("target_skills") if isinstance(prior.get("target_skills"), list) else None,
                 item_dict.get("target_skills") if isinstance(item_dict.get("target_skills"), list) else None,
+            )
+        if "artifact_virtual_paths" in prior or "artifact_virtual_paths" in item_dict:
+            combined["artifact_virtual_paths"] = _merge_string_list(
+                prior.get("artifact_virtual_paths") if isinstance(prior.get("artifact_virtual_paths"), list) else None,
+                item_dict.get("artifact_virtual_paths") if isinstance(item_dict.get("artifact_virtual_paths"), list) else None,
             )
         merged[existing_index] = combined
 
@@ -200,6 +233,22 @@ def merge_submarine_runtime(
                 merged.get(key) if isinstance(merged.get(key), list) else None,
                 value if isinstance(value, list) else None,
                 id_key="role_id",
+                status_key="status",
+                status_order=_EXECUTION_PLAN_STATUS_ORDER,
+            )
+        elif key == "requested_outputs":
+            merged[key] = _merge_keyed_dict_list(
+                merged.get(key) if isinstance(merged.get(key), list) else None,
+                value if isinstance(value, list) else None,
+                id_key="output_id",
+            )
+        elif key == "output_delivery_plan":
+            merged[key] = _merge_keyed_dict_list(
+                merged.get(key) if isinstance(merged.get(key), list) else None,
+                value if isinstance(value, list) else None,
+                id_key="output_id",
+                status_key="delivery_status",
+                status_order=_OUTPUT_DELIVERY_STATUS_ORDER,
             )
         elif key == "simulation_requirements" and isinstance(value, dict):
             prior_value = merged.get(key)

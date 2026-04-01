@@ -138,6 +138,14 @@ export type SubmarineDispatchPayload = {
   candidate_cases?: SubmarineCandidateCase[];
   selected_case?: SubmarineCandidateCase | null;
   solver_results?: SubmarineSolverMetrics | null;
+  requested_outputs?: SubmarineRequestedOutputPayload[] | null;
+  output_delivery_plan?: SubmarineOutputDeliveryPlanItem[] | null;
+  artifact_virtual_paths?: string[] | null;
+  request_virtual_path?: string | null;
+  report_virtual_path?: string | null;
+  execution_log_virtual_path?: string | null;
+  solver_results_virtual_path?: string | null;
+  solver_results_markdown_virtual_path?: string | null;
   requires_geometry_conversion?: boolean;
 };
 
@@ -151,6 +159,50 @@ export type SubmarineOutputDeliveryPlanItem = {
   label?: string | null;
   delivery_status?: string | null;
   detail?: string | null;
+  artifact_virtual_paths?: string[] | null;
+};
+
+export type SubmarineRuntimeTimelineEventPayload = {
+  stage?: string | null;
+  actor?: string | null;
+  role_id?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  status?: string | null;
+  skill_names?: string[] | null;
+  timestamp?: string | null;
+};
+
+export type SubmarineRuntimeSnapshotPayload = {
+  current_stage?: string | null;
+  task_summary?: string | null;
+  confirmation_status?: string | null;
+  execution_preference?: string | null;
+  task_type?: string | null;
+  geometry_virtual_path?: string | null;
+  geometry_family?: string | null;
+  execution_readiness?: string | null;
+  selected_case_id?: string | null;
+  simulation_requirements?: SubmarineSimulationRequirements | null;
+  requested_outputs?: SubmarineRequestedOutputPayload[] | null;
+  output_delivery_plan?: SubmarineOutputDeliveryPlanItem[] | null;
+  stage_status?: string | null;
+  workspace_case_dir_virtual_path?: string | null;
+  run_script_virtual_path?: string | null;
+  request_virtual_path?: string | null;
+  execution_log_virtual_path?: string | null;
+  solver_results_virtual_path?: string | null;
+  supervisor_handoff_virtual_path?: string | null;
+  scientific_followup_history_virtual_path?: string | null;
+  review_status?: string | null;
+  scientific_gate_status?: string | null;
+  allowed_claim_level?: string | null;
+  scientific_gate_virtual_path?: string | null;
+  next_recommended_stage?: string | null;
+  report_virtual_path?: string | null;
+  artifact_virtual_paths?: string[] | null;
+  execution_plan?: SubmarineExecutionOutlineItem[] | null;
+  activity_timeline?: SubmarineRuntimeTimelineEventPayload[] | null;
 };
 
 export type SubmarineResearchEvidenceSummaryPayload = {

@@ -210,6 +210,13 @@ def submarine_geometry_check_tool(
         next_recommended_stage=result.next_recommended_stage,
         report_virtual_path=result.report_virtual_path,
         artifact_virtual_paths=result.artifact_virtual_paths,
+        request_virtual_path=(existing_runtime or {}).get("request_virtual_path"),
+        execution_log_virtual_path=(existing_runtime or {}).get(
+            "execution_log_virtual_path"
+        ),
+        solver_results_virtual_path=(existing_runtime or {}).get(
+            "solver_results_virtual_path"
+        ),
         execution_plan=build_execution_plan(
             confirmation_status=resolved_confirmation_status,
             existing_plan=(existing_runtime or {}).get("execution_plan"),

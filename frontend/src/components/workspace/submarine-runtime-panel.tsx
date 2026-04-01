@@ -35,6 +35,8 @@ import type {
   SubmarineDispatchPayload,
   SubmarineFinalReportPayload,
   SubmarineGeometryPayload,
+  SubmarineRuntimeSnapshotPayload,
+  SubmarineRuntimeTimelineEventPayload,
   SubmarineSolverMetrics,
 } from "./submarine-runtime-panel.contract";
 import {
@@ -50,6 +52,7 @@ import {
   buildSubmarineExperimentCompareSummary,
   buildSubmarineExperimentSummary,
   buildSubmarineFigureDeliverySummary,
+  buildSubmarineOutputDeliverySummary,
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineResultCards,
   buildSubmarineScientificGateSummary,
@@ -77,44 +80,8 @@ type RuntimeStage =
   | "supervisor-review"
   | "user-confirmation";
 
-type SubmarineRuntimeSnapshot = {
-  current_stage?: RuntimeStage;
-  task_summary?: string;
-  task_type?: string;
-  geometry_virtual_path?: string;
-  geometry_family?: string | null;
-  selected_case_id?: string | null;
-  simulation_requirements?: Record<string, number | null> | null;
-  stage_status?: string | null;
-  review_status?: string | null;
-  scientific_gate_status?: string | null;
-  allowed_claim_level?: string | null;
-  scientific_gate_virtual_path?: string | null;
-  next_recommended_stage?: string | null;
-  report_virtual_path?: string | null;
-  workspace_case_dir_virtual_path?: string | null;
-  run_script_virtual_path?: string | null;
-  artifact_virtual_paths?: string[];
-  execution_plan?: Array<{
-    role_id?: string | null;
-    owner?: string | null;
-    goal?: string | null;
-    status?: string | null;
-    target_skills?: string[] | null;
-  }> | null;
-  activity_timeline?: RuntimeTimelineEvent[] | null;
-};
-
-type RuntimeTimelineEvent = {
-  stage?: string;
-  actor?: string;
-  role_id?: string | null;
-  title?: string;
-  summary?: string;
-  status?: string | null;
-  skill_names?: string[] | null;
-  timestamp?: string | null;
-};
+type SubmarineRuntimeSnapshot = SubmarineRuntimeSnapshotPayload;
+type RuntimeTimelineEvent = SubmarineRuntimeTimelineEventPayload;
 
 type WorkbenchSectionId =
   | "runtime"
@@ -260,12 +227,9 @@ export function SubmarineRuntimePanel({
   const finalReportJson = submarineArtifacts.find((path) =>
     path.endsWith("/final-report.json"),
   );
-  const solverResultsJson = submarineArtifacts.find((path) =>
-    path.endsWith("/solver-results.json"),
-  );
-  const dispatchJson = submarineArtifacts.find((path) =>
-    path.endsWith("/openfoam-request.json"),
-  );
+  const dispatchJson =
+    runtime?.request_virtual_path ??
+    submarineArtifacts.find((path) => path.endsWith("/openfoam-request.json"));
   const geometryJson = submarineArtifacts.find((path) =>
     path.endsWith("/geometry-check.json"),
   );
@@ -279,11 +243,6 @@ export function SubmarineRuntimePanel({
     filepath: finalReportJson ?? "",
     threadId,
     enabled: Boolean(finalReportJson),
-  });
-  const { content: solverResultsContent } = useArtifactContent({
-    filepath: solverResultsJson ?? "",
-    threadId,
-    enabled: Boolean(solverResultsJson),
   });
   const { content: dispatchContent } = useArtifactContent({
     filepath: dispatchJson ?? "",
@@ -304,13 +263,31 @@ export function SubmarineRuntimePanel({
     () => safeJsonParse<SubmarineFinalReportPayload>(finalReportContent),
     [finalReportContent],
   );
-  const solverResults = useMemo(
-    () => safeJsonParse<SubmarineSolverMetrics>(solverResultsContent),
-    [solverResultsContent],
-  );
   const dispatchPayload = useMemo(
     () => safeJsonParse<SubmarineDispatchPayload>(dispatchContent),
     [dispatchContent],
+  );
+  const solverResultsJson =
+    runtime?.solver_results_virtual_path ??
+    dispatchPayload?.solver_results_virtual_path ??
+    submarineArtifacts.find((path) => path.endsWith("/solver-results.json"));
+  const executionLogPath =
+    runtime?.execution_log_virtual_path ??
+    dispatchPayload?.execution_log_virtual_path ??
+    submarineArtifacts.find((path) => path.endsWith("/openfoam-run.log")) ??
+    null;
+  const solverResultsMarkdownPath =
+    dispatchPayload?.solver_results_markdown_virtual_path ??
+    submarineArtifacts.find((path) => path.endsWith("/solver-results.md")) ??
+    null;
+  const { content: solverResultsContent } = useArtifactContent({
+    filepath: solverResultsJson ?? "",
+    threadId,
+    enabled: Boolean(solverResultsJson),
+  });
+  const solverResults = useMemo(
+    () => safeJsonParse<SubmarineSolverMetrics>(solverResultsContent),
+    [solverResultsContent],
   );
   const geometryPayload = useMemo(
     () => safeJsonParse<SubmarineGeometryPayload>(geometryContent),
@@ -318,18 +295,28 @@ export function SubmarineRuntimePanel({
   );
 
   const fallbackBrief = useMemo<SubmarineDesignBriefPayload | null>(() => {
-    if (!runtime?.task_summary && !runtime?.simulation_requirements) return null;
+    if (
+      !runtime?.task_summary &&
+      !runtime?.simulation_requirements &&
+      !(runtime?.requested_outputs?.length ?? 0)
+    ) {
+      return null;
+    }
     return {
-      task_description: runtime?.task_summary,
+      task_description: runtime?.task_summary ?? undefined,
       confirmation_status:
         runtime?.review_status === "ready_for_supervisor" ? "confirmed" : "draft",
       simulation_requirements: runtime?.simulation_requirements ?? undefined,
+      requested_outputs:
+        runtime?.requested_outputs ??
+        dispatchPayload?.requested_outputs ??
+        undefined,
       open_questions:
         runtime?.review_status === "needs_user_confirmation"
           ? ["当前方案仍需要继续和 Claude Code 确认。"]
           : [],
     };
-  }, [runtime]);
+  }, [dispatchPayload?.requested_outputs, runtime]);
 
   const activeDesignBrief = designBrief ?? fallbackBrief;
   const designBriefSummary = useMemo(
@@ -340,6 +327,33 @@ export function SubmarineRuntimePanel({
     () => buildSubmarineAcceptanceSummary(finalReport),
     [finalReport],
   );
+  const runtimeOutputDeliverySummary = useMemo(
+    () =>
+      buildSubmarineOutputDeliverySummary({
+        requestedOutputs:
+          runtime?.requested_outputs ??
+          dispatchPayload?.requested_outputs ??
+          activeDesignBrief?.requested_outputs ??
+          finalReport?.requested_outputs,
+        outputDeliveryPlan:
+          runtime?.output_delivery_plan ??
+          dispatchPayload?.output_delivery_plan ??
+          finalReport?.output_delivery_plan,
+      }),
+    [
+      activeDesignBrief?.requested_outputs,
+      dispatchPayload?.output_delivery_plan,
+      dispatchPayload?.requested_outputs,
+      finalReport?.output_delivery_plan,
+      finalReport?.requested_outputs,
+      runtime?.output_delivery_plan,
+      runtime?.requested_outputs,
+    ],
+  );
+  const outputDeliverySummary =
+    (acceptanceSummary?.outputDelivery?.length ?? 0) > 0
+      ? acceptanceSummary!.outputDelivery
+      : runtimeOutputDeliverySummary;
   const figureDeliverySummary = useMemo(
     () => buildSubmarineFigureDeliverySummary(finalReport),
     [finalReport],
@@ -446,14 +460,14 @@ export function SubmarineRuntimePanel({
     () =>
       buildSubmarineResultCards({
         requestedOutputs: designBriefSummary?.requestedOutputs,
-        outputDelivery: acceptanceSummary?.outputDelivery,
+        outputDelivery: outputDeliverySummary,
         figureDelivery: figureDeliverySummary,
         artifactPaths: submarineArtifacts,
       }),
     [
-      acceptanceSummary?.outputDelivery,
       designBriefSummary?.requestedOutputs,
       figureDeliverySummary,
+      outputDeliverySummary,
       submarineArtifacts,
     ],
   );
@@ -524,7 +538,31 @@ export function SubmarineRuntimePanel({
               { label: "当前报告", value: runtime?.report_virtual_path ?? designBriefJson ?? "待生成" },
               { label: "Workspace case", value: runtime?.workspace_case_dir_virtual_path ?? "待生成" },
               { label: "Run script / 后处理", value: runtime?.run_script_virtual_path ?? solverMetrics?.workspace_postprocess_virtual_path ?? "待生成" },
+              { label: "Dispatch request", value: dispatchJson ?? "待生成" },
+              {
+                label: "Execution log",
+                value:
+                  executionLogPath ??
+                  (runtime?.current_stage === "solver-dispatch" ||
+                  runtime?.current_stage === "result-reporting"
+                    ? "当前还没有写入 execution log"
+                    : "本轮尚未执行"),
+              },
+              { label: "Solver results JSON", value: solverResultsJson ?? "待生成" },
+              {
+                label: "Solver results Markdown",
+                value: solverResultsMarkdownPath ?? "待生成",
+              },
             ]}
+          />
+          <LabeledList
+            title="Runtime Output Delivery"
+            items={outputDeliverySummary.map((item) =>
+              item.specSummary !== "--"
+                ? `${item.outputId} | ${item.deliveryStatus} | ${item.specSummary} | ${item.detail}`
+                : `${item.outputId} | ${item.deliveryStatus} | ${item.detail}`,
+            )}
+            emptyText="褰撳墠杩樻病鏈夋眰瑙ｈ緭鍑虹殑鏄惧紡浜や粯鐪熺浉銆?"
           />
         </InfoPanel>
 
@@ -617,6 +655,30 @@ export function SubmarineRuntimePanel({
                   }
                 />
               </div>
+              {!acceptanceSummary && outputDeliverySummary.length > 0 ? (
+                <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <KeyValue label="Requested outputs" value={`${outputDeliverySummary.length} 项`} />
+                    <KeyValue
+                      label="Delivered"
+                      value={`${outputDeliverySummary.filter((item) => item.deliveryStatus === "delivered").length} 项`}
+                    />
+                    <KeyValue
+                      label="Pending / Planned"
+                      value={`${outputDeliverySummary.filter((item) => item.deliveryStatus === "pending" || item.deliveryStatus === "planned").length} 项`}
+                    />
+                  </div>
+                  <LabeledList
+                    title="Runtime Output Delivery"
+                    items={outputDeliverySummary.map((item) =>
+                      item.specSummary !== "--"
+                        ? `${item.outputId} | ${item.deliveryStatus} | ${item.specSummary} | ${item.detail}`
+                        : `${item.outputId} | ${item.deliveryStatus} | ${item.detail}`,
+                    )}
+                    emptyText="当前还没有记录请求输出的交付状态。"
+                  />
+                </div>
+              ) : null}
               {acceptanceSummary ? (
                 <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                   <div className="grid gap-3 md:grid-cols-2">

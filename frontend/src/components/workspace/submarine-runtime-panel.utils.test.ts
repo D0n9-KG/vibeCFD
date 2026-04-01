@@ -10,6 +10,7 @@ const {
   buildSubmarineExperimentCompareSummary,
   buildSubmarineExperimentSummary,
   buildSubmarineFigureDeliverySummary,
+  buildSubmarineOutputDeliverySummary,
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
@@ -436,6 +437,51 @@ void test("builds an acceptance summary from the final report payload", () => {
   assert.equal(summary?.passedChecks.length, 2);
 });
 
+void test("builds runtime output delivery summaries with explicit artifact pointers", () => {
+  const summary = buildSubmarineOutputDeliverySummary({
+    requestedOutputs: [
+      {
+        output_id: "surface_pressure_contour",
+        label: "表面压力云图",
+        requested_label: "表面压力云图",
+        support_level: "supported",
+        postprocess_spec: {
+          field: "p",
+          time_mode: "latest",
+          selector: {
+            type: "patch",
+            patches: ["hull"],
+          },
+          formats: ["csv", "png", "report"],
+        },
+      },
+    ],
+    outputDeliveryPlan: [
+      {
+        output_id: "surface_pressure_contour",
+        label: "表面压力云图",
+        delivery_status: "delivered",
+        detail: "Pressure contour exported from the canonical solver bundle.",
+        artifact_virtual_paths: [
+          "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.png",
+          "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+        ],
+      },
+    ],
+  });
+
+  assert.equal(summary.length, 1);
+  assert.equal(summary[0]?.deliveryStatus, "delivered");
+  assert.equal(
+    summary[0]?.specSummary,
+    "field=p; selector=patch[hull]; time=latest; formats=csv,png,report",
+  );
+  assert.deepEqual(summary[0]?.artifactPaths, [
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.png",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+  ]);
+});
+
 void test("keeps benchmark comparisons in the acceptance summary", () => {
   const summary = buildSubmarineAcceptanceSummary({
     requested_outputs: [
@@ -649,6 +695,43 @@ void test(
         "/mnt/user-data/outputs/submarine/reports/demo/final-report.json",
       ],
     );
+  },
+);
+
+void test(
+  "prefers explicit output-delivery artifact pointers when runtime cards do not have suffix-matched artifacts",
+  () => {
+    const cards = buildSubmarineResultCards({
+      requestedOutputs: [
+        {
+          outputId: "drag_coefficient",
+          label: "Drag coefficient",
+          requestedLabel: "Cd",
+          supportLevel: "supported",
+          specSummary: "--",
+          notes: "Requested from runtime snapshot.",
+        },
+      ],
+      outputDelivery: [
+        {
+          outputId: "drag_coefficient",
+          label: "Drag coefficient",
+          deliveryStatus: "delivered",
+          specSummary: "--",
+          detail: "Delivered through solver-results.json.",
+          artifactPaths: [
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json",
+          ],
+        },
+      ],
+      artifactPaths: [],
+    });
+
+    assert.equal(cards.length, 1);
+    assert.deepEqual(cards[0]?.artifactPaths, [
+      "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json",
+    ]);
+    assert.equal(cards[0]?.previewArtifactPath, null);
   },
 );
 

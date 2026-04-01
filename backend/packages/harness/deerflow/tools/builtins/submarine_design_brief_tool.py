@@ -266,10 +266,18 @@ def submarine_design_brief_tool(
         selected_case_id=payload.get("selected_case_id"),
         simulation_requirements=payload.get("simulation_requirements"),
         requested_outputs=payload.get("requested_outputs"),
+        output_delivery_plan=(existing_runtime or {}).get("output_delivery_plan"),
         stage_status=payload.get("confirmation_status"),
         next_recommended_stage=payload["next_recommended_stage"],
         report_virtual_path=payload["report_virtual_path"],
         artifact_virtual_paths=payload["artifact_virtual_paths"],
+        request_virtual_path=(existing_runtime or {}).get("request_virtual_path"),
+        execution_log_virtual_path=(existing_runtime or {}).get(
+            "execution_log_virtual_path"
+        ),
+        solver_results_virtual_path=(existing_runtime or {}).get(
+            "solver_results_virtual_path"
+        ),
         execution_plan=build_execution_plan(
             confirmation_status=payload["confirmation_status"],
             existing_plan=payload["execution_outline"],

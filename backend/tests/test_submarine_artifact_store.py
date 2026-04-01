@@ -97,3 +97,82 @@ def test_artifact_store_skips_unreadable_or_irrelevant_artifacts(tmp_path):
             },
         )
     ]
+
+
+def test_artifact_store_builds_canonical_solver_dispatch_bundle():
+    artifact_store = importlib.import_module("deerflow.domain.submarine.artifact_store")
+
+    artifacts = artifact_store.build_canonical_solver_dispatch_artifact_bundle(
+        run_dir_name="demo",
+        include_scientific_study_plan=True,
+        execution_log_virtual_path=(
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-run.log"
+        ),
+        solver_results_virtual_path=(
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
+        ),
+        solver_results_markdown_virtual_path=(
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.md"
+        ),
+        requested_postprocess_artifacts=[
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+        ],
+        scientific_study_artifacts=[
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/solver-results.json"
+        ],
+        experiment_artifacts=[
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-record.json"
+        ],
+    )
+
+    assert artifacts == [
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/dispatch-summary.md",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/dispatch-summary.html",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/supervisor-handoff.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-plan.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-run.log",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.md",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/solver-results.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-record.json",
+    ]
+
+
+def test_artifact_store_loads_canonical_dispatch_payloads_from_explicit_or_fallback_paths(
+    tmp_path,
+):
+    artifact_store = importlib.import_module("deerflow.domain.submarine.artifact_store")
+
+    outputs_dir = tmp_path / "outputs"
+    run_dir = outputs_dir / "submarine" / "solver-dispatch" / "demo"
+    request_virtual_path = (
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json"
+    )
+    solver_results_virtual_path = (
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
+    )
+    _write_json(run_dir / "openfoam-request.json", {"dispatch_status": "planned"})
+    _write_json(run_dir / "solver-results.json", {"solver_completed": True})
+
+    request_payload = artifact_store.load_canonical_solver_dispatch_request_payload(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=[request_virtual_path],
+        request_virtual_path=request_virtual_path,
+    )
+    solver_results_payload = artifact_store.load_canonical_solver_results_payload(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=[solver_results_virtual_path],
+    )
+
+    assert request_payload == (
+        request_virtual_path,
+        {"dispatch_status": "planned"},
+    )
+    assert solver_results_payload == (
+        solver_results_virtual_path,
+        {"solver_completed": True},
+    )

@@ -56,6 +56,24 @@ void test("resolveLangGraphBaseURL keeps mock requests on the frontend mock API"
   );
 });
 
+void test(
+  "resolveLangGraphBaseURL prefers the frontend mock API over an explicit LangGraph URL when mock mode is enabled",
+  () => {
+    assert.equal(
+      resolveLangGraphBaseURL({
+        langGraphBaseURL: "https://langgraph.example.test",
+        isMock: true,
+        location: {
+          origin: "http://localhost:3000",
+          hostname: "localhost",
+          port: "3000",
+        },
+      }),
+      "http://localhost:3000/mock/api",
+    );
+  },
+);
+
 void test("explicit environment URLs still win over the standalone dev fallback", () => {
   assert.equal(
     resolveBackendBaseURL({

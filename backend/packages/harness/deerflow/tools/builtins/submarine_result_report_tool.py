@@ -91,6 +91,9 @@ def submarine_result_report_tool(
         stage_status=snapshot.stage_status,
         workspace_case_dir_virtual_path=snapshot.workspace_case_dir_virtual_path,
         run_script_virtual_path=snapshot.run_script_virtual_path,
+        request_virtual_path=snapshot.request_virtual_path,
+        execution_log_virtual_path=snapshot.execution_log_virtual_path,
+        solver_results_virtual_path=snapshot.solver_results_virtual_path,
         supervisor_handoff_virtual_path=payload.get("supervisor_handoff_virtual_path"),
         scientific_followup_history_virtual_path=(
             scientific_followup_summary.get("history_virtual_path")

@@ -12,9 +12,27 @@ def _design_brief_runtime_update() -> dict:
         "stage_status": "draft",
         "next_recommended_stage": "geometry-preflight",
         "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/demo/cfd-design-brief.md",
+        "request_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json",
         "artifact_virtual_paths": [
             "/mnt/user-data/outputs/submarine/reports/demo/cfd-design-brief.json",
             "/mnt/user-data/outputs/submarine/reports/demo/cfd-design-brief.md",
+        ],
+        "requested_outputs": [
+            {
+                "output_id": "drag_coefficient",
+                "label": "Drag coefficient",
+                "requested_label": "Cd",
+                "status": "requested",
+                "support_level": "supported",
+            }
+        ],
+        "output_delivery_plan": [
+            {
+                "output_id": "drag_coefficient",
+                "label": "Drag coefficient",
+                "delivery_status": "planned",
+                "detail": "Queued for solver dispatch.",
+            }
         ],
         "execution_plan": [
             {
@@ -48,6 +66,22 @@ def _design_brief_runtime_update() -> dict:
 
 def _delegation_runtime_update() -> dict:
     return {
+        "requested_outputs": [
+            {
+                "output_id": "drag_coefficient",
+                "notes": "Promoted into the execution-ready baseline package.",
+            }
+        ],
+        "output_delivery_plan": [
+            {
+                "output_id": "drag_coefficient",
+                "delivery_status": "delivered",
+                "detail": "Delivered through solver-results.json.",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
+                ],
+            }
+        ],
         "execution_plan": [
             {
                 "role_id": "geometry-preflight",
@@ -95,6 +129,14 @@ def test_thread_state_merges_parallel_submarine_runtime_updates():
     assert runtime_state["artifact_virtual_paths"] == [
         "/mnt/user-data/outputs/submarine/reports/demo/cfd-design-brief.json",
         "/mnt/user-data/outputs/submarine/reports/demo/cfd-design-brief.md",
+    ]
+    assert runtime_state["request_virtual_path"].endswith("/openfoam-request.json")
+    assert runtime_state["requested_outputs"][0]["notes"] == (
+        "Promoted into the execution-ready baseline package."
+    )
+    assert runtime_state["output_delivery_plan"][0]["delivery_status"] == "delivered"
+    assert runtime_state["output_delivery_plan"][0]["artifact_virtual_paths"] == [
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
     ]
 
     geometry_preflight = next(

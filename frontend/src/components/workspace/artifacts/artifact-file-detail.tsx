@@ -188,7 +188,10 @@ export function ArtifactFileDetail({
               </Tooltip>
             )}
             {!isWriteFile && (
-              <a href={urlOfArtifact({ filepath, threadId })} target="_blank">
+              <a
+                href={urlOfArtifact({ filepath, threadId, isMock })}
+                target="_blank"
+              >
                 <ArtifactAction
                   icon={SquareArrowOutUpRightIcon}
                   label={t.common.openInNewWindow}
@@ -215,7 +218,12 @@ export function ArtifactFileDetail({
             )}
             {!isWriteFile && (
               <a
-                href={urlOfArtifact({ filepath, threadId, download: true })}
+                href={urlOfArtifact({
+                  filepath,
+                  threadId,
+                  download: true,
+                  isMock,
+                })}
                 target="_blank"
               >
                 <ArtifactAction

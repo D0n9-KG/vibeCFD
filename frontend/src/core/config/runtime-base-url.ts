@@ -52,18 +52,18 @@ export function resolveLangGraphBaseURL({
   isMock,
   location,
 }: LangGraphBaseURLOptions): string {
-  const normalizedLangGraphBaseURL =
-    normalizeConfiguredBaseURL(langGraphBaseURL);
-  if (normalizedLangGraphBaseURL) {
-    return normalizedLangGraphBaseURL;
-  }
-
   if (isMock) {
     if (location) {
       return `${location.origin}/mock/api`;
     }
 
     return "http://localhost:3000/mock/api";
+  }
+
+  const normalizedLangGraphBaseURL =
+    normalizeConfiguredBaseURL(langGraphBaseURL);
+  if (normalizedLangGraphBaseURL) {
+    return normalizedLangGraphBaseURL;
   }
 
   if (isStandaloneLocalFrontendDev(location)) {
