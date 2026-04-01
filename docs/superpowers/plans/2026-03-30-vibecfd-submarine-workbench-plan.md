@@ -1989,7 +1989,7 @@ Remove:
   );
 ```
 
-**Keep** `chatOpen` / `setChatOpen` / `focusChatRail` — `SubmarinePipeline` accepts `chatOpen`/`onChatOpenChange` props so the existing page-level toggle button in the header can still drive it (see Step 4).
+**Keep** `chatOpen` / `setChatOpen` / `focusChatRail` — `SubmarinePipeline` accepts `chatOpen`/`onChatOpenChange` props so the existing page-level toggle button in the header can still drive it on mobile; at `xl` and above that header button is explicitly hidden with `xl:hidden` because the desktop chat rail is always visible (see Step 4).
 
 **Important:** Keep `handleSubmit`, `handleStop`, `isUploading`, `isNewThread`, `thread`, `sendMessage`, `settings`, `setSettings`, `showNotification`, `setArtifactsOpen`.
 
@@ -2076,6 +2076,7 @@ Navigate to `http://localhost:3000/workspace/submarine/new` and verify:
 - Right shows Claude Code chat rail
 - Resizing any panel persists after page reload (check localStorage for `submarine-pipeline-sidebar-size`)
 - On viewport < 1280px: sidebar hidden, chat rail hidden by default, toggle button visible
+- On viewport >= 1280px: 3-pane layout visible, chat rail always visible, page header toggle hidden via `xl:hidden`
 - Page is not broken
 
 - [ ] **Step 7: Commit**
@@ -2175,7 +2176,7 @@ git commit -m "fix: address Codex review findings for submarine pipeline"
 | 7.1 Navigation rules | chatOpen/onChatOpenChange 桥接 page.tsx 现有 toggle；thread 创建用 history.replaceState（page.tsx 不变） |
 | 7.2 Panel width persistence | onLayoutChanged → localStorage；loadStoredPct → defaultLayout（Task 7） |
 | 8. Migration boundary (providers preserved) | layout.tsx / WorkspaceLayout 不动；page.tsx 保留 ThreadContext、ChatBox |
-| 9. Responsive (xl breakpoint) | < xl 单列 + chatOpen toggle；≥ xl ResizablePanelGroup |
+| 9. Responsive (xl breakpoint) | < xl 单列 + chatOpen toggle；≥ xl ResizablePanelGroup + page header toggle hidden (`xl:hidden`) |
 
 **No placeholders:** 每个 task 的代码均完整，无 TBD。
 
