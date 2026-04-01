@@ -208,11 +208,16 @@ export type SubmarineFigureDeliverySummary = {
 };
 
 export type SubmarineResearchEvidenceSummary = {
+  readinessStatus: string;
+  verificationStatus: string;
+  validationStatus: string;
+  provenanceStatus: string;
   readinessLabel: string;
   verificationStatusLabel: string;
   validationStatusLabel: string;
   provenanceStatusLabel: string;
   confidenceLabel: string;
+  blockingIssues: string[];
   evidenceGaps: string[];
   passedEvidence: string[];
   benchmarkHighlights: string[];
@@ -221,6 +226,11 @@ export type SubmarineResearchEvidenceSummary = {
 };
 
 export type SubmarineScientificGateSummary = {
+  gateStatus: string;
+  allowedClaimLevel: string;
+  sourceReadinessStatus: string;
+  recommendedStage: string;
+  remediationStage: string;
   gateStatusLabel: string;
   allowedClaimLevelLabel: string;
   sourceReadinessLabel: string;
@@ -298,9 +308,18 @@ export type SubmarineAcceptanceSummary = {
     metricId: string;
     quantity: string;
     status: string;
+    statusLabel: string;
+    summary: string;
+    detail: string;
     observedValue: string;
     referenceValue: string;
+    absoluteError: string;
     relativeError: string;
+    relativeTolerance: string;
+    targetVelocity: string;
+    observedVelocity: string;
+    sourceLabel: string;
+    sourceUrl: string;
   }>;
 };
 
@@ -438,6 +457,13 @@ const SCIENTIFIC_GATE_STATUS_LABELS: Record<string, string> = {
   ready_for_claim: "Ready For Claim",
   claim_limited: "Claim Limited",
   blocked: "Blocked",
+};
+
+const BENCHMARK_COMPARISON_STATUS_LABELS: Record<string, string> = {
+  passed: "Passed",
+  blocked: "Blocked",
+  warning: "Warning",
+  not_applicable: "Not Applicable",
 };
 
 const SCIENTIFIC_CLAIM_LEVEL_LABELS: Record<string, string> = {
@@ -1398,6 +1424,12 @@ export function buildSubmarineAcceptanceSummary(
       metricId: item.metric_id ?? "--",
       quantity: item.quantity ?? "--",
       status: item.status ?? "--",
+      statusLabel:
+        BENCHMARK_COMPARISON_STATUS_LABELS[item.status ?? ""] ??
+        item.status ??
+        "--",
+      summary: item.summary_zh ?? "--",
+      detail: item.detail ?? "--",
       observedValue:
         typeof item.observed_value === "number"
           ? item.observed_value.toFixed(5)
@@ -1406,10 +1438,22 @@ export function buildSubmarineAcceptanceSummary(
         typeof item.reference_value === "number"
           ? item.reference_value.toFixed(5)
           : "--",
-      relativeError:
-        typeof item.relative_error === "number"
-          ? `${(item.relative_error * 100).toFixed(2)}%`
-          : "--",
+      absoluteError: formatFiniteNumber(item.absolute_error ?? null, 5),
+      relativeError: formatFinitePercent(item.relative_error ?? null, 2),
+      relativeTolerance: formatFinitePercent(
+        item.relative_tolerance ?? null,
+        2,
+      ),
+      targetVelocity: formatFiniteNumber(
+        item.target_inlet_velocity_mps ?? null,
+        2,
+      ),
+      observedVelocity: formatFiniteNumber(
+        item.observed_inlet_velocity_mps ?? null,
+        2,
+      ),
+      sourceLabel: item.source_label ?? "--",
+      sourceUrl: item.source_url ?? "--",
     }));
   const outputDelivery = buildSubmarineOutputDeliverySummary({
     requestedOutputs: payload?.requested_outputs,
@@ -1431,6 +1475,31 @@ export function buildSubmarineAcceptanceSummary(
     outputDelivery,
     benchmarkComparisons,
   };
+}
+
+export function formatSubmarineBenchmarkComparisonSummaryLine(
+  comparison: SubmarineAcceptanceSummary["benchmarkComparisons"][number],
+): string {
+  const segments = [
+    `${comparison.metricId} | ${comparison.statusLabel}`,
+    `${comparison.quantity} ${comparison.observedValue} / ${comparison.referenceValue}`,
+  ];
+
+  if (comparison.relativeError !== "--" || comparison.relativeTolerance !== "--") {
+    segments.push(
+      `error ${comparison.relativeError} / tol ${comparison.relativeTolerance}`,
+    );
+  }
+  if (comparison.targetVelocity !== "--" || comparison.observedVelocity !== "--") {
+    segments.push(
+      `velocity ${comparison.observedVelocity} vs ${comparison.targetVelocity} m/s`,
+    );
+  }
+  if (comparison.sourceLabel !== "--") {
+    segments.push(`source ${comparison.sourceLabel}`);
+  }
+
+  return segments.join(" | ");
 }
 
 function formatScientificRequirementStatus(status?: string | null): string {
@@ -1455,6 +1524,15 @@ function formatFiniteNumber(
 ): string {
   return typeof value === "number" && Number.isFinite(value)
     ? value.toFixed(digits)
+    : "--";
+}
+
+function formatFinitePercent(
+  value: number | null | undefined,
+  digits: number,
+): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? `${(value * 100).toFixed(digits)}%`
     : "--";
 }
 
@@ -1791,6 +1869,10 @@ export function buildSubmarineResearchEvidenceSummary(
   }
 
   return {
+    readinessStatus: summary.readiness_status ?? "--",
+    verificationStatus: summary.verification_status ?? "--",
+    validationStatus: summary.validation_status ?? "--",
+    provenanceStatus: summary.provenance_status ?? "--",
     readinessLabel:
       RESEARCH_EVIDENCE_READINESS_LABELS[summary.readiness_status ?? ""] ??
       summary.readiness_status ??
@@ -1811,6 +1893,7 @@ export function buildSubmarineResearchEvidenceSummary(
       RESEARCH_EVIDENCE_DIMENSION_LABELS[summary.confidence ?? ""] ??
       summary.confidence ??
       "--",
+    blockingIssues: summary.blocking_issues?.filter(Boolean) ?? [],
     evidenceGaps: summary.evidence_gaps?.filter(Boolean) ?? [],
     passedEvidence: summary.passed_evidence?.filter(Boolean) ?? [],
     benchmarkHighlights: summary.benchmark_highlights?.filter(Boolean) ?? [],
@@ -1828,6 +1911,11 @@ export function buildSubmarineScientificGateSummary(
   }
 
   return {
+    gateStatus: summary.gate_status ?? "--",
+    allowedClaimLevel: summary.allowed_claim_level ?? "--",
+    sourceReadinessStatus: summary.source_readiness_status ?? "--",
+    recommendedStage: summary.recommended_stage ?? "--",
+    remediationStage: summary.remediation_stage ?? "--",
     gateStatusLabel:
       SCIENTIFIC_GATE_STATUS_LABELS[summary.gate_status ?? ""] ??
       summary.gate_status ??

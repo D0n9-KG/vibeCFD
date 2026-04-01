@@ -22,6 +22,36 @@ def _format_percent(value: object, digits: int = 1) -> str:
     return f"{float(value) * 100:.{digits}f}%"
 
 
+def _build_benchmark_comparison(
+    benchmark_target: SubmarineBenchmarkTarget,
+    *,
+    status: str,
+    detail: str,
+    observed_value: float | None,
+    absolute_error: float | None,
+    relative_error: float | None,
+    inlet_velocity: object,
+) -> dict:
+    return {
+        "metric_id": benchmark_target.metric_id,
+        "quantity": benchmark_target.quantity,
+        "status": status,
+        "summary_zh": benchmark_target.summary_zh,
+        "detail": detail,
+        "reference_value": benchmark_target.reference_value,
+        "observed_value": observed_value,
+        "absolute_error": absolute_error,
+        "relative_error": relative_error,
+        "relative_tolerance": benchmark_target.relative_tolerance,
+        "target_inlet_velocity_mps": benchmark_target.inlet_velocity_mps,
+        "observed_inlet_velocity_mps": (
+            float(inlet_velocity) if _is_number(inlet_velocity) else None
+        ),
+        "source_label": benchmark_target.source_label,
+        "source_url": benchmark_target.source_url,
+    }
+
+
 def _has_required_artifact(artifact_virtual_paths: list[str], required_artifact: str) -> bool:
     return any(path.endswith(required_artifact) for path in artifact_virtual_paths)
 
@@ -56,23 +86,32 @@ def _evaluate_benchmark_target(
                 f"Benchmark {benchmark_target.metric_id} requires inlet_velocity_mps "
                 f"{benchmark_target.inlet_velocity_mps:.2f}, but the solver run did not record it."
             )
-            return {
-                "metric_id": benchmark_target.metric_id,
-                "quantity": benchmark_target.quantity,
-                "status": benchmark_target.on_miss_status,
-                "detail": detail,
-                "reference_value": benchmark_target.reference_value,
-                "observed_value": None,
-                "absolute_error": None,
-                "relative_error": None,
-                "relative_tolerance": benchmark_target.relative_tolerance,
-                "target_inlet_velocity_mps": benchmark_target.inlet_velocity_mps,
-                "observed_inlet_velocity_mps": None,
-                "source_label": benchmark_target.source_label,
-                "source_url": benchmark_target.source_url,
-            }
+            return _build_benchmark_comparison(
+                benchmark_target,
+                status=benchmark_target.on_miss_status,
+                detail=detail,
+                observed_value=None,
+                absolute_error=None,
+                relative_error=None,
+                inlet_velocity=inlet_velocity,
+            )
         if abs(float(inlet_velocity) - benchmark_target.inlet_velocity_mps) > benchmark_target.velocity_tolerance_mps:
-            return None
+            detail = (
+                f"Benchmark {benchmark_target.metric_id} is scoped to "
+                f"{benchmark_target.inlet_velocity_mps:.2f} +/- "
+                f"{benchmark_target.velocity_tolerance_mps:.2f} m/s, but this run "
+                f"recorded inlet_velocity_mps {float(inlet_velocity):.2f}. "
+                "The reference is therefore not applicable to the current run condition."
+            )
+            return _build_benchmark_comparison(
+                benchmark_target,
+                status="not_applicable",
+                detail=detail,
+                observed_value=None,
+                absolute_error=None,
+                relative_error=None,
+                inlet_velocity=inlet_velocity,
+            )
 
     observed_value = _resolve_benchmark_observed_value(benchmark_target, solver_metrics)
     if observed_value is None:
@@ -80,21 +119,15 @@ def _evaluate_benchmark_target(
             f"Benchmark {benchmark_target.metric_id} applies to this run, but observed "
             f"{benchmark_target.quantity} is unavailable."
         )
-        return {
-            "metric_id": benchmark_target.metric_id,
-            "quantity": benchmark_target.quantity,
-            "status": benchmark_target.on_miss_status,
-            "detail": detail,
-            "reference_value": benchmark_target.reference_value,
-            "observed_value": None,
-            "absolute_error": None,
-            "relative_error": None,
-            "relative_tolerance": benchmark_target.relative_tolerance,
-            "target_inlet_velocity_mps": benchmark_target.inlet_velocity_mps,
-            "observed_inlet_velocity_mps": float(inlet_velocity) if _is_number(inlet_velocity) else None,
-            "source_label": benchmark_target.source_label,
-            "source_url": benchmark_target.source_url,
-        }
+        return _build_benchmark_comparison(
+            benchmark_target,
+            status=benchmark_target.on_miss_status,
+            detail=detail,
+            observed_value=None,
+            absolute_error=None,
+            relative_error=None,
+            inlet_velocity=inlet_velocity,
+        )
 
     reference_value = float(benchmark_target.reference_value)
     absolute_error = abs(observed_value - reference_value)
@@ -110,21 +143,15 @@ def _evaluate_benchmark_target(
         f"{observed_value:.5f} vs reference {reference_value:.5f}; relative error "
         f"{_format_percent(relative_error)} with tolerance {_format_percent(benchmark_target.relative_tolerance)}."
     )
-    return {
-        "metric_id": benchmark_target.metric_id,
-        "quantity": benchmark_target.quantity,
-        "status": status,
-        "detail": detail,
-        "reference_value": reference_value,
-        "observed_value": observed_value,
-        "absolute_error": absolute_error,
-        "relative_error": relative_error,
-        "relative_tolerance": benchmark_target.relative_tolerance,
-        "target_inlet_velocity_mps": benchmark_target.inlet_velocity_mps,
-        "observed_inlet_velocity_mps": float(inlet_velocity) if _is_number(inlet_velocity) else None,
-        "source_label": benchmark_target.source_label,
-        "source_url": benchmark_target.source_url,
-    }
+    return _build_benchmark_comparison(
+        benchmark_target,
+        status=status,
+        detail=detail,
+        observed_value=observed_value,
+        absolute_error=absolute_error,
+        relative_error=relative_error,
+        inlet_velocity=inlet_velocity,
+    )
 
 
 def build_acceptance_assessment(

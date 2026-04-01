@@ -455,6 +455,82 @@
       }
     ]
   },
+  "acceptance_assessment": {
+    "status": "ready_for_review",
+    "confidence": "medium",
+    "blocking_issues": [],
+    "warnings": [
+      "Current run used 5.0 m/s, so the cited SUBOFF 3.05 m/s drag benchmark is not directly applicable."
+    ],
+    "passed_checks": [
+      "Residual and force-history evidence support a stable baseline drag estimate.",
+      "Mesh-independence verification completed within the accepted Cd tolerance band."
+    ],
+    "benchmark_comparisons": [
+      {
+        "metric_id": "cd_at_3_05_mps",
+        "quantity": "Cd",
+        "status": "not_applicable",
+        "summary_zh": "当前基线速度为 5.00 m/s，不能直接对照 3.05 m/s 的 SUBOFF 阻力基准。",
+        "detail": "Benchmark cd_at_3_05_mps is not applicable to the current run condition because the observed inlet velocity is 5.00 m/s while the cited benchmark target is 3.05 m/s.",
+        "observed_value": 0.00329517365,
+        "reference_value": 0.00314,
+        "absolute_error": 0.00015517365,
+        "relative_error": 0.04941835987261141,
+        "relative_tolerance": 0.03,
+        "target_inlet_velocity_mps": 3.05,
+        "observed_inlet_velocity_mps": 5.0,
+        "source_label": "Mushtaque et al. (2025) Table 6, EFD bare hull",
+        "source_url": "https://pure.port.ac.uk/en/publications/a-comprehensive-validation-study-on-the-darpa-suboff-bare-hull-mo"
+      }
+    ]
+  },
+  "research_evidence_summary": {
+    "readiness_status": "verified_but_not_validated",
+    "verification_status": "passed",
+    "validation_status": "missing_validation_reference",
+    "provenance_status": "partial",
+    "confidence": "medium",
+    "blocking_issues": [],
+    "evidence_gaps": [
+      "Benchmark cd_at_3_05_mps is not applicable to the current run condition.",
+      "No applicable benchmark target was available for this 5.0 m/s run."
+    ],
+    "passed_evidence": [
+      "Residual and coefficient-stability checks passed for the baseline run.",
+      "Mesh-independence study outputs are complete and traceable."
+    ],
+    "benchmark_highlights": [
+      "Mushtaque et al. (2025) Table 6, EFD bare hull is available, but only for 3.05 m/s SUBOFF validation."
+    ],
+    "provenance_highlights": [
+      "Experiment manifest, study manifest, and compare summary are persisted in thread outputs.",
+      "Domain and time-step follow-up runs are still incomplete."
+    ],
+    "artifact_virtual_paths": [
+      "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/research-evidence-summary.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/experiment-manifest.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/study-manifest.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/run-compare-summary.json"
+    ]
+  },
+  "scientific_supervisor_gate": {
+    "gate_status": "claim_limited",
+    "allowed_claim_level": "verified_but_not_validated",
+    "source_readiness_status": "verified_but_not_validated",
+    "recommended_stage": "supervisor-review",
+    "remediation_stage": "solver-dispatch",
+    "blocking_reasons": [],
+    "advisory_notes": [
+      "External validation evidence is still missing for this 5.0 m/s run.",
+      "Return to solver-dispatch if you need a benchmark-matched 3.05 m/s rerun or a cited 5.0 m/s reference."
+    ],
+    "artifact_virtual_paths": [
+      "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/supervisor-scientific-gate.json"
+    ]
+  },
+  "scientific_gate_status": "claim_limited",
+  "allowed_claim_level": "verified_but_not_validated",
   "artifact_virtual_paths": [
     "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
     "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.html",

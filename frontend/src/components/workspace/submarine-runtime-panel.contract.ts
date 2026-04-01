@@ -63,9 +63,17 @@ export type SubmarineBenchmarkComparisonPayload = {
   metric_id?: string | null;
   quantity?: string | null;
   status?: string | null;
+  summary_zh?: string | null;
+  detail?: string | null;
   observed_value?: number | null;
   reference_value?: number | null;
+  absolute_error?: number | null;
   relative_error?: number | null;
+  relative_tolerance?: number | null;
+  target_inlet_velocity_mps?: number | null;
+  observed_inlet_velocity_mps?: number | null;
+  source_label?: string | null;
+  source_url?: string | null;
 };
 
 export type SubmarineAcceptanceAssessment = {
@@ -270,6 +278,7 @@ export type SubmarineResearchEvidenceSummaryPayload = {
   validation_status?: string | null;
   provenance_status?: string | null;
   confidence?: string | null;
+  blocking_issues?: string[] | null;
   evidence_gaps?: string[] | null;
   passed_evidence?: string[] | null;
   benchmark_highlights?: string[] | null;
@@ -464,6 +473,8 @@ export type SubmarineFinalReportPayload = {
   acceptance_assessment?: SubmarineAcceptanceAssessment | null;
   research_evidence_summary?: SubmarineResearchEvidenceSummaryPayload | null;
   scientific_supervisor_gate?: SubmarineScientificSupervisorGatePayload | null;
+  scientific_gate_status?: string | null;
+  allowed_claim_level?: string | null;
   scientific_remediation_summary?:
     | SubmarineScientificRemediationSummaryPayload
     | null;

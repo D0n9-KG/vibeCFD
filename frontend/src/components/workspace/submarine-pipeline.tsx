@@ -840,6 +840,7 @@ function PipelineCenterPane({
               <SupervisorReviewCard
                 threadId={threadId}
                 snapshot={stageSnapshot}
+                finalReport={finalReport}
                 onConfirm={handleSend}
               />
             </div>

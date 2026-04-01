@@ -27,6 +27,86 @@ def _as_string_list(value: object) -> list[str]:
     return [str(item) for item in value if isinstance(item, str) and item]
 
 
+def _as_number(value: object) -> float | None:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    return None
+
+
+def _dedupe_strings(values: list[str]) -> list[str]:
+    deduped: list[str] = []
+    for value in values:
+        normalized = value.strip()
+        if normalized and normalized not in deduped:
+            deduped.append(normalized)
+    return deduped
+
+
+def _format_decimal(value: object, digits: int = 5) -> str:
+    numeric = _as_number(value)
+    if numeric is None:
+        return "unknown"
+    return f"{numeric:.{digits}f}"
+
+
+def _format_percent(value: object, digits: int = 2) -> str:
+    numeric = _as_number(value)
+    if numeric is None:
+        return "unknown"
+    return f"{numeric * 100:.{digits}f}%"
+
+
+def _format_benchmark_target_reference(target: Mapping[str, Any]) -> str:
+    metric_id = str(target.get("metric_id") or "unknown")
+    quantity = str(target.get("quantity") or "unknown")
+    reference_value = _format_decimal(target.get("reference_value"))
+    target_velocity = _as_number(target.get("inlet_velocity_mps"))
+    source_label = str(target.get("source_label") or "").strip()
+
+    segments = [f"Benchmark {metric_id} ({quantity}) targets reference {reference_value}"]
+    if target_velocity is not None:
+        segments.append(f"at {target_velocity:.2f} m/s")
+    if source_label:
+        segments.append(f"from {source_label}")
+    return " ".join(segments) + "."
+
+
+def _format_benchmark_comparison_narrative(item: Mapping[str, Any]) -> str:
+    metric_id = str(item.get("metric_id") or "unknown")
+    quantity = str(item.get("quantity") or "unknown")
+    status = str(item.get("status") or "unknown")
+    detail = str(item.get("detail") or "").strip()
+    source_label = str(item.get("source_label") or "").strip()
+    source_url = str(item.get("source_url") or "").strip()
+    observed_value = _as_number(item.get("observed_value"))
+    reference_value = _as_number(item.get("reference_value"))
+    relative_error = _as_number(item.get("relative_error"))
+    relative_tolerance = _as_number(item.get("relative_tolerance"))
+    target_velocity = _as_number(item.get("target_inlet_velocity_mps"))
+    observed_velocity = _as_number(item.get("observed_inlet_velocity_mps"))
+
+    segments = [f"Benchmark {metric_id} ({quantity}) reported {status}."]
+    if observed_value is not None or reference_value is not None:
+        segments.append(
+            f"Observed {_format_decimal(observed_value)} vs reference {_format_decimal(reference_value)}."
+        )
+    if relative_error is not None or relative_tolerance is not None:
+        segments.append(
+            f"Relative error {_format_percent(relative_error)} against tolerance {_format_percent(relative_tolerance)}."
+        )
+    if target_velocity is not None or observed_velocity is not None:
+        segments.append(
+            f"Velocity scope target {_format_decimal(target_velocity, 2)} m/s vs observed {_format_decimal(observed_velocity, 2)} m/s."
+        )
+    if source_label:
+        segments.append(f"Reference source: {source_label}.")
+    if source_url:
+        segments.append(f"Source URL: {source_url}.")
+    if detail:
+        segments.append(detail)
+    return " ".join(segment for segment in segments if segment)
+
+
 def build_verification_status(
     scientific_verification_assessment: object | None,
 ) -> tuple[str, list[str], list[str], list[str]]:
@@ -64,7 +144,12 @@ def build_validation_status(
     profile = _as_mapping(acceptance_profile)
     assessment = _as_mapping(acceptance_assessment)
     benchmark_targets = profile.get("benchmark_targets")
-    target_count = len(benchmark_targets) if isinstance(benchmark_targets, list) else 0
+    benchmark_target_items = (
+        [item for item in benchmark_targets if isinstance(item, Mapping)]
+        if isinstance(benchmark_targets, list)
+        else []
+    )
+    target_count = len(benchmark_target_items)
     comparisons = assessment.get("benchmark_comparisons")
     comparison_items = (
         [item for item in comparisons if isinstance(item, Mapping)]
@@ -80,28 +165,42 @@ def build_validation_status(
         return "missing_validation_reference", blocking_issues, evidence_gaps, highlights
 
     if not comparison_items:
-        evidence_gaps.append(
-            "Benchmark targets exist for this case, but no validation comparisons were produced."
+        if blocking_issues:
+            evidence_gaps.append(
+                "Benchmark validation could not be synthesized because the acceptance assessment is already blocked."
+            )
+            return "blocked", blocking_issues, evidence_gaps, highlights
+
+        evidence_gaps.extend(
+            [
+                f"{_format_benchmark_target_reference(target)} No matched validation comparison was produced for the current run."
+                for target in benchmark_target_items
+            ]
         )
-        return "blocked", blocking_issues, evidence_gaps, highlights
+        return "missing_validation_reference", blocking_issues, evidence_gaps, highlights
 
     has_failure = False
     has_pass = False
+    has_reference_gap = False
     for item in comparison_items:
-        metric_id = str(item.get("metric_id") or "unknown")
         status = str(item.get("status") or "unknown")
-        detail = str(item.get("detail") or f"Benchmark {metric_id} reported {status}.")
+        detail = _format_benchmark_comparison_narrative(item)
         if status == "passed":
             has_pass = True
             highlights.append(detail)
             continue
-        has_failure = True
+        if status == "blocked":
+            has_failure = True
+        else:
+            has_reference_gap = True
         evidence_gaps.append(detail)
 
     if has_failure:
         return "validation_failed", blocking_issues, evidence_gaps, highlights
     if has_pass:
         return "validated", blocking_issues, evidence_gaps, highlights
+    if has_reference_gap:
+        return "missing_validation_reference", blocking_issues, evidence_gaps, highlights
     return "blocked", blocking_issues, evidence_gaps, highlights
 
 
@@ -295,11 +394,11 @@ def build_research_evidence_summary(
         validation_status=validation_status,
         provenance_status=provenance_status,
         confidence=confidence,
-        blocking_issues=blocking_issues,
-        evidence_gaps=evidence_gaps,
-        passed_evidence=passed_evidence,
-        benchmark_highlights=benchmark_highlights,
-        provenance_highlights=provenance_highlights,
+        blocking_issues=_dedupe_strings(blocking_issues),
+        evidence_gaps=_dedupe_strings(evidence_gaps),
+        passed_evidence=_dedupe_strings(passed_evidence),
+        benchmark_highlights=_dedupe_strings(benchmark_highlights),
+        provenance_highlights=_dedupe_strings(provenance_highlights),
         artifact_virtual_paths=_as_string_list(artifact_virtual_paths),
     )
     return summary.model_dump(mode="json")

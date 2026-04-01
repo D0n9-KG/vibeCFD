@@ -12,7 +12,7 @@ This roadmap turns the current DeerFlow-based submarine CFD prototype into a res
 
 - [x] **Phase 1: End-to-End Workbench Bootstrap** - Restore real user bootstrap from new submarine workbench to live DeerFlow thread
 - [x] **Phase 2: Runtime Solver Productization** - Turn solver dispatch into a controllable DeerFlow runtime flow with captured outputs
-- [ ] **Phase 3: Scientific Verification Gates** - Gate claim level on residual, stability, benchmark, and sensitivity evidence
+- [x] **Phase 3: Scientific Verification Gates** - Gate claim level on residual, stability, benchmark, and sensitivity evidence
 - [ ] **Phase 4: Geometry and Case Intelligence Hardening** - Improve geometry preflight, scale assumptions, and case-library trustworthiness
 - [ ] **Phase 5: Experiment Ops and Reproducibility** - Add study provenance, baseline-vs-variant tracking, and environment consistency
 - [ ] **Phase 6: Research Delivery Workbench** - Finish the supervisor/report loop for researcher-facing delivery and follow-up
@@ -62,7 +62,7 @@ Plans:
 Plans:
 - [x] 03-01: Add residual and coefficient-stability evidence extraction plus gating rules
 - [x] 03-02: Implement study execution and verification packaging for mesh/domain/time-step sensitivity
-- [ ] 03-03: Add benchmark comparison logic and integrate it into scientific claim-level decisions
+- [x] 03-03: Add benchmark comparison logic and integrate it into scientific claim-level decisions
 
 ### Phase 4: Geometry and Case Intelligence Hardening
 **Goal**: Improve geometry trust, scale assumptions, and case knowledge so researchers get defensible setup recommendations.
@@ -115,7 +115,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. End-to-End Workbench Bootstrap | 3/3 | Complete | 2026-04-01 |
 | 2. Runtime Solver Productization | 3/3 | Complete | 2026-04-01 |
-| 3. Scientific Verification Gates | 2/3 | In progress | - |
+| 3. Scientific Verification Gates | 3/3 | Complete | 2026-04-02 |
 | 4. Geometry and Case Intelligence Hardening | 0/3 | Not started | - |
 | 5. Experiment Ops and Reproducibility | 0/3 | Not started | - |
 | 6. Research Delivery Workbench | 0/3 | Not started | - |

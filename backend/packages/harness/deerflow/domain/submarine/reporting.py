@@ -320,6 +320,8 @@ def run_result_report(
         "experiment_compare_summary": experiment_compare_summary,
         "research_evidence_summary": research_evidence_summary,
         "scientific_supervisor_gate": scientific_supervisor_gate,
+        "scientific_gate_status": scientific_supervisor_gate["gate_status"],
+        "allowed_claim_level": scientific_supervisor_gate["allowed_claim_level"],
         "scientific_remediation_summary": scientific_remediation_summary,
         "scientific_remediation_handoff": scientific_remediation_handoff,
         "scientific_followup_summary": scientific_followup_summary,

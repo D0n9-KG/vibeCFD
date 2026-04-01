@@ -14,6 +14,7 @@ const {
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
+  formatSubmarineBenchmarkComparisonSummaryLine,
   formatSubmarineExecutionRoleLabel,
   formatSubmarineRuntimeStageLabel,
   buildSubmarineScientificGateSummary,
@@ -529,9 +530,18 @@ void test("keeps benchmark comparisons in the acceptance summary", () => {
           metric_id: "cd_at_3_05_mps",
           quantity: "Cd",
           status: "passed",
+          detail:
+            "Benchmark cd_at_3_05_mps observed Cd 0.00310 vs reference 0.00314; relative error 1.27% with tolerance 10.00%.",
           observed_value: 0.0031,
           reference_value: 0.00314,
+          absolute_error: 0.00004,
           relative_error: 0.0127,
+          relative_tolerance: 0.1,
+          target_inlet_velocity_mps: 3.05,
+          observed_inlet_velocity_mps: 3.05,
+          source_label: "Mushtaque et al. (2025) Table 6, EFD bare hull",
+          source_url:
+            "https://pure.port.ac.uk/ws/portalfiles/portal/110702250/Hydrodynamic_parameter_estimation_of_DARPA_SUBOFF.pdf",
         },
       ],
     },
@@ -554,13 +564,28 @@ void test("keeps benchmark comparisons in the acceptance summary", () => {
   assert.equal(summary?.benchmarkComparisons.length, 1);
   assert.equal(summary?.benchmarkComparisons[0]?.metricId, "cd_at_3_05_mps");
   assert.equal(summary?.benchmarkComparisons[0]?.status, "passed");
+  assert.equal(summary?.benchmarkComparisons[0]?.statusLabel, "Passed");
   assert.equal(summary?.benchmarkComparisons[0]?.quantity, "Cd");
+  assert.equal(summary?.benchmarkComparisons[0]?.absoluteError, "0.00004");
+  assert.equal(summary?.benchmarkComparisons[0]?.relativeTolerance, "10.00%");
+  assert.equal(summary?.benchmarkComparisons[0]?.targetVelocity, "3.05");
+  assert.equal(summary?.benchmarkComparisons[0]?.observedVelocity, "3.05");
+  assert.equal(
+    summary?.benchmarkComparisons[0]?.sourceLabel,
+    "Mushtaque et al. (2025) Table 6, EFD bare hull",
+  );
   assert.equal(summary?.outputDelivery.length, 2);
   assert.equal(summary?.outputDelivery[0]?.outputId, "drag_coefficient");
   assert.equal(summary?.outputDelivery[1]?.deliveryStatus, "not_yet_supported");
   assert.equal(
     summary?.outputDelivery[1]?.specSummary,
     "field=p; selector=patch[hull]; time=latest; formats=csv,png,report",
+  );
+  assert.equal(
+    formatSubmarineBenchmarkComparisonSummaryLine(
+      summary!.benchmarkComparisons[0]!,
+    ),
+    "cd_at_3_05_mps | Passed | Cd 0.00310 / 0.00314 | error 1.27% / tol 10.00% | velocity 3.05 vs 3.05 m/s | source Mushtaque et al. (2025) Table 6, EFD bare hull",
   );
 });
 
@@ -1292,6 +1317,9 @@ void test("builds a research evidence summary from the final report payload", ()
       validation_status: "missing_validation_reference",
       provenance_status: "traceable",
       confidence: "medium",
+      blocking_issues: [
+        "Benchmark cd_at_3_05_mps is not applicable to the current run condition.",
+      ],
       evidence_gaps: [
         "No applicable benchmark target was available for this run.",
       ],
@@ -1306,11 +1334,16 @@ void test("builds a research evidence summary from the final report payload", ()
     },
   });
 
+  assert.equal(summary?.readinessStatus, "verified_but_not_validated");
+  assert.equal(summary?.validationStatus, "missing_validation_reference");
   assert.equal(summary?.readinessLabel, "Verified But Not Validated");
   assert.equal(summary?.verificationStatusLabel, "Passed");
   assert.equal(summary?.validationStatusLabel, "Missing Validation Reference");
   assert.equal(summary?.provenanceStatusLabel, "Traceable");
   assert.equal(summary?.confidenceLabel, "Medium");
+  assert.deepEqual(summary?.blockingIssues, [
+    "Benchmark cd_at_3_05_mps is not applicable to the current run condition.",
+  ]);
   assert.deepEqual(summary?.evidenceGaps, [
     "No applicable benchmark target was available for this run.",
   ]);
@@ -1341,6 +1374,8 @@ void test("builds a scientific supervisor gate summary from the final report pay
     },
   });
 
+  assert.equal(summary?.gateStatus, "claim_limited");
+  assert.equal(summary?.allowedClaimLevel, "verified_but_not_validated");
   assert.equal(summary?.gateStatusLabel, "Claim Limited");
   assert.equal(
     summary?.allowedClaimLevelLabel,

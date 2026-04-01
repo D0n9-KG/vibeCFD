@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 3
-current_phase_name: Scientific Verification Gates
-current_plan: 3
-status: ready_to_execute
-stopped_at: Phase 3 Plan 02 completed; next logical step is executing 03-03 to add benchmark comparison logic and connect it to scientific claim-level decisions
-last_updated: "2026-04-01T16:56:14Z"
+current_phase: 4
+current_phase_name: Geometry and Case Intelligence Hardening
+current_plan: 1
+status: ready_to_discuss
+stopped_at: Phase 3 completed; next logical step is discussing 04-01 to harden geometry inspection with unit, scale, and reference-value sanity checks
+last_updated: "2026-04-01T17:41:55Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 3
-  completed_plans: 2
-  percent: 44
+  completed_plans: 0
+  percent: 50
 ---
 
 # Project State
@@ -24,32 +24,32 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-01)
 
 **Core value:** A researcher can go from natural-language CFD intent to reproducible, evidence-backed submarine results without manually building and operating OpenFOAM cases.
-**Current focus:** Phase 3 - Scientific Verification Gates
+**Current focus:** Phase 4 - Geometry and Case Intelligence Hardening
 
 ## Current Position
 
-**Current Phase:** 3
-**Current Phase Name:** Scientific Verification Gates
+**Current Phase:** 4
+**Current Phase Name:** Geometry and Case Intelligence Hardening
 **Total Phases:** 6
-**Current Plan:** 03
+**Current Plan:** 01
 **Total Plans in Phase:** 3
-**Status:** Ready to execute
-**Progress:** [####--] 44%
+**Status:** Ready to discuss
+**Progress:** [###---] 50%
 **Last Activity:** 2026-04-02
-**Last Activity Description:** Executed 03-02 to package sensitivity-study workflows, preserve experiment linkage gaps explicitly, and surface SCI-02 summaries on the active submarine workbench
+**Last Activity Description:** Completed 03-03 by productizing benchmark-backed claim gating, wiring SCI-03 summaries into the active workbench, and validating the new UI against refreshed mock threads
 
-Phase: 3 of 6 (Scientific Verification Gates)
-Plan: 3 of 3
-Status: Ready to execute
+Phase: 4 of 6 (Geometry and Case Intelligence Hardening)
+Plan: 1 of 3
+Status: Ready to discuss
 Last activity: 2026-04-02
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 8
-- Average duration: ~50 min
-- Total execution time: ~6.7 hours
+- Total plans completed: 9
+- Average duration: ~55 min
+- Total execution time: ~8.2 hours
 
 **By Phase:**
 
@@ -57,11 +57,11 @@ Last activity: 2026-04-02
 |-------|-------|-------|----------|
 | 1 | 3 | ~60 min | ~20 min |
 | 2 | 3 | ~2.7 hours | ~54 min |
-| 3 | 2 | ~3.2 hours | ~95 min |
+| 3 | 3 | ~4.7 hours | ~94 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-01, 02-02, 02-03, 03-01, 03-02
+- Last 5 plans: 02-02, 02-03, 03-01, 03-02, 03-03
 - Trend: Positive
 
 ## Decisions Made
@@ -84,19 +84,20 @@ Last activity: 2026-04-02
 | 3 | The actual researcher-facing workbench must consume SCI-02 summaries directly from the active pipeline stage card, not only from reusable helper panels. | Browser validation showed the page in use no longer mounted `submarine-runtime-panel.tsx`, so workflow visibility had to be attached to `submarine-stage-cards.tsx`. |
 | 3 | Benchmark claim decisions should build on the same stability and sensitivity evidence contracts established earlier in the phase. | Claim-level decisions are only trustworthy when benchmark validation consumes the same explicit evidence trail seen by the researcher. |
 | 3 | Dispatch-time runtime state must carry both structured SCI-01 payloads and top-level gate consequences, so completed runs can still be scientifically blocked or limited after refresh. | Researchers need immediate scientific usability signals before opening the final report, and those signals must survive re-entry without frontend-only reconstruction. |
+| 3 | Benchmark references that do not match the current run condition must remain visible as explicit `not_applicable` evidence and claim-limiting advice. | A missing or mismatched validation reference is still scientifically important; hiding it would make the claim gate look stronger than the evidence supports. |
 
 ## Pending Todos
 
 - Investigate `useThreads()` callers that still trigger `POST /threads/search` on some `/workspace/chats/[thread_id]?mock=true` loads.
-- Capture or generate a live non-mock SCI-02 thread once benchmark and follow-up execution paths are ready, so browser validation can move from deterministic mock data to a fresh runtime artifact set.
+- Capture or generate a live non-mock SCI-03 thread with a benchmark-matched or cited validation condition, so browser validation can move from deterministic mock data to a fresh runtime artifact set.
 
 ## Blockers
 
-- Phase 3 Plan 03 is still outstanding, so benchmark-backed claim hardening is not yet productized.
+- Phase 4 has not started yet, so geometry inspection still lacks robust unit, scale, and reference-value sanity checks.
 - Most non-SUBOFF case-library entries still rely on placeholder references and need hardening before broader research use.
 
 ## Session
 
-**Last Date:** 2026-04-02 00:56
-**Stopped At:** Phase 3 Plan 02 completed; next logical step is executing 03-03
-**Resume File:** `.planning/phases/03-scientific-verification-gates/03-03-PLAN.md`
+**Last Date:** 2026-04-02 01:41
+**Stopped At:** Phase 3 completed; next logical step is discussing 04-01
+**Resume File:** `.planning/ROADMAP.md`

@@ -63,6 +63,7 @@ import {
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
   filterSubmarineArtifactGroups,
+  formatSubmarineBenchmarkComparisonSummaryLine,
   formatSubmarineRuntimeStageLabel,
   getSubmarineArtifactFilterOptions,
   getSubmarineArtifactMeta,
@@ -734,7 +735,7 @@ export function SubmarineRuntimePanel({
                     <LabeledList
                       title="Benchmark 对比"
                       items={acceptanceSummary.benchmarkComparisons.map((item) =>
-                        `${item.metricId} | ${item.status} | ${item.quantity} ${item.observedValue} / ${item.referenceValue} | ${item.relativeError}`,
+                        formatSubmarineBenchmarkComparisonSummaryLine(item),
                       )}
                       emptyText="当前没有命中的 benchmark 对比。"
                     />
@@ -817,7 +818,12 @@ export function SubmarineRuntimePanel({
                         value={researchEvidenceSummary.confidenceLabel}
                       />
                     </div>
-                    <div className="grid gap-4 xl:grid-cols-2">
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      <LabeledList
+                        title="Blocking Issues"
+                        items={researchEvidenceSummary.blockingIssues}
+                        emptyText="No research evidence blockers are recorded."
+                      />
                       <LabeledList
                         title="Passed Evidence"
                         items={researchEvidenceSummary.passedEvidence}

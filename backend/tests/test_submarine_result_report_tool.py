@@ -883,6 +883,12 @@ def test_submarine_result_report_adds_benchmark_comparison_for_matching_case(tmp
     assert benchmark_comparisons[0]["status"] == "passed"
     assert benchmark_comparisons[0]["reference_value"] == 0.00314
     assert benchmark_comparisons[0]["observed_value"] == 0.00310
+    assert benchmark_comparisons[0]["source_label"] == "Mushtaque et al. (2025) Table 6, EFD bare hull"
+    assert benchmark_comparisons[0]["source_url"].startswith("https://pure.port.ac.uk/")
+    assert any(
+        "Mushtaque et al. (2025) Table 6, EFD bare hull" in item
+        for item in final_payload["research_evidence_summary"]["benchmark_highlights"]
+    )
     assert any(
         gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "passed"
         for gate in final_payload["acceptance_assessment"]["gates"]
@@ -1005,6 +1011,15 @@ def test_submarine_result_report_blocks_when_benchmark_miss_exceeds_tolerance(tm
     assert benchmark_comparisons[0]["metric_id"] == "cd_at_3_05_mps"
     assert benchmark_comparisons[0]["status"] == "blocked"
     assert final_payload["acceptance_assessment"]["status"] == "blocked"
+    assert final_payload["research_evidence_summary"]["validation_status"] == "validation_failed"
+    assert any(
+        "Mushtaque et al. (2025) Table 6, EFD bare hull" in item
+        for item in final_payload["research_evidence_summary"]["evidence_gaps"]
+    )
+    assert any(
+        "Benchmark cd_at_3_05_mps" in item
+        for item in final_payload["scientific_supervisor_gate"]["blocking_reasons"]
+    )
     assert any(
         gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "blocked"
         for gate in final_payload["acceptance_assessment"]["gates"]
@@ -1012,6 +1027,103 @@ def test_submarine_result_report_blocks_when_benchmark_miss_exceeds_tolerance(tm
     assert any(
         "cd_at_3_05_mps" in item
         for item in final_payload["acceptance_assessment"]["blocking_issues"]
+    )
+
+
+def test_submarine_result_report_marks_benchmark_reference_not_applicable_on_velocity_mismatch(
+    tmp_path,
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-benchmark-not-applicable"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = (
+        outputs_dir / "submarine" / "solver-dispatch" / "benchmark-not-applicable"
+    )
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {
+                    "Time": 200.0,
+                    "Cd": 0.00310,
+                    "Cl": 0.0,
+                    "Cs": 0.0,
+                    "CmPitch": 0.0,
+                },
+                "mesh_summary": {"mesh_ok": True, "cells": 9342},
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 5e-4,
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 5.00,
+                    "fluid_density_kg_m3": 1000.0,
+                    "kinematic_viscosity_m2ps": 1.0e-06,
+                    "end_time_seconds": 200.0,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Benchmark SUBOFF drag at unmatched inlet velocity",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "execution_plan": [],
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/benchmark-not-applicable/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/benchmark-not-applicable/solver-results.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Benchmark not applicable report",
+        tool_call_id="tc-result-report-benchmark-not-applicable",
+    )
+
+    final_report_path = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    comparison = final_payload["acceptance_assessment"]["benchmark_comparisons"][0]
+    research = final_payload["research_evidence_summary"]
+
+    assert comparison["status"] == "not_applicable"
+    assert "not applicable" in comparison["detail"]
+    assert research["validation_status"] == "missing_validation_reference"
+    assert any(
+        "not applicable to the current run condition" in item
+        for item in research["evidence_gaps"]
     )
 
 

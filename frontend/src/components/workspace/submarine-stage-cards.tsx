@@ -11,9 +11,13 @@ import {
 } from "./submarine-confirmation-actions";
 import { SubmarineConvergenceChart } from "./submarine-convergence-chart";
 import {
+  buildSubmarineAcceptanceSummary,
   buildSubmarineExperimentCompareSummary,
   buildSubmarineExperimentSummary,
+  buildSubmarineResearchEvidenceSummary,
+  buildSubmarineScientificGateSummary,
   buildSubmarineScientificStudySummary,
+  formatSubmarineBenchmarkComparisonSummaryLine,
 } from "./submarine-runtime-panel.utils";
 import type {
   SubmarineDesignBriefPayload,
@@ -816,6 +820,23 @@ export function ResultReportingCard({
     buildSubmarineExperimentCompareSummary(finalReport);
   const scientificStudySummary =
     buildSubmarineScientificStudySummary(finalReport);
+  const acceptanceSummary = buildSubmarineAcceptanceSummary(finalReport);
+  const researchEvidenceSummary =
+    buildSubmarineResearchEvidenceSummary(finalReport);
+  const scientificGateSummary = buildSubmarineScientificGateSummary(
+    finalReport?.scientific_supervisor_gate
+      ? finalReport
+      : snapshot?.scientific_gate_status || snapshot?.allowed_claim_level
+        ? {
+            scientific_supervisor_gate: {
+              gate_status: snapshot?.scientific_gate_status,
+              allowed_claim_level: snapshot?.allowed_claim_level,
+              source_readiness_status: snapshot?.allowed_claim_level,
+              recommended_stage: snapshot?.next_recommended_stage,
+            },
+          }
+        : null,
+  );
 
   return (
     <StageCard
@@ -842,6 +863,148 @@ export function ResultReportingCard({
       {finalReport && (
         <div className="mb-2 text-[12px] text-stone-600">
           {finalReport.summary_zh ?? ""}
+        </div>
+      )}
+
+      {(scientificGateSummary ||
+        researchEvidenceSummary ||
+        (acceptanceSummary?.benchmarkComparisons.length ?? 0) > 0) && (
+        <div className="mt-4 space-y-3">
+          <SectionLabel color="amber">Scientific Claim Gate</SectionLabel>
+          <div className="grid gap-3 xl:grid-cols-3">
+            {scientificGateSummary && (
+              <WorkflowSummaryCard
+                title="Scientific Claim Gate"
+                badge={scientificGateSummary.gateStatusLabel}
+                stats={[
+                  {
+                    label: "Claim Level",
+                    value: scientificGateSummary.allowedClaimLevelLabel,
+                  },
+                  {
+                    label: "Next Stage",
+                    value: scientificGateSummary.recommendedStageLabel,
+                  },
+                  {
+                    label: "Remediation",
+                    value: scientificGateSummary.remediationStageLabel,
+                  },
+                ]}
+                sections={[
+                  {
+                    title: "Decision Basis",
+                    items: compactTextItems([
+                      `readiness | ${scientificGateSummary.sourceReadinessLabel}`,
+                    ]),
+                    emptyText: "No scientific claim basis is recorded yet.",
+                  },
+                  {
+                    title: "Blocking Reasons",
+                    items: compactTextItems(scientificGateSummary.blockingReasons),
+                    emptyText: "No claim blockers are recorded.",
+                  },
+                  {
+                    title: "Advisory Notes",
+                    items: compactTextItems(scientificGateSummary.advisoryNotes),
+                    emptyText: "No claim advisory notes are recorded.",
+                  },
+                ]}
+              />
+            )}
+
+            {researchEvidenceSummary && (
+              <WorkflowSummaryCard
+                title="Research Evidence"
+                badge={researchEvidenceSummary.readinessLabel}
+                stats={[
+                  {
+                    label: "Validation",
+                    value: researchEvidenceSummary.validationStatusLabel,
+                  },
+                  {
+                    label: "Verification",
+                    value: researchEvidenceSummary.verificationStatusLabel,
+                  },
+                  {
+                    label: "Confidence",
+                    value: researchEvidenceSummary.confidenceLabel,
+                  },
+                ]}
+                sections={[
+                  {
+                    title: "Benchmark Highlights",
+                    items: compactTextItems(
+                      researchEvidenceSummary.benchmarkHighlights,
+                    ),
+                    emptyText: "No benchmark highlights are recorded yet.",
+                  },
+                  {
+                    title: "Blocking Issues",
+                    items: compactTextItems(
+                      researchEvidenceSummary.blockingIssues,
+                    ),
+                    emptyText: "No research evidence blockers are recorded.",
+                  },
+                  {
+                    title: "Evidence Gaps",
+                    items: compactTextItems(researchEvidenceSummary.evidenceGaps),
+                    emptyText: "No research evidence gaps are recorded.",
+                  },
+                ]}
+              />
+            )}
+
+            {acceptanceSummary &&
+              acceptanceSummary.benchmarkComparisons.length > 0 && (
+                <WorkflowSummaryCard
+                  title="Benchmark Comparisons"
+                  badge={`${acceptanceSummary.benchmarkComparisons.length} recorded`}
+                  stats={[
+                    {
+                      label: "Acceptance",
+                      value: acceptanceSummary.statusLabel,
+                    },
+                    {
+                      label: "Confidence",
+                      value: acceptanceSummary.confidenceLabel,
+                    },
+                    {
+                      label: "Warnings",
+                      value: `${acceptanceSummary.warnings.length}`,
+                    },
+                  ]}
+                  sections={[
+                    {
+                      title: "Reference Checks",
+                      items: compactTextItems(
+                        acceptanceSummary.benchmarkComparisons.map((item) =>
+                          formatSubmarineBenchmarkComparisonSummaryLine(item),
+                        ),
+                      ),
+                      emptyText: "No benchmark comparisons are recorded yet.",
+                    },
+                    {
+                      title: "Detailed Findings",
+                      items: compactTextItems(
+                        acceptanceSummary.benchmarkComparisons.map(
+                          (item) => item.detail,
+                        ),
+                      ),
+                      emptyText: "No benchmark detail is recorded yet.",
+                    },
+                    {
+                      title: "Reference Sources",
+                      items: compactTextItems(
+                        acceptanceSummary.benchmarkComparisons.flatMap((item) =>
+                          [item.sourceLabel, item.sourceUrl].filter(Boolean),
+                        ),
+                      ),
+                      emptyText: "No benchmark source metadata is recorded.",
+                    },
+                  ]}
+                />
+              )}
+          </div>
         </div>
       )}
 
@@ -1099,6 +1262,7 @@ const REVIEW_STATUS_COLORS: Record<string, string> = {
 interface SupervisorReviewCardProps {
   threadId: string;
   snapshot: StageRuntimeSnapshot | null;
+  finalReport?: SubmarineFinalReportPayload | null;
   onConfirm: (
     threadId: string,
     message: { role: "human"; content: string },
@@ -1108,12 +1272,28 @@ interface SupervisorReviewCardProps {
 export function SupervisorReviewCard({
   threadId,
   snapshot,
+  finalReport,
   onConfirm,
 }: SupervisorReviewCardProps) {
   const state = resolveStageState("supervisor-review", snapshot);
   const reviewStatus = snapshot?.review_status ?? null;
   const gateStatus = snapshot?.scientific_gate_status ?? null;
   const needsUserConfirmation = reviewStatus === "needs_user_confirmation";
+  const scientificGateSummary = buildSubmarineScientificGateSummary(
+    finalReport?.scientific_supervisor_gate
+      ? finalReport
+      : snapshot?.scientific_gate_status || snapshot?.allowed_claim_level
+        ? {
+            scientific_supervisor_gate: {
+              gate_status: snapshot?.scientific_gate_status,
+              allowed_claim_level: snapshot?.allowed_claim_level,
+              source_readiness_status: snapshot?.allowed_claim_level,
+              recommended_stage: snapshot?.next_recommended_stage,
+            },
+          }
+        : null,
+  );
+  const researchEvidenceSummary = buildSubmarineResearchEvidenceSummary(finalReport);
 
   const description =
     state === "done"
@@ -1172,6 +1352,88 @@ export function SupervisorReviewCard({
       {gateStatus && (
         <div className="mb-2 text-[11px] text-stone-500">
           科学门控：{gateStatus}
+        </div>
+      )}
+
+      {scientificGateSummary && (
+        <div className="mt-4 grid gap-3 xl:grid-cols-3">
+          <WorkflowSummaryCard
+            title="Supervisor Claim Gate"
+            badge={scientificGateSummary.gateStatusLabel}
+            stats={[
+              {
+                label: "Claim Level",
+                value: scientificGateSummary.allowedClaimLevelLabel,
+              },
+              {
+                label: "Recommended",
+                value: scientificGateSummary.recommendedStageLabel,
+              },
+              {
+                label: "Remediation",
+                value: scientificGateSummary.remediationStageLabel,
+              },
+            ]}
+            sections={[
+              {
+                title: "Blocking Reasons",
+                items: compactTextItems(scientificGateSummary.blockingReasons),
+                emptyText: "No supervisor claim blockers are recorded.",
+              },
+              {
+                title: "Advisory Notes",
+                items: compactTextItems(scientificGateSummary.advisoryNotes),
+                emptyText: "No supervisor advisory notes are recorded.",
+              },
+              {
+                title: "Claim Basis",
+                items: compactTextItems([
+                  `readiness | ${scientificGateSummary.sourceReadinessLabel}`,
+                ]),
+                emptyText: "No claim basis is recorded yet.",
+              },
+            ]}
+          />
+
+          {researchEvidenceSummary && (
+            <WorkflowSummaryCard
+              title="Research Evidence Snapshot"
+              badge={researchEvidenceSummary.validationStatusLabel}
+              stats={[
+                {
+                  label: "Readiness",
+                  value: researchEvidenceSummary.readinessLabel,
+                },
+                {
+                  label: "Verification",
+                  value: researchEvidenceSummary.verificationStatusLabel,
+                },
+                {
+                  label: "Provenance",
+                  value: researchEvidenceSummary.provenanceStatusLabel,
+                },
+              ]}
+              sections={[
+                {
+                  title: "Blocking Issues",
+                  items: compactTextItems(researchEvidenceSummary.blockingIssues),
+                  emptyText: "No research evidence blockers are recorded.",
+                },
+                {
+                  title: "Evidence Gaps",
+                  items: compactTextItems(researchEvidenceSummary.evidenceGaps),
+                  emptyText: "No research evidence gaps are recorded.",
+                },
+                {
+                  title: "Benchmark Highlights",
+                  items: compactTextItems(
+                    researchEvidenceSummary.benchmarkHighlights,
+                  ),
+                  emptyText: "No benchmark highlights are recorded.",
+                },
+              ]}
+            />
+          )}
         </div>
       )}
 
