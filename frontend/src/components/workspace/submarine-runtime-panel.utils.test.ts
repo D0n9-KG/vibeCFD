@@ -20,6 +20,7 @@ const {
   buildSubmarineScientificFollowupSummary,
   buildSubmarineScientificRemediationHandoffSummary,
   buildSubmarineScientificRemediationSummary,
+  buildSubmarineStabilityEvidenceSummary,
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
   filterSubmarineArtifactGroups,
@@ -379,6 +380,22 @@ void test("returns stable labels for scientific supervisor gate artifacts", () =
     "Open scientific supervisor gate JSON in a new window",
   );
   assert.equal(groups[0]?.id, "report");
+});
+
+void test("classifies stability evidence artifacts as result outputs", () => {
+  const meta = getSubmarineArtifactMeta(
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/stability-evidence.json",
+  );
+  const groups = groupSubmarineArtifacts([
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/stability-evidence.json",
+  ]);
+
+  assert.equal(meta.label, "Stability Evidence JSON");
+  assert.equal(
+    meta.externalLinkLabel,
+    "Open stability evidence JSON in a new window",
+  );
+  assert.equal(groups[0]?.id, "results");
 });
 
 void test("returns stable labels for scientific remediation handoff artifacts", () => {
@@ -915,6 +932,64 @@ void test("builds a scientific verification summary from the final report payloa
   assert.equal(summary?.requirements[1]?.status, "Missing Evidence");
   assert.equal(summary?.missingEvidence.length, 1);
   assert.equal(summary?.passedRequirements.length, 1);
+});
+
+void test("builds a stability evidence summary from the final report payload", () => {
+  const summary = buildSubmarineStabilityEvidenceSummary({
+    stability_evidence_virtual_path:
+      "/mnt/user-data/outputs/submarine/solver-dispatch/demo/stability-evidence.json",
+    stability_evidence: {
+      status: "missing_evidence",
+      summary_zh: "SCI-01 基线稳定性证据仍不完整。",
+      source_solver_results_virtual_path:
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json",
+      artifact_virtual_path:
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/stability-evidence.json",
+      residual_summary: {
+        max_final_residual: 0.0005,
+      },
+      force_coefficient_tail: {
+        coefficient: "Cd",
+        status: "missing_evidence",
+        observed_sample_count: 2,
+        required_sample_count: 5,
+        relative_spread: null,
+      },
+      passed_requirements: [
+        "Final residual threshold: observed 0.000500 <= 0.001000.",
+      ],
+      missing_evidence: [
+        "Force coefficient tail stability: need at least 5 Cd samples in force coefficient history.",
+      ],
+      blocking_issues: [],
+      requirements: [
+        {
+          requirement_id: "final_residual_threshold",
+          label: "Final residual threshold",
+          status: "passed",
+          detail: "Final residual threshold: observed 0.000500 <= 0.001000.",
+        },
+        {
+          requirement_id: "force_coefficient_tail_stability",
+          label: "Force coefficient tail stability",
+          status: "missing_evidence",
+          detail:
+            "Force coefficient tail stability: need at least 5 Cd samples in force coefficient history.",
+        },
+      ],
+    },
+  });
+
+  assert.equal(summary?.statusLabel, "Missing Evidence");
+  assert.equal(summary?.residualMaxFinalValue, "0.000500");
+  assert.equal(summary?.tailCoefficientLabel, "Cd");
+  assert.equal(summary?.tailStatusLabel, "Missing Evidence");
+  assert.equal(summary?.tailSampleCountLabel, "2/5");
+  assert.deepEqual(summary?.passedRequirements, [
+    "Final residual threshold: observed 0.000500 <= 0.001000.",
+  ]);
+  assert.equal(summary?.requirementLines.length, 2);
+  assert.match(summary?.requirementLines[1] ?? "", /Missing Evidence/);
 });
 
 void test("builds a scientific study summary from the final report payload", () => {

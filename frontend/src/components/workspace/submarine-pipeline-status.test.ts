@@ -127,3 +127,48 @@ void test("keeps the persisted runtime narrative for healthy running threads", (
     "OpenFOAM 求解正在运行，日志、结果与后处理证据会持续写回。",
   );
 });
+
+void test("surfaces completed scientific gate blockers instead of looking fully ready", () => {
+  const status = getSubmarinePipelineStatus({
+    threadError: null,
+    threadIsLoading: false,
+    isNewThread: false,
+    hasMessages: true,
+    hasDesignBrief: true,
+    hasFinalReport: true,
+    designBriefSummary: "baseline 已确认",
+    runtimeTaskSummary: "结果整理完成",
+    runtimeStatus: "completed",
+    runtimeSummary: null,
+    scientificGateStatus: "blocked",
+    allowedClaimLevel: "delivery_only",
+  });
+
+  assert.equal(status.tone, "error");
+  assert.equal(status.runLabel, "科学受阻");
+  assert.equal(status.outputStatus, "结果已完成，但科研声明已阻塞");
+  assert.match(status.summaryText, /仅交付原始结果/);
+  assert.equal(status.errorBanner?.title, "Scientific Gate Blocked");
+});
+
+void test("labels completed runtimes as awaiting scientific evidence when SCI-01 is incomplete", () => {
+  const status = getSubmarinePipelineStatus({
+    threadError: null,
+    threadIsLoading: false,
+    isNewThread: false,
+    hasMessages: true,
+    hasDesignBrief: true,
+    hasFinalReport: false,
+    designBriefSummary: "baseline 已确认",
+    runtimeTaskSummary: "solver-dispatch 已完成",
+    runtimeStatus: "completed",
+    runtimeSummary: null,
+    scientificVerificationStatus: "needs_more_verification",
+  });
+
+  assert.equal(status.tone, "ready");
+  assert.equal(status.runLabel, "待补科学证据");
+  assert.equal(status.outputStatus, "求解已完成，仍需补齐科学验证");
+  assert.match(status.summaryText, /SCI-01/);
+  assert.equal(status.errorBanner, null);
+});

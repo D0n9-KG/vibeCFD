@@ -324,6 +324,9 @@ def build_scientific_capability_updates_for_dispatch(
     study_manifest = _as_mapping(payload.get("scientific_study_manifest"))
     experiment_manifest = _as_mapping(payload.get("experiment_manifest"))
     run_compare_summary = _as_mapping(payload.get("run_compare_summary"))
+    scientific_verification_assessment = _as_mapping(
+        payload.get("scientific_verification_assessment")
+    )
     dispatch_status = payload.get("dispatch_status")
 
     return {
@@ -335,7 +338,7 @@ def build_scientific_capability_updates_for_dispatch(
             compare_count=len(run_compare_summary.get("comparisons") or []),
         ),
         "scientific-verification": _build_scientific_verification_status(
-            verification_status=None,
+            verification_status=scientific_verification_assessment.get("status"),
             dispatch_status=dispatch_status,
         ),
         "scientific-followup": "pending",

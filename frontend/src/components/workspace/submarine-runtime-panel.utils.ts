@@ -87,6 +87,22 @@ export type SubmarineScientificVerificationSummary = {
   }>;
 };
 
+export type SubmarineStabilityEvidenceSummary = {
+  statusLabel: string;
+  summary: string;
+  solverResultsPath: string;
+  artifactPath: string;
+  residualMaxFinalValue: string;
+  tailCoefficientLabel: string;
+  tailStatusLabel: string;
+  tailSpreadLabel: string;
+  tailSampleCountLabel: string;
+  blockingIssues: string[];
+  missingEvidence: string[];
+  passedRequirements: string[];
+  requirementLines: string[];
+};
+
 export type SubmarineScientificStudySummary = {
   executionStatusLabel: string;
   manifestPath: string;
@@ -313,6 +329,12 @@ const ACCEPTANCE_CONFIDENCE_LABELS: Record<string, string> = {
 const SCIENTIFIC_VERIFICATION_STATUS_LABELS: Record<string, string> = {
   research_ready: "Research Ready",
   needs_more_verification: "Needs More Verification",
+  blocked: "Blocked",
+};
+
+const STABILITY_EVIDENCE_STATUS_LABELS: Record<string, string> = {
+  passed: "Passed",
+  missing_evidence: "Missing Evidence",
   blocked: "Blocked",
 };
 
@@ -818,6 +840,13 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     },
   ],
   [
+    "/stability-evidence.json",
+    {
+      label: "Stability Evidence JSON",
+      externalLinkLabel: "Open stability evidence JSON in a new window",
+    },
+  ],
+  [
     "/surface-pressure.csv",
     {
       label: "表面压力结果 CSV",
@@ -975,6 +1004,7 @@ function classifySubmarineArtifact(path: string): SubmarineArtifactGroupId {
   if (
     path.endsWith("/solver-results.md") ||
     path.endsWith("/solver-results.json") ||
+    path.endsWith("/stability-evidence.json") ||
     path.endsWith("/surface-pressure.csv") ||
     path.endsWith("/surface-pressure.png") ||
     path.endsWith("/surface-pressure.md") ||
@@ -1338,6 +1368,89 @@ export function buildSubmarineAcceptanceSummary(
   };
 }
 
+function formatScientificRequirementStatus(status?: string | null): string {
+  if (status === "missing_evidence") {
+    return "Missing Evidence";
+  }
+  if (status === "research_ready") {
+    return "Research Ready";
+  }
+  if (status === "passed") {
+    return "Passed";
+  }
+  if (status === "blocked") {
+    return "Blocked";
+  }
+  return status ?? "--";
+}
+
+function formatFiniteNumber(
+  value: number | null | undefined,
+  digits: number,
+): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value.toFixed(digits)
+    : "--";
+}
+
+export function buildSubmarineStabilityEvidenceSummary(
+  payload: SubmarineFinalReportPayload | null | undefined,
+): SubmarineStabilityEvidenceSummary | null {
+  const evidence = payload?.stability_evidence;
+  if (!evidence) {
+    return null;
+  }
+
+  const tail = evidence.force_coefficient_tail;
+  const residualSummary = evidence.residual_summary;
+  const residualMaxValue =
+    residualSummary && typeof residualSummary === "object"
+      ? (residualSummary as Record<string, unknown>).max_final_residual
+      : null;
+  const residualMax =
+    typeof residualMaxValue === "number" && Number.isFinite(residualMaxValue)
+      ? residualMaxValue
+      : null;
+
+  return {
+    statusLabel:
+      STABILITY_EVIDENCE_STATUS_LABELS[evidence.status ?? ""] ??
+      evidence.status ??
+      "--",
+    summary: evidence.summary_zh ?? "--",
+    solverResultsPath: evidence.source_solver_results_virtual_path ?? "--",
+    artifactPath:
+      evidence.artifact_virtual_path ??
+      payload?.stability_evidence_virtual_path ??
+      "--",
+    residualMaxFinalValue: formatFiniteNumber(residualMax, 6),
+    tailCoefficientLabel: tail?.coefficient ?? "--",
+    tailStatusLabel:
+      STABILITY_EVIDENCE_STATUS_LABELS[tail?.status ?? ""] ??
+      tail?.status ??
+      "--",
+    tailSpreadLabel: formatFiniteNumber(tail?.relative_spread ?? null, 4),
+    tailSampleCountLabel:
+      typeof tail?.observed_sample_count === "number" &&
+      Number.isFinite(tail.observed_sample_count) &&
+      typeof tail?.required_sample_count === "number" &&
+      Number.isFinite(tail.required_sample_count)
+        ? `${tail.observed_sample_count}/${tail.required_sample_count}`
+        : "--",
+    blockingIssues: evidence.blocking_issues?.filter(Boolean) ?? [],
+    missingEvidence: evidence.missing_evidence?.filter(Boolean) ?? [],
+    passedRequirements: evidence.passed_requirements?.filter(Boolean) ?? [],
+    requirementLines: (evidence.requirements ?? [])
+      .filter(Boolean)
+      .map(
+        (item) =>
+          `${item.label ?? "--"} | ${formatScientificRequirementStatus(
+            item.status,
+          )} | ${item.detail ?? "--"}`,
+      ),
+  };
+}
+
 export function buildSubmarineScientificVerificationSummary(
   payload: SubmarineFinalReportPayload | null | undefined,
 ): SubmarineScientificVerificationSummary | null {
@@ -1361,16 +1474,7 @@ export function buildSubmarineScientificVerificationSummary(
     requirements: (assessment.requirements ?? []).filter(Boolean).map((item) => ({
       requirementId: item.requirement_id ?? "unknown",
       label: item.label ?? "--",
-      status:
-        item.status === "missing_evidence"
-          ? "Missing Evidence"
-          : item.status === "research_ready"
-            ? "Research Ready"
-            : item.status === "passed"
-              ? "Passed"
-              : item.status === "blocked"
-                ? "Blocked"
-                : item.status ?? "--",
+      status: formatScientificRequirementStatus(item.status),
       detail: item.detail ?? "--",
     })),
   };

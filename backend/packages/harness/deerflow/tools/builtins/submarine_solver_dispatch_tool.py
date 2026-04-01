@@ -360,6 +360,8 @@ def submarine_solver_dispatch_tool(
         request_virtual_path=payload.get("request_virtual_path"),
         execution_log_virtual_path=payload.get("execution_log_virtual_path"),
         solver_results_virtual_path=payload.get("solver_results_virtual_path"),
+        stability_evidence_virtual_path=payload.get("stability_evidence_virtual_path"),
+        stability_evidence=payload.get("stability_evidence"),
         supervisor_handoff_virtual_path=payload.get("supervisor_handoff_virtual_path"),
         next_recommended_stage=payload["next_recommended_stage"],
         report_virtual_path=payload["report_virtual_path"],
@@ -370,6 +372,9 @@ def submarine_solver_dispatch_tool(
             stage_updates=execution_updates,
         ),
         review_status=payload["review_status"],
+        scientific_verification_assessment=payload.get(
+            "scientific_verification_assessment"
+        ),
         activity_timeline=extend_runtime_timeline(
             existing_runtime,
             build_runtime_event(

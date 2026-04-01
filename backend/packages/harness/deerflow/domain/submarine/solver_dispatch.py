@@ -55,6 +55,10 @@ from .studies import (
     build_scientific_study_plan_payload,
     build_scientific_study_variant_execution,
 )
+from .verification import (
+    build_scientific_verification_assessment,
+    build_stability_evidence,
+)
 
 
 def _slugify(value: str) -> str:
@@ -333,6 +337,7 @@ def run_solver_dispatch(
     handoff_path = artifact_dir / "supervisor-handoff.json"
     solver_results_json_path = artifact_dir / "solver-results.json"
     solver_results_md_path = artifact_dir / "solver-results.md"
+    stability_evidence_json_path = artifact_dir / "stability-evidence.json"
     experiment_manifest_path = artifact_dir / "experiment-manifest.json"
     baseline_run_record_path = artifact_dir / "run-record.json"
     run_compare_summary_path = artifact_dir / "run-compare-summary.json"
@@ -422,7 +427,10 @@ def run_solver_dispatch(
     execution_log_virtual_path: str | None = None
     solver_results_virtual_path: str | None = None
     solver_results_markdown_virtual_path: str | None = None
+    stability_evidence_virtual_path: str | None = None
     solver_results: dict | None = None
+    stability_evidence: dict | None = None
+    scientific_verification_assessment: dict | None = None
     requested_postprocess_artifacts: list[str] = []
     scientific_study_artifacts: list[str] = []
     scientific_variant_results: dict[str, dict[str, dict[str, object] | None]] = {}
@@ -457,6 +465,26 @@ def run_solver_dispatch(
                 run_dir_name,
                 "solver-results.md",
             )
+            stability_evidence_virtual_path = _solver_results_virtual_path(
+                run_dir_name,
+                "stability-evidence.json",
+            )
+            stability_evidence = build_stability_evidence(
+                acceptance_profile=(
+                    selected_case_definition.acceptance_profile
+                    if selected_case_definition is not None
+                    else None
+                ),
+                task_type=task_type,
+                solver_metrics=solver_results,
+                solver_results_virtual_path=solver_results_virtual_path,
+                artifact_virtual_path=stability_evidence_virtual_path,
+            )
+            if stability_evidence is not None:
+                stability_evidence_json_path.write_text(
+                    json.dumps(stability_evidence, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
             requested_postprocess_artifacts = collect_requested_postprocess_artifacts(
                 case_dir=case_dir,
                 artifact_dir=artifact_dir,
@@ -866,9 +894,22 @@ def run_solver_dispatch(
         execution_log_virtual_path=execution_log_virtual_path,
         solver_results_virtual_path=solver_results_virtual_path,
         solver_results_markdown_virtual_path=solver_results_markdown_virtual_path,
+        stability_evidence_virtual_path=stability_evidence_virtual_path,
         requested_postprocess_artifacts=requested_postprocess_artifacts,
         scientific_study_artifacts=scientific_study_artifacts,
         experiment_artifacts=experiment_artifacts,
+    )
+    scientific_verification_assessment = build_scientific_verification_assessment(
+        acceptance_profile=(
+            selected_case_definition.acceptance_profile
+            if selected_case_definition is not None
+            else None
+        ),
+        task_type=task_type,
+        solver_metrics=solver_results,
+        artifact_virtual_paths=artifacts,
+        outputs_dir=outputs_dir,
+        stability_evidence=stability_evidence,
     )
 
     review_status = "ready_for_supervisor"
@@ -908,7 +949,10 @@ def run_solver_dispatch(
         "execution_log_virtual_path": execution_log_virtual_path,
         "solver_results_virtual_path": solver_results_virtual_path,
         "solver_results_markdown_virtual_path": solver_results_markdown_virtual_path,
+        "stability_evidence_virtual_path": stability_evidence_virtual_path,
+        "stability_evidence": stability_evidence,
         "solver_results": solver_results,
+        "scientific_verification_assessment": scientific_verification_assessment,
         "simulation_requirements": simulation_requirements,
         "requested_outputs": normalized_requested_outputs,
         "output_delivery_plan": output_delivery_plan,
@@ -950,6 +994,8 @@ def run_solver_dispatch(
         "request_virtual_path": request_virtual_path,
         "execution_log_virtual_path": execution_log_virtual_path,
         "solver_results_virtual_path": solver_results_virtual_path,
+        "stability_evidence_virtual_path": stability_evidence_virtual_path,
+        "scientific_verification_assessment": scientific_verification_assessment,
         "workspace_case_dir_virtual_path": payload["workspace_case_dir_virtual_path"],
         "run_script_virtual_path": payload["run_script_virtual_path"],
         "solver_application": payload["solver_application"],

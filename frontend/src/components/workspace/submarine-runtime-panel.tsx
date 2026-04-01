@@ -59,6 +59,7 @@ import {
   buildSubmarineScientificFollowupSummary,
   buildSubmarineScientificRemediationHandoffSummary,
   buildSubmarineScientificRemediationSummary,
+  buildSubmarineStabilityEvidenceSummary,
   buildSubmarineScientificStudySummary,
   buildSubmarineScientificVerificationSummary,
   filterSubmarineArtifactGroups,
@@ -410,8 +411,37 @@ export function SubmarineRuntimePanel({
     [finalReport],
   );
   const scientificVerificationSummary = useMemo(
-    () => buildSubmarineScientificVerificationSummary(finalReport),
-    [finalReport],
+    () =>
+      buildSubmarineScientificVerificationSummary(
+        finalReport?.scientific_verification_assessment
+          ? finalReport
+          : runtime?.scientific_verification_assessment
+            ? {
+                scientific_verification_assessment:
+                  runtime.scientific_verification_assessment,
+              }
+            : null,
+      ),
+    [finalReport, runtime?.scientific_verification_assessment],
+  );
+  const stabilityEvidenceSummary = useMemo(
+    () =>
+      buildSubmarineStabilityEvidenceSummary(
+        finalReport?.stability_evidence
+          ? finalReport
+          : runtime?.stability_evidence || runtime?.stability_evidence_virtual_path
+            ? {
+                stability_evidence: runtime?.stability_evidence,
+                stability_evidence_virtual_path:
+                  runtime?.stability_evidence_virtual_path,
+              }
+            : null,
+      ),
+    [
+      finalReport,
+      runtime?.stability_evidence,
+      runtime?.stability_evidence_virtual_path,
+    ],
   );
   const scientificStudySummary = useMemo(
     () => buildSubmarineScientificStudySummary(finalReport),
@@ -1165,6 +1195,72 @@ export function SubmarineRuntimePanel({
                       emptyText="No scientific study artifacts are recorded yet."
                     />
                   </div>
+                </div>
+              ) : null}
+              {stabilityEvidenceSummary ? (
+                <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <KeyValue
+                      label="Stability Evidence"
+                      value={stabilityEvidenceSummary.statusLabel}
+                    />
+                    <KeyValue
+                      label="Max Final Residual"
+                      value={stabilityEvidenceSummary.residualMaxFinalValue}
+                    />
+                    <KeyValue
+                      label="Tail Coefficient"
+                      value={stabilityEvidenceSummary.tailCoefficientLabel}
+                    />
+                    <KeyValue
+                      label="Tail Spread"
+                      value={stabilityEvidenceSummary.tailSpreadLabel}
+                    />
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <KeyValue
+                      label="Tail Stability"
+                      value={stabilityEvidenceSummary.tailStatusLabel}
+                    />
+                    <KeyValue
+                      label="Tail Samples"
+                      value={stabilityEvidenceSummary.tailSampleCountLabel}
+                    />
+                    <KeyValue
+                      label="Solver Results Source"
+                      value={stabilityEvidenceSummary.solverResultsPath}
+                    />
+                  </div>
+                  <LabeledList
+                    title="Stability Summary"
+                    items={[
+                      stabilityEvidenceSummary.summary,
+                      stabilityEvidenceSummary.artifactPath,
+                    ]}
+                    emptyText="No structured stability summary is available."
+                  />
+                  <div className="grid gap-4 xl:grid-cols-3">
+                    <LabeledList
+                      title="Passed Checks"
+                      items={stabilityEvidenceSummary.passedRequirements}
+                      emptyText="No passed SCI-01 checks are recorded yet."
+                    />
+                    <LabeledList
+                      title="Missing Stability Evidence"
+                      items={stabilityEvidenceSummary.missingEvidence}
+                      emptyText="No missing SCI-01 evidence is recorded."
+                    />
+                    <LabeledList
+                      title="Stability Blockers"
+                      items={stabilityEvidenceSummary.blockingIssues}
+                      emptyText="No SCI-01 blockers are recorded."
+                    />
+                  </div>
+                  <LabeledList
+                    title="SCI-01 Requirement Status"
+                    items={stabilityEvidenceSummary.requirementLines}
+                    emptyText="No SCI-01 requirement details are available."
+                  />
                 </div>
               ) : null}
               {scientificVerificationSummary ? (

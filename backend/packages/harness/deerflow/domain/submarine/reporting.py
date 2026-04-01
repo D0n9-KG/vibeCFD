@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 
+from .artifact_store import load_canonical_stability_evidence_payload
 from .contracts import SubmarineRuntimeSnapshot, build_supervisor_review_contract
 from .evidence import build_research_evidence_summary
 from .followup import build_scientific_followup_summary, load_scientific_followup_history
@@ -125,6 +126,13 @@ def _load_solver_metrics(outputs_dir: Path, artifact_virtual_paths: list[str]) -
     return None
 
 
+def _load_stability_evidence(outputs_dir: Path, artifact_virtual_paths: list[str]) -> tuple[str, dict] | None:
+    return load_canonical_stability_evidence_payload(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=artifact_virtual_paths,
+    )
+
+
 def run_result_report(
     *,
     snapshot: SubmarineRuntimeSnapshot,
@@ -167,6 +175,12 @@ def run_result_report(
     ]
     all_artifacts = _merge_artifact_paths(snapshot.artifact_virtual_paths, new_artifacts)
     solver_metrics = _load_solver_metrics(outputs_dir, snapshot.artifact_virtual_paths)
+    loaded_stability_evidence = _load_stability_evidence(
+        outputs_dir,
+        snapshot.artifact_virtual_paths,
+    )
+    stability_evidence_virtual_path = loaded_stability_evidence[0] if loaded_stability_evidence else None
+    stability_evidence = loaded_stability_evidence[1] if loaded_stability_evidence else None
     selected_case = _resolve_selected_case(snapshot.selected_case_id)
     scientific_verification_requirements = [
         item.model_dump(mode="json")
@@ -187,6 +201,7 @@ def run_result_report(
         solver_metrics=solver_metrics,
         artifact_virtual_paths=all_artifacts,
         outputs_dir=outputs_dir,
+        stability_evidence=stability_evidence,
     )
     scientific_study_summary = _build_scientific_study_summary(
         outputs_dir=outputs_dir,
@@ -294,6 +309,8 @@ def run_result_report(
         ),
         "workspace_case_dir_virtual_path": snapshot.workspace_case_dir_virtual_path,
         "run_script_virtual_path": snapshot.run_script_virtual_path,
+        "stability_evidence_virtual_path": stability_evidence_virtual_path,
+        "stability_evidence": stability_evidence,
         "supervisor_handoff_virtual_path": scientific_remediation_handoff_json_artifact,
         "source_report_virtual_path": snapshot.report_virtual_path,
         "source_artifact_virtual_paths": snapshot.artifact_virtual_paths,

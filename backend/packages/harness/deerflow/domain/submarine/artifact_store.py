@@ -16,6 +16,7 @@ _SUPERVISOR_HANDOFF_FILENAME = "supervisor-handoff.json"
 _EXECUTION_LOG_FILENAME = "openfoam-run.log"
 _SOLVER_RESULTS_JSON_FILENAME = "solver-results.json"
 _SOLVER_RESULTS_MARKDOWN_FILENAME = "solver-results.md"
+_STABILITY_EVIDENCE_FILENAME = "stability-evidence.json"
 _STUDY_PLAN_FILENAME = "study-plan.json"
 _STUDY_MANIFEST_FILENAME = "study-manifest.json"
 
@@ -97,6 +98,7 @@ def build_canonical_solver_dispatch_artifact_bundle(
     execution_log_virtual_path: str | None = None,
     solver_results_virtual_path: str | None = None,
     solver_results_markdown_virtual_path: str | None = None,
+    stability_evidence_virtual_path: str | None = None,
     requested_postprocess_artifacts: Sequence[str] | None = None,
     scientific_study_artifacts: Sequence[str] | None = None,
     experiment_artifacts: Sequence[str] | None = None,
@@ -135,6 +137,8 @@ def build_canonical_solver_dispatch_artifact_bundle(
         bundle.append(solver_results_virtual_path)
     if solver_results_markdown_virtual_path:
         bundle.append(solver_results_markdown_virtual_path)
+    if stability_evidence_virtual_path:
+        bundle.append(stability_evidence_virtual_path)
     bundle.extend(requested_postprocess_artifacts or [])
     bundle.extend(scientific_study_artifacts or [])
     bundle.extend(experiment_artifacts or [])
@@ -197,12 +201,33 @@ def load_canonical_solver_results_payload(
     return resolved_virtual_path, payload
 
 
+def load_canonical_stability_evidence_payload(
+    *,
+    outputs_dir: Path,
+    artifact_virtual_paths: Sequence[str],
+    stability_evidence_virtual_path: str | None = None,
+) -> tuple[str, dict] | None:
+    resolved_virtual_path = resolve_canonical_solver_dispatch_artifact(
+        artifact_virtual_paths=artifact_virtual_paths,
+        explicit_virtual_path=stability_evidence_virtual_path,
+        filename=_STABILITY_EVIDENCE_FILENAME,
+    )
+    if resolved_virtual_path is None:
+        return None
+
+    payload = load_json_outputs_artifact(outputs_dir, resolved_virtual_path)
+    if payload is None:
+        return None
+    return resolved_virtual_path, payload
+
+
 __all__ = [
     "build_canonical_solver_dispatch_artifact_bundle",
     "build_solver_dispatch_artifact_virtual_path",
     "dedupe_virtual_paths",
     "load_canonical_solver_dispatch_request_payload",
     "load_canonical_solver_results_payload",
+    "load_canonical_stability_evidence_payload",
     "load_first_json_payload_from_artifacts",
     "load_json_outputs_artifact",
     "load_json_payloads_from_artifacts",

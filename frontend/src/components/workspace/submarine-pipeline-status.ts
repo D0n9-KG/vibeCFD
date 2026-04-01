@@ -34,6 +34,9 @@ export type SubmarinePipelineStatusInput = {
   runtimeSummary?: string | null;
   recoveryGuidance?: string | null;
   blockerDetail?: string | null;
+  scientificGateStatus?: string | null;
+  allowedClaimLevel?: string | null;
+  scientificVerificationStatus?: string | null;
 };
 
 const DEFAULT_SUMMARY =
@@ -50,6 +53,25 @@ const DEFAULT_BLOCKED_GUIDANCE =
 
 const DEFAULT_FAILED_GUIDANCE =
   "优先检查求解日志与结果产物，修正命令、网格或边界条件后再重试。";
+
+const SCIENTIFIC_GATE_STATUS_LABELS: Record<string, string> = {
+  ready_for_claim: "可支持更强科研声明",
+  claim_limited: "科研声明受限",
+  blocked: "科学门禁阻塞",
+};
+
+const SCIENTIFIC_CLAIM_LEVEL_LABELS: Record<string, string> = {
+  delivery_only: "仅交付原始结果",
+  verified_but_not_validated: "已验证但未外部校核",
+  validated_with_gaps: "已校核但仍有缺口",
+  research_ready: "可用于科研结论",
+};
+
+const SCIENTIFIC_VERIFICATION_STATUS_LABELS: Record<string, string> = {
+  research_ready: "SCI-01 已通过",
+  needs_more_verification: "SCI-01 仍需补证",
+  blocked: "SCI-01 已阻塞",
+};
 
 function normalizeRuntimeStatus(
   value?: string | null,
@@ -115,6 +137,128 @@ function buildRuntimeErrorStatus({
   };
 }
 
+function buildCompletedScientificStatus({
+  hasFinalReport,
+  runtimeSummary,
+  runtimeTaskSummary,
+  scientificGateStatus,
+  allowedClaimLevel,
+  scientificVerificationStatus,
+}: {
+  hasFinalReport: boolean;
+  runtimeSummary?: string | null;
+  runtimeTaskSummary?: string | null;
+  scientificGateStatus?: string | null;
+  allowedClaimLevel?: string | null;
+  scientificVerificationStatus?: string | null;
+}): SubmarinePipelineStatus | null {
+  const gateLabel =
+    SCIENTIFIC_GATE_STATUS_LABELS[scientificGateStatus ?? ""] ??
+    scientificGateStatus ??
+    null;
+  const claimLabel =
+    SCIENTIFIC_CLAIM_LEVEL_LABELS[allowedClaimLevel ?? ""] ??
+    allowedClaimLevel ??
+    null;
+  const verificationLabel =
+    SCIENTIFIC_VERIFICATION_STATUS_LABELS[scientificVerificationStatus ?? ""] ??
+    scientificVerificationStatus ??
+    null;
+
+  if (scientificGateStatus === "blocked") {
+    const summary =
+      runtimeSummary ??
+      `求解已完成，但科学门禁当前判定为阻塞。允许声明级别：${claimLabel ?? "待补证"}`;
+    return {
+      tone: "error",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: "科学受阻",
+      outputStatus: "结果已完成，但科研声明已阻塞",
+      summaryText: summary,
+      errorBanner: {
+        title: "Scientific Gate Blocked",
+        message: gateLabel ?? "科学门禁阻塞",
+        guidance: claimLabel
+          ? `当前仅允许 ${claimLabel}，补齐验证证据后再刷新报告。`
+          : DEFAULT_BLOCKED_GUIDANCE,
+      },
+    };
+  }
+
+  if (scientificGateStatus === "claim_limited") {
+    return {
+      tone: "ready",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: "声明受限",
+      outputStatus: "结果已完成，但科研声明仍受限",
+      summaryText:
+        runtimeSummary ??
+        `当前科学门禁状态：${gateLabel ?? "声明受限"}。允许声明级别：${claimLabel ?? "待确认"}`,
+      errorBanner: null,
+    };
+  }
+
+  if (scientificGateStatus === "ready_for_claim") {
+    return {
+      tone: "ready",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: "科研就绪",
+      outputStatus: hasFinalReport ? "结果报告已生成，可支持更强科研声明" : "求解已完成，具备更强科研声明条件",
+      summaryText:
+        runtimeSummary ??
+        `当前科学门禁状态：${gateLabel ?? "可支持更强科研声明"}。允许声明级别：${claimLabel ?? "可用于科研结论"}`,
+      errorBanner: null,
+    };
+  }
+
+  if (scientificVerificationStatus === "blocked") {
+    return {
+      tone: "error",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: "SCI-01 受阻",
+      outputStatus: "求解已完成，但科学验证已阻塞",
+      summaryText:
+        runtimeSummary ??
+        `${verificationLabel ?? "SCI-01 已阻塞"}，需要回到验证链路补齐证据后再推进报告。`,
+      errorBanner: {
+        title: "Scientific Verification Blocked",
+        message: verificationLabel ?? "SCI-01 已阻塞",
+        guidance: "优先检查 stability evidence、残差阈值和力系数尾段稳定性结论。",
+      },
+    };
+  }
+
+  if (scientificVerificationStatus === "needs_more_verification") {
+    return {
+      tone: "ready",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: "待补科学证据",
+      outputStatus: "求解已完成，仍需补齐科学验证",
+      summaryText:
+        runtimeSummary ??
+        `${verificationLabel ?? "SCI-01 仍需补证"}，建议先查看 stability evidence 与验证要求。`,
+      errorBanner: null,
+    };
+  }
+
+  if (scientificVerificationStatus === "research_ready") {
+    return {
+      tone: "ready",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: "SCI-01 已通过",
+      outputStatus: hasFinalReport ? "结果报告已生成，SCI-01 已通过" : "求解已完成，SCI-01 已通过",
+      summaryText:
+        runtimeSummary ??
+        verificationLabel ??
+        runtimeTaskSummary ??
+        DEFAULT_SUMMARY,
+      errorBanner: null,
+    };
+  }
+
+  return null;
+}
+
 export function getSubmarinePipelineStatus({
   threadError,
   threadIsLoading,
@@ -128,6 +272,9 @@ export function getSubmarinePipelineStatus({
   runtimeSummary,
   recoveryGuidance,
   blockerDetail,
+  scientificGateStatus,
+  allowedClaimLevel,
+  scientificVerificationStatus,
 }: SubmarinePipelineStatusInput): SubmarinePipelineStatus {
   if (threadError) {
     const message = getThreadErrorMessage(
@@ -190,6 +337,18 @@ export function getSubmarinePipelineStatus({
   }
 
   if (normalizedRuntimeStatus === "completed") {
+    const scientificCompletionStatus = buildCompletedScientificStatus({
+      hasFinalReport,
+      runtimeSummary,
+      runtimeTaskSummary,
+      scientificGateStatus,
+      allowedClaimLevel,
+      scientificVerificationStatus,
+    });
+    if (scientificCompletionStatus) {
+      return scientificCompletionStatus;
+    }
+
     return {
       tone: "ready",
       agentLabel: "CFD runtime 已完成",

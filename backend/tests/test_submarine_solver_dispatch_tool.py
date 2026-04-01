@@ -496,7 +496,7 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
     assert _execution_plan_status(runtime_state, "solver-dispatch") == "in_progress"
     assert _execution_plan_status(runtime_state, "scientific-study") == "ready"
     assert _execution_plan_status(runtime_state, "experiment-compare") == "pending"
-    assert _execution_plan_status(runtime_state, "scientific-verification") == "pending"
+    assert _execution_plan_status(runtime_state, "scientific-verification") == "completed"
     assert _execution_plan_status(runtime_state, "scientific-followup") == "pending"
     assert runtime_state["workspace_case_dir_virtual_path"].endswith("/openfoam-case")
     assert runtime_state["run_script_virtual_path"].endswith("/Allrun")
@@ -1059,17 +1059,31 @@ def test_submarine_solver_dispatch_writes_solver_results_artifact(tmp_path, monk
     artifacts = result.update["artifacts"]
     request_path = outputs_dir / "submarine" / "solver-dispatch" / "results-demo" / "openfoam-request.json"
     solver_results_path = outputs_dir / "submarine" / "solver-dispatch" / "results-demo" / "solver-results.json"
+    stability_evidence_path = (
+        outputs_dir / "submarine" / "solver-dispatch" / "results-demo" / "stability-evidence.json"
+    )
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     solver_results = json.loads(solver_results_path.read_text(encoding="utf-8"))
+    stability_evidence = json.loads(stability_evidence_path.read_text(encoding="utf-8"))
 
     assert any(path.endswith("/solver-results.json") for path in artifacts)
     assert any(path.endswith("/solver-results.md") for path in artifacts)
+    assert any(path.endswith("/stability-evidence.json") for path in artifacts)
     assert payload["request_virtual_path"].endswith("/openfoam-request.json")
     assert payload["solver_results_virtual_path"].endswith("/solver-results.json")
     assert payload["solver_results_markdown_virtual_path"].endswith("/solver-results.md")
+    assert payload["stability_evidence_virtual_path"].endswith("/stability-evidence.json")
     assert payload["solver_results"]["solver_completed"] is True
+    assert payload["stability_evidence"]["status"] == "blocked"
+    assert payload["scientific_verification_assessment"]["status"] == "blocked"
     assert payload["solver_results"]["latest_force_coefficients"]["Cd"] == 0.12
     assert payload["solver_results"]["latest_forces"]["total_force"][0] == 8.0
+    assert stability_evidence["source_solver_results_virtual_path"].endswith("/solver-results.json")
+    assert stability_evidence["artifact_virtual_path"].endswith("/stability-evidence.json")
+    assert stability_evidence["requirements"][0]["requirement_id"] == "final_residual_threshold"
+    assert stability_evidence["requirements"][0]["status"] == "blocked"
+    assert stability_evidence["requirements"][1]["requirement_id"] == "force_coefficient_tail_stability"
+    assert stability_evidence["requirements"][1]["status"] == "missing_evidence"
     assert solver_results["latest_force_coefficients"]["Cd"] == 0.12
     assert solver_results["latest_forces"]["total_force"][0] == 8.0
     assert len(solver_results["force_coefficients_history"]) == 2
@@ -1087,6 +1101,18 @@ def test_submarine_solver_dispatch_writes_solver_results_artifact(tmp_path, monk
     assert len(solver_results["residual_summary"]["history"]) == 8
     assert result.update["submarine_runtime"]["solver_results_virtual_path"] == (
         payload["solver_results_virtual_path"]
+    )
+    assert result.update["submarine_runtime"]["stability_evidence_virtual_path"] == (
+        payload["stability_evidence_virtual_path"]
+    )
+    assert result.update["submarine_runtime"]["stability_evidence"]["status"] == "blocked"
+    assert (
+        result.update["submarine_runtime"]["scientific_verification_assessment"]["status"]
+        == "blocked"
+    )
+    assert (
+        _execution_plan_status(result.update["submarine_runtime"], "scientific-verification")
+        == "blocked"
     )
 
 

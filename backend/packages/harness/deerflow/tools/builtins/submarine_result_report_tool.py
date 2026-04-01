@@ -107,6 +107,8 @@ def submarine_result_report_tool(
         request_virtual_path=snapshot.request_virtual_path,
         execution_log_virtual_path=snapshot.execution_log_virtual_path,
         solver_results_virtual_path=snapshot.solver_results_virtual_path,
+        stability_evidence_virtual_path=payload.get("stability_evidence_virtual_path"),
+        stability_evidence=payload.get("stability_evidence"),
         supervisor_handoff_virtual_path=payload.get("supervisor_handoff_virtual_path"),
         scientific_followup_history_virtual_path=(
             scientific_followup_summary.get("history_virtual_path")
@@ -121,6 +123,9 @@ def submarine_result_report_tool(
             stage_updates=execution_updates,
         ),
         review_status=payload["review_status"],
+        scientific_verification_assessment=payload.get(
+            "scientific_verification_assessment"
+        ),
         scientific_gate_status=scientific_gate.get(
             "gate_status"
         ),

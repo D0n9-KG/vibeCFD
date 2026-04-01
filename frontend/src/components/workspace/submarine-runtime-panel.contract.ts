@@ -95,6 +95,51 @@ export type SubmarineScientificVerificationAssessment = {
     | null;
 };
 
+export type SubmarineStabilityEvidenceForceTailSamplePayload = {
+  time?: number | null;
+  value?: number | null;
+};
+
+export type SubmarineStabilityEvidenceForceTailPayload = {
+  coefficient?: string | null;
+  status?: string | null;
+  detail?: string | null;
+  observed_sample_count?: number | null;
+  required_sample_count?: number | null;
+  relative_spread?: number | null;
+  max_tail_relative_spread?: number | null;
+  tail_samples?: SubmarineStabilityEvidenceForceTailSamplePayload[] | null;
+};
+
+export type SubmarineStabilityEvidenceRequirementPayload = {
+  requirement_id?: string | null;
+  label?: string | null;
+  summary_zh?: string | null;
+  check_type?: string | null;
+  status?: string | null;
+  detail?: string | null;
+  force_coefficient?: string | null;
+  observed_value?: number | null;
+  limit_value?: number | null;
+  observed_sample_count?: number | null;
+  required_sample_count?: number | null;
+  relative_spread?: number | null;
+  max_tail_relative_spread?: number | null;
+};
+
+export type SubmarineStabilityEvidencePayload = {
+  status?: string | null;
+  summary_zh?: string | null;
+  source_solver_results_virtual_path?: string | null;
+  artifact_virtual_path?: string | null;
+  residual_summary?: Record<string, unknown> | null;
+  force_coefficient_tail?: SubmarineStabilityEvidenceForceTailPayload | null;
+  requirements?: SubmarineStabilityEvidenceRequirementPayload[] | null;
+  blocking_issues?: string[] | null;
+  missing_evidence?: string[] | null;
+  passed_requirements?: string[] | null;
+};
+
 export type SubmarineCandidateCase = {
   case_id: string;
   title: string;
@@ -138,6 +183,11 @@ export type SubmarineDispatchPayload = {
   candidate_cases?: SubmarineCandidateCase[];
   selected_case?: SubmarineCandidateCase | null;
   solver_results?: SubmarineSolverMetrics | null;
+  stability_evidence_virtual_path?: string | null;
+  stability_evidence?: SubmarineStabilityEvidencePayload | null;
+  scientific_verification_assessment?:
+    | SubmarineScientificVerificationAssessment
+    | null;
   requested_outputs?: SubmarineRequestedOutputPayload[] | null;
   output_delivery_plan?: SubmarineOutputDeliveryPlanItem[] | null;
   artifact_virtual_paths?: string[] | null;
@@ -196,9 +246,14 @@ export type SubmarineRuntimeSnapshotPayload = {
   request_virtual_path?: string | null;
   execution_log_virtual_path?: string | null;
   solver_results_virtual_path?: string | null;
+  stability_evidence_virtual_path?: string | null;
+  stability_evidence?: SubmarineStabilityEvidencePayload | null;
   supervisor_handoff_virtual_path?: string | null;
   scientific_followup_history_virtual_path?: string | null;
   review_status?: string | null;
+  scientific_verification_assessment?:
+    | SubmarineScientificVerificationAssessment
+    | null;
   scientific_gate_status?: string | null;
   allowed_claim_level?: string | null;
   scientific_gate_virtual_path?: string | null;
@@ -356,6 +411,8 @@ export type SubmarineScientificStudySummaryPayload = {
 export type SubmarineFinalReportPayload = {
   summary_zh?: string;
   solver_metrics?: SubmarineSolverMetrics | null;
+  stability_evidence_virtual_path?: string | null;
+  stability_evidence?: SubmarineStabilityEvidencePayload | null;
   acceptance_assessment?: SubmarineAcceptanceAssessment | null;
   research_evidence_summary?: SubmarineResearchEvidenceSummaryPayload | null;
   scientific_supervisor_gate?: SubmarineScientificSupervisorGatePayload | null;

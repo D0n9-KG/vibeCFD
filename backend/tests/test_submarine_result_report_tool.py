@@ -197,7 +197,6 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
         ),
         encoding="utf-8",
     )
-
     runtime = SimpleNamespace(
         state={
             "thread_data": {
@@ -499,7 +498,6 @@ def test_submarine_result_report_emits_delivery_readiness_artifacts(tmp_path):
         ),
         encoding="utf-8",
     )
-
     runtime = SimpleNamespace(
         state={
             "thread_data": {
@@ -1542,6 +1540,69 @@ def test_submarine_result_report_adds_scientific_verification_assessment(tmp_pat
         ),
         encoding="utf-8",
     )
+    (solver_results_dir / "stability-evidence.json").write_text(
+        json.dumps(
+            {
+                "status": "passed",
+                "summary_zh": "SCI-01 基线稳定性检查已通过。",
+                "source_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/scientific-verification/solver-results.json",
+                "artifact_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/scientific-verification/stability-evidence.json",
+                "residual_summary": {
+                    "field_count": 2,
+                    "latest_time": 200.0,
+                    "max_final_residual": 5e-4,
+                },
+                "force_coefficient_tail": {
+                    "coefficient": "Cd",
+                    "status": "passed",
+                    "detail": "Force coefficient tail stability: tail relative spread 0.0064 <= 0.0200 for Cd.",
+                    "observed_sample_count": 5,
+                    "required_sample_count": 5,
+                    "relative_spread": 0.0064,
+                    "max_tail_relative_spread": 0.02,
+                    "tail_samples": [
+                        {"time": 160.0, "value": 0.00313},
+                        {"time": 170.0, "value": 0.00312},
+                        {"time": 180.0, "value": 0.00311},
+                        {"time": 190.0, "value": 0.00312},
+                        {"time": 200.0, "value": 0.00312},
+                    ],
+                },
+                "requirements": [
+                    {
+                        "requirement_id": "final_residual_threshold",
+                        "label": "Final residual threshold",
+                        "check_type": "max_final_residual",
+                        "status": "passed",
+                        "detail": "Final residual threshold: observed 0.000500 <= 0.001000.",
+                        "observed_value": 0.0005,
+                        "limit_value": 0.001,
+                    },
+                    {
+                        "requirement_id": "force_coefficient_tail_stability",
+                        "label": "Force coefficient tail stability",
+                        "check_type": "force_coefficient_tail_stability",
+                        "status": "passed",
+                        "detail": "Force coefficient tail stability: tail relative spread 0.0064 <= 0.0200 for Cd.",
+                        "force_coefficient": "Cd",
+                        "observed_sample_count": 5,
+                        "required_sample_count": 5,
+                        "relative_spread": 0.0064,
+                        "max_tail_relative_spread": 0.02,
+                    },
+                ],
+                "blocking_issues": [],
+                "missing_evidence": [],
+                "passed_requirements": [
+                    "Final residual threshold: observed 0.000500 <= 0.001000.",
+                    "Force coefficient tail stability: tail relative spread 0.0064 <= 0.0200 for Cd.",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     runtime = SimpleNamespace(
         state={
@@ -1565,6 +1626,7 @@ def test_submarine_result_report_adds_scientific_verification_assessment(tmp_pat
                 "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/scientific-verification/dispatch-summary.md",
                 "artifact_virtual_paths": [
                     "/mnt/user-data/outputs/submarine/solver-dispatch/scientific-verification/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/scientific-verification/stability-evidence.json",
                 ],
                 "activity_timeline": [],
             },
@@ -1595,6 +1657,7 @@ def test_submarine_result_report_adds_scientific_verification_assessment(tmp_pat
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     markdown = md_path.read_text(encoding="utf-8")
     assessment = final_payload["scientific_verification_assessment"]
+    stability_evidence = final_payload["stability_evidence"]
 
     assert assessment["status"] == "needs_more_verification"
     assert assessment["confidence"] == "medium"
@@ -1608,6 +1671,10 @@ def test_submarine_result_report_adds_scientific_verification_assessment(tmp_pat
     assert assessment["requirements"][0]["status"] == "passed"
     assert assessment["requirements"][1]["status"] == "passed"
     assert assessment["requirements"][2]["status"] == "missing_evidence"
+    assert stability_evidence["status"] == "passed"
+    assert stability_evidence["artifact_virtual_path"].endswith("/stability-evidence.json")
+    assert stability_evidence["requirements"][0]["status"] == "passed"
+    assert stability_evidence["requirements"][1]["status"] == "passed"
     assert any(
         "mesh independence" in item.lower()
         for item in assessment["missing_evidence"]
@@ -1761,6 +1828,294 @@ def test_scientific_verification_marks_study_artifact_as_passed(tmp_path):
         for path in scientific_study_summary["artifact_virtual_paths"]
     )
     assert mesh_study["verification_status"] == "passed"
+
+
+def test_scientific_verification_prefers_blocked_structured_stability_evidence(tmp_path):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-stability-evidence-blocked"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "stability-blocked"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {"Time": 200.0, "Cd": 0.00312},
+                "force_coefficients_history": [
+                    {"Time": 160.0, "Cd": 0.00312},
+                    {"Time": 170.0, "Cd": 0.00312},
+                    {"Time": 180.0, "Cd": 0.00312},
+                    {"Time": 190.0, "Cd": 0.00312},
+                    {"Time": 200.0, "Cd": 0.00312},
+                ],
+                "mesh_summary": {"mesh_ok": True},
+                "residual_summary": {"max_final_residual": 5e-4},
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "end_time_seconds": 200.0,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "stability-evidence.json").write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "summary_zh": "SCI-01 基线稳定性检查未通过。",
+                "source_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stability-blocked/solver-results.json",
+                "artifact_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stability-blocked/stability-evidence.json",
+                "requirements": [
+                    {
+                        "requirement_id": "final_residual_threshold",
+                        "label": "Final residual threshold",
+                        "check_type": "max_final_residual",
+                        "status": "blocked",
+                        "detail": "Final residual threshold: observed 0.004000 exceeds limit 0.001000.",
+                        "observed_value": 0.004,
+                        "limit_value": 0.001,
+                    },
+                    {
+                        "requirement_id": "force_coefficient_tail_stability",
+                        "label": "Force coefficient tail stability",
+                        "check_type": "force_coefficient_tail_stability",
+                        "status": "passed",
+                        "detail": "Force coefficient tail stability: tail relative spread 0.0000 <= 0.0200 for Cd.",
+                        "force_coefficient": "Cd",
+                        "observed_sample_count": 5,
+                        "required_sample_count": 5,
+                        "relative_spread": 0.0,
+                        "max_tail_relative_spread": 0.02,
+                    },
+                ],
+                "blocking_issues": [
+                    "Final residual threshold: observed 0.004000 exceeds limit 0.001000.",
+                ],
+                "missing_evidence": [],
+                "passed_requirements": [
+                    "Force coefficient tail stability: tail relative spread 0.0000 <= 0.0200 for Cd.",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Prefer structured stability evidence",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stability-blocked/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stability-blocked/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stability-blocked/stability-evidence.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Structured stability evidence blocked report",
+        tool_call_id="tc-result-report-stability-blocked",
+    )
+
+    final_report_path = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    assessment = final_payload["scientific_verification_assessment"]
+    residual_requirement = next(
+        item
+        for item in assessment["requirements"]
+        if item["requirement_id"] == "final_residual_threshold"
+    )
+
+    assert assessment["status"] == "blocked"
+    assert residual_requirement["status"] == "blocked"
+    assert "0.004000 exceeds limit 0.001000" in residual_requirement["detail"]
+    assert final_payload["stability_evidence"]["status"] == "blocked"
+    assert result.update["submarine_runtime"]["scientific_verification_assessment"]["status"] == "blocked"
+
+
+def test_scientific_verification_surfaces_missing_structured_stability_evidence(tmp_path):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-stability-evidence-missing"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "stability-missing"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {"Time": 200.0, "Cd": 0.00312},
+                "force_coefficients_history": [
+                    {"Time": 160.0, "Cd": 0.00312},
+                    {"Time": 170.0, "Cd": 0.00312},
+                    {"Time": 180.0, "Cd": 0.00312},
+                    {"Time": 190.0, "Cd": 0.00312},
+                    {"Time": 200.0, "Cd": 0.00312},
+                ],
+                "mesh_summary": {"mesh_ok": True},
+                "residual_summary": {"max_final_residual": 5e-4},
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "end_time_seconds": 200.0,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "stability-evidence.json").write_text(
+        json.dumps(
+            {
+                "status": "missing_evidence",
+                "summary_zh": "SCI-01 基线稳定性证据仍不完整。",
+                "source_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stability-missing/solver-results.json",
+                "artifact_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stability-missing/stability-evidence.json",
+                "requirements": [
+                    {
+                        "requirement_id": "final_residual_threshold",
+                        "label": "Final residual threshold",
+                        "check_type": "max_final_residual",
+                        "status": "passed",
+                        "detail": "Final residual threshold: observed 0.000500 <= 0.001000.",
+                        "observed_value": 0.0005,
+                        "limit_value": 0.001,
+                    },
+                    {
+                        "requirement_id": "force_coefficient_tail_stability",
+                        "label": "Force coefficient tail stability",
+                        "check_type": "force_coefficient_tail_stability",
+                        "status": "missing_evidence",
+                        "detail": "Force coefficient tail stability: need at least 5 Cd samples in force coefficient history.",
+                        "force_coefficient": "Cd",
+                        "observed_sample_count": 2,
+                        "required_sample_count": 5,
+                        "relative_spread": None,
+                        "max_tail_relative_spread": 0.02,
+                    },
+                ],
+                "blocking_issues": [],
+                "missing_evidence": [
+                    "Force coefficient tail stability: need at least 5 Cd samples in force coefficient history.",
+                ],
+                "passed_requirements": [
+                    "Final residual threshold: observed 0.000500 <= 0.001000.",
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    for suffix, study_type in [
+        ("verification-mesh-independence.json", "mesh_independence"),
+        ("verification-domain-sensitivity.json", "domain_sensitivity"),
+        ("verification-time-step-sensitivity.json", "time_step_sensitivity"),
+    ]:
+        (solver_results_dir / suffix).write_text(
+            json.dumps(
+                {
+                    "study_type": study_type,
+                    "status": "passed",
+                    "summary_zh": f"{study_type} evidence passed.",
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Surface missing SCI-01 evidence from structured artifact",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stability-missing/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stability-missing/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stability-missing/stability-evidence.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stability-missing/verification-mesh-independence.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stability-missing/verification-domain-sensitivity.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stability-missing/verification-time-step-sensitivity.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Structured stability evidence missing report",
+        tool_call_id="tc-result-report-stability-missing",
+    )
+
+    final_report_path = (
+        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    assessment = final_payload["scientific_verification_assessment"]
+    force_requirement = next(
+        item
+        for item in assessment["requirements"]
+        if item["requirement_id"] == "force_coefficient_tail_stability"
+    )
+
+    assert assessment["status"] == "needs_more_verification"
+    assert force_requirement["status"] == "missing_evidence"
+    assert "need at least 5 Cd samples" in force_requirement["detail"]
+    assert any(
+        "need at least 5 Cd samples" in item for item in assessment["missing_evidence"]
+    )
+    assert final_payload["research_evidence_summary"]["verification_status"] == "needs_more_verification"
 
 
 def test_scientific_verification_keeps_unreadable_study_artifact_as_missing_evidence(tmp_path):
