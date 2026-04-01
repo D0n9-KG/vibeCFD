@@ -187,6 +187,10 @@ export type SubmarineRuntimeSnapshotPayload = {
   requested_outputs?: SubmarineRequestedOutputPayload[] | null;
   output_delivery_plan?: SubmarineOutputDeliveryPlanItem[] | null;
   stage_status?: string | null;
+  runtime_status?: string | null;
+  runtime_summary?: string | null;
+  recovery_guidance?: string | null;
+  blocker_detail?: string | null;
   workspace_case_dir_virtual_path?: string | null;
   run_script_virtual_path?: string | null;
   request_virtual_path?: string | null;

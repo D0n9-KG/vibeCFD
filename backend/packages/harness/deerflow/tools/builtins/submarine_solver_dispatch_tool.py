@@ -20,6 +20,7 @@ from deerflow.domain.submarine.contracts import (
 )
 from deerflow.domain.submarine.geometry_check import SUPPORTED_GEOMETRY_SUFFIXES
 from deerflow.domain.submarine.runtime_plan import (
+    build_runtime_status_payload,
     build_scientific_capability_updates_for_dispatch,
 )
 from deerflow.domain.submarine.solver_dispatch import run_solver_dispatch
@@ -322,6 +323,19 @@ def submarine_solver_dispatch_tool(
         execution_updates["solver-dispatch"] = "in_progress"
         execution_updates["result-reporting"] = "pending"
     execution_updates.update(build_scientific_capability_updates_for_dispatch(payload))
+    runtime_truth = build_runtime_status_payload(
+        current_stage="solver-dispatch",
+        next_recommended_stage=payload["next_recommended_stage"],
+        stage_status=dispatch_status,
+        review_status=payload["review_status"],
+        execution_readiness=payload.get("execution_readiness"),
+        report_virtual_path=payload["report_virtual_path"],
+        request_virtual_path=payload.get("request_virtual_path"),
+        execution_log_virtual_path=payload.get("execution_log_virtual_path"),
+        solver_results_virtual_path=payload.get("solver_results_virtual_path"),
+        artifact_virtual_paths=payload.get("artifact_virtual_paths"),
+        runtime_summary=payload["summary_zh"],
+    )
 
     runtime_snapshot = build_runtime_snapshot(
         current_stage="solver-dispatch",
@@ -337,6 +351,10 @@ def submarine_solver_dispatch_tool(
         requested_outputs=payload.get("requested_outputs"),
         output_delivery_plan=payload.get("output_delivery_plan"),
         stage_status=dispatch_status,
+        runtime_status=runtime_truth["runtime_status"],
+        runtime_summary=runtime_truth["runtime_summary"],
+        recovery_guidance=runtime_truth["recovery_guidance"],
+        blocker_detail=runtime_truth["blocker_detail"],
         workspace_case_dir_virtual_path=payload.get("workspace_case_dir_virtual_path"),
         run_script_virtual_path=payload.get("run_script_virtual_path"),
         request_virtual_path=payload.get("request_virtual_path"),

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const { getSubmarinePipelineStatus } = await import(
-  new URL("./submarine-pipeline-status.ts", import.meta.url).href
+  new URL("./submarine-pipeline-status.ts", import.meta.url).href,
 );
 
 void test("surfaces a failed lead-agent run instead of leaving the workbench in a running-looking state", () => {
@@ -28,8 +28,8 @@ void test("surfaces a failed lead-agent run instead of leaving the workbench in 
     status.errorBanner?.message,
     "Upstream authentication failed, please contact administrator",
   );
-  assert.match(status.errorBanner?.guidance ?? "", /当前研究状态未推进/);
-  assert.match(status.summaryText, /当前研究状态未推进/);
+  assert.match(status.errorBanner?.guidance ?? "", /当前研究状态未能推进/);
+  assert.match(status.summaryText, /当前研究状态未能推进/);
 });
 
 void test("shows configuration guidance for LangGraph bootstrap failures", () => {
@@ -48,7 +48,7 @@ void test("shows configuration guidance for LangGraph bootstrap failures", () =>
     status.errorBanner?.message,
     "LangGraph base URL is empty or invalid. Please verify the LangGraph URL configuration.",
   );
-  assert.match(status.errorBanner?.guidance ?? "", /LangGraph URL 配置/);
+  assert.match(status.errorBanner?.guidance ?? "", /LangGraph URL/);
 });
 
 void test("shows a rehydration state instead of a blank new-thread status on refresh", () => {
@@ -74,7 +74,36 @@ void test("shows a rehydration state instead of a blank new-thread status on ref
   assert.equal(status.errorBanner, null);
 });
 
-void test("keeps the existing research narrative when there is no thread error", () => {
+void test("surfaces persisted blocked runtime guidance after re-entry", () => {
+  const status = getSubmarinePipelineStatus({
+    threadError: null,
+    threadIsLoading: false,
+    isNewThread: false,
+    hasMessages: true,
+    hasDesignBrief: true,
+    hasFinalReport: false,
+    designBriefSummary: "baseline 已确认",
+    runtimeTaskSummary: "进入求解派发",
+    runtimeStatus: "blocked",
+    runtimeSummary: "当前线程缺少可恢复的运行证据，工作台会把它显示为阻塞而不是普通待执行。",
+    recoveryGuidance: "补齐缺失 artifacts，或重新运行当前阶段，确保请求、日志与结果文件重新注册到线程。",
+    blockerDetail: "solver-dispatch 缺少可恢复的关键证据: 求解结果。",
+  });
+
+  assert.equal(status.tone, "error");
+  assert.equal(status.agentLabel, "CFD runtime 受阻");
+  assert.equal(status.runLabel, "受阻");
+  assert.equal(status.outputStatus, "等待恢复");
+  assert.equal(status.summaryText, "当前线程缺少可恢复的运行证据，工作台会把它显示为阻塞而不是普通待执行。");
+  assert.equal(status.errorBanner?.title, "CFD runtime 已阻塞");
+  assert.equal(
+    status.errorBanner?.message,
+    "solver-dispatch 缺少可恢复的关键证据: 求解结果。",
+  );
+  assert.match(status.errorBanner?.guidance ?? "", /补齐缺失 artifacts/);
+});
+
+void test("keeps the persisted runtime narrative for healthy running threads", () => {
   const status = getSubmarinePipelineStatus({
     threadError: null,
     threadIsLoading: true,
@@ -84,12 +113,17 @@ void test("keeps the existing research narrative when there is no thread error",
     hasFinalReport: false,
     designBriefSummary: "已整理 baseline 条件",
     runtimeTaskSummary: "准备进入几何预检",
+    runtimeStatus: "running",
+    runtimeSummary: "OpenFOAM 求解正在运行，日志、结果与后处理证据会持续写回。",
   });
 
   assert.equal(status.tone, "streaming");
-  assert.equal(status.agentLabel, "主智能体运行中");
+  assert.equal(status.agentLabel, "CFD runtime 运行中");
   assert.equal(status.runLabel, "运行中");
-  assert.equal(status.outputStatus, "已形成 design brief");
+  assert.equal(status.outputStatus, "运行证据持续写入中");
   assert.equal(status.errorBanner, null);
-  assert.equal(status.summaryText, "已整理 baseline 条件");
+  assert.equal(
+    status.summaryText,
+    "OpenFOAM 求解正在运行，日志、结果与后处理证据会持续写回。",
+  );
 });

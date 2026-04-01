@@ -207,6 +207,7 @@ def submarine_geometry_check_tool(
             or existing_brief.get("requested_outputs")
         ),
         output_delivery_plan=(existing_runtime or {}).get("output_delivery_plan"),
+        runtime_summary=result.summary_zh,
         next_recommended_stage=result.next_recommended_stage,
         report_virtual_path=result.report_virtual_path,
         artifact_virtual_paths=result.artifact_virtual_paths,

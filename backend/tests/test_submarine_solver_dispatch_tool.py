@@ -488,6 +488,10 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["report_virtual_path"].endswith("/dispatch-summary.md")
     assert runtime_state["selected_case_id"]
     assert runtime_state["execution_readiness"] == "stl_ready"
+    assert runtime_state["runtime_status"] == "ready"
+    assert runtime_state["runtime_summary"]
+    assert runtime_state["recovery_guidance"] is None
+    assert runtime_state["blocker_detail"] is None
     assert _execution_plan_status(runtime_state, "geometry-preflight") == "completed"
     assert _execution_plan_status(runtime_state, "solver-dispatch") == "in_progress"
     assert _execution_plan_status(runtime_state, "scientific-study") == "ready"
@@ -503,6 +507,118 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
     assert len(runtime_state["activity_timeline"]) == 2
     assert runtime_state["activity_timeline"][-1]["stage"] == "solver-dispatch"
     assert runtime_state["activity_timeline"][-1]["actor"] == "solver-dispatch"
+
+
+def test_submarine_solver_dispatch_marks_failed_runtime_when_solver_execution_fails(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-runtime-failed"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "runtime-failed.stl"
+    _write_ascii_stl(geometry_path)
+
+    fake_sandbox = _FakeSandbox(output="FOAM FATAL ERROR: divergence detected")
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(tool_module, "get_sandbox_provider", lambda: _FakeProvider(fake_sandbox))
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/runtime-failed.stl",
+        task_description="Execute and surface the solver failure state",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=True,
+        solver_command="echo failing-run",
+        tool_call_id="tc-dispatch-runtime-failed",
+    )
+
+    runtime_state = result.update["submarine_runtime"]
+
+    assert runtime_state["stage_status"] == "failed"
+    assert runtime_state["runtime_status"] == "failed"
+    assert runtime_state["execution_log_virtual_path"].endswith("/openfoam-run.log")
+    assert runtime_state["request_virtual_path"].endswith("/openfoam-request.json")
+    assert runtime_state["recovery_guidance"]
+    assert runtime_state["blocker_detail"]
+
+
+def test_submarine_solver_dispatch_surfaces_blocked_runtime_when_canonical_results_are_missing(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-runtime-blocked"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "runtime-blocked.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    blocked_payload = {
+        "selected_case": {"case_id": "darpa_suboff_bare_hull_resistance"},
+        "dispatch_status": "executed",
+        "execution_readiness": "stl_ready",
+        "simulation_requirements": {"inlet_velocity_mps": 5.0},
+        "requested_outputs": [],
+        "output_delivery_plan": [],
+        "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/runtime-blocked/openfoam-case",
+        "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/runtime-blocked/openfoam-case/Allrun",
+        "request_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/runtime-blocked/openfoam-request.json",
+        "execution_log_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/runtime-blocked/openfoam-run.log",
+        "solver_results_virtual_path": None,
+        "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/runtime-blocked/supervisor-handoff.json",
+        "next_recommended_stage": "result-reporting",
+        "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/runtime-blocked/dispatch-summary.md",
+        "artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/solver-dispatch/runtime-blocked/openfoam-request.json",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/runtime-blocked/openfoam-run.log",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/runtime-blocked/dispatch-summary.md",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/runtime-blocked/supervisor-handoff.json",
+        ],
+        "review_status": "ready_for_supervisor",
+        "summary_zh": "求解命令已经跑完，但 solver-results 证据没有成功注册回线程。",
+        "geometry": {"geometry_family": "DARPA SUBOFF"},
+    }
+
+    monkeypatch.setattr(
+        tool_module,
+        "run_solver_dispatch",
+        lambda **_: (blocked_payload, blocked_payload["artifact_virtual_paths"]),
+    )
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/runtime-blocked.stl",
+        task_description="Simulate a refreshable blocked dispatch payload",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=False,
+        tool_call_id="tc-dispatch-runtime-blocked",
+    )
+
+    runtime_state = result.update["submarine_runtime"]
+
+    assert runtime_state["stage_status"] == "executed"
+    assert runtime_state["runtime_status"] == "blocked"
+    assert runtime_state["request_virtual_path"].endswith("/openfoam-request.json")
+    assert runtime_state["execution_log_virtual_path"].endswith("/openfoam-run.log")
+    assert runtime_state["report_virtual_path"].endswith("/dispatch-summary.md")
+    assert runtime_state["supervisor_handoff_virtual_path"].endswith("/supervisor-handoff.json")
+    assert runtime_state["blocker_detail"] == (
+        "solver-dispatch 缺少可恢复的关键证据: 求解结果。"
+    )
+    assert runtime_state["recovery_guidance"]
 
 
 def test_submarine_solver_dispatch_recovers_geometry_from_uploaded_files_without_explicit_path(

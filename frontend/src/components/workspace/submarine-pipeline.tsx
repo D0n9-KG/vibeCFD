@@ -266,12 +266,16 @@ export function SubmarinePipeline({
   // ── Snapshot for stage cards ───────────────────────────────────────────────
   const stageSnapshot = useMemo<StageRuntimeSnapshot | null>(() => {
     if (!runtime) return null;
-    const displayedStage = getSubmarineDisplayedStage(runtime, designBrief);
     return {
-      current_stage: displayedStage ?? undefined,
+      current_stage: runtime.current_stage ?? undefined,
+      next_recommended_stage: runtime.next_recommended_stage ?? undefined,
       task_summary: runtime.task_summary ?? undefined,
       simulation_requirements: runtime.simulation_requirements,
       stage_status: runtime.stage_status,
+      runtime_status: runtime.runtime_status,
+      runtime_summary: runtime.runtime_summary,
+      recovery_guidance: runtime.recovery_guidance,
+      blocker_detail: runtime.blocker_detail,
       review_status: runtime.review_status,
       scientific_gate_status: runtime.scientific_gate_status,
       allowed_claim_level: runtime.allowed_claim_level,
@@ -293,7 +297,7 @@ export function SubmarinePipeline({
         timestamp: item.timestamp,
       })) ?? null,
     };
-  }, [designBrief, runtime]);
+  }, [runtime]);
 
   const displayedCurrentStage = useMemo(
     () => getSubmarineDisplayedStage(runtime, designBrief),
@@ -315,11 +319,19 @@ export function SubmarinePipeline({
         hasFinalReport: Boolean(finalReport),
         designBriefSummary: designBrief?.summary_zh,
         runtimeTaskSummary: runtime?.task_summary,
+        runtimeStatus: runtime?.runtime_status,
+        runtimeSummary: runtime?.runtime_summary,
+        recoveryGuidance: runtime?.recovery_guidance,
+        blockerDetail: runtime?.blocker_detail,
       }),
     [
       designBrief,
       finalReport,
       isNewThread,
+      runtime?.blocker_detail,
+      runtime?.recovery_guidance,
+      runtime?.runtime_status,
+      runtime?.runtime_summary,
       runtime?.task_summary,
       thread.error,
       thread.isLoading,

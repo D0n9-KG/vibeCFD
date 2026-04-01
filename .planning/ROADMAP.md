@@ -11,7 +11,7 @@ This roadmap turns the current DeerFlow-based submarine CFD prototype into a res
 - Decimal phases (`2.1`, `2.2`) are urgent insertions if needed later
 
 - [x] **Phase 1: End-to-End Workbench Bootstrap** - Restore real user bootstrap from new submarine workbench to live DeerFlow thread
-- [ ] **Phase 2: Runtime Solver Productization** - Turn solver dispatch into a controllable DeerFlow runtime flow with captured outputs
+- [x] **Phase 2: Runtime Solver Productization** - Turn solver dispatch into a controllable DeerFlow runtime flow with captured outputs
 - [ ] **Phase 3: Scientific Verification Gates** - Gate claim level on residual, stability, benchmark, and sensitivity evidence
 - [ ] **Phase 4: Geometry and Case Intelligence Hardening** - Improve geometry preflight, scale assumptions, and case-library trustworthiness
 - [ ] **Phase 5: Experiment Ops and Reproducibility** - Add study provenance, baseline-vs-variant tracking, and environment consistency
@@ -47,7 +47,7 @@ Plans:
 Plans:
 - [x] 02-01: Wire confirmed solver dispatch to sandbox execution and collect canonical runtime artifacts
 - [x] 02-02: Persist and expose solver metrics plus execution logs through thread outputs and UI models
-- [ ] 02-03: Support refresh, resume, and recovery behavior for running or completed submarine jobs
+- [x] 02-03: Support refresh, resume, and recovery behavior for running or completed submarine jobs
 
 ### Phase 3: Scientific Verification Gates
 **Goal**: Make scientific evidence, not artifact existence alone, determine whether results can advance toward research claims.
@@ -114,7 +114,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. End-to-End Workbench Bootstrap | 3/3 | Complete | 2026-04-01 |
-| 2. Runtime Solver Productization | 2/3 | In progress | - |
+| 2. Runtime Solver Productization | 3/3 | Complete | 2026-04-01 |
 | 3. Scientific Verification Gates | 0/3 | Not started | - |
 | 4. Geometry and Case Intelligence Hardening | 0/3 | Not started | - |
 | 5. Experiment Ops and Reproducibility | 0/3 | Not started | - |

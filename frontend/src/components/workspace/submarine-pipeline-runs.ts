@@ -7,6 +7,7 @@ type SubmarineRuntimeLike = {
   next_recommended_stage?: string | null;
   review_status?: string | null;
   stage_status?: string | null;
+  runtime_status?: string | null;
 };
 
 type SubmarineDesignBriefLike = {
@@ -117,6 +118,18 @@ function needsUserConfirmation(
 
 function isActivelyRunning(runtime: SubmarineRuntimeLike | null): boolean {
   if (!runtime) {
+    return false;
+  }
+
+  if (runtime.runtime_status === "running") {
+    return true;
+  }
+  if (
+    runtime.runtime_status === "ready" ||
+    runtime.runtime_status === "completed" ||
+    runtime.runtime_status === "blocked" ||
+    runtime.runtime_status === "failed"
+  ) {
     return false;
   }
 

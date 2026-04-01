@@ -23,9 +23,14 @@ import { buildTaskIntelligenceViewModel } from "./submarine-task-intelligence-vi
 // ── Shared runtime snapshot type (re-declared locally to avoid coupling) ──────
 export type StageRuntimeSnapshot = {
   current_stage?: string | null;
+  next_recommended_stage?: string | null;
   task_summary?: string | null;
   simulation_requirements?: SubmarineSimulationRequirements | null;
   stage_status?: string | null;
+  runtime_status?: string | null;
+  runtime_summary?: string | null;
+  recovery_guidance?: string | null;
+  blocker_detail?: string | null;
   review_status?: string | null;
   scientific_gate_status?: string | null;
   allowed_claim_level?: string | null;
@@ -57,17 +62,113 @@ const STAGE_ORDER = [
 ] as const;
 
 type RuntimeStage = (typeof STAGE_ORDER)[number];
+type RuntimeStatus =
+  | "ready"
+  | "running"
+  | "blocked"
+  | "failed"
+  | "completed";
+
+function normalizeStage(value?: string | null): RuntimeStage | null {
+  return STAGE_ORDER.includes(value as RuntimeStage)
+    ? (value as RuntimeStage)
+    : null;
+}
+
+function normalizeRuntimeStatus(value?: string | null): RuntimeStatus | null {
+  switch (value) {
+    case "ready":
+    case "running":
+    case "blocked":
+    case "failed":
+    case "completed":
+      return value;
+    default:
+      return null;
+  }
+}
 
 function resolveStageState(
   stageId: RuntimeStage,
-  currentStage?: string | null,
+  snapshot: StageRuntimeSnapshot | null,
 ): StageCardState {
-  if (!currentStage) return "pending";
-  const currentIdx = STAGE_ORDER.indexOf(currentStage as RuntimeStage);
+  const currentStage = normalizeStage(snapshot?.current_stage);
+  const nextStage = normalizeStage(snapshot?.next_recommended_stage);
+  const runtimeStatus = normalizeRuntimeStatus(snapshot?.runtime_status);
   const stageIdx = STAGE_ORDER.indexOf(stageId);
+  const currentIdx = currentStage ? STAGE_ORDER.indexOf(currentStage) : -1;
+  const nextIdx = nextStage ? STAGE_ORDER.indexOf(nextStage) : -1;
+
+  if (runtimeStatus === "blocked" && currentIdx >= 0) {
+    if (stageIdx < currentIdx) return "done";
+    if (stageIdx === currentIdx) return "blocked";
+    return "pending";
+  }
+
+  if (runtimeStatus === "failed" && currentIdx >= 0) {
+    if (stageIdx < currentIdx) return "done";
+    if (stageIdx === currentIdx) return "failed";
+    return "pending";
+  }
+
+  if (runtimeStatus === "completed") {
+    if (nextIdx >= 0) {
+      if (stageIdx < nextIdx) return "done";
+      if (stageIdx === nextIdx) return "active";
+      return "pending";
+    }
+    if (currentIdx >= 0) {
+      return stageIdx <= currentIdx ? "done" : "pending";
+    }
+    return "pending";
+  }
+
+  if (currentIdx < 0) return "pending";
   if (stageIdx < currentIdx) return "done";
   if (stageIdx === currentIdx) return "active";
   return "pending";
+}
+
+function RuntimeStateNotice({
+  snapshot,
+  state,
+}: {
+  snapshot: StageRuntimeSnapshot | null;
+  state: StageCardState;
+}) {
+  if (state !== "blocked" && state !== "failed") {
+    return null;
+  }
+
+  const title = state === "blocked" ? "恢复提示" : "失败提示";
+  const borderClassName =
+    state === "blocked"
+      ? "border-amber-200 bg-amber-50 text-amber-900"
+      : "border-red-200 bg-red-50 text-red-900";
+  const detailClassName =
+    state === "blocked" ? "text-amber-800" : "text-red-800";
+  const summary =
+    snapshot?.runtime_summary ??
+    (state === "blocked" ? "当前运行已阻塞。" : "当前运行已失败。");
+
+  return (
+    <div className={cn("mb-3 rounded-xl border px-3.5 py-3", borderClassName)}>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+        {title}
+      </div>
+      <div className="mt-1 text-[11px] leading-5">{summary}</div>
+      {snapshot?.blocker_detail && (
+        <div className={cn("mt-2 text-[11px] leading-5", detailClassName)}>
+          {snapshot.blocker_detail}
+        </div>
+      )}
+      {snapshot?.recovery_guidance && (
+        <div className={cn("mt-2 text-[11px] leading-5", detailClassName)}>
+          {snapshot.recovery_guidance}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── TaskIntelligenceCard ──────────────────────────────────────────────────────
@@ -88,7 +189,7 @@ function LegacyTaskIntelligenceCard({
   designBrief,
   onConfirm,
 }: TaskIntelligenceCardProps) {
-  const state = resolveStageState("task-intelligence", snapshot?.current_stage);
+  const state = resolveStageState("task-intelligence", snapshot);
   const [confirming, setConfirming] = useState(false);
 
   const handleConfirm = useCallback(() => {
@@ -238,7 +339,7 @@ export function TaskIntelligenceCard({
   designBrief,
   onConfirm,
 }: TaskIntelligenceCardProps) {
-  const state = resolveStageState("task-intelligence", snapshot?.current_stage);
+  const state = resolveStageState("task-intelligence", snapshot);
   const [confirming, setConfirming] = useState(false);
 
   const handleConfirm = useCallback(() => {
@@ -265,7 +366,11 @@ export function TaskIntelligenceCard({
   });
 
   const descriptionText =
-    state === "done"
+    state === "blocked"
+      ? snapshot?.runtime_summary ?? "任务理解暂时受阻"
+      : state === "failed"
+        ? snapshot?.runtime_summary ?? "任务理解失败"
+        : state === "done"
       ? brief?.task_description?.slice(0, 60) ?? "方案已确认"
       : state === "active"
         ? viewModel.confirmationState === "needs_clarification"
@@ -285,6 +390,7 @@ export function TaskIntelligenceCard({
       description={descriptionText}
       defaultExpanded={state !== "done"}
     >
+      <RuntimeStateNotice snapshot={snapshot} state={state} />
       {caseId && (
         <div className="mb-4">
           <SectionLabel color="sky">匹配案例</SectionLabel>
@@ -510,7 +616,7 @@ export function GeometryPreflightCard({
   snapshot,
   geometry,
 }: GeometryPreflightCardProps) {
-  const state = resolveStageState("geometry-preflight", snapshot?.current_stage);
+  const state = resolveStageState("geometry-preflight", snapshot);
 
   // SubmarineGeometryPayload has: summary_zh, candidate_cases (no geometry_family_hint)
   const description =
@@ -520,14 +626,22 @@ export function GeometryPreflightCard({
         ? "正在检查几何…"
         : "等待任务理解完成";
 
+  const resolvedDescription =
+    state === "blocked"
+      ? snapshot?.runtime_summary ?? "鍑犱綍棰勬鍙楅樆"
+      : state === "failed"
+        ? snapshot?.runtime_summary ?? "鍑犱綍棰勬澶辫触"
+        : description;
+
   return (
     <StageCard
       state={state}
       index={2}
       name="几何预检"
-      description={description}
+      description={resolvedDescription}
       defaultExpanded={state !== "done"}
     >
+      <RuntimeStateNotice snapshot={snapshot} state={state} />
       {geometry?.summary_zh && (
         <div className="text-[11px] text-stone-600">{geometry.summary_zh}</div>
       )}
@@ -561,7 +675,7 @@ export function SolverDispatchCard({
   solverMetrics,
   trendValues,
 }: SolverDispatchCardProps) {
-  const state = resolveStageState("solver-dispatch", snapshot?.current_stage);
+  const state = resolveStageState("solver-dispatch", snapshot);
 
   // Compute progress from execution_plan
   const plan = snapshot?.execution_plan ?? [];
@@ -575,6 +689,12 @@ export function SolverDispatchCard({
   // Metrics — SubmarineSolverMetrics exposes latest_force_coefficients.Cd
   const cd = solverMetrics?.latest_force_coefficients?.Cd ?? null;
   const fx = solverMetrics?.latest_force_coefficients?.Fx ?? null;
+  const runtimeStateDescription =
+    state === "blocked"
+      ? snapshot?.runtime_summary ?? "Solver dispatch blocked"
+      : state === "failed"
+        ? snapshot?.runtime_summary ?? "Solver dispatch failed"
+        : null;
 
   const description =
     state === "done"
@@ -588,7 +708,7 @@ export function SolverDispatchCard({
       state={state}
       index={3}
       name="求解执行"
-      description={description}
+      description={runtimeStateDescription ?? description}
       rightLabel={
         state === "active" ? (
           <span className="text-[11px] font-medium text-blue-500">运行中</span>
@@ -596,6 +716,7 @@ export function SolverDispatchCard({
       }
       defaultExpanded={state !== "done"}
     >
+      <RuntimeStateNotice snapshot={snapshot} state={state} />
       {/* Progress */}
       {totalSteps > 0 && (
         <div className="mb-2.5 flex items-center gap-2.5">
@@ -668,11 +789,17 @@ export function ResultReportingCard({
   solverMetrics,
   reportVirtualPath,
 }: ResultReportingCardProps) {
-  const state = resolveStageState("result-reporting", snapshot?.current_stage);
+  const state = resolveStageState("result-reporting", snapshot);
 
   // Cd from solver metrics (latest_force_coefficients["Cd"]) or final report solver_metrics
   const reportSolverMetrics = finalReport?.solver_metrics ?? solverMetrics;
   const cd = reportSolverMetrics?.latest_force_coefficients?.Cd ?? null;
+  const runtimeStateDescription =
+    state === "blocked"
+      ? snapshot?.runtime_summary ?? "Result reporting blocked"
+      : state === "failed"
+        ? snapshot?.runtime_summary ?? "Result reporting failed"
+        : null;
   const description =
     state === "done"
       ? cd != null ? `Cd = ${cd.toFixed(5)}` : "报告已生成"
@@ -685,9 +812,10 @@ export function ResultReportingCard({
       state={state}
       index={4}
       name="结果整理"
-      description={description}
+      description={runtimeStateDescription ?? description}
       defaultExpanded={state !== "done"}
     >
+      <RuntimeStateNotice snapshot={snapshot} state={state} />
       {/* Big Cd display */}
       {cd != null && (
         <div className="mb-3">
@@ -761,7 +889,7 @@ export function SupervisorReviewCard({
   snapshot,
   onConfirm,
 }: SupervisorReviewCardProps) {
-  const state = resolveStageState("supervisor-review", snapshot?.current_stage);
+  const state = resolveStageState("supervisor-review", snapshot);
   const reviewStatus = snapshot?.review_status ?? null;
   const gateStatus = snapshot?.scientific_gate_status ?? null;
   const needsUserConfirmation = reviewStatus === "needs_user_confirmation";
@@ -774,6 +902,13 @@ export function SupervisorReviewCard({
           ? REVIEW_STATUS_LABELS[reviewStatus] ?? reviewStatus
           : "复核中…"
         : "等待结果整理";
+
+  const runtimeStateDescription =
+    state === "blocked"
+      ? snapshot?.runtime_summary ?? "Supervisor review blocked"
+      : state === "failed"
+        ? snapshot?.runtime_summary ?? "Supervisor review failed"
+        : null;
 
   const handleAccept = useCallback(() => {
     onConfirm(threadId, {
@@ -794,9 +929,10 @@ export function SupervisorReviewCard({
       state={state}
       index={5}
       name="Supervisor 复核"
-      description={description}
+      description={runtimeStateDescription ?? description}
       defaultExpanded={state !== "done"}
     >
+      <RuntimeStateNotice snapshot={snapshot} state={state} />
       {/* Review status badge */}
       {reviewStatus && (
         <div className="mb-2">

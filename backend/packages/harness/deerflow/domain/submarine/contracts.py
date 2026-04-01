@@ -68,6 +68,13 @@ ExecutionPlanStatus = Literal[
     "completed",
     "blocked",
 ]
+SubmarineRuntimeStatus = Literal[
+    "ready",
+    "running",
+    "blocked",
+    "failed",
+    "completed",
+]
 
 
 class SubmarineExecutionPlanItem(BaseModel):
@@ -261,6 +268,10 @@ class SubmarineRuntimeSnapshot(BaseModel):
     requested_outputs: list[SubmarineRequestedOutput] = Field(default_factory=list)
     output_delivery_plan: list[SubmarineOutputDeliveryItem] = Field(default_factory=list)
     stage_status: str | None = None
+    runtime_status: SubmarineRuntimeStatus = "ready"
+    runtime_summary: str | None = None
+    recovery_guidance: str | None = None
+    blocker_detail: str | None = None
     workspace_case_dir_virtual_path: str | None = None
     run_script_virtual_path: str | None = None
     request_virtual_path: str | None = None
@@ -328,6 +339,10 @@ def build_runtime_snapshot(
     requested_outputs: list[SubmarineRequestedOutput | dict] | None = None,
     output_delivery_plan: list[SubmarineOutputDeliveryItem | dict] | None = None,
     stage_status: str | None = None,
+    runtime_status: SubmarineRuntimeStatus | None = None,
+    runtime_summary: str | None = None,
+    recovery_guidance: str | None = None,
+    blocker_detail: str | None = None,
     workspace_case_dir_virtual_path: str | None = None,
     run_script_virtual_path: str | None = None,
     request_virtual_path: str | None = None,
@@ -341,6 +356,25 @@ def build_runtime_snapshot(
     scientific_gate_virtual_path: str | None = None,
     activity_timeline: list[SubmarineRuntimeEvent | dict] | None = None,
 ) -> SubmarineRuntimeSnapshot:
+    from .runtime_plan import build_runtime_status_payload
+
+    runtime_truth = build_runtime_status_payload(
+        current_stage=current_stage,
+        next_recommended_stage=next_recommended_stage,
+        stage_status=stage_status,
+        review_status=review_status,
+        execution_readiness=execution_readiness,
+        report_virtual_path=report_virtual_path,
+        request_virtual_path=request_virtual_path,
+        execution_log_virtual_path=execution_log_virtual_path,
+        solver_results_virtual_path=solver_results_virtual_path,
+        artifact_virtual_paths=artifact_virtual_paths,
+        runtime_status=runtime_status,
+        runtime_summary=runtime_summary,
+        recovery_guidance=recovery_guidance,
+        blocker_detail=blocker_detail,
+    )
+
     return SubmarineRuntimeSnapshot(
         current_stage=current_stage,
         task_summary=task_summary,
@@ -355,6 +389,10 @@ def build_runtime_snapshot(
         requested_outputs=requested_outputs or [],
         output_delivery_plan=output_delivery_plan or [],
         stage_status=stage_status,
+        runtime_status=runtime_truth["runtime_status"],
+        runtime_summary=runtime_truth["runtime_summary"],
+        recovery_guidance=runtime_truth["recovery_guidance"],
+        blocker_detail=runtime_truth["blocker_detail"],
         workspace_case_dir_virtual_path=workspace_case_dir_virtual_path,
         run_script_virtual_path=run_script_virtual_path,
         request_virtual_path=request_virtual_path,

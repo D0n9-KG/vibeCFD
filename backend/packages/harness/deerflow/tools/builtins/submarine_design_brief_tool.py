@@ -268,6 +268,7 @@ def submarine_design_brief_tool(
         requested_outputs=payload.get("requested_outputs"),
         output_delivery_plan=(existing_runtime or {}).get("output_delivery_plan"),
         stage_status=payload.get("confirmation_status"),
+        runtime_summary=payload["summary_zh"],
         next_recommended_stage=payload["next_recommended_stage"],
         report_virtual_path=payload["report_virtual_path"],
         artifact_virtual_paths=payload["artifact_virtual_paths"],

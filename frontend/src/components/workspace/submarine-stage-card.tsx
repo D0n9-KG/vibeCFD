@@ -1,12 +1,24 @@
 // src/components/workspace/submarine-stage-card.tsx
 "use client";
 
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import {
+  AlertTriangleIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  CircleDotIcon,
+  XIcon,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-export type StageCardState = "done" | "active" | "pending";
+export type StageCardState =
+  | "done"
+  | "active"
+  | "pending"
+  | "blocked"
+  | "failed";
 
 export interface StageCardProps {
   state: StageCardState;
@@ -47,7 +59,6 @@ export function StageCard({
         className,
       )}
     >
-      {/* Header */}
       <div
         className={cn(
           "flex shrink-0 items-center gap-3 px-4 py-3",
@@ -55,14 +66,16 @@ export function StageCard({
           state === "active" &&
             "border-l-[3px] border-l-blue-500 bg-blue-50",
           state === "pending" && "bg-stone-50",
+          state === "blocked" &&
+            "border-l-[3px] border-l-amber-500 bg-amber-50",
+          state === "failed" &&
+            "border-l-[3px] border-l-red-500 bg-red-50",
           canToggle && "cursor-pointer select-none",
         )}
         onClick={canToggle ? () => setExpanded((v) => !v) : undefined}
       >
-        {/* Icon */}
         <StageIcon state={state} index={index} />
 
-        {/* Info */}
         <div className="min-w-0 flex-1">
           <div
             className={cn(
@@ -70,18 +83,28 @@ export function StageCard({
               state === "pending" && "text-stone-400",
               state === "active" && "text-stone-900",
               state === "done" && "text-stone-900",
+              state === "blocked" && "text-amber-900",
+              state === "failed" && "text-red-900",
             )}
           >
             {name}
           </div>
           {description && (
-            <div className="mt-0.5 truncate text-[11px] text-stone-500">
+            <div
+              className={cn(
+                "mt-0.5 truncate text-[11px]",
+                state === "blocked" && "text-amber-700",
+                state === "failed" && "text-red-700",
+                state !== "blocked" &&
+                  state !== "failed" &&
+                  "text-stone-500",
+              )}
+            >
               {description}
             </div>
           )}
         </div>
 
-        {/* Right area */}
         <div className="flex shrink-0 items-center gap-2">
           {rightLabel}
           {timeLabel && (
@@ -99,7 +122,6 @@ export function StageCard({
         </div>
       </div>
 
-      {/* Body */}
       {showBody && (
         <div
           className={cn(
@@ -123,18 +145,36 @@ function StageIcon({
 }) {
   if (state === "done") {
     return (
-      <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold text-white">
-        ✓
+      <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-green-500 text-white">
+        <CheckIcon className="size-3" />
       </div>
     );
   }
+
   if (state === "active") {
     return (
-      <div className="flex size-5 shrink-0 animate-pulse items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
-        ●
+      <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-blue-500 text-white">
+        <CircleDotIcon className="size-3 animate-pulse" />
       </div>
     );
   }
+
+  if (state === "blocked") {
+    return (
+      <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white">
+        <AlertTriangleIcon className="size-3" />
+      </div>
+    );
+  }
+
+  if (state === "failed") {
+    return (
+      <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-red-500 text-white">
+        <XIcon className="size-3" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-stone-200 text-[10px] font-bold text-stone-400">
       {index}

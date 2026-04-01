@@ -27,6 +27,10 @@ class SubmarineRuntimeState(TypedDict):
     requested_outputs: NotRequired[list[dict] | None]
     output_delivery_plan: NotRequired[list[dict] | None]
     stage_status: NotRequired[str | None]
+    runtime_status: NotRequired[str]
+    runtime_summary: NotRequired[str | None]
+    recovery_guidance: NotRequired[str | None]
+    blocker_detail: NotRequired[str | None]
     workspace_case_dir_virtual_path: NotRequired[str | None]
     run_script_virtual_path: NotRequired[str | None]
     request_virtual_path: NotRequired[str | None]
@@ -80,6 +84,14 @@ _OUTPUT_DELIVERY_STATUS_ORDER = {
     "not_yet_supported": 2,
     "not_available_for_this_run": 3,
     "delivered": 4,
+}
+
+_RUNTIME_STATUS_ORDER = {
+    "ready": 0,
+    "running": 1,
+    "completed": 2,
+    "blocked": 3,
+    "failed": 4,
 }
 
 
@@ -150,6 +162,26 @@ def _prefer_ranked_status(
     existing_rank = rank_order.get(existing, -1)
     new_rank = rank_order.get(new, -1)
     return existing if existing_rank >= new_rank else new
+
+
+def _should_preserve_runtime_detail(
+    *,
+    existing_status: object,
+    incoming_status: object,
+    existing_value: object,
+) -> bool:
+    if existing_value in (None, ""):
+        return False
+    if not isinstance(existing_status, str):
+        return False
+    if not isinstance(incoming_status, str):
+        return False
+    preferred = _prefer_ranked_status(
+        existing_status,
+        incoming_status,
+        _RUNTIME_STATUS_ORDER,
+    )
+    return preferred == existing_status
 
 
 def _merge_keyed_dict_list(
@@ -250,6 +282,20 @@ def merge_submarine_runtime(
                 status_key="delivery_status",
                 status_order=_OUTPUT_DELIVERY_STATUS_ORDER,
             )
+        elif key == "runtime_status":
+            merged[key] = _prefer_ranked_status(
+                merged.get(key),
+                value,
+                _RUNTIME_STATUS_ORDER,
+            )
+        elif key in {"runtime_summary", "recovery_guidance", "blocker_detail"}:
+            if _should_preserve_runtime_detail(
+                existing_status=merged.get("runtime_status"),
+                incoming_status=new.get("runtime_status"),
+                existing_value=merged.get(key),
+            ):
+                continue
+            merged[key] = value
         elif key == "simulation_requirements" and isinstance(value, dict):
             prior_value = merged.get(key)
             merged[key] = {

@@ -62,6 +62,17 @@ def submarine_result_report_tool(
         return Command(update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id)]})
 
     scientific_followup_summary = payload.get("scientific_followup_summary") or {}
+    scientific_gate = payload.get("scientific_supervisor_gate") or {}
+    runtime_blocker_detail = None
+    blocking_reasons = scientific_gate.get("blocking_reasons") or []
+    if isinstance(blocking_reasons, list):
+        normalized_reasons = [
+            reason.strip()
+            for reason in blocking_reasons
+            if isinstance(reason, str) and reason.strip()
+        ]
+        if normalized_reasons:
+            runtime_blocker_detail = "；".join(normalized_reasons)
     execution_updates = {
         "claude-code-supervisor": "completed",
         "task-intelligence": "completed",
@@ -89,6 +100,8 @@ def submarine_result_report_tool(
         requested_outputs=payload.get("requested_outputs", snapshot.requested_outputs),
         output_delivery_plan=payload.get("output_delivery_plan"),
         stage_status=snapshot.stage_status,
+        runtime_summary=payload["summary_zh"],
+        blocker_detail=runtime_blocker_detail,
         workspace_case_dir_virtual_path=snapshot.workspace_case_dir_virtual_path,
         run_script_virtual_path=snapshot.run_script_virtual_path,
         request_virtual_path=snapshot.request_virtual_path,
@@ -108,10 +121,10 @@ def submarine_result_report_tool(
             stage_updates=execution_updates,
         ),
         review_status=payload["review_status"],
-        scientific_gate_status=payload.get("scientific_supervisor_gate", {}).get(
+        scientific_gate_status=scientific_gate.get(
             "gate_status"
         ),
-        allowed_claim_level=payload.get("scientific_supervisor_gate", {}).get(
+        allowed_claim_level=scientific_gate.get(
             "allowed_claim_level"
         ),
         scientific_gate_virtual_path=payload.get("scientific_gate_virtual_path"),
