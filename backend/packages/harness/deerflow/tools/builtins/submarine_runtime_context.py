@@ -261,9 +261,25 @@ def resolve_bound_geometry_virtual_path(
     5. latest STL under the thread uploads directory
     """
 
+    explicit_candidate = (
+        explicit_geometry_path.strip()
+        if isinstance(explicit_geometry_path, str)
+        else None
+    )
+    if explicit_candidate:
+        resolved_explicit = _resolve_geometry_candidate_path(
+            candidate=explicit_candidate,
+            thread_id=thread_id,
+            uploads_dir=uploads_dir,
+        )
+        if resolved_explicit is not None:
+            return _to_virtual_thread_path(uploads_dir, resolved_explicit)
+        explicit_suffix = Path(explicit_candidate).suffix.lower()
+        if explicit_suffix and explicit_suffix not in SUPPORTED_GEOMETRY_SUFFIXES:
+            return explicit_candidate
+
     candidate_values: list[str] = []
     for value in (
-        explicit_geometry_path,
         (existing_runtime or {}).get("geometry_virtual_path"),
         (existing_brief or {}).get("geometry_virtual_path"),
     ):

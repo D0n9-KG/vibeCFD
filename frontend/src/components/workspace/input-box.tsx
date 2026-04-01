@@ -84,6 +84,7 @@ import {
   getResolvedMode,
   type InputMode,
 } from "./input-box.chrome";
+import { resolvePromptInputSubmission } from "./input-box.submit";
 import { useThread } from "./messages/context";
 import { ModeHoverGuide } from "./mode-hover-guide";
 import { Tooltip } from "./tooltip";
@@ -134,7 +135,7 @@ export function InputBox({
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const { models } = useModels();
   const { thread, isMock } = useThread();
-  const { textInput } = usePromptInputController();
+  const { attachments, textInput } = usePromptInputController();
   const promptRootRef = useRef<HTMLDivElement | null>(null);
 
   const [followups, setFollowups] = useState<string[]>([]);
@@ -257,19 +258,24 @@ export function InputBox({
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
+      const resolvedMessage = resolvePromptInputSubmission({
+        message,
+        attachments: attachments.files,
+      });
+
       if (status === "streaming") {
         onStop?.();
         return;
       }
-      if (!message.text) {
+      if (!resolvedMessage.text) {
         return;
       }
       setFollowups([]);
       setFollowupsHidden(false);
       setFollowupsLoading(false);
-      await onSubmit?.(message);
+      await onSubmit?.(resolvedMessage);
     },
-    [onSubmit, onStop, status],
+    [attachments.files, onSubmit, onStop, status],
   );
 
   const requestFormSubmit = useCallback(() => {

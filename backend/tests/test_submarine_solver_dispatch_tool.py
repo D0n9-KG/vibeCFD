@@ -500,6 +500,61 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["activity_timeline"][-1]["actor"] == "solver-dispatch"
 
 
+def test_submarine_solver_dispatch_recovers_geometry_from_uploaded_files_without_explicit_path(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-uploaded-files-dispatch"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "uploaded-files-dispatch.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["uploaded_files"] = [
+        {
+            "filename": "uploaded-files-dispatch.stl",
+            "path": "/mnt/user-data/uploads/uploaded-files-dispatch.stl",
+        }
+    ]
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=runtime,
+        geometry_path=None,
+        task_description="继续推进当前线程里已经上传好的阻力基线案例。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=False,
+        tool_call_id="tc-dispatch-uploaded-files",
+    )
+
+    request_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "uploaded-files-dispatch"
+        / "openfoam-request.json"
+    )
+    handoff_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "uploaded-files-dispatch"
+        / "supervisor-handoff.json"
+    )
+    handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
+    runtime_state = result.update["submarine_runtime"]
+
+    assert request_path.exists()
+    assert handoff["uploaded_geometry_path"] == "/mnt/user-data/uploads/uploaded-files-dispatch.stl"
+    assert runtime_state["geometry_virtual_path"] == "/mnt/user-data/uploads/uploaded-files-dispatch.stl"
+
+
 def test_submarine_solver_dispatch_writes_openfoam_case_scaffold(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-1"

@@ -286,6 +286,54 @@ def test_submarine_design_brief_assigns_default_postprocess_specs(tmp_path, monk
     assert runtime_state["requested_outputs"] == requested_outputs
 
 
+def test_submarine_design_brief_recovers_geometry_from_uploaded_files_state(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-uploaded-files-brief"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "uploaded-files-brief.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["uploaded_files"] = [
+        {
+            "filename": "uploaded-files-brief.stl",
+            "path": "/mnt/user-data/uploads/uploaded-files-brief.stl",
+        }
+    ]
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=runtime,
+        geometry_path=None,
+        task_description="请根据当前线程里已上传的 STL 生成第一版阻力 CFD brief。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        confirmation_status="draft",
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        tool_call_id="tc-design-brief-uploaded-files",
+    )
+
+    json_path = (
+        outputs_dir
+        / "submarine"
+        / "design-brief"
+        / "uploaded-files-brief"
+        / "cfd-design-brief.json"
+    )
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    runtime_state = result.update["submarine_runtime"]
+
+    assert payload["geometry_virtual_path"] == "/mnt/user-data/uploads/uploaded-files-brief.stl"
+    assert runtime_state["geometry_virtual_path"] == "/mnt/user-data/uploads/uploaded-files-brief.stl"
+
+
 def test_submarine_design_brief_includes_scientific_verification_requirements(
     tmp_path, monkeypatch
 ):
