@@ -15,6 +15,7 @@ from .contracts import SubmarineRequestedOutput, build_supervisor_review_contrac
 from .experiments import (
     build_experiment_id,
     build_experiment_run_id,
+    build_experiment_workflow_status,
     build_metric_snapshot,
     build_run_compare_summary,
     build_run_record,
@@ -52,6 +53,7 @@ from .studies import (
     build_completed_scientific_study_results,
     build_pending_scientific_study_results,
     build_scientific_study_manifest,
+    build_scientific_study_manifest_with_variant_updates,
     build_scientific_study_plan_payload,
     build_scientific_study_variant_execution,
 )
@@ -89,6 +91,38 @@ def _study_variant_virtual_path(
 
 def _study_case_relative_dir(study_type: str, variant_id: str) -> str:
     return f"studies/{_study_slug(study_type)}/{variant_id}"
+
+
+def _study_variant_run_record_virtual_path(
+    run_dir_name: str,
+    study_type: str,
+    variant_id: str,
+) -> str:
+    return _study_variant_virtual_path(
+        run_dir_name,
+        study_type,
+        variant_id,
+        "run-record.json",
+    )
+
+
+def _merge_unique_paths(*groups: list[str]) -> list[str]:
+    merged: list[str] = []
+    for group in groups:
+        for path in group:
+            if path and path not in merged:
+                merged.append(path)
+    return merged
+
+
+def _ensure_study_variant_update(
+    updates: dict[str, dict[str, dict[str, object]]],
+    *,
+    study_type: str,
+    variant_id: str,
+) -> dict[str, object]:
+    study_updates = updates.setdefault(study_type, {})
+    return study_updates.setdefault(variant_id, {})
 
 
 def _select_case(candidate_cases: list[SubmarineCaseMatch], selected_case_id: str | None) -> SubmarineCaseMatch | None:
@@ -364,6 +398,8 @@ def run_solver_dispatch(
     run_compare_summary: dict | None = None
     baseline_run_record_model = None
     candidate_run_record_models: list = []
+    study_variant_updates: dict[str, dict[str, dict[str, object]]] = {}
+    study_verification_artifact_paths: list[str] = []
     baseline_run_record_virtual_path = _artifact_virtual_path(
         run_dir_name,
         "run-record.json",
@@ -389,18 +425,72 @@ def run_solver_dispatch(
         )
         planned_study_artifact_paths.extend(
             [
-                _study_variant_virtual_path(
-                    run_dir_name,
-                    definition.study_type,
-                    variant.variant_id,
-                    "solver-results.json",
-                )
+                path
                 for definition in scientific_study_manifest_model.study_definitions
                 for variant in definition.variants
+                for path in (
+                    _study_variant_virtual_path(
+                        run_dir_name,
+                        definition.study_type,
+                        variant.variant_id,
+                        "solver-results.json",
+                    ),
+                    *(
+                        [
+                            _study_variant_run_record_virtual_path(
+                                run_dir_name,
+                                definition.study_type,
+                                variant.variant_id,
+                            )
+                        ]
+                        if variant.variant_id != "baseline"
+                        else []
+                    ),
+                )
             ]
         )
-        scientific_study_manifest_model = scientific_study_manifest_model.model_copy(
-            update={"artifact_virtual_paths": planned_study_artifact_paths}
+        for definition in scientific_study_manifest_model.study_definitions:
+            for variant in definition.variants:
+                expected_run_id = build_experiment_run_id(
+                    study_type=definition.study_type,
+                    variant_id=variant.variant_id,
+                )
+                variant_update = _ensure_study_variant_update(
+                    study_variant_updates,
+                    study_type=definition.study_type,
+                    variant_id=variant.variant_id,
+                )
+                variant_update.update(
+                    {
+                        "expected_run_id": expected_run_id,
+                        "solver_results_virtual_path": _study_variant_virtual_path(
+                            run_dir_name,
+                            definition.study_type,
+                            variant.variant_id,
+                            "solver-results.json",
+                        ),
+                        "baseline_solver_results_virtual_path": _solver_results_virtual_path(
+                            run_dir_name,
+                            "solver-results.json",
+                        ),
+                        "execution_status": "planned",
+                        "compare_status": (
+                            None if variant.variant_id == "baseline" else "planned"
+                        ),
+                    }
+                )
+                if variant.variant_id != "baseline":
+                    variant_update["run_record_virtual_path"] = (
+                        _study_variant_run_record_virtual_path(
+                            run_dir_name,
+                            definition.study_type,
+                            variant.variant_id,
+                        )
+                    )
+        scientific_study_manifest_model = build_scientific_study_manifest_with_variant_updates(
+            manifest=scientific_study_manifest_model,
+            variant_updates=study_variant_updates,
+            artifact_virtual_paths=planned_study_artifact_paths,
         )
         scientific_study_plan = build_scientific_study_plan_payload(
             scientific_study_manifest_model
@@ -574,11 +664,7 @@ def run_solver_dispatch(
     if scientific_study_manifest_model is not None:
         study_results = []
         if solver_results is not None:
-            verification_artifact_paths: list[str] = []
             if execute_scientific_studies and execute_command is not None and workspace_dir is not None:
-                study_execution_status = "in_progress"
-                variant_execution_blocked = False
-
                 for definition in scientific_study_manifest_model.study_definitions:
                     study_variant_results = scientific_variant_results.setdefault(
                         definition.study_type,
@@ -606,11 +692,26 @@ def run_solver_dispatch(
                             variant.variant_id,
                             "solver-results.json",
                         )
-                        variant_run_record_virtual_path = _study_variant_virtual_path(
-                            run_dir_name,
-                            definition.study_type,
-                            variant.variant_id,
-                            "run-record.json",
+                        variant_run_record_virtual_path = (
+                            _study_variant_run_record_virtual_path(
+                                run_dir_name,
+                                definition.study_type,
+                                variant.variant_id,
+                            )
+                        )
+                        variant_update = _ensure_study_variant_update(
+                            study_variant_updates,
+                            study_type=definition.study_type,
+                            variant_id=variant.variant_id,
+                        )
+                        variant_update.update(
+                            {
+                                "solver_results_virtual_path": variant_virtual_path,
+                                "baseline_solver_results_virtual_path": _solver_results_virtual_path(
+                                    run_dir_name,
+                                    "solver-results.json",
+                                ),
+                            }
                         )
 
                         if variant.variant_id == "baseline":
@@ -636,6 +737,12 @@ def run_solver_dispatch(
                                 encoding="utf-8",
                             )
                             scientific_study_artifacts.append(variant_virtual_path)
+                            variant_update.update(
+                                {
+                                    "execution_status": "completed",
+                                    "compare_status": None,
+                                }
+                            )
                             continue
 
                         case_relative_dir = _study_case_relative_dir(
@@ -709,16 +816,18 @@ def run_solver_dispatch(
                             "run_script_virtual_path": variant_scaffold.get(
                                 "run_script_virtual_path"
                             ),
+                            "baseline_solver_results_virtual_path": _solver_results_virtual_path(
+                                run_dir_name,
+                                "solver-results.json",
+                            ),
                         }
                         if variant_solver_results is not None:
                             variant_payload.update(variant_solver_results)
                         if variant_failed:
-                            variant_execution_blocked = True
                             variant_payload["execution_status"] = "blocked"
-                            study_variant_results[variant.variant_id] = None
                         else:
                             variant_payload["execution_status"] = "completed"
-                            study_variant_results[variant.variant_id] = variant_payload
+                        study_variant_results[variant.variant_id] = variant_payload
 
                         variant_output_path.write_text(
                             json.dumps(variant_payload, ensure_ascii=False, indent=2),
@@ -751,22 +860,29 @@ def run_solver_dispatch(
                         candidate_run_record_models.append(variant_run_record_model)
                         scientific_study_artifacts.append(variant_virtual_path)
                         experiment_artifacts.append(variant_run_record_virtual_path)
+                        variant_update.update(
+                            {
+                                "run_record_virtual_path": variant_run_record_virtual_path,
+                                "execution_status": str(variant_payload["execution_status"]),
+                                "compare_status": "planned",
+                            }
+                        )
 
                 study_results = build_completed_scientific_study_results(
                     manifest=scientific_study_manifest_model,
                     baseline_solver_results=solver_results,
                     variant_results=scientific_variant_results,
                 )
-                study_execution_status = (
-                    "blocked" if variant_execution_blocked else "completed"
-                )
             else:
                 study_results = build_pending_scientific_study_results(
                     manifest=scientific_study_manifest_model,
                     baseline_solver_results=solver_results,
                 )
-                study_execution_status = scientific_study_manifest_model.study_execution_status
                 for definition in scientific_study_manifest_model.study_definitions:
+                    study_variant_results = scientific_variant_results.setdefault(
+                        definition.study_type,
+                        {},
+                    )
                     for variant in definition.variants:
                         variant_output_path = _platform_fs_path(
                             artifact_dir
@@ -782,25 +898,122 @@ def run_solver_dispatch(
                             variant.variant_id,
                             "solver-results.json",
                         )
+                        variant_run_record_virtual_path = (
+                            _study_variant_run_record_virtual_path(
+                                run_dir_name,
+                                definition.study_type,
+                                variant.variant_id,
+                            )
+                        )
+                        variant_update = _ensure_study_variant_update(
+                            study_variant_updates,
+                            study_type=definition.study_type,
+                            variant_id=variant.variant_id,
+                        )
+                        variant_update.update(
+                            {
+                                "solver_results_virtual_path": variant_virtual_path,
+                                "baseline_solver_results_virtual_path": _solver_results_virtual_path(
+                                    run_dir_name,
+                                    "solver-results.json",
+                                ),
+                            }
+                        )
+
+                        if variant.variant_id == "baseline":
+                            baseline_variant_payload = {
+                                **solver_results,
+                                "study_type": definition.study_type,
+                                "variant_id": variant.variant_id,
+                                "variant_label": variant.variant_label,
+                                "execution_status": "completed",
+                                "parameter_overrides": variant.parameter_overrides,
+                                "baseline_solver_results_virtual_path": _solver_results_virtual_path(
+                                    run_dir_name,
+                                    "solver-results.json",
+                                ),
+                            }
+                            study_variant_results[variant.variant_id] = baseline_variant_payload
+                            variant_output_path.write_text(
+                                json.dumps(
+                                    baseline_variant_payload,
+                                    ensure_ascii=False,
+                                    indent=2,
+                                ),
+                                encoding="utf-8",
+                            )
+                            scientific_study_artifacts.append(variant_virtual_path)
+                            variant_update.update(
+                                {
+                                    "execution_status": "completed",
+                                    "compare_status": None,
+                                }
+                            )
+                            continue
+
+                        planned_variant_payload = {
+                            "study_type": definition.study_type,
+                            "variant_id": variant.variant_id,
+                            "variant_label": variant.variant_label,
+                            "execution_status": "planned",
+                            "parameter_overrides": variant.parameter_overrides,
+                            "expected_run_id": build_experiment_run_id(
+                                study_type=definition.study_type,
+                                variant_id=variant.variant_id,
+                            ),
+                            "run_record_virtual_path": variant_run_record_virtual_path,
+                            "baseline_solver_results_virtual_path": _solver_results_virtual_path(
+                                run_dir_name,
+                                "solver-results.json",
+                            ),
+                        }
                         variant_output_path.write_text(
                             json.dumps(
-                                {
-                                    "study_type": definition.study_type,
-                                    "variant_id": variant.variant_id,
-                                    "variant_label": variant.variant_label,
-                                    "execution_status": "pending_variant_execution",
-                                    "parameter_overrides": variant.parameter_overrides,
-                                    "baseline_solver_results_virtual_path": _solver_results_virtual_path(
-                                        run_dir_name,
-                                        "solver-results.json",
-                                    ),
-                                },
+                                planned_variant_payload,
                                 ensure_ascii=False,
                                 indent=2,
                             ),
                             encoding="utf-8",
                         )
+                        planned_run_record_model = build_run_record(
+                            experiment_id=experiment_id,
+                            run_id=build_experiment_run_id(
+                                study_type=definition.study_type,
+                                variant_id=variant.variant_id,
+                            ),
+                            run_role="scientific_study_variant",
+                            study_type=definition.study_type,
+                            variant_id=variant.variant_id,
+                            solver_results_virtual_path=variant_virtual_path,
+                            run_record_virtual_path=variant_run_record_virtual_path,
+                            execution_status="planned",
+                            metric_snapshot={},
+                        )
+                        variant_run_record_path = _platform_fs_path(
+                            artifact_dir
+                            / "studies"
+                            / _study_slug(definition.study_type)
+                            / variant.variant_id
+                            / "run-record.json"
+                        )
+                        variant_run_record_path.write_text(
+                            json.dumps(
+                                planned_run_record_model.model_dump(mode="json"),
+                                ensure_ascii=False,
+                                indent=2,
+                            ),
+                            encoding="utf-8",
+                        )
+                        candidate_run_record_models.append(planned_run_record_model)
                         scientific_study_artifacts.append(variant_virtual_path)
+                        experiment_artifacts.append(variant_run_record_virtual_path)
+                        variant_update.update(
+                            {
+                                "run_record_virtual_path": variant_run_record_virtual_path,
+                                "execution_status": "planned",
+                                "compare_status": "planned",
+                            }
+                        )
 
             for result in study_results:
                 filename = f"verification-{_study_slug(result.study_type)}.json"
@@ -810,27 +1023,16 @@ def run_solver_dispatch(
                     json.dumps(result.model_dump(mode="json"), ensure_ascii=False, indent=2),
                     encoding="utf-8",
                 )
-                verification_artifact_paths.append(verification_virtual_path)
+                study_verification_artifact_paths.append(verification_virtual_path)
                 scientific_study_artifacts.append(verification_virtual_path)
-
-            scientific_study_manifest_model = scientific_study_manifest_model.model_copy(
-                update={
-                    "artifact_virtual_paths": [
-                        *planned_study_artifact_paths,
-                        *verification_artifact_paths,
-                    ],
-                    "study_execution_status": study_execution_status,
-                }
-            )
-            scientific_study_manifest = scientific_study_manifest_model.model_dump(mode="json")
-            scientific_study_plan = build_scientific_study_plan_payload(
-                scientific_study_manifest_model
-            )
 
     if baseline_run_record_model is not None:
         all_run_records = [
             baseline_run_record_model,
             *candidate_run_record_models,
+        ]
+        all_run_record_payloads = [
+            item.model_dump(mode="json") for item in all_run_records
         ]
         run_compare_summary_model = build_run_compare_summary(
             experiment_id=experiment_id,
@@ -871,11 +1073,33 @@ def run_solver_dispatch(
                     for item in candidate_run_record_models
                 ],
             ],
-            experiment_status=(
-                "blocked"
-                if any(item.execution_status == "blocked" for item in all_run_records)
-                else "completed"
+            experiment_status=build_experiment_workflow_status(
+                run_records=all_run_record_payloads,
+                compare_statuses=[
+                    comparison.compare_status
+                    for comparison in run_compare_summary_model.comparisons
+                ],
             ),
+            workflow_status=build_experiment_workflow_status(
+                run_records=all_run_record_payloads,
+                compare_statuses=[
+                    comparison.compare_status
+                    for comparison in run_compare_summary_model.comparisons
+                ],
+            ),
+            run_status_counts={
+                status: len(
+                    [
+                        item
+                        for item in candidate_run_record_models
+                        if item.execution_status == status
+                    ]
+                )
+                for status in {
+                    item.execution_status for item in candidate_run_record_models
+                }
+            },
+            compare_status_counts=run_compare_summary_model.compare_status_counts,
         )
         experiment_manifest_path.write_text(
             json.dumps(
@@ -887,6 +1111,51 @@ def run_solver_dispatch(
         )
         experiment_manifest = experiment_manifest_model.model_dump(mode="json")
         run_compare_summary = run_compare_summary_model.model_dump(mode="json")
+        experiment_artifacts = _merge_unique_paths(
+            experiment_artifacts,
+            [
+                baseline_run_record_virtual_path,
+                run_compare_summary_virtual_path,
+                experiment_manifest_virtual_path,
+            ],
+        )
+
+        if scientific_study_manifest_model is not None:
+            compare_status_by_run_id = {
+                comparison.candidate_run_id: comparison.compare_status
+                for comparison in run_compare_summary_model.comparisons
+            }
+            for definition in scientific_study_manifest_model.study_definitions:
+                for variant in definition.variants:
+                    if variant.variant_id == "baseline":
+                        continue
+                    expected_run_id = build_experiment_run_id(
+                        study_type=definition.study_type,
+                        variant_id=variant.variant_id,
+                    )
+                    variant_update = _ensure_study_variant_update(
+                        study_variant_updates,
+                        study_type=definition.study_type,
+                        variant_id=variant.variant_id,
+                    )
+                    variant_update["compare_status"] = compare_status_by_run_id.get(
+                        expected_run_id,
+                        variant_update.get("compare_status") or "planned",
+                    )
+
+    if scientific_study_manifest_model is not None:
+        scientific_study_manifest_model = build_scientific_study_manifest_with_variant_updates(
+            manifest=scientific_study_manifest_model,
+            variant_updates=study_variant_updates,
+            artifact_virtual_paths=_merge_unique_paths(
+                planned_study_artifact_paths,
+                study_verification_artifact_paths,
+            ),
+        )
+        scientific_study_manifest = scientific_study_manifest_model.model_dump(mode="json")
+        scientific_study_plan = build_scientific_study_plan_payload(
+            scientific_study_manifest_model
+        )
 
     artifacts = build_canonical_solver_dispatch_artifact_bundle(
         run_dir_name=run_dir_name,

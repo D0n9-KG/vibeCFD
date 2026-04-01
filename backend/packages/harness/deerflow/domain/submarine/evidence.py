@@ -126,8 +126,18 @@ def build_provenance_status(
     experiment_linkage_status = str(
         experiment.get("linkage_status") or "consistent"
     ).strip()
+    experiment_workflow_status = str(
+        experiment.get("workflow_status")
+        or experiment.get("experiment_status")
+        or "planned"
+    ).strip()
     experiment_linkage_issues = _as_string_list(experiment.get("linkage_issues"))
     has_study_manifest = bool(studies.get("manifest_virtual_path"))
+    study_workflow_status = str(
+        studies.get("workflow_status")
+        or studies.get("study_execution_status")
+        or "planned"
+    ).strip()
     delivered_outputs = [
         item
         for item in delivery_items
@@ -153,6 +163,10 @@ def build_provenance_status(
         )
     if has_study_manifest:
         highlights.append("Scientific study manifest is available.")
+    if experiment_workflow_status == "completed":
+        highlights.append("Experiment compare workflow is complete.")
+    if study_workflow_status == "completed":
+        highlights.append("Scientific study workflow is complete.")
     if delivered_artifact_paths:
         highlights.append("Requested output artifacts were exported for this run.")
     has_core_evidence_artifacts = any(
@@ -170,7 +184,9 @@ def build_provenance_status(
         and has_experiment_manifest
         and has_experiment_compare
         and experiment_linkage_status == "consistent"
+        and experiment_workflow_status == "completed"
         and has_study_manifest
+        and study_workflow_status == "completed"
         and (bool(delivered_artifact_paths) or has_core_evidence_artifacts)
     )
     if traceable:
@@ -186,6 +202,14 @@ def build_provenance_status(
             )
         if not has_study_manifest:
             gaps.append("Scientific study manifest is missing from the evidence trail.")
+        elif study_workflow_status != "completed":
+            gaps.append(
+                f"Scientific study workflow is still {study_workflow_status}."
+            )
+        if has_experiment_manifest and experiment_workflow_status != "completed":
+            gaps.append(
+                f"Experiment compare workflow is still {experiment_workflow_status}."
+            )
         if not delivered_artifact_paths and not has_core_evidence_artifacts:
             gaps.append(
                 "Requested outputs or core scientific evidence artifacts are not yet linked."

@@ -344,11 +344,36 @@ export type SubmarineScientificFollowupSummaryPayload = {
 export type SubmarineExperimentSummaryPayload = {
   experiment_id?: string | null;
   experiment_status?: string | null;
+  workflow_status?: string | null;
+  workflow_detail?: string | null;
   baseline_run_id?: string | null;
   run_count?: number | null;
+  compare_count?: number | null;
+  study_manifest_virtual_path?: string | null;
   manifest_virtual_path?: string | null;
   compare_virtual_path?: string | null;
+  artifact_virtual_paths?: string[] | null;
   compare_notes?: string[] | null;
+  linkage_status?: string | null;
+  linkage_issue_count?: number | null;
+  linkage_issues?: string[] | null;
+  expected_variant_run_ids?: string[] | null;
+  recorded_variant_run_ids?: string[] | null;
+  compared_variant_run_ids?: string[] | null;
+  additional_variant_run_ids?: string[] | null;
+  missing_variant_run_record_ids?: string[] | null;
+  missing_compare_entry_ids?: string[] | null;
+  orphan_compare_entry_ids?: string[] | null;
+  run_status_counts?: Record<string, number> | null;
+  compare_status_counts?: Record<string, number> | null;
+  planned_variant_run_ids?: string[] | null;
+  in_progress_variant_run_ids?: string[] | null;
+  completed_variant_run_ids?: string[] | null;
+  blocked_variant_run_ids?: string[] | null;
+  planned_compare_variant_run_ids?: string[] | null;
+  completed_compare_variant_run_ids?: string[] | null;
+  blocked_compare_variant_run_ids?: string[] | null;
+  missing_metrics_variant_run_ids?: string[] | null;
 };
 
 export type SubmarineExperimentCompareEntryPayload = {
@@ -356,6 +381,7 @@ export type SubmarineExperimentCompareEntryPayload = {
   study_type?: string | null;
   variant_id?: string | null;
   compare_status?: string | null;
+  candidate_execution_status?: string | null;
   notes?: string | null;
   metric_deltas?: Record<string, unknown> | null;
   baseline_solver_results_virtual_path?: string | null;
@@ -369,6 +395,12 @@ export type SubmarineExperimentCompareSummaryPayload = {
   baseline_run_id?: string | null;
   compare_count?: number | null;
   compare_virtual_path?: string | null;
+  workflow_status?: string | null;
+  compare_status_counts?: Record<string, number> | null;
+  planned_candidate_run_ids?: string[] | null;
+  completed_candidate_run_ids?: string[] | null;
+  blocked_candidate_run_ids?: string[] | null;
+  missing_metrics_candidate_run_ids?: string[] | null;
   artifact_virtual_paths?: string[] | null;
   comparisons?: SubmarineExperimentCompareEntryPayload[] | null;
 };
@@ -397,12 +429,28 @@ export type SubmarineScientificStudyEntryPayload = {
   summary_label?: string | null;
   monitored_quantity?: string | null;
   variant_count?: number | null;
+  study_execution_status?: string | null;
+  workflow_status?: string | null;
+  workflow_detail?: string | null;
+  variant_status_counts?: Record<string, number> | null;
+  compare_status_counts?: Record<string, number> | null;
+  expected_variant_run_ids?: string[] | null;
+  planned_variant_run_ids?: string[] | null;
+  in_progress_variant_run_ids?: string[] | null;
+  completed_variant_run_ids?: string[] | null;
+  blocked_variant_run_ids?: string[] | null;
+  planned_compare_variant_run_ids?: string[] | null;
+  completed_compare_variant_run_ids?: string[] | null;
+  blocked_compare_variant_run_ids?: string[] | null;
+  missing_metrics_variant_run_ids?: string[] | null;
   verification_status?: string | null;
   verification_detail?: string | null;
 };
 
 export type SubmarineScientificStudySummaryPayload = {
   study_execution_status?: string | null;
+  workflow_status?: string | null;
+  study_status_counts?: Record<string, number> | null;
   manifest_virtual_path?: string | null;
   artifact_virtual_paths?: string[] | null;
   studies?: SubmarineScientificStudyEntryPayload[] | null;

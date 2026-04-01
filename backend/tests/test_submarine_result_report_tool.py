@@ -388,13 +388,16 @@ def test_submarine_result_report_updates_scientific_capability_plan_statuses(
                 "scientific_gate_virtual_path": "/mnt/user-data/outputs/submarine/reports/capability-report/supervisor-scientific-gate.json",
                 "scientific_study_summary": {
                     "study_execution_status": "completed",
+                    "workflow_status": "completed",
                 },
                 "experiment_summary": {
                     "experiment_status": "completed",
+                    "workflow_status": "completed",
                     "run_count": 4,
                 },
                 "experiment_compare_summary": {
                     "compare_count": 3,
+                    "workflow_status": "completed",
                 },
                 "scientific_verification_assessment": {
                     "status": "needs_more_verification",

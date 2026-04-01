@@ -49,7 +49,7 @@ def _map_scientific_study_status(value: object | None) -> ExecutionPlanStatus:
         return "completed"
     if value == "blocked":
         return "blocked"
-    if value == "in_progress":
+    if value in {"in_progress", "partial"}:
         return "in_progress"
     if value == "planned":
         return "ready"
@@ -59,13 +59,20 @@ def _map_scientific_study_status(value: object | None) -> ExecutionPlanStatus:
 def _build_experiment_compare_status(
     *,
     experiment_status: object | None,
+    compare_workflow_status: object | None = None,
     compare_count: object | None,
 ) -> ExecutionPlanStatus:
-    if experiment_status == "blocked":
+    if experiment_status == "blocked" or compare_workflow_status == "blocked":
         return "blocked"
-    if _as_int(compare_count) and _as_int(compare_count) > 0:
+    if compare_workflow_status == "completed":
         return "completed"
-    if experiment_status == "completed":
+    if compare_workflow_status == "partial":
+        return "in_progress"
+    if compare_workflow_status == "planned":
+        return "ready"
+    if _as_int(compare_count) and _as_int(compare_count) > 0:
+        return "in_progress"
+    if experiment_status in {"partial", "completed"}:
         return "ready"
     return "pending"
 
@@ -331,10 +338,13 @@ def build_scientific_capability_updates_for_dispatch(
 
     return {
         "scientific-study": _map_scientific_study_status(
-            study_manifest.get("study_execution_status")
+            study_manifest.get("workflow_status")
+            or study_manifest.get("study_execution_status")
         ),
         "experiment-compare": _build_experiment_compare_status(
             experiment_status=experiment_manifest.get("experiment_status"),
+            compare_workflow_status=run_compare_summary.get("workflow_status")
+            or experiment_manifest.get("workflow_status"),
             compare_count=len(run_compare_summary.get("comparisons") or []),
         ),
         "scientific-verification": _build_scientific_verification_status(
@@ -361,10 +371,13 @@ def build_scientific_capability_updates_for_report(
 
     return {
         "scientific-study": _map_scientific_study_status(
-            study_summary.get("study_execution_status")
+            study_summary.get("workflow_status")
+            or study_summary.get("study_execution_status")
         ),
         "experiment-compare": _build_experiment_compare_status(
             experiment_status=experiment_summary.get("experiment_status"),
+            compare_workflow_status=experiment_compare_summary.get("workflow_status")
+            or experiment_summary.get("workflow_status"),
             compare_count=experiment_compare_summary.get("compare_count"),
         ),
         "scientific-verification": _build_scientific_verification_status(

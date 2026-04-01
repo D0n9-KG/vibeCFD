@@ -850,10 +850,14 @@ export function SubmarineRuntimePanel({
                 ) : null}
                 {experimentSummary ? (
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                       <KeyValue
                         label="Experiment Registry"
                         value={experimentSummary.experimentStatusLabel}
+                      />
+                      <KeyValue
+                        label="Workflow"
+                        value={experimentSummary.workflowStatusLabel}
                       />
                       <KeyValue
                         label="Experiment ID"
@@ -867,22 +871,76 @@ export function SubmarineRuntimePanel({
                         label="Run Count"
                         value={`${experimentSummary.runCount}`}
                       />
+                      <KeyValue
+                        label="Compare Count"
+                        value={`${experimentSummary.compareCount}`}
+                      />
                     </div>
-                    <div className="grid gap-4 xl:grid-cols-2">
+                    <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
                         title="Experiment Artifacts"
                         items={[
                           experimentSummary.manifestPath,
+                          ...(experimentSummary.studyManifestPath !== "--"
+                            ? [experimentSummary.studyManifestPath]
+                            : []),
                           ...(experimentSummary.comparePath !== "--"
                             ? [experimentSummary.comparePath]
                             : []),
+                          ...experimentSummary.artifactPaths,
                         ]}
                         emptyText="No experiment registry artifacts are recorded yet."
                       />
                       <LabeledList
+                        title="Workflow Detail"
+                        items={[
+                          experimentSummary.workflowDetail,
+                          ...experimentSummary.runStatusCountLines,
+                          ...experimentSummary.compareStatusCountLines,
+                        ]}
+                        emptyText="No experiment workflow detail is recorded yet."
+                      />
+                      <LabeledList
+                        title="Linkage Coverage"
+                        items={[
+                          `status | ${experimentSummary.linkageStatus}`,
+                          `issues | ${experimentSummary.linkageIssueCount}`,
+                          ...experimentSummary.linkageIssues,
+                          ...experimentSummary.missingVariantRunRecordIds.map(
+                            (item) => `missing run-record | ${item}`,
+                          ),
+                          ...experimentSummary.missingCompareEntryIds.map(
+                            (item) => `missing compare-entry | ${item}`,
+                          ),
+                        ]}
+                        emptyText="No experiment linkage issues are recorded."
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      <LabeledList
                         title="Run Compare Notes"
                         items={experimentSummary.compareNotes}
                         emptyText="No run compare notes are recorded yet."
+                      />
+                      <LabeledList
+                        title="Expected Variant Runs"
+                        items={experimentSummary.expectedVariantRunIds}
+                        emptyText="No expected scientific-study variants are recorded."
+                      />
+                      <LabeledList
+                        title="Outstanding Variant Gaps"
+                        items={[
+                          ...experimentSummary.plannedVariantRunIds.map(
+                            (item) => `planned | ${item}`,
+                          ),
+                          ...experimentSummary.blockedVariantRunIds.map(
+                            (item) => `blocked | ${item}`,
+                          ),
+                          ...experimentSummary.missingMetricsVariantRunIds.map(
+                            (item) => `missing metrics | ${item}`,
+                          ),
+                        ]}
+                        emptyText="No outstanding experiment workflow gaps are recorded."
                       />
                     </div>
                   </div>
@@ -1088,10 +1146,14 @@ export function SubmarineRuntimePanel({
                 ) : null}
                 {experimentCompareSummary ? (
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <KeyValue
                         label="Experiment Compare"
                         value={`${experimentCompareSummary.compareCount}`}
+                      />
+                      <KeyValue
+                        label="Workflow"
+                        value={experimentCompareSummary.workflowStatusLabel}
                       />
                       <KeyValue
                         label="Experiment ID"
@@ -1106,17 +1168,36 @@ export function SubmarineRuntimePanel({
                         value={experimentCompareSummary.comparePath}
                       />
                     </div>
-                    <div className="grid gap-4 xl:grid-cols-2">
+                    <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
                         title="Compare Artifacts"
                         items={experimentCompareSummary.artifactPaths}
                         emptyText="No experiment compare artifacts are recorded yet."
                       />
                       <LabeledList
+                        title="Workflow Coverage"
+                        items={[
+                          ...experimentCompareSummary.compareStatusCountLines,
+                          ...experimentCompareSummary.plannedCandidateRunIds.map(
+                            (item) => `planned | ${item}`,
+                          ),
+                          ...experimentCompareSummary.completedCandidateRunIds.map(
+                            (item) => `completed | ${item}`,
+                          ),
+                          ...experimentCompareSummary.blockedCandidateRunIds.map(
+                            (item) => `blocked | ${item}`,
+                          ),
+                          ...experimentCompareSummary.missingMetricsCandidateRunIds.map(
+                            (item) => `missing metrics | ${item}`,
+                          ),
+                        ]}
+                        emptyText="No experiment compare workflow detail is recorded yet."
+                      />
+                      <LabeledList
                         title="Compared Runs"
                         items={experimentCompareSummary.comparisons.map(
                           (item) =>
-                            `${experimentCompareSummary.baselineRunId} -> ${item.candidateRunId} | ${item.compareStatusLabel} | ${item.studyLabel}`,
+                            `${experimentCompareSummary.baselineRunId} -> ${item.candidateRunId} | ${item.compareStatusLabel} | ${item.candidateExecutionStatusLabel} | ${item.studyLabel}`,
                         )}
                         emptyText="No experiment comparisons are recorded yet."
                       />
@@ -1145,7 +1226,10 @@ export function SubmarineRuntimePanel({
                               <KeyValue label="Study Type" value={item.studyType} />
                               <KeyValue label="Variant" value={item.variantId} />
                               <KeyValue label="Status" value={item.compareStatusLabel} />
-                              <KeyValue label="Notes" value={item.notes} />
+                              <KeyValue
+                                label="Candidate Execution"
+                                value={item.candidateExecutionStatusLabel}
+                              />
                             </div>
                             <div className="mt-3 grid gap-4 xl:grid-cols-2">
                               <LabeledList
@@ -1163,6 +1247,11 @@ export function SubmarineRuntimePanel({
                                 emptyText="No comparison artifacts are recorded."
                               />
                             </div>
+                            <LabeledList
+                              title="Comparison Notes"
+                              items={[item.notes]}
+                              emptyText="No comparison notes are recorded."
+                            />
                           </div>
                         ))}
                       </div>
@@ -1171,32 +1260,135 @@ export function SubmarineRuntimePanel({
                 ) : null}
                 {scientificStudySummary ? (
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
-                    <div className="grid gap-3 md:grid-cols-2">
-                    <KeyValue
-                      label="Scientific Studies"
-                      value={scientificStudySummary.executionStatusLabel}
-                    />
-                    <KeyValue
-                      label="Study Manifest"
-                      value={scientificStudySummary.manifestPath}
-                    />
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <KeyValue
+                        label="Scientific Studies"
+                        value={scientificStudySummary.executionStatusLabel}
+                      />
+                      <KeyValue
+                        label="Workflow"
+                        value={scientificStudySummary.workflowStatusLabel}
+                      />
+                      <KeyValue
+                        label="Study Count"
+                        value={`${scientificStudySummary.studies.length}`}
+                      />
+                      <KeyValue
+                        label="Study Manifest"
+                        value={scientificStudySummary.manifestPath}
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <LabeledList
+                        title="Workflow Overview"
+                        items={[
+                          ...scientificStudySummary.studyStatusCountLines,
+                          ...scientificStudySummary.studies.map(
+                            (item) =>
+                              `${item.summaryLabel} | ${item.workflowStatusLabel} | ${item.studyExecutionStatusLabel} | ${item.verificationStatus}`,
+                          ),
+                        ]}
+                        emptyText="No scientific study workflow detail is available yet."
+                      />
+                      <LabeledList
+                        title="Study Artifacts"
+                        items={scientificStudySummary.artifactPaths}
+                        emptyText="No scientific study artifacts are recorded yet."
+                      />
+                    </div>
+                    {scientificStudySummary.studies.length > 0 ? (
+                      <div className="space-y-3">
+                        {scientificStudySummary.studies.map((item) => (
+                          <div
+                            key={item.studyType}
+                            className="rounded-xl border bg-muted/20 p-4"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="bg-background/80">
+                                {item.workflowStatusLabel}
+                              </Badge>
+                              <span className="text-sm font-medium text-foreground">
+                                {item.summaryLabel}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {item.monitoredQuantity}
+                              </span>
+                            </div>
+                            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                              <KeyValue
+                                label="Execution"
+                                value={item.studyExecutionStatusLabel}
+                              />
+                              <KeyValue
+                                label="Verification"
+                                value={item.verificationStatus}
+                              />
+                              <KeyValue
+                                label="Variants"
+                                value={`${item.variantCount}`}
+                              />
+                              <KeyValue
+                                label="Quantity"
+                                value={item.monitoredQuantity}
+                              />
+                            </div>
+                            <div className="mt-3 grid gap-4 xl:grid-cols-3">
+                              <LabeledList
+                                title="Workflow Detail"
+                                items={[
+                                  item.workflowDetail,
+                                  ...item.variantStatusCountLines,
+                                  ...item.compareStatusCountLines,
+                                  item.verificationDetail,
+                                ]}
+                                emptyText="No study workflow detail is recorded."
+                              />
+                              <LabeledList
+                                title="Expected / Outstanding Runs"
+                                items={[
+                                  ...item.expectedVariantRunIds.map(
+                                    (runId) => `expected | ${runId}`,
+                                  ),
+                                  ...item.plannedVariantRunIds.map(
+                                    (runId) => `planned | ${runId}`,
+                                  ),
+                                  ...item.inProgressVariantRunIds.map(
+                                    (runId) => `running | ${runId}`,
+                                  ),
+                                  ...item.blockedVariantRunIds.map(
+                                    (runId) => `blocked | ${runId}`,
+                                  ),
+                                ]}
+                                emptyText="No outstanding study runs are recorded."
+                              />
+                              <LabeledList
+                                title="Completed / Compare Coverage"
+                                items={[
+                                  ...item.completedVariantRunIds.map(
+                                    (runId) => `completed | ${runId}`,
+                                  ),
+                                  ...item.plannedCompareVariantRunIds.map(
+                                    (runId) => `compare planned | ${runId}`,
+                                  ),
+                                  ...item.completedCompareVariantRunIds.map(
+                                    (runId) => `compare completed | ${runId}`,
+                                  ),
+                                  ...item.blockedCompareVariantRunIds.map(
+                                    (runId) => `compare blocked | ${runId}`,
+                                  ),
+                                  ...item.missingMetricsVariantRunIds.map(
+                                    (runId) => `metrics missing | ${runId}`,
+                                  ),
+                                ]}
+                                emptyText="No completed or compare-coverage detail is recorded."
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="grid gap-4 xl:grid-cols-2">
-                    <LabeledList
-                      title="Study Status"
-                      items={scientificStudySummary.studies.map((item) =>
-                        `${item.summaryLabel} | ${item.verificationStatus} | ${item.monitoredQuantity} | variants=${item.variantCount} | ${item.verificationDetail}`,
-                      )}
-                      emptyText="No scientific study summaries are available yet."
-                    />
-                    <LabeledList
-                      title="Study Artifacts"
-                      items={scientificStudySummary.artifactPaths}
-                      emptyText="No scientific study artifacts are recorded yet."
-                    />
-                  </div>
-                </div>
-              ) : null}
+                ) : null}
               {stabilityEvidenceSummary ? (
                 <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">

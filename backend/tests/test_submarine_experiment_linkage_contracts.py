@@ -323,12 +323,16 @@ def test_result_report_marks_validated_run_with_incomplete_experiment_linkage_as
         (final_report_dir / "final-report.json").read_text(encoding="utf-8")
     )
     final_markdown = (final_report_dir / "final-report.md").read_text(encoding="utf-8")
+    final_html = (final_report_dir / "final-report.html").read_text(encoding="utf-8")
     research = final_payload["research_evidence_summary"]
     gate = final_payload["scientific_supervisor_gate"]
     remediation = final_payload["scientific_remediation_summary"]
     handoff = final_payload["scientific_remediation_handoff"]
 
     assert final_payload["experiment_summary"]["linkage_status"] == "incomplete"
+    assert final_payload["experiment_summary"]["workflow_status"] == "partial"
+    assert final_payload["scientific_study_summary"]["workflow_status"] == "completed"
+    assert final_payload["experiment_compare_summary"]["workflow_status"] == "completed"
     assert any(
         "mesh_independence:fine" in item
         for item in final_payload["experiment_summary"]["linkage_issues"]
@@ -345,4 +349,9 @@ def test_result_report_marks_validated_run_with_incomplete_experiment_linkage_as
     assert handoff["handoff_status"] == "ready_for_auto_followup"
     assert handoff["tool_name"] == "submarine_result_report"
     assert "linkage_status" in final_markdown
+    assert "workflow_status" in final_markdown
+    assert "Run Status Counts" in final_markdown
+    assert "Compare Status Counts" in final_markdown
     assert "mesh_independence:fine" in final_markdown
+    assert "<strong>workflow_status:</strong> partial" in final_html
+    assert "Missing Compare Entries" in final_html

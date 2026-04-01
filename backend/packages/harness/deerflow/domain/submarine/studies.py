@@ -130,6 +130,162 @@ def _time_step_variants(
     return planned
 
 
+def _count_statuses(statuses: list[str | None]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for status in statuses:
+        if not status:
+            continue
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def _expected_variant_run_ids(
+    variants: list[SubmarineScientificStudyVariant],
+) -> list[str]:
+    return [
+        variant.expected_run_id
+        for variant in variants
+        if variant.variant_id != "baseline" and variant.expected_run_id
+    ]
+
+
+def _study_execution_status(
+    variants: list[SubmarineScientificStudyVariant],
+) -> str:
+    candidate_statuses = [
+        variant.execution_status
+        for variant in variants
+        if variant.variant_id != "baseline"
+    ]
+    if any(status == "blocked" for status in candidate_statuses):
+        return "blocked"
+    if any(status == "in_progress" for status in candidate_statuses):
+        return "in_progress"
+    if candidate_statuses and all(status == "completed" for status in candidate_statuses):
+        return "completed"
+    return "planned"
+
+
+def _study_workflow_status(
+    variants: list[SubmarineScientificStudyVariant],
+) -> str:
+    candidate_variants = [
+        variant for variant in variants if variant.variant_id != "baseline"
+    ]
+    baseline_completed = any(
+        variant.variant_id == "baseline" and variant.execution_status == "completed"
+        for variant in variants
+    )
+    execution_statuses = [variant.execution_status for variant in candidate_variants]
+    compare_statuses = [
+        variant.compare_status
+        for variant in candidate_variants
+        if variant.compare_status is not None
+    ]
+    if any(status == "blocked" for status in execution_statuses):
+        return "blocked"
+    if any(status == "blocked" for status in compare_statuses):
+        return "blocked"
+    if any(status == "in_progress" for status in execution_statuses):
+        return "in_progress"
+    if (
+        candidate_variants
+        and all(status == "planned" for status in execution_statuses)
+        and (not compare_statuses or all(status == "planned" for status in compare_statuses))
+    ):
+        return "partial" if baseline_completed else "planned"
+    if (
+        candidate_variants
+        and all(status == "completed" for status in execution_statuses)
+        and len(compare_statuses) == len(candidate_variants)
+        and all(status == "completed" for status in compare_statuses)
+    ):
+        return "completed"
+    if baseline_completed or any(
+        status == "completed" for status in execution_statuses
+    ) or compare_statuses:
+        return "partial"
+    return "planned"
+
+
+def _manifest_execution_status(
+    definitions: list[SubmarineScientificStudyDefinition],
+) -> str:
+    statuses = [definition.study_execution_status for definition in definitions]
+    if any(status == "blocked" for status in statuses):
+        return "blocked"
+    if any(status == "in_progress" for status in statuses):
+        return "in_progress"
+    if statuses and all(status == "completed" for status in statuses):
+        return "completed"
+    return "planned"
+
+
+def _manifest_workflow_status(
+    definitions: list[SubmarineScientificStudyDefinition],
+) -> str:
+    statuses = [definition.workflow_status for definition in definitions]
+    if any(status == "blocked" for status in statuses):
+        return "blocked"
+    if statuses and all(status == "completed" for status in statuses):
+        return "completed"
+    if any(status == "in_progress" for status in statuses):
+        return "in_progress"
+    if any(status in {"partial", "completed"} for status in statuses):
+        return "partial"
+    return "planned"
+
+
+def build_scientific_study_manifest_with_variant_updates(
+    *,
+    manifest: SubmarineScientificStudyManifest,
+    variant_updates: Mapping[str, Mapping[str, Mapping[str, object]]] | None = None,
+    artifact_virtual_paths: list[str] | None = None,
+) -> SubmarineScientificStudyManifest:
+    updates = variant_updates or {}
+    updated_definitions: list[SubmarineScientificStudyDefinition] = []
+
+    for definition in manifest.study_definitions:
+        study_updates = updates.get(definition.study_type) or {}
+        updated_variants = [
+            variant.model_copy(update=dict(study_updates.get(variant.variant_id) or {}))
+            for variant in definition.variants
+        ]
+        updated_definitions.append(
+            definition.model_copy(
+                update={
+                    "variants": updated_variants,
+                    "study_execution_status": _study_execution_status(updated_variants),
+                    "workflow_status": _study_workflow_status(updated_variants),
+                    "variant_status_counts": _count_statuses(
+                        [variant.execution_status for variant in updated_variants]
+                    ),
+                    "compare_status_counts": _count_statuses(
+                        [variant.compare_status for variant in updated_variants]
+                    ),
+                    "expected_variant_run_ids": _expected_variant_run_ids(
+                        updated_variants
+                    ),
+                }
+            )
+        )
+
+    merged_artifact_paths = list(
+        dict.fromkeys(artifact_virtual_paths or manifest.artifact_virtual_paths)
+    )
+    return manifest.model_copy(
+        update={
+            "study_definitions": updated_definitions,
+            "artifact_virtual_paths": merged_artifact_paths,
+            "study_execution_status": _manifest_execution_status(updated_definitions),
+            "workflow_status": _manifest_workflow_status(updated_definitions),
+            "study_status_counts": _count_statuses(
+                [definition.workflow_status for definition in updated_definitions]
+            ),
+        }
+    )
+
+
 def build_effective_scientific_study_definitions(
     *,
     selected_case: SubmarineCase,
@@ -177,7 +333,7 @@ def build_scientific_study_manifest(
     if simulation_requirements is not None:
         snapshot.setdefault("simulation_requirements", dict(simulation_requirements))
 
-    return SubmarineScientificStudyManifest(
+    manifest = SubmarineScientificStudyManifest(
         selected_case_id=selected_case.case_id,
         baseline_configuration_snapshot=snapshot,
         study_definitions=build_effective_scientific_study_definitions(
@@ -187,6 +343,7 @@ def build_scientific_study_manifest(
         artifact_virtual_paths=[],
         study_execution_status="planned",
     )
+    return build_scientific_study_manifest_with_variant_updates(manifest=manifest)
 
 
 def build_scientific_study_plan_payload(
@@ -201,12 +358,19 @@ def build_scientific_study_plan_payload(
                 "monitored_quantity": definition.monitored_quantity,
                 "pass_fail_tolerance": definition.pass_fail_tolerance,
                 "variant_ids": [variant.variant_id for variant in definition.variants],
+                "study_execution_status": definition.study_execution_status,
+                "workflow_status": definition.workflow_status,
+                "variant_status_counts": definition.variant_status_counts,
+                "compare_status_counts": definition.compare_status_counts,
+                "expected_variant_run_ids": definition.expected_variant_run_ids,
             }
         )
     return {
         "selected_case_id": manifest.selected_case_id,
         "study_count": len(manifest.study_definitions),
         "study_execution_status": manifest.study_execution_status,
+        "workflow_status": manifest.workflow_status,
+        "study_status_counts": manifest.study_status_counts,
         "studies": studies,
     }
 
@@ -318,11 +482,17 @@ def build_completed_scientific_study_results(
 
         compared_values: list[dict[str, object]] = []
         monitored_values = [baseline_value]
+        blocked_variants: list[str] = []
         missing_variants: list[str] = []
         for variant in definition.variants:
             if variant.variant_id == "baseline":
                 continue
             solver_result = study_results.get(variant.variant_id)
+            if isinstance(solver_result, Mapping) and (
+                solver_result.get("execution_status") == "blocked"
+            ):
+                blocked_variants.append(variant.variant_id)
+                continue
             monitored_value = _resolve_monitored_value(
                 solver_result,
                 definition.monitored_quantity,
@@ -338,8 +508,26 @@ def build_completed_scientific_study_results(
                     "observed_value": monitored_value,
                     "relative_delta": abs(monitored_value - baseline_value)
                     / max(abs(baseline_value), 1e-12),
-                }
+                    }
+                )
+
+        if blocked_variants:
+            results.append(
+                SubmarineScientificStudyResult(
+                    study_type=definition.study_type,
+                    monitored_quantity=definition.monitored_quantity,
+                    baseline_value=baseline_value,
+                    compared_values=compared_values,
+                    relative_spread=None,
+                    status="blocked",
+                    summary_zh=(
+                        "Scientific-study variant execution is blocked for: "
+                        + ", ".join(blocked_variants)
+                        + "."
+                    ),
+                )
             )
+            continue
 
         if missing_variants:
             results.append(

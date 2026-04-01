@@ -1197,11 +1197,27 @@ def test_submarine_solver_dispatch_emits_baseline_experiment_artifacts(
     assert any(path.endswith("/run-compare-summary.json") for path in artifacts)
     assert payload["experiment_manifest"]["baseline_run_id"] == "baseline"
     assert payload["run_compare_summary"]["baseline_run_id"] == "baseline"
-    assert payload["run_compare_summary"]["comparisons"] == []
+    assert payload["experiment_manifest"]["experiment_status"] == "partial"
+    assert payload["experiment_manifest"]["workflow_status"] == "partial"
+    assert payload["run_compare_summary"]["workflow_status"] == "planned"
+    assert len(payload["run_compare_summary"]["comparisons"]) == 6
+    assert all(
+        item["compare_status"] == "planned"
+        for item in payload["run_compare_summary"]["comparisons"]
+    )
     assert experiment_manifest["baseline_run_id"] == "baseline"
+    assert experiment_manifest["experiment_status"] == "partial"
+    assert experiment_manifest["workflow_status"] == "partial"
     assert run_record["run_id"] == "baseline"
     assert run_record["run_role"] == "baseline"
-    assert compare_summary["comparisons"] == []
+    assert compare_summary["workflow_status"] == "planned"
+    assert len(compare_summary["comparisons"]) == 6
+    assert all(item["compare_status"] == "planned" for item in compare_summary["comparisons"])
+    assert any(
+        item["candidate_run_id"] == "mesh_independence:coarse"
+        and item["candidate_execution_status"] == "planned"
+        for item in compare_summary["comparisons"]
+    )
 
 
 def test_submarine_solver_dispatch_writes_scientific_verification_artifacts(tmp_path, monkeypatch):

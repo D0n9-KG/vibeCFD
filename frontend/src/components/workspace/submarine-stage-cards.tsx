@@ -10,6 +10,11 @@ import {
   buildConfirmExecutionMessage,
 } from "./submarine-confirmation-actions";
 import { SubmarineConvergenceChart } from "./submarine-convergence-chart";
+import {
+  buildSubmarineExperimentCompareSummary,
+  buildSubmarineExperimentSummary,
+  buildSubmarineScientificStudySummary,
+} from "./submarine-runtime-panel.utils";
 import type {
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
@@ -806,6 +811,11 @@ export function ResultReportingCard({
       : state === "active"
         ? "结果整理中…"
         : "等待求解完成";
+  const experimentSummary = buildSubmarineExperimentSummary(finalReport);
+  const experimentCompareSummary =
+    buildSubmarineExperimentCompareSummary(finalReport);
+  const scientificStudySummary =
+    buildSubmarineScientificStudySummary(finalReport);
 
   return (
     <StageCard
@@ -832,6 +842,217 @@ export function ResultReportingCard({
       {finalReport && (
         <div className="mb-2 text-[12px] text-stone-600">
           {finalReport.summary_zh ?? ""}
+        </div>
+      )}
+
+      {(experimentSummary || experimentCompareSummary || scientificStudySummary) && (
+        <div className="mt-4 space-y-3">
+          <SectionLabel color="sky">Verification Workflow</SectionLabel>
+          <div className="grid gap-3 xl:grid-cols-3">
+            {experimentSummary && (
+              <WorkflowSummaryCard
+                title="Experiment Registry"
+                badge={experimentSummary.workflowStatusLabel}
+                stats={[
+                  {
+                    label: "Registry",
+                    value: experimentSummary.experimentStatusLabel,
+                  },
+                  {
+                    label: "Runs",
+                    value: `${experimentSummary.runCount}`,
+                  },
+                  {
+                    label: "Compares",
+                    value: `${experimentSummary.compareCount}`,
+                  },
+                ]}
+                sections={[
+                  {
+                    title: "Workflow Detail",
+                    items: compactTextItems([
+                      experimentSummary.workflowDetail,
+                      ...experimentSummary.runStatusCountLines,
+                      ...experimentSummary.compareStatusCountLines,
+                    ]),
+                    emptyText: "No experiment workflow detail is recorded yet.",
+                  },
+                  {
+                    title: "Linkage Coverage",
+                    items: compactTextItems([
+                      `status | ${experimentSummary.linkageStatus}`,
+                      `issues | ${experimentSummary.linkageIssueCount}`,
+                      ...experimentSummary.linkageIssues,
+                      ...experimentSummary.missingVariantRunRecordIds.map(
+                        (item) => `missing run-record | ${item}`,
+                      ),
+                      ...experimentSummary.missingCompareEntryIds.map(
+                        (item) => `missing compare-entry | ${item}`,
+                      ),
+                    ]),
+                    emptyText: "No experiment linkage issues are recorded.",
+                  },
+                  {
+                    title: "Outstanding Gaps",
+                    items: compactTextItems([
+                      ...experimentSummary.plannedVariantRunIds.map(
+                        (item) => `planned | ${item}`,
+                      ),
+                      ...experimentSummary.blockedVariantRunIds.map(
+                        (item) => `blocked | ${item}`,
+                      ),
+                      ...experimentSummary.missingMetricsVariantRunIds.map(
+                        (item) => `missing metrics | ${item}`,
+                      ),
+                      ...experimentSummary.compareNotes,
+                    ]),
+                    emptyText: "No outstanding experiment workflow gaps are recorded.",
+                  },
+                ]}
+              />
+            )}
+
+            {experimentCompareSummary && (
+              <WorkflowSummaryCard
+                title="Experiment Compare"
+                badge={experimentCompareSummary.workflowStatusLabel}
+                stats={[
+                  {
+                    label: "Baseline",
+                    value: experimentCompareSummary.baselineRunId,
+                  },
+                  {
+                    label: "Compare Count",
+                    value: `${experimentCompareSummary.compareCount}`,
+                  },
+                  {
+                    label: "Artifact",
+                    value: experimentCompareSummary.comparePath,
+                  },
+                ]}
+                sections={[
+                  {
+                    title: "Workflow Coverage",
+                    items: compactTextItems([
+                      ...experimentCompareSummary.compareStatusCountLines,
+                      ...experimentCompareSummary.plannedCandidateRunIds.map(
+                        (item) => `planned | ${item}`,
+                      ),
+                      ...experimentCompareSummary.completedCandidateRunIds.map(
+                        (item) => `completed | ${item}`,
+                      ),
+                      ...experimentCompareSummary.blockedCandidateRunIds.map(
+                        (item) => `blocked | ${item}`,
+                      ),
+                      ...experimentCompareSummary.missingMetricsCandidateRunIds.map(
+                        (item) => `missing metrics | ${item}`,
+                      ),
+                    ]),
+                    emptyText: "No experiment compare workflow detail is recorded yet.",
+                  },
+                  {
+                    title: "Compared Runs",
+                    items: compactTextItems(
+                      experimentCompareSummary.comparisons.map(
+                        (item) =>
+                          `${experimentCompareSummary.baselineRunId} -> ${item.candidateRunId} | ${item.compareStatusLabel} | ${item.candidateExecutionStatusLabel}`,
+                      ),
+                    ),
+                    emptyText: "No experiment comparisons are recorded yet.",
+                  },
+                  {
+                    title: "Comparison Notes",
+                    items: compactTextItems(
+                      experimentCompareSummary.comparisons.flatMap((item) => [
+                        item.notes,
+                        ...item.metricDeltaLines,
+                      ]),
+                    ),
+                    emptyText: "No comparison notes are recorded.",
+                  },
+                ]}
+              />
+            )}
+
+            {scientificStudySummary && (
+              <WorkflowSummaryCard
+                title="Scientific Studies"
+                badge={scientificStudySummary.workflowStatusLabel}
+                stats={[
+                  {
+                    label: "Execution",
+                    value: scientificStudySummary.executionStatusLabel,
+                  },
+                  {
+                    label: "Study Count",
+                    value: `${scientificStudySummary.studies.length}`,
+                  },
+                  {
+                    label: "Manifest",
+                    value: scientificStudySummary.manifestPath,
+                  },
+                ]}
+                sections={[
+                  {
+                    title: "Workflow Overview",
+                    items: compactTextItems([
+                      ...scientificStudySummary.studyStatusCountLines,
+                      ...scientificStudySummary.studies.map(
+                        (item) =>
+                          `${item.summaryLabel} | ${item.workflowStatusLabel} | ${item.studyExecutionStatusLabel} | ${item.verificationStatus}`,
+                      ),
+                    ]),
+                    emptyText: "No scientific study workflow detail is available yet.",
+                  },
+                  {
+                    title: "Follow-Up Runs",
+                    items: compactTextItems(
+                      scientificStudySummary.studies.flatMap((item) => [
+                        item.workflowDetail,
+                        ...item.expectedVariantRunIds.map(
+                          (runId) => `expected | ${runId}`,
+                        ),
+                        ...item.plannedVariantRunIds.map(
+                          (runId) => `planned | ${runId}`,
+                        ),
+                        ...item.inProgressVariantRunIds.map(
+                          (runId) => `running | ${runId}`,
+                        ),
+                        ...item.blockedVariantRunIds.map(
+                          (runId) => `blocked | ${runId}`,
+                        ),
+                      ]),
+                    ),
+                    emptyText: "No outstanding study runs are recorded.",
+                  },
+                  {
+                    title: "Compare Coverage",
+                    items: compactTextItems(
+                      scientificStudySummary.studies.flatMap((item) => [
+                        item.verificationDetail,
+                        ...item.completedVariantRunIds.map(
+                          (runId) => `completed | ${runId}`,
+                        ),
+                        ...item.plannedCompareVariantRunIds.map(
+                          (runId) => `compare planned | ${runId}`,
+                        ),
+                        ...item.completedCompareVariantRunIds.map(
+                          (runId) => `compare completed | ${runId}`,
+                        ),
+                        ...item.blockedCompareVariantRunIds.map(
+                          (runId) => `compare blocked | ${runId}`,
+                        ),
+                        ...item.missingMetricsVariantRunIds.map(
+                          (runId) => `metrics missing | ${runId}`,
+                        ),
+                      ]),
+                    ),
+                    emptyText: "No completed or compare-coverage detail is recorded.",
+                  },
+                ]}
+              />
+            )}
+          </div>
         </div>
       )}
 
@@ -1040,6 +1261,86 @@ function StageHintList({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function compactTextItems(items: Array<string | null | undefined>): string[] {
+  const deduped: string[] = [];
+  for (const item of items) {
+    const value = item?.trim();
+    if (!value || value === "--" || deduped.includes(value)) {
+      continue;
+    }
+    deduped.push(value);
+  }
+  return deduped;
+}
+
+function WorkflowSummaryCard({
+  title,
+  badge,
+  stats,
+  sections,
+}: {
+  title: string;
+  badge: string;
+  stats: Array<{ label: string; value: string }>;
+  sections: Array<{ title: string; items: string[]; emptyText: string }>;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+          {title}
+        </div>
+        <span className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-stone-700">
+          {badge}
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        {stats.map((item) => (
+          <div
+            key={`${title}-${item.label}`}
+            className="rounded-lg border border-white/90 bg-white/90 px-2.5 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
+          >
+            <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+              {item.label}
+            </div>
+            <div className="mt-1 break-all text-[11px] font-medium leading-5 text-stone-700">
+              {item.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 space-y-3">
+        {sections.map((section) => (
+          <div key={`${title}-${section.title}`}>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">
+              {section.title}
+            </div>
+            {section.items.length > 0 ? (
+              <ul className="mt-2 space-y-1.5">
+                {section.items.map((item) => (
+                  <li
+                    key={`${title}-${section.title}-${item}`}
+                    className="flex gap-2 text-[11px] leading-5 text-stone-600"
+                  >
+                    <span className="mt-[6px] inline-block size-1.5 shrink-0 rounded-full bg-sky-500" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-2 text-[11px] leading-5 text-stone-400">
+                {section.emptyText}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

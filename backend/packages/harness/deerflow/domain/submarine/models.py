@@ -11,6 +11,31 @@ SubmarineScientificStudyType = Literal[
     "domain_sensitivity",
     "time_step_sensitivity",
 ]
+SubmarineScientificStudyWorkflowStatus = Literal[
+    "planned",
+    "in_progress",
+    "partial",
+    "completed",
+    "blocked",
+]
+SubmarineScientificStudyVariantExecutionStatus = Literal[
+    "planned",
+    "in_progress",
+    "completed",
+    "blocked",
+]
+SubmarineExperimentWorkflowStatus = Literal[
+    "planned",
+    "partial",
+    "completed",
+    "blocked",
+]
+SubmarineRunCompareStatus = Literal[
+    "planned",
+    "completed",
+    "missing_metrics",
+    "blocked",
+]
 
 
 class ReferenceSource(BaseModel):
@@ -54,6 +79,12 @@ class SubmarineScientificStudyVariant(BaseModel):
     variant_label: str
     parameter_overrides: dict[str, float | int | str] = Field(default_factory=dict)
     rationale: str
+    expected_run_id: str | None = None
+    solver_results_virtual_path: str | None = None
+    run_record_virtual_path: str | None = None
+    baseline_solver_results_virtual_path: str | None = None
+    execution_status: SubmarineScientificStudyVariantExecutionStatus = "planned"
+    compare_status: SubmarineRunCompareStatus | None = None
 
 
 class SubmarineScientificStudyDefinition(BaseModel):
@@ -62,6 +93,11 @@ class SubmarineScientificStudyDefinition(BaseModel):
     monitored_quantity: str
     pass_fail_tolerance: float
     variants: list[SubmarineScientificStudyVariant] = Field(default_factory=list)
+    study_execution_status: SubmarineScientificStudyWorkflowStatus = "planned"
+    workflow_status: SubmarineScientificStudyWorkflowStatus = "planned"
+    variant_status_counts: dict[str, int] = Field(default_factory=dict)
+    compare_status_counts: dict[str, int] = Field(default_factory=dict)
+    expected_variant_run_ids: list[str] = Field(default_factory=list)
 
 
 class SubmarineScientificStudyManifest(BaseModel):
@@ -69,7 +105,9 @@ class SubmarineScientificStudyManifest(BaseModel):
     baseline_configuration_snapshot: dict[str, object] = Field(default_factory=dict)
     study_definitions: list[SubmarineScientificStudyDefinition] = Field(default_factory=list)
     artifact_virtual_paths: list[str] = Field(default_factory=list)
-    study_execution_status: Literal["planned", "in_progress", "completed", "blocked"] = "planned"
+    study_execution_status: SubmarineScientificStudyWorkflowStatus = "planned"
+    workflow_status: SubmarineScientificStudyWorkflowStatus = "planned"
+    study_status_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class SubmarineScientificStudyResult(BaseModel):
@@ -93,7 +131,7 @@ class SubmarineExperimentRunRecord(BaseModel):
     variant_id: str | None = None
     solver_results_virtual_path: str
     run_record_virtual_path: str
-    execution_status: Literal["planned", "completed", "blocked"]
+    execution_status: Literal["planned", "in_progress", "completed", "blocked"]
     metric_snapshot: dict[str, object] = Field(default_factory=dict)
 
 
@@ -104,7 +142,10 @@ class SubmarineExperimentManifest(BaseModel):
     baseline_run_id: str
     run_records: list[SubmarineExperimentRunRecord] = Field(default_factory=list)
     artifact_virtual_paths: list[str] = Field(default_factory=list)
-    experiment_status: Literal["planned", "completed", "blocked"] = "planned"
+    experiment_status: SubmarineExperimentWorkflowStatus = "planned"
+    workflow_status: SubmarineExperimentWorkflowStatus = "planned"
+    run_status_counts: dict[str, int] = Field(default_factory=dict)
+    compare_status_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class SubmarineRunComparison(BaseModel):
@@ -112,7 +153,8 @@ class SubmarineRunComparison(BaseModel):
     candidate_run_id: str
     study_type: SubmarineScientificStudyType | None = None
     variant_id: str | None = None
-    compare_status: Literal["completed", "missing_metrics", "blocked"]
+    compare_status: SubmarineRunCompareStatus
+    candidate_execution_status: Literal["planned", "in_progress", "completed", "blocked"] | None = None
     metric_deltas: dict[str, object] = Field(default_factory=dict)
     notes: str | None = None
 
@@ -122,6 +164,8 @@ class SubmarineRunCompareSummary(BaseModel):
     baseline_run_id: str
     comparisons: list[SubmarineRunComparison] = Field(default_factory=list)
     artifact_virtual_paths: list[str] = Field(default_factory=list)
+    workflow_status: SubmarineExperimentWorkflowStatus = "planned"
+    compare_status_counts: dict[str, int] = Field(default_factory=dict)
 
 
 SubmarineResearchReadinessStatus = Literal[

@@ -24,6 +24,30 @@ def _as_number(value: object) -> float | None:
     return float(value)
 
 
+def _count_statuses(statuses: Sequence[str | None]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for status in statuses:
+        if not status:
+            continue
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def _build_compare_workflow_status(
+    comparisons: Sequence[SubmarineRunComparison],
+) -> str:
+    statuses = [comparison.compare_status for comparison in comparisons]
+    if not statuses:
+        return "planned"
+    if any(status == "blocked" for status in statuses):
+        return "blocked"
+    if all(status == "planned" for status in statuses):
+        return "planned"
+    if all(status == "completed" for status in statuses):
+        return "completed"
+    return "partial"
+
+
 def build_experiment_id(
     *,
     selected_case_id: str | None,
@@ -116,13 +140,26 @@ def build_run_comparison(
     candidate_record: Mapping[str, object],
 ) -> SubmarineRunComparison:
     candidate_status = str(candidate_record.get("execution_status") or "planned")
+    candidate_run_id = str(candidate_record.get("run_id") or "unknown")
+    if candidate_status in {"planned", "in_progress"}:
+        return SubmarineRunComparison(
+            baseline_run_id=baseline_run_id,
+            candidate_run_id=candidate_run_id,
+            study_type=candidate_record.get("study_type"),
+            variant_id=candidate_record.get("variant_id"),
+            compare_status="planned",
+            candidate_execution_status=candidate_status,
+            metric_deltas={},
+            notes="Candidate run is registered but scientific study execution is still pending.",
+        )
     if candidate_status == "blocked":
         return SubmarineRunComparison(
             baseline_run_id=baseline_run_id,
-            candidate_run_id=str(candidate_record.get("run_id") or "unknown"),
+            candidate_run_id=candidate_run_id,
             study_type=candidate_record.get("study_type"),
             variant_id=candidate_record.get("variant_id"),
             compare_status="blocked",
+            candidate_execution_status=candidate_status,
             metric_deltas={},
             notes="Candidate run is blocked and cannot be compared against baseline.",
         )
@@ -135,10 +172,11 @@ def build_run_comparison(
     ):
         return SubmarineRunComparison(
             baseline_run_id=baseline_run_id,
-            candidate_run_id=str(candidate_record.get("run_id") or "unknown"),
+            candidate_run_id=candidate_run_id,
             study_type=candidate_record.get("study_type"),
             variant_id=candidate_record.get("variant_id"),
             compare_status="missing_metrics",
+            candidate_execution_status=candidate_status,
             metric_deltas={},
             notes="Baseline or candidate metric snapshot is missing.",
         )
@@ -168,10 +206,11 @@ def build_run_comparison(
 
     return SubmarineRunComparison(
         baseline_run_id=baseline_run_id,
-        candidate_run_id=str(candidate_record.get("run_id") or "unknown"),
+        candidate_run_id=candidate_run_id,
         study_type=candidate_record.get("study_type"),
         variant_id=candidate_record.get("variant_id"),
         compare_status=compare_status,
+        candidate_execution_status=candidate_status,
         metric_deltas=deltas,
         notes=notes,
     )
@@ -198,4 +237,43 @@ def build_run_compare_summary(
         baseline_run_id=baseline_run_id,
         comparisons=comparisons,
         artifact_virtual_paths=list(artifact_virtual_paths or []),
+        workflow_status=_build_compare_workflow_status(comparisons),
+        compare_status_counts=_count_statuses(
+            [comparison.compare_status for comparison in comparisons]
+        ),
     )
+
+
+def build_experiment_workflow_status(
+    *,
+    run_records: Sequence[Mapping[str, object]],
+    compare_statuses: Sequence[str | None] | None = None,
+) -> str:
+    execution_statuses = [
+        str(record.get("execution_status") or "planned")
+        for record in run_records
+        if isinstance(record, Mapping)
+    ]
+    candidate_statuses = [
+        str(record.get("execution_status") or "planned")
+        for record in run_records
+        if isinstance(record, Mapping)
+        and str(record.get("run_id") or "").strip() != "baseline"
+    ]
+    normalized_compare_statuses = [status for status in (compare_statuses or []) if status]
+
+    if any(status == "blocked" for status in execution_statuses):
+        return "blocked"
+    if any(status == "blocked" for status in normalized_compare_statuses):
+        return "blocked"
+    if not candidate_statuses:
+        return "completed" if "completed" in execution_statuses else "planned"
+    if (
+        all(status == "completed" for status in candidate_statuses)
+        and normalized_compare_statuses
+        and all(status == "completed" for status in normalized_compare_statuses)
+    ):
+        return "completed"
+    if "completed" in execution_statuses or normalized_compare_statuses:
+        return "partial"
+    return "planned"

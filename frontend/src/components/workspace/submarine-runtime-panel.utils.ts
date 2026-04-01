@@ -105,6 +105,8 @@ export type SubmarineStabilityEvidenceSummary = {
 
 export type SubmarineScientificStudySummary = {
   executionStatusLabel: string;
+  workflowStatusLabel: string;
+  studyStatusCountLines: string[];
   manifestPath: string;
   artifactPaths: string[];
   studies: Array<{
@@ -112,6 +114,20 @@ export type SubmarineScientificStudySummary = {
     summaryLabel: string;
     monitoredQuantity: string;
     variantCount: number;
+    studyExecutionStatusLabel: string;
+    workflowStatusLabel: string;
+    workflowDetail: string;
+    variantStatusCountLines: string[];
+    compareStatusCountLines: string[];
+    expectedVariantRunIds: string[];
+    plannedVariantRunIds: string[];
+    inProgressVariantRunIds: string[];
+    completedVariantRunIds: string[];
+    blockedVariantRunIds: string[];
+    plannedCompareVariantRunIds: string[];
+    completedCompareVariantRunIds: string[];
+    blockedCompareVariantRunIds: string[];
+    missingMetricsVariantRunIds: string[];
     verificationStatus: string;
     verificationDetail: string;
   }>;
@@ -120,10 +136,26 @@ export type SubmarineScientificStudySummary = {
 export type SubmarineExperimentSummary = {
   experimentId: string;
   experimentStatusLabel: string;
+  workflowStatusLabel: string;
+  workflowDetail: string;
   baselineRunId: string;
   runCount: number;
+  compareCount: number;
   manifestPath: string;
+  studyManifestPath: string;
   comparePath: string;
+  artifactPaths: string[];
+  linkageStatus: string;
+  linkageIssueCount: number;
+  linkageIssues: string[];
+  runStatusCountLines: string[];
+  compareStatusCountLines: string[];
+  expectedVariantRunIds: string[];
+  missingVariantRunRecordIds: string[];
+  missingCompareEntryIds: string[];
+  blockedVariantRunIds: string[];
+  plannedVariantRunIds: string[];
+  missingMetricsVariantRunIds: string[];
   compareNotes: string[];
 };
 
@@ -132,6 +164,12 @@ export type SubmarineExperimentCompareSummary = {
   baselineRunId: string;
   compareCount: number;
   comparePath: string;
+  workflowStatusLabel: string;
+  compareStatusCountLines: string[];
+  plannedCandidateRunIds: string[];
+  completedCandidateRunIds: string[];
+  blockedCandidateRunIds: string[];
+  missingMetricsCandidateRunIds: string[];
   artifactPaths: string[];
   comparisons: Array<{
     candidateRunId: string;
@@ -140,6 +178,7 @@ export type SubmarineExperimentCompareSummary = {
     studyLabel: string;
     compareStatus: string;
     compareStatusLabel: string;
+    candidateExecutionStatusLabel: string;
     notes: string;
     metricDeltaLines: string[];
     baselineSolverResultsPath: string;
@@ -347,17 +386,20 @@ const SCIENTIFIC_VERIFICATION_CONFIDENCE_LABELS: Record<string, string> = {
 const SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS: Record<string, string> = {
   planned: "Planned",
   in_progress: "In Progress",
+  partial: "Partial",
   completed: "Completed",
   blocked: "Blocked",
 };
 
 const EXPERIMENT_STATUS_LABELS: Record<string, string> = {
   planned: "Planned",
+  partial: "Partial",
   completed: "Completed",
   blocked: "Blocked",
 };
 
 const EXPERIMENT_COMPARE_STATUS_LABELS: Record<string, string> = {
+  planned: "Planned",
   completed: "Completed",
   missing_metrics: "Missing Metrics",
   blocked: "Blocked",
@@ -525,6 +567,29 @@ function formatCompareMetricRelativeDelta(value: unknown) {
   return typeof value === "number" && Number.isFinite(value)
     ? `${(value * 100).toFixed(2)}%`
     : "--";
+}
+
+function formatStatusLabel(
+  value: string | null | undefined,
+  labels: Record<string, string>,
+) {
+  return labels[value ?? ""] ?? value ?? "--";
+}
+
+function formatStatusCountLines(
+  counts: Record<string, unknown> | null | undefined,
+  labels: Record<string, string>,
+) {
+  if (!counts || typeof counts !== "object") {
+    return [];
+  }
+
+  return Object.entries(counts).flatMap(([status, rawCount]) => {
+    if (typeof rawCount !== "number" || !Number.isFinite(rawCount)) {
+      return [];
+    }
+    return [`${formatStatusLabel(status, labels)}: ${rawCount}`];
+  });
 }
 
 function formatCompareMetricDeltaLines(metricDeltas: unknown) {
@@ -1489,12 +1554,18 @@ export function buildSubmarineScientificStudySummary(
   }
 
   return {
-    executionStatusLabel:
-      SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS[
-        summary.study_execution_status ?? ""
-      ] ??
-      summary.study_execution_status ??
-      "--",
+    executionStatusLabel: formatStatusLabel(
+      summary.study_execution_status,
+      SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS,
+    ),
+    workflowStatusLabel: formatStatusLabel(
+      summary.workflow_status ?? summary.study_execution_status,
+      SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS,
+    ),
+    studyStatusCountLines: formatStatusCountLines(
+      summary.study_status_counts,
+      SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS,
+    ),
     manifestPath: summary.manifest_virtual_path ?? "--",
     artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
     studies: (summary.studies ?? []).filter(Boolean).map((item) => ({
@@ -1502,16 +1573,39 @@ export function buildSubmarineScientificStudySummary(
       summaryLabel: item.summary_label ?? "--",
       monitoredQuantity: item.monitored_quantity ?? "--",
       variantCount: item.variant_count ?? 0,
-      verificationStatus:
-        item.verification_status === "missing_evidence"
-          ? "Missing Evidence"
-          : item.verification_status === "research_ready"
-            ? "Research Ready"
-            : item.verification_status === "passed"
-              ? "Passed"
-              : item.verification_status === "blocked"
-                ? "Blocked"
-                : item.verification_status ?? "--",
+      studyExecutionStatusLabel: formatStatusLabel(
+        item.study_execution_status,
+        SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS,
+      ),
+      workflowStatusLabel: formatStatusLabel(
+        item.workflow_status ?? item.study_execution_status,
+        SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS,
+      ),
+      workflowDetail: item.workflow_detail ?? "--",
+      variantStatusCountLines: formatStatusCountLines(
+        item.variant_status_counts,
+        SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS,
+      ),
+      compareStatusCountLines: formatStatusCountLines(
+        item.compare_status_counts,
+        EXPERIMENT_COMPARE_STATUS_LABELS,
+      ),
+      expectedVariantRunIds: item.expected_variant_run_ids?.filter(Boolean) ?? [],
+      plannedVariantRunIds: item.planned_variant_run_ids?.filter(Boolean) ?? [],
+      inProgressVariantRunIds:
+        item.in_progress_variant_run_ids?.filter(Boolean) ?? [],
+      completedVariantRunIds:
+        item.completed_variant_run_ids?.filter(Boolean) ?? [],
+      blockedVariantRunIds: item.blocked_variant_run_ids?.filter(Boolean) ?? [],
+      plannedCompareVariantRunIds:
+        item.planned_compare_variant_run_ids?.filter(Boolean) ?? [],
+      completedCompareVariantRunIds:
+        item.completed_compare_variant_run_ids?.filter(Boolean) ?? [],
+      blockedCompareVariantRunIds:
+        item.blocked_compare_variant_run_ids?.filter(Boolean) ?? [],
+      missingMetricsVariantRunIds:
+        item.missing_metrics_variant_run_ids?.filter(Boolean) ?? [],
+      verificationStatus: formatScientificRequirementStatus(item.verification_status),
       verificationDetail: item.verification_detail ?? "--",
     })),
   };
@@ -1527,17 +1621,55 @@ export function buildSubmarineExperimentSummary(
 
   return {
     experimentId: summary.experiment_id ?? "--",
-    experimentStatusLabel:
-      EXPERIMENT_STATUS_LABELS[summary.experiment_status ?? ""] ??
-      summary.experiment_status ??
-      "--",
+    experimentStatusLabel: formatStatusLabel(
+      summary.experiment_status,
+      EXPERIMENT_STATUS_LABELS,
+    ),
+    workflowStatusLabel: formatStatusLabel(
+      summary.workflow_status ?? summary.experiment_status,
+      EXPERIMENT_STATUS_LABELS,
+    ),
+    workflowDetail: summary.workflow_detail ?? "--",
     baselineRunId: summary.baseline_run_id ?? "--",
     runCount:
       typeof summary.run_count === "number" && Number.isFinite(summary.run_count)
         ? summary.run_count
         : 0,
+    compareCount:
+      typeof summary.compare_count === "number" &&
+      Number.isFinite(summary.compare_count)
+        ? summary.compare_count
+        : 0,
     manifestPath: summary.manifest_virtual_path ?? "--",
+    studyManifestPath: summary.study_manifest_virtual_path ?? "--",
     comparePath: summary.compare_virtual_path ?? "--",
+    artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
+    linkageStatus: summary.linkage_status ?? "--",
+    linkageIssueCount:
+      typeof summary.linkage_issue_count === "number" &&
+      Number.isFinite(summary.linkage_issue_count)
+        ? summary.linkage_issue_count
+        : 0,
+    linkageIssues: summary.linkage_issues?.filter(Boolean) ?? [],
+    runStatusCountLines: formatStatusCountLines(
+      summary.run_status_counts,
+      SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS,
+    ),
+    compareStatusCountLines: formatStatusCountLines(
+      summary.compare_status_counts,
+      EXPERIMENT_COMPARE_STATUS_LABELS,
+    ),
+    expectedVariantRunIds: summary.expected_variant_run_ids?.filter(Boolean) ?? [],
+    missingVariantRunRecordIds:
+      summary.missing_variant_run_record_ids?.filter(Boolean) ?? [],
+    missingCompareEntryIds:
+      summary.missing_compare_entry_ids?.filter(Boolean) ?? [],
+    blockedVariantRunIds:
+      summary.blocked_variant_run_ids?.filter(Boolean) ?? [],
+    plannedVariantRunIds:
+      summary.planned_variant_run_ids?.filter(Boolean) ?? [],
+    missingMetricsVariantRunIds:
+      summary.missing_metrics_variant_run_ids?.filter(Boolean) ?? [],
     compareNotes: summary.compare_notes?.filter(Boolean) ?? [],
   };
 }
@@ -1558,6 +1690,22 @@ export function buildSubmarineExperimentCompareSummary(
         ? summary.compare_count
         : 0,
     comparePath: summary.compare_virtual_path ?? "--",
+    workflowStatusLabel: formatStatusLabel(
+      summary.workflow_status,
+      EXPERIMENT_STATUS_LABELS,
+    ),
+    compareStatusCountLines: formatStatusCountLines(
+      summary.compare_status_counts,
+      EXPERIMENT_COMPARE_STATUS_LABELS,
+    ),
+    plannedCandidateRunIds:
+      summary.planned_candidate_run_ids?.filter(Boolean) ?? [],
+    completedCandidateRunIds:
+      summary.completed_candidate_run_ids?.filter(Boolean) ?? [],
+    blockedCandidateRunIds:
+      summary.blocked_candidate_run_ids?.filter(Boolean) ?? [],
+    missingMetricsCandidateRunIds:
+      summary.missing_metrics_candidate_run_ids?.filter(Boolean) ?? [],
     artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
     comparisons: (summary.comparisons ?? []).filter(Boolean).map((item) => {
       const studyType = item.study_type ?? "unknown";
@@ -1576,10 +1724,14 @@ export function buildSubmarineExperimentCompareSummary(
         variantId,
         studyLabel: `${studyType} / ${variantId}`,
         compareStatus: item.compare_status ?? "--",
-        compareStatusLabel:
-          EXPERIMENT_COMPARE_STATUS_LABELS[item.compare_status ?? ""] ??
-          item.compare_status ??
-          "--",
+        compareStatusLabel: formatStatusLabel(
+          item.compare_status,
+          EXPERIMENT_COMPARE_STATUS_LABELS,
+        ),
+        candidateExecutionStatusLabel: formatStatusLabel(
+          item.candidate_execution_status,
+          SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS,
+        ),
         notes: item.notes ?? "--",
         metricDeltaLines: formatCompareMetricDeltaLines(item.metric_deltas),
         baselineSolverResultsPath,

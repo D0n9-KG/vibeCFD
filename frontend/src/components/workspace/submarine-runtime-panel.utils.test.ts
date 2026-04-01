@@ -996,6 +996,10 @@ void test("builds a scientific study summary from the final report payload", () 
   const summary = buildSubmarineScientificStudySummary({
     scientific_study_summary: {
       study_execution_status: "planned",
+      workflow_status: "planned",
+      study_status_counts: {
+        planned: 2,
+      },
       manifest_virtual_path:
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
       artifact_virtual_paths: [
@@ -1008,6 +1012,24 @@ void test("builds a scientific study summary from the final report payload", () 
           summary_label: "Mesh Independence",
           monitored_quantity: "Cd",
           variant_count: 3,
+          study_execution_status: "completed",
+          workflow_status: "completed",
+          workflow_detail:
+            "All planned variants completed with compare coverage.",
+          variant_status_counts: { completed: 3 },
+          compare_status_counts: { completed: 2 },
+          expected_variant_run_ids: [
+            "mesh_independence:coarse",
+            "mesh_independence:fine",
+          ],
+          completed_variant_run_ids: [
+            "mesh_independence:coarse",
+            "mesh_independence:fine",
+          ],
+          completed_compare_variant_run_ids: [
+            "mesh_independence:coarse",
+            "mesh_independence:fine",
+          ],
           verification_status: "passed",
           verification_detail: "Three-grid study shows Cd variation below tolerance.",
         },
@@ -1016,6 +1038,23 @@ void test("builds a scientific study summary from the final report payload", () 
           summary_label: "Domain Sensitivity",
           monitored_quantity: "Cd",
           variant_count: 3,
+          study_execution_status: "planned",
+          workflow_status: "partial",
+          workflow_detail: "Baseline completed, planned variants still pending.",
+          variant_status_counts: { planned: 2, completed: 1 },
+          compare_status_counts: { planned: 2 },
+          expected_variant_run_ids: [
+            "domain_sensitivity:compact",
+            "domain_sensitivity:expanded",
+          ],
+          planned_variant_run_ids: [
+            "domain_sensitivity:compact",
+            "domain_sensitivity:expanded",
+          ],
+          planned_compare_variant_run_ids: [
+            "domain_sensitivity:compact",
+            "domain_sensitivity:expanded",
+          ],
           verification_status: "missing_evidence",
           verification_detail: "Only baseline run has been executed so far.",
         },
@@ -1024,6 +1063,8 @@ void test("builds a scientific study summary from the final report payload", () 
   });
 
   assert.equal(summary?.executionStatusLabel, "Planned");
+  assert.equal(summary?.workflowStatusLabel, "Planned");
+  assert.deepEqual(summary?.studyStatusCountLines, ["Planned: 2"]);
   assert.equal(
     summary?.manifestPath,
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
@@ -1031,8 +1072,25 @@ void test("builds a scientific study summary from the final report payload", () 
   assert.equal(summary?.artifactPaths.length, 2);
   assert.equal(summary?.studies.length, 2);
   assert.equal(summary?.studies[0]?.studyType, "mesh_independence");
+  assert.equal(summary?.studies[0]?.studyExecutionStatusLabel, "Completed");
+  assert.equal(summary?.studies[0]?.workflowStatusLabel, "Completed");
+  assert.equal(
+    summary?.studies[0]?.workflowDetail,
+    "All planned variants completed with compare coverage.",
+  );
+  assert.deepEqual(summary?.studies[0]?.variantStatusCountLines, ["Completed: 3"]);
+  assert.deepEqual(summary?.studies[0]?.compareStatusCountLines, ["Completed: 2"]);
   assert.equal(summary?.studies[0]?.verificationStatus, "Passed");
+  assert.deepEqual(summary?.studies[0]?.expectedVariantRunIds, [
+    "mesh_independence:coarse",
+    "mesh_independence:fine",
+  ]);
   assert.equal(summary?.studies[1]?.verificationStatus, "Missing Evidence");
+  assert.equal(summary?.studies[1]?.workflowStatusLabel, "Partial");
+  assert.deepEqual(summary?.studies[1]?.plannedVariantRunIds, [
+    "domain_sensitivity:compact",
+    "domain_sensitivity:expanded",
+  ]);
 });
 
 void test("labels blocked scientific study execution explicitly", () => {
@@ -1055,12 +1113,43 @@ void test("builds an experiment summary from the final report payload", () => {
       experiment_id:
         "darpa-suboff-bare-hull-resistance-study-compare-demo-resistance",
       experiment_status: "completed",
+      workflow_status: "partial",
+      workflow_detail:
+        "Pending variant execution: domain_sensitivity:compact, domain_sensitivity:expanded",
       baseline_run_id: "baseline",
       run_count: 7,
+      compare_count: 2,
       manifest_virtual_path:
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+      study_manifest_virtual_path:
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
       compare_virtual_path:
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+      artifact_virtual_paths: [
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+      ],
+      linkage_status: "incomplete",
+      linkage_issue_count: 2,
+      linkage_issues: [
+        "Planned scientific variant is missing from experiment run records: domain_sensitivity:expanded.",
+      ],
+      run_status_counts: {
+        completed: 2,
+        planned: 2,
+      },
+      compare_status_counts: {
+        completed: 1,
+        planned: 1,
+      },
+      expected_variant_run_ids: [
+        "mesh_independence:coarse",
+        "domain_sensitivity:expanded",
+      ],
+      missing_variant_run_record_ids: ["domain_sensitivity:expanded"],
+      missing_compare_entry_ids: ["domain_sensitivity:expanded"],
+      planned_variant_run_ids: ["domain_sensitivity:expanded"],
+      missing_metrics_variant_run_ids: ["mesh_independence:fine"],
       compare_notes: [
         "mesh_independence:coarse | completed",
         "domain_sensitivity:compact | completed",
@@ -1073,16 +1162,34 @@ void test("builds an experiment summary from the final report payload", () => {
     "darpa-suboff-bare-hull-resistance-study-compare-demo-resistance",
   );
   assert.equal(summary?.experimentStatusLabel, "Completed");
+  assert.equal(summary?.workflowStatusLabel, "Partial");
+  assert.equal(
+    summary?.workflowDetail,
+    "Pending variant execution: domain_sensitivity:compact, domain_sensitivity:expanded",
+  );
   assert.equal(summary?.baselineRunId, "baseline");
   assert.equal(summary?.runCount, 7);
+  assert.equal(summary?.compareCount, 2);
   assert.equal(
     summary?.manifestPath,
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
   );
   assert.equal(
+    summary?.studyManifestPath,
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+  );
+  assert.equal(
     summary?.comparePath,
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
   );
+  assert.deepEqual(summary?.runStatusCountLines, ["Completed: 2", "Planned: 2"]);
+  assert.deepEqual(summary?.compareStatusCountLines, ["Completed: 1", "Planned: 1"]);
+  assert.equal(summary?.linkageStatus, "incomplete");
+  assert.equal(summary?.linkageIssueCount, 2);
+  assert.deepEqual(summary?.plannedVariantRunIds, ["domain_sensitivity:expanded"]);
+  assert.deepEqual(summary?.missingMetricsVariantRunIds, [
+    "mesh_independence:fine",
+  ]);
   assert.deepEqual(summary?.compareNotes, [
     "mesh_independence:coarse | completed",
     "domain_sensitivity:compact | completed",
@@ -1096,6 +1203,13 @@ void test("builds an experiment compare summary from the final report payload", 
         "darpa-suboff-bare-hull-resistance-study-compare-demo-resistance",
       baseline_run_id: "baseline",
       compare_count: 1,
+      workflow_status: "partial",
+      compare_status_counts: {
+        completed: 1,
+        planned: 1,
+      },
+      planned_candidate_run_ids: ["domain_sensitivity:expanded"],
+      completed_candidate_run_ids: ["mesh_independence:coarse"],
       compare_virtual_path:
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
       artifact_virtual_paths: [
@@ -1108,6 +1222,7 @@ void test("builds an experiment compare summary from the final report payload", 
           study_type: "mesh_independence",
           variant_id: "coarse",
           compare_status: "completed",
+          candidate_execution_status: "completed",
           notes: "Relative Cd shift stayed within tolerance.",
           metric_deltas: {
             Cd: {
@@ -1138,6 +1253,14 @@ void test("builds an experiment compare summary from the final report payload", 
 
   assert.equal(summary?.compareCount, 1);
   assert.equal(summary?.baselineRunId, "baseline");
+  assert.equal(summary?.workflowStatusLabel, "Partial");
+  assert.deepEqual(summary?.compareStatusCountLines, ["Completed: 1", "Planned: 1"]);
+  assert.deepEqual(summary?.plannedCandidateRunIds, [
+    "domain_sensitivity:expanded",
+  ]);
+  assert.deepEqual(summary?.completedCandidateRunIds, [
+    "mesh_independence:coarse",
+  ]);
   assert.equal(summary?.comparePath, "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json");
   assert.deepEqual(summary?.artifactPaths, [
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
@@ -1147,6 +1270,7 @@ void test("builds an experiment compare summary from the final report payload", 
   assert.equal(summary?.comparisons[0]?.candidateRunId, "mesh_independence:coarse");
   assert.equal(summary?.comparisons[0]?.compareStatus, "completed");
   assert.equal(summary?.comparisons[0]?.compareStatusLabel, "Completed");
+  assert.equal(summary?.comparisons[0]?.candidateExecutionStatusLabel, "Completed");
   assert.equal(summary?.comparisons[0]?.studyLabel, "mesh_independence / coarse");
   assert.deepEqual(summary?.comparisons[0]?.metricDeltaLines, [
     "Cd: baseline=0.12 | candidate=0.1212 | delta=0.0012 | relative=1.00%",

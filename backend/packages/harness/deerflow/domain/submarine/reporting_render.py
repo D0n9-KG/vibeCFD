@@ -238,6 +238,34 @@ def _render_figure_delivery_html(figure_delivery_summary: dict | None) -> str:
     )
 
 
+def _as_string_list(items: object) -> list[str]:
+    if not isinstance(items, list):
+        return []
+    return [str(item) for item in items if str(item)]
+
+
+def _format_status_count_items(counts: object) -> list[str]:
+    if not isinstance(counts, dict):
+        return []
+    items: list[str] = []
+    for status, count in counts.items():
+        if not _is_number(count):
+            continue
+        items.append(f"{status}: {int(count)}")
+    return items
+
+
+def _render_markdown_items(title: str, items: list[str]) -> list[str]:
+    if not items:
+        return []
+    return ["", f"### {title}", *(f"- {item}" for item in items)]
+
+
+def _render_html_items(title: str, items: list[str]) -> str:
+    rendered_items = "".join(f"<li>{escape(item)}</li>" for item in items) or "<li>None</li>"
+    return f"<h3>{escape(title)}</h3><ul>{rendered_items}</ul>"
+
+
 def _render_scientific_study_markdown(scientific_study_summary: dict | None) -> list[str]:
     if not scientific_study_summary:
         return []
@@ -246,25 +274,85 @@ def _render_scientific_study_markdown(scientific_study_summary: dict | None) -> 
         "",
         "## Scientific Studies",
         f"- execution_status: `{scientific_study_summary.get('study_execution_status')}`",
+        f"- workflow_status: `{scientific_study_summary.get('workflow_status')}`",
         f"- manifest: `{scientific_study_summary.get('manifest_virtual_path')}`",
     ]
+    lines.extend(
+        _render_markdown_items(
+            "Study Workflow Counts",
+            _format_status_count_items(scientific_study_summary.get("study_status_counts")),
+        )
+    )
     studies = scientific_study_summary.get("studies") or []
     if studies:
         lines.extend(["", "### Study Summary"])
-        lines.extend(
-            (
+        for item in studies:
+            if not isinstance(item, dict):
+                continue
+            lines.append(
                 "- "
                 + " | ".join(
                     [
                         f"`{item.get('study_type')}`",
+                        f"execution=`{item.get('study_execution_status')}`",
+                        f"workflow=`{item.get('workflow_status')}`",
                         f"verification=`{item.get('verification_status')}`",
                         f"variants={item.get('variant_count')}",
-                        str(item.get("verification_detail") or "No detail"),
+                        str(item.get("workflow_detail") or "No workflow detail"),
                     ]
                 )
             )
-            for item in studies
-        )
+            lines.extend(
+                _render_markdown_items(
+                    f"{item.get('study_type')} Variant Status Counts",
+                    _format_status_count_items(item.get("variant_status_counts")),
+                )
+            )
+            lines.extend(
+                _render_markdown_items(
+                    f"{item.get('study_type')} Compare Status Counts",
+                    _format_status_count_items(item.get("compare_status_counts")),
+                )
+            )
+            lines.extend(
+                _render_markdown_items(
+                    f"{item.get('study_type')} Expected Variant Runs",
+                    _as_string_list(item.get("expected_variant_run_ids")),
+                )
+            )
+            lines.extend(
+                _render_markdown_items(
+                    f"{item.get('study_type')} Planned Variant Runs",
+                    _as_string_list(item.get("planned_variant_run_ids")),
+                )
+            )
+            lines.extend(
+                _render_markdown_items(
+                    f"{item.get('study_type')} Blocked Variant Runs",
+                    _as_string_list(item.get("blocked_variant_run_ids")),
+                )
+            )
+            lines.extend(
+                _render_markdown_items(
+                    f"{item.get('study_type')} Pending Compare Coverage",
+                    _as_string_list(item.get("planned_compare_variant_run_ids")),
+                )
+            )
+            lines.extend(
+                _render_markdown_items(
+                    f"{item.get('study_type')} Missing Compare Metrics",
+                    _as_string_list(item.get("missing_metrics_variant_run_ids")),
+                )
+            )
+            verification_detail = str(item.get("verification_detail") or "").strip()
+            if verification_detail:
+                lines.extend(
+                    [
+                        "",
+                        f"### {item.get('study_type')} Verification Detail",
+                        f"- {verification_detail}",
+                    ]
+                )
 
     return lines
 
@@ -278,9 +366,12 @@ def _render_experiment_markdown(experiment_summary: dict | None) -> list[str]:
         "## Experiment Registry",
         f"- experiment_id: `{experiment_summary.get('experiment_id')}`",
         f"- experiment_status: `{experiment_summary.get('experiment_status')}`",
+        f"- workflow_status: `{experiment_summary.get('workflow_status')}`",
         f"- baseline_run_id: `{experiment_summary.get('baseline_run_id')}`",
         f"- run_count: `{experiment_summary.get('run_count')}`",
+        f"- compare_count: `{experiment_summary.get('compare_count')}`",
         f"- linkage_status: `{experiment_summary.get('linkage_status')}`",
+        f"- linkage_issue_count: `{experiment_summary.get('linkage_issue_count')}`",
         f"- manifest: `{experiment_summary.get('manifest_virtual_path')}`",
     ]
     if experiment_summary.get("study_manifest_virtual_path"):
@@ -291,6 +382,21 @@ def _render_experiment_markdown(experiment_summary: dict | None) -> list[str]:
         lines.append(
             f"- compare: `{experiment_summary.get('compare_virtual_path')}`"
         )
+    workflow_detail = str(experiment_summary.get("workflow_detail") or "").strip()
+    if workflow_detail:
+        lines.extend(["", "### Workflow Detail", f"- {workflow_detail}"])
+    lines.extend(
+        _render_markdown_items(
+            "Run Status Counts",
+            _format_status_count_items(experiment_summary.get("run_status_counts")),
+        )
+    )
+    lines.extend(
+        _render_markdown_items(
+            "Compare Status Counts",
+            _format_status_count_items(experiment_summary.get("compare_status_counts")),
+        )
+    )
     expected_variant_run_ids = experiment_summary.get("expected_variant_run_ids") or []
     if expected_variant_run_ids:
         lines.extend(
@@ -302,6 +408,36 @@ def _render_experiment_markdown(experiment_summary: dict | None) -> list[str]:
                 f"- compared_variant_run_ids: `{', '.join(str(item) for item in (experiment_summary.get('compared_variant_run_ids') or [])) or '--'}`",
             ]
         )
+    lines.extend(
+        _render_markdown_items(
+            "Missing Variant Run Records",
+            _as_string_list(experiment_summary.get("missing_variant_run_record_ids")),
+        )
+    )
+    lines.extend(
+        _render_markdown_items(
+            "Missing Compare Entries",
+            _as_string_list(experiment_summary.get("missing_compare_entry_ids")),
+        )
+    )
+    lines.extend(
+        _render_markdown_items(
+            "Planned Variant Runs",
+            _as_string_list(experiment_summary.get("planned_variant_run_ids")),
+        )
+    )
+    lines.extend(
+        _render_markdown_items(
+            "Blocked Variant Runs",
+            _as_string_list(experiment_summary.get("blocked_variant_run_ids")),
+        )
+    )
+    lines.extend(
+        _render_markdown_items(
+            "Missing Compare Metrics",
+            _as_string_list(experiment_summary.get("missing_metrics_variant_run_ids")),
+        )
+    )
     compare_notes = experiment_summary.get("compare_notes") or []
     if compare_notes:
         lines.extend(["", "### Compare Summary"])
@@ -346,8 +482,39 @@ def _render_experiment_compare_markdown(
         "## Experiment Compare",
         f"- baseline_run_id: `{experiment_compare_summary.get('baseline_run_id')}`",
         f"- compare_count: `{experiment_compare_summary.get('compare_count')}`",
+        f"- workflow_status: `{experiment_compare_summary.get('workflow_status')}`",
         f"- compare: `{experiment_compare_summary.get('compare_virtual_path')}`",
     ]
+    lines.extend(
+        _render_markdown_items(
+            "Compare Status Counts",
+            _format_status_count_items(experiment_compare_summary.get("compare_status_counts")),
+        )
+    )
+    lines.extend(
+        _render_markdown_items(
+            "Planned Candidate Runs",
+            _as_string_list(experiment_compare_summary.get("planned_candidate_run_ids")),
+        )
+    )
+    lines.extend(
+        _render_markdown_items(
+            "Completed Candidate Runs",
+            _as_string_list(experiment_compare_summary.get("completed_candidate_run_ids")),
+        )
+    )
+    lines.extend(
+        _render_markdown_items(
+            "Blocked Candidate Runs",
+            _as_string_list(experiment_compare_summary.get("blocked_candidate_run_ids")),
+        )
+    )
+    lines.extend(
+        _render_markdown_items(
+            "Missing Compare Metrics",
+            _as_string_list(experiment_compare_summary.get("missing_metrics_candidate_run_ids")),
+        )
+    )
     comparisons = experiment_compare_summary.get("comparisons") or []
     if comparisons:
         lines.extend(["", "### Compare Entries"])
@@ -362,6 +529,7 @@ def _render_experiment_compare_markdown(
                     [
                         f"`{item.get('candidate_run_id')}`",
                         f"`{item.get('compare_status')}`",
+                        f"execution=`{item.get('candidate_execution_status') or '--'}`",
                         str(item.get("study_type") or "--"),
                         str(item.get("variant_id") or "--"),
                         detail,
@@ -605,20 +773,64 @@ def _render_scientific_study_html(scientific_study_summary: dict | None) -> str:
     if not scientific_study_summary:
         return ""
 
-    study_items = "".join(
-        "<li>"
-        f"<strong>{escape(str(item.get('summary_label') or item.get('study_type')))}</strong> "
-        f"(<code>{escape(str(item.get('verification_status')))}</code>)"
-        f"<p>{escape(str(item.get('verification_detail') or 'No detail'))}</p>"
-        "</li>"
-        for item in (scientific_study_summary.get("studies") or [])
-    ) or "<li>None</li>"
+    study_counts_html = _render_html_items(
+        "Study Workflow Counts",
+        _format_status_count_items(scientific_study_summary.get("study_status_counts")),
+    )
+    study_sections: list[str] = []
+    for item in (scientific_study_summary.get("studies") or []):
+        if not isinstance(item, dict):
+            continue
+        detail_sections = [
+            _render_html_items(
+                "Variant Status Counts",
+                _format_status_count_items(item.get("variant_status_counts")),
+            ),
+            _render_html_items(
+                "Compare Status Counts",
+                _format_status_count_items(item.get("compare_status_counts")),
+            ),
+            _render_html_items(
+                "Expected Variant Runs",
+                _as_string_list(item.get("expected_variant_run_ids")),
+            ),
+            _render_html_items(
+                "Planned Variant Runs",
+                _as_string_list(item.get("planned_variant_run_ids")),
+            ),
+            _render_html_items(
+                "Blocked Variant Runs",
+                _as_string_list(item.get("blocked_variant_run_ids")),
+            ),
+            _render_html_items(
+                "Pending Compare Coverage",
+                _as_string_list(item.get("planned_compare_variant_run_ids")),
+            ),
+            _render_html_items(
+                "Missing Compare Metrics",
+                _as_string_list(item.get("missing_metrics_variant_run_ids")),
+            ),
+        ]
+        study_sections.append(
+            "<li>"
+            f"<strong>{escape(str(item.get('summary_label') or item.get('study_type')))}</strong> "
+            f"(<code>{escape(str(item.get('workflow_status') or '--'))}</code>)"
+            f"<p>execution={escape(str(item.get('study_execution_status') or '--'))}, "
+            f"verification={escape(str(item.get('verification_status') or '--'))}</p>"
+            f"<p>{escape(str(item.get('workflow_detail') or 'No workflow detail'))}</p>"
+            f"<p>{escape(str(item.get('verification_detail') or 'No detail'))}</p>"
+            + "".join(detail_sections)
+            + "</li>"
+        )
+    study_items = "".join(study_sections) or "<li>None</li>"
 
     return (
         '<section class="panel">'
         "<h2>Scientific Studies</h2>"
         f"<p><strong>execution_status:</strong> {escape(str(scientific_study_summary.get('study_execution_status')))}</p>"
+        f"<p><strong>workflow_status:</strong> {escape(str(scientific_study_summary.get('workflow_status')))}</p>"
         f"<p><strong>manifest:</strong> {escape(str(scientific_study_summary.get('manifest_virtual_path')))}</p>"
+        f"{study_counts_html}"
         "<h3>Study Summary</h3>"
         f"<ul>{study_items}</ul>"
         "</section>"
@@ -665,13 +877,24 @@ def _render_experiment_html(experiment_summary: dict | None) -> str:
         "<h2>Experiment Registry</h2>"
         f"<p><strong>experiment_id:</strong> {escape(str(experiment_summary.get('experiment_id')))}</p>"
         f"<p><strong>experiment_status:</strong> {escape(str(experiment_summary.get('experiment_status')))}</p>"
+        f"<p><strong>workflow_status:</strong> {escape(str(experiment_summary.get('workflow_status')))}</p>"
         f"<p><strong>baseline_run_id:</strong> {escape(str(experiment_summary.get('baseline_run_id')))}</p>"
         f"<p><strong>run_count:</strong> {escape(str(experiment_summary.get('run_count')))}</p>"
+        f"<p><strong>compare_count:</strong> {escape(str(experiment_summary.get('compare_count')))}</p>"
         f"<p><strong>linkage_status:</strong> {escape(str(experiment_summary.get('linkage_status')))}</p>"
+        f"<p><strong>linkage_issue_count:</strong> {escape(str(experiment_summary.get('linkage_issue_count')))}</p>"
         f"<p><strong>manifest:</strong> {escape(str(experiment_summary.get('manifest_virtual_path')))}</p>"
         f"{study_manifest_html}"
         f"{compare_html}"
+        f"<p><strong>workflow_detail:</strong> {escape(str(experiment_summary.get('workflow_detail') or '--'))}</p>"
+        f"{_render_html_items('Run Status Counts', _format_status_count_items(experiment_summary.get('run_status_counts')))}"
+        f"{_render_html_items('Compare Status Counts', _format_status_count_items(experiment_summary.get('compare_status_counts')))}"
         f"{coverage_html}"
+        f"{_render_html_items('Missing Variant Run Records', _as_string_list(experiment_summary.get('missing_variant_run_record_ids')))}"
+        f"{_render_html_items('Missing Compare Entries', _as_string_list(experiment_summary.get('missing_compare_entry_ids')))}"
+        f"{_render_html_items('Planned Variant Runs', _as_string_list(experiment_summary.get('planned_variant_run_ids')))}"
+        f"{_render_html_items('Blocked Variant Runs', _as_string_list(experiment_summary.get('blocked_variant_run_ids')))}"
+        f"{_render_html_items('Missing Compare Metrics', _as_string_list(experiment_summary.get('missing_metrics_variant_run_ids')))}"
         "<h3>Compare Summary</h3>"
         f"<ul>{compare_items}</ul>"
         "<h3>Linkage Issues</h3>"
@@ -699,7 +922,13 @@ def _render_experiment_compare_html(experiment_compare_summary: dict | None) -> 
         "<h2>Experiment Compare</h2>"
         f"<p><strong>baseline_run_id:</strong> {escape(str(experiment_compare_summary.get('baseline_run_id') or '--'))}</p>"
         f"<p><strong>compare_count:</strong> {escape(str(experiment_compare_summary.get('compare_count') or 0))}</p>"
+        f"<p><strong>workflow_status:</strong> {escape(str(experiment_compare_summary.get('workflow_status') or '--'))}</p>"
         f"<p><strong>compare:</strong> {escape(str(experiment_compare_summary.get('compare_virtual_path') or '--'))}</p>"
+        f"{_render_html_items('Compare Status Counts', _format_status_count_items(experiment_compare_summary.get('compare_status_counts')))}"
+        f"{_render_html_items('Planned Candidate Runs', _as_string_list(experiment_compare_summary.get('planned_candidate_run_ids')))}"
+        f"{_render_html_items('Completed Candidate Runs', _as_string_list(experiment_compare_summary.get('completed_candidate_run_ids')))}"
+        f"{_render_html_items('Blocked Candidate Runs', _as_string_list(experiment_compare_summary.get('blocked_candidate_run_ids')))}"
+        f"{_render_html_items('Missing Compare Metrics', _as_string_list(experiment_compare_summary.get('missing_metrics_candidate_run_ids')))}"
         f"<ul>{items}</ul>"
         "</section>"
     )

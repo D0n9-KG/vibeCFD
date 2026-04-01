@@ -60,8 +60,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Add residual and coefficient-stability evidence extraction plus gating rules
-- [ ] 03-02: Implement study execution and verification packaging for mesh/domain/time-step sensitivity
+- [x] 03-01: Add residual and coefficient-stability evidence extraction plus gating rules
+- [x] 03-02: Implement study execution and verification packaging for mesh/domain/time-step sensitivity
 - [ ] 03-03: Add benchmark comparison logic and integrate it into scientific claim-level decisions
 
 ### Phase 4: Geometry and Case Intelligence Hardening
@@ -115,7 +115,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. End-to-End Workbench Bootstrap | 3/3 | Complete | 2026-04-01 |
 | 2. Runtime Solver Productization | 3/3 | Complete | 2026-04-01 |
-| 3. Scientific Verification Gates | 0/3 | Not started | - |
+| 3. Scientific Verification Gates | 2/3 | In progress | - |
 | 4. Geometry and Case Intelligence Hardening | 0/3 | Not started | - |
 | 5. Experiment Ops and Reproducibility | 0/3 | Not started | - |
 | 6. Research Delivery Workbench | 0/3 | Not started | - |

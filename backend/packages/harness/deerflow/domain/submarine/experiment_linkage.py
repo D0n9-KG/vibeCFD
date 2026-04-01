@@ -41,6 +41,15 @@ def _unique_strings(items: list[str]) -> list[str]:
     return ordered
 
 
+def _count_statuses(statuses: list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for status in statuses:
+        if not status:
+            continue
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
 def _planned_variant_run_ids(study_manifest: Mapping[str, Any]) -> list[str]:
     expected: list[str] = []
     for definition in _as_dict_list(study_manifest.get("study_definitions")):
@@ -93,6 +102,8 @@ def build_experiment_linkage_assessment(
     expected_variant_run_ids = _planned_variant_run_ids(study_manifest_mapping)
     recorded_variant_run_ids = _recorded_variant_run_ids(experiment_manifest_mapping)
     compared_variant_run_ids = _compared_variant_run_ids(compare_summary_mapping)
+    run_records = _as_dict_list(experiment_manifest_mapping.get("run_records"))
+    comparisons = _as_dict_list(compare_summary_mapping.get("comparisons"))
 
     linkage_issues: list[str] = []
 
@@ -120,7 +131,7 @@ def build_experiment_linkage_assessment(
 
     run_record_ids = {
         _as_string(record.get("run_id"))
-        for record in _as_dict_list(experiment_manifest_mapping.get("run_records"))
+        for record in run_records
         if _as_string(record.get("run_id"))
     }
     if manifest_baseline_run_id and manifest_baseline_run_id not in run_record_ids:
@@ -163,6 +174,90 @@ def build_experiment_linkage_assessment(
         for run_id in recorded_variant_run_ids
         if run_id not in expected_variant_run_ids
     ]
+    variant_run_status_by_id = {
+        _as_string(record.get("run_id")): _as_string(record.get("execution_status"))
+        for record in run_records
+        if _as_string(record.get("run_id")) and _as_string(record.get("run_id")) != "baseline"
+    }
+    compare_status_by_id = {
+        _as_string(comparison.get("candidate_run_id")): _as_string(
+            comparison.get("compare_status")
+        )
+        for comparison in comparisons
+        if _as_string(comparison.get("candidate_run_id"))
+        and _as_string(comparison.get("candidate_run_id")) != "baseline"
+    }
+    baseline_status = next(
+        (
+            _as_string(record.get("execution_status"))
+            for record in run_records
+            if _as_string(record.get("run_id")) == manifest_baseline_run_id
+        ),
+        "",
+    )
+    run_status_counts = _count_statuses(list(variant_run_status_by_id.values()))
+    compare_status_counts = _count_statuses(list(compare_status_by_id.values()))
+    planned_variant_run_ids = [
+        run_id
+        for run_id, status in variant_run_status_by_id.items()
+        if status == "planned"
+    ]
+    in_progress_variant_run_ids = [
+        run_id
+        for run_id, status in variant_run_status_by_id.items()
+        if status == "in_progress"
+    ]
+    completed_variant_run_ids = [
+        run_id
+        for run_id, status in variant_run_status_by_id.items()
+        if status == "completed"
+    ]
+    blocked_variant_run_ids = [
+        run_id
+        for run_id, status in variant_run_status_by_id.items()
+        if status == "blocked"
+    ]
+    planned_compare_variant_run_ids = [
+        run_id
+        for run_id, status in compare_status_by_id.items()
+        if status == "planned"
+    ]
+    completed_compare_variant_run_ids = [
+        run_id
+        for run_id, status in compare_status_by_id.items()
+        if status == "completed"
+    ]
+    blocked_compare_variant_run_ids = [
+        run_id
+        for run_id, status in compare_status_by_id.items()
+        if status == "blocked"
+    ]
+    missing_metrics_variant_run_ids = [
+        run_id
+        for run_id, status in compare_status_by_id.items()
+        if status == "missing_metrics"
+    ]
+
+    workflow_status = "planned"
+    expected_run_statuses = [
+        variant_run_status_by_id.get(run_id) for run_id in expected_variant_run_ids
+    ]
+    expected_compare_statuses = [
+        compare_status_by_id.get(run_id) for run_id in expected_variant_run_ids
+    ]
+    if blocked_variant_run_ids or blocked_compare_variant_run_ids:
+        workflow_status = "blocked"
+    elif (
+        expected_variant_run_ids
+        and not linkage_issues
+        and all(status == "completed" for status in expected_run_statuses)
+        and all(status == "completed" for status in expected_compare_statuses)
+    ):
+        workflow_status = "completed"
+    elif not expected_variant_run_ids:
+        workflow_status = "completed" if baseline_status == "completed" else "planned"
+    elif baseline_status == "completed" or recorded_variant_run_ids or compared_variant_run_ids:
+        workflow_status = "partial"
 
     return {
         "linkage_status": "incomplete" if linkage_issues else "consistent",
@@ -172,6 +267,20 @@ def build_experiment_linkage_assessment(
         "recorded_variant_run_ids": recorded_variant_run_ids,
         "compared_variant_run_ids": compared_variant_run_ids,
         "additional_variant_run_ids": additional_variant_run_ids,
+        "missing_variant_run_record_ids": missing_variant_run_records,
+        "missing_compare_entry_ids": missing_compare_entries,
+        "orphan_compare_entry_ids": orphan_compare_entries,
+        "run_status_counts": run_status_counts,
+        "compare_status_counts": compare_status_counts,
+        "workflow_status": workflow_status,
+        "planned_variant_run_ids": planned_variant_run_ids,
+        "in_progress_variant_run_ids": in_progress_variant_run_ids,
+        "completed_variant_run_ids": completed_variant_run_ids,
+        "blocked_variant_run_ids": blocked_variant_run_ids,
+        "planned_compare_variant_run_ids": planned_compare_variant_run_ids,
+        "completed_compare_variant_run_ids": completed_compare_variant_run_ids,
+        "blocked_compare_variant_run_ids": blocked_compare_variant_run_ids,
+        "missing_metrics_variant_run_ids": missing_metrics_variant_run_ids,
     }
 
 
