@@ -16,16 +16,16 @@ class ThreadDataMiddlewareState(AgentState):
 
 
 class ThreadDataMiddleware(AgentMiddleware[ThreadDataMiddlewareState]):
-    """Create thread data directories for each thread execution.
+    """Guarantee thread data directories for each thread execution.
 
     Creates the following directory structure:
     - {base_dir}/threads/{thread_id}/user-data/workspace
     - {base_dir}/threads/{thread_id}/user-data/uploads
     - {base_dir}/threads/{thread_id}/user-data/outputs
 
-    Lifecycle Management:
-    - With lazy_init=True (default): Only compute paths, directories created on-demand
-    - With lazy_init=False: Eagerly create directories in before_agent()
+    The returned thread_data paths always point at directories that already
+    exist before tools run. ``lazy_init`` is retained for compatibility but
+    no longer skips directory creation.
     """
 
     state_schema = ThreadDataMiddlewareState
@@ -35,9 +35,9 @@ class ThreadDataMiddleware(AgentMiddleware[ThreadDataMiddlewareState]):
 
         Args:
             base_dir: Base directory for thread data. Defaults to Paths resolution.
-            lazy_init: If True, defer directory creation until needed.
-                      If False, create directories eagerly in before_agent().
-                      Default is True for optimal performance.
+            lazy_init: Retained for compatibility with existing construction
+                      sites. Thread directories are now guaranteed in
+                      before_agent() regardless of this flag.
         """
         super().__init__()
         self._paths = Paths(base_dir) if base_dir else get_paths()
@@ -81,11 +81,11 @@ class ThreadDataMiddleware(AgentMiddleware[ThreadDataMiddlewareState]):
         if thread_id is None:
             raise ValueError("Thread ID is required in runtime context or config.configurable")
 
+        self._paths.ensure_thread_dirs(thread_id)
+
         if self._lazy_init:
-            # Lazy initialization: only compute paths, don't create directories
             paths = self._get_thread_paths(thread_id)
         else:
-            # Eager initialization: create directories immediately
             paths = self._create_thread_directories(thread_id)
             print(f"Created thread data directories for thread {thread_id}")
 

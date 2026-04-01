@@ -23,6 +23,7 @@ from deerflow.domain.submarine.design_brief import run_design_brief
 from deerflow.domain.submarine.geometry_check import SUPPORTED_GEOMETRY_SUFFIXES
 from deerflow.tools.builtins.submarine_runtime_context import (
     load_existing_design_brief_payload,
+    resolve_bound_geometry_virtual_path,
     resolve_execution_preference,
 )
 
@@ -59,6 +60,8 @@ def _resolve_geometry_path(runtime: ToolRuntime[ContextT, ThreadState], geometry
             except ValueError as exc:
                 raise ValueError("Geometry path must stay inside the current thread user-data directory") from exc
     else:
+        if not uploads_dir.exists():
+            return None
         candidates = sorted(
             (
                 candidate
@@ -136,7 +139,10 @@ def submarine_design_brief_tool(
         open_questions: Optional list of unresolved questions Claude Code still needs to confirm.
     """
     try:
+        existing_runtime = (runtime.state or {}).get("submarine_runtime") or {}
         outputs_dir = _get_thread_dir(runtime, "outputs_path")
+        uploads_dir = _get_thread_dir(runtime, "uploads_path")
+        thread_id = _get_thread_id(runtime)
         existing_payload = load_existing_design_brief_payload(
             outputs_dir=outputs_dir,
             state=runtime.state,
@@ -163,7 +169,14 @@ def submarine_design_brief_tool(
             if selected_case_id is not None
             else existing_payload.get("selected_case_id")
         )
-        resolved_geometry_input = geometry_path or existing_payload.get("geometry_virtual_path")
+        resolved_geometry_input = resolve_bound_geometry_virtual_path(
+            thread_id=thread_id,
+            uploads_dir=uploads_dir,
+            explicit_geometry_path=geometry_path,
+            existing_runtime=existing_runtime,
+            existing_brief=existing_payload,
+            uploaded_files=(runtime.state or {}).get("uploaded_files"),
+        )
         resolved_geometry_path = _resolve_geometry_path(runtime, resolved_geometry_input)
         geometry_virtual_path = (
             _to_virtual_thread_path(runtime, resolved_geometry_path) if resolved_geometry_path is not None else None
@@ -232,7 +245,6 @@ def submarine_design_brief_tool(
     except ValueError as exc:
         return Command(update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id)]})
 
-    existing_runtime = (runtime.state or {}).get("submarine_runtime")
     timeline = extend_runtime_timeline(
         existing_runtime,
         build_runtime_event(

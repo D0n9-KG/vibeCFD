@@ -76,7 +76,10 @@ interface TaskIntelligenceCardProps {
   threadId: string;
   snapshot: StageRuntimeSnapshot | null;
   designBrief: SubmarineDesignBriefPayload | null;
-  onConfirm: (threadId: string, message: { role: "human"; content: string }) => void;
+  onConfirm: (
+    threadId: string,
+    message: { role: "human"; content: string },
+  ) => Promise<void> | void;
 }
 
 function LegacyTaskIntelligenceCard({
@@ -747,7 +750,10 @@ const REVIEW_STATUS_COLORS: Record<string, string> = {
 interface SupervisorReviewCardProps {
   threadId: string;
   snapshot: StageRuntimeSnapshot | null;
-  onConfirm: (threadId: string, message: { role: "human"; content: string }) => void;
+  onConfirm: (
+    threadId: string,
+    message: { role: "human"; content: string },
+  ) => Promise<void> | void;
 }
 
 export function SupervisorReviewCard({

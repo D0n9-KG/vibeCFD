@@ -15,6 +15,11 @@ type LangGraphBaseURLOptions = {
   location?: BrowserLocationLike;
 };
 
+function normalizeConfiguredBaseURL(url?: string): string | undefined {
+  const trimmed = url?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 function isStandaloneLocalFrontendDev(location?: BrowserLocationLike): boolean {
   if (!location) {
     return false;
@@ -30,8 +35,9 @@ export function resolveBackendBaseURL({
   backendBaseURL,
   location,
 }: BackendBaseURLOptions): string {
-  if (backendBaseURL) {
-    return backendBaseURL;
+  const normalizedBackendBaseURL = normalizeConfiguredBaseURL(backendBaseURL);
+  if (normalizedBackendBaseURL) {
+    return normalizedBackendBaseURL;
   }
 
   if (isStandaloneLocalFrontendDev(location)) {
@@ -46,8 +52,10 @@ export function resolveLangGraphBaseURL({
   isMock,
   location,
 }: LangGraphBaseURLOptions): string {
-  if (langGraphBaseURL) {
-    return langGraphBaseURL;
+  const normalizedLangGraphBaseURL =
+    normalizeConfiguredBaseURL(langGraphBaseURL);
+  if (normalizedLangGraphBaseURL) {
+    return normalizedLangGraphBaseURL;
   }
 
   if (isMock) {

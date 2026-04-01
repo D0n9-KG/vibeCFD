@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
+from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
+from deerflow.domain.submarine.geometry_check import SUPPORTED_GEOMETRY_SUFFIXES
 from deerflow.domain.submarine.artifact_store import (
     load_first_json_payload_from_artifacts,
 )
@@ -192,6 +194,115 @@ def build_user_confirmation_block_message(
         f"Please resolve the missing operating-condition questions for {task_summary} in chat, "
         f"update the design brief, and then retry {retry_tool_name}."
     )
+
+
+def _normalize_geometry_candidate(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    candidate = value.strip()
+    if not candidate:
+        return None
+    if Path(candidate).suffix.lower() not in SUPPORTED_GEOMETRY_SUFFIXES:
+        return None
+    return candidate
+
+
+def _resolve_geometry_candidate_path(
+    *,
+    candidate: str,
+    thread_id: str,
+    uploads_dir: Path,
+) -> Path | None:
+    stripped = candidate.lstrip("/")
+    virtual_prefix = VIRTUAL_PATH_PREFIX.lstrip("/")
+    user_data_dir = uploads_dir.parent.resolve()
+
+    if stripped == virtual_prefix or stripped.startswith(virtual_prefix + "/"):
+        try:
+            resolved = get_paths().resolve_virtual_path(thread_id, candidate)
+        except ValueError:
+            return None
+    else:
+        resolved = Path(candidate).expanduser().resolve()
+        try:
+            resolved.relative_to(user_data_dir)
+        except ValueError:
+            return None
+
+    if not resolved.exists() or not resolved.is_file():
+        return None
+    if resolved.suffix.lower() not in SUPPORTED_GEOMETRY_SUFFIXES:
+        return None
+    return resolved
+
+
+def _to_virtual_thread_path(uploads_dir: Path, actual_path: Path) -> str:
+    user_data_dir = uploads_dir.parent.resolve()
+    relative = actual_path.resolve().relative_to(user_data_dir)
+    return f"{VIRTUAL_PATH_PREFIX}/{relative.as_posix()}"
+
+
+def resolve_bound_geometry_virtual_path(
+    *,
+    thread_id: str,
+    uploads_dir: Path,
+    explicit_geometry_path: str | None,
+    existing_runtime: Mapping[str, Any] | None,
+    existing_brief: Mapping[str, Any] | None,
+    uploaded_files: list[dict] | None,
+) -> str | None:
+    """Return the best recoverable thread-bound geometry virtual path.
+
+    Precedence:
+    1. explicit geometry path when it resolves to a valid STL inside thread user-data
+    2. `submarine_runtime.geometry_virtual_path`
+    3. design-brief `geometry_virtual_path`
+    4. `uploaded_files[*].path`
+    5. latest STL under the thread uploads directory
+    """
+
+    candidate_values: list[str] = []
+    for value in (
+        explicit_geometry_path,
+        (existing_runtime or {}).get("geometry_virtual_path"),
+        (existing_brief or {}).get("geometry_virtual_path"),
+    ):
+        normalized = _normalize_geometry_candidate(value)
+        if normalized and normalized not in candidate_values:
+            candidate_values.append(normalized)
+
+    for uploaded in uploaded_files or []:
+        if not isinstance(uploaded, Mapping):
+            continue
+        normalized = _normalize_geometry_candidate(uploaded.get("path"))
+        if normalized and normalized not in candidate_values:
+            candidate_values.append(normalized)
+
+    for candidate in candidate_values:
+        resolved = _resolve_geometry_candidate_path(
+            candidate=candidate,
+            thread_id=thread_id,
+            uploads_dir=uploads_dir,
+        )
+        if resolved is not None:
+            return _to_virtual_thread_path(uploads_dir, resolved)
+
+    if not uploads_dir.exists():
+        return None
+
+    candidates = sorted(
+        (
+            candidate
+            for candidate in uploads_dir.iterdir()
+            if candidate.is_file()
+            and candidate.suffix.lower() in SUPPORTED_GEOMETRY_SUFFIXES
+        ),
+        key=lambda candidate: candidate.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        return None
+    return _to_virtual_thread_path(uploads_dir, candidates[0])
 
 
 def load_existing_design_brief_payload(

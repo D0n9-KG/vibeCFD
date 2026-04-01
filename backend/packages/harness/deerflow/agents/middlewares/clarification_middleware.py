@@ -1,6 +1,7 @@
 """Middleware for intercepting clarification requests and presenting them to the user."""
 
 from collections.abc import Callable
+import sys
 from typing import override
 
 from langchain.agents import AgentState
@@ -31,6 +32,20 @@ class ClarificationMiddleware(AgentMiddleware[ClarificationMiddlewareState]):
     """
 
     state_schema = ClarificationMiddlewareState
+
+    def _safe_console_text(self, text: str) -> str:
+        """Render text safely for the current stdout encoding.
+
+        Windows consoles often default to GBK, which cannot encode characters like
+        superscript digits used in units (for example `m³/s`). Escaping only the
+        unsupported characters keeps debug output readable without crashing the tool.
+        """
+        encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+        return text.encode(encoding, errors="backslashreplace").decode(encoding)
+
+    def _debug_log(self, message: str) -> None:
+        """Write middleware diagnostics without failing on console encoding limits."""
+        print(self._safe_console_text(message))
 
     def _is_chinese(self, text: str) -> bool:
         """Check if text contains Chinese characters.
@@ -101,8 +116,8 @@ class ClarificationMiddleware(AgentMiddleware[ClarificationMiddlewareState]):
         args = request.tool_call.get("args", {})
         question = args.get("question", "")
 
-        print("[ClarificationMiddleware] Intercepted clarification request")
-        print(f"[ClarificationMiddleware] Question: {question}")
+        self._debug_log("[ClarificationMiddleware] Intercepted clarification request")
+        self._debug_log(f"[ClarificationMiddleware] Question: {question}")
 
         # Format the clarification message
         formatted_message = self._format_clarification_message(args)

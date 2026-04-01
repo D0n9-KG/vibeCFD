@@ -14,6 +14,9 @@ class TestThreadDataMiddleware:
         assert result["thread_data"]["workspace_path"].endswith("threads/thread-123/user-data/workspace")
         assert result["thread_data"]["uploads_path"].endswith("threads/thread-123/user-data/uploads")
         assert result["thread_data"]["outputs_path"].endswith("threads/thread-123/user-data/outputs")
+        assert tmp_path.joinpath("threads", "thread-123", "user-data", "workspace").is_dir()
+        assert tmp_path.joinpath("threads", "thread-123", "user-data", "uploads").is_dir()
+        assert tmp_path.joinpath("threads", "thread-123", "user-data", "outputs").is_dir()
 
     def test_before_agent_uses_thread_id_from_configurable_when_context_is_none(self, tmp_path, monkeypatch):
         middleware = ThreadDataMiddleware(base_dir=str(tmp_path), lazy_init=True)
@@ -52,3 +55,12 @@ class TestThreadDataMiddleware:
 
         with pytest.raises(ValueError, match="Thread ID is required in runtime context or config.configurable"):
             middleware.before_agent(state={}, runtime=Runtime(context=None))
+
+    def test_before_agent_creates_standard_thread_directories_with_lazy_init(self, tmp_path):
+        middleware = ThreadDataMiddleware(base_dir=str(tmp_path), lazy_init=True)
+
+        middleware.before_agent(state={}, runtime=Runtime(context={"thread_id": "thread-lazy"}))
+
+        assert tmp_path.joinpath("threads", "thread-lazy", "user-data", "workspace").is_dir()
+        assert tmp_path.joinpath("threads", "thread-lazy", "user-data", "uploads").is_dir()
+        assert tmp_path.joinpath("threads", "thread-lazy", "user-data", "outputs").is_dir()

@@ -341,6 +341,8 @@ export function SubmarinePipeline({
       getSubmarinePipelineStatus({
         threadError: thread.error,
         threadIsLoading: thread.isLoading,
+        isNewThread,
+        hasMessages: thread.messages.length > 0,
         hasDesignBrief: Boolean(designBrief),
         hasFinalReport: Boolean(finalReport),
         designBriefSummary: designBrief?.summary_zh,
@@ -349,9 +351,11 @@ export function SubmarinePipeline({
     [
       designBrief,
       finalReport,
+      isNewThread,
       runtime?.task_summary,
       thread.error,
       thread.isLoading,
+      thread.messages.length,
     ],
   );
 
@@ -359,14 +363,14 @@ export function SubmarinePipeline({
   // Bridge from stage card { role, content } to PromptInputMessage { text, files }
   const handleSend = useCallback(
     (tid: string, message: { role: "human"; content: string }) => {
-      void sendMessage(tid, { text: message.content, files: [] });
+      return sendMessage(tid, { text: message.content, files: [] });
     },
     [sendMessage],
   );
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      void sendMessage(threadId, message);
+      return sendMessage(threadId, message);
     },
     [sendMessage, threadId],
   );
@@ -469,6 +473,7 @@ export function SubmarinePipeline({
         <div className="flex h-full flex-col overflow-hidden">
           <PipelineCenterPane
             thread={thread}
+            isNewThread={isNewThread}
             runtime={runtime}
             displayedCurrentStage={displayedCurrentStage}
             displayedNextStage={displayedNextStage}
@@ -539,6 +544,7 @@ export function SubmarinePipeline({
         <ResizablePanel id="submarine-pipeline-center">
           <PipelineCenterPane
             thread={thread}
+            isNewThread={isNewThread}
             runtime={runtime}
             displayedCurrentStage={displayedCurrentStage}
             displayedNextStage={displayedNextStage}
@@ -589,6 +595,7 @@ export function SubmarinePipeline({
 
 function PipelineCenterPane({
   thread,
+  isNewThread,
   runtime,
   displayedCurrentStage,
   displayedNextStage,
@@ -604,6 +611,7 @@ function PipelineCenterPane({
   handleSend,
 }: {
   thread: ReturnType<typeof useThread>["thread"];
+  isNewThread: boolean;
   runtime: SubmarineRuntimeSnapshot | null;
   displayedCurrentStage: string | null;
   displayedNextStage: string | null;
@@ -619,7 +627,7 @@ function PipelineCenterPane({
   handleSend: (
     tid: string,
     message: { role: "human"; content: string },
-  ) => void;
+  ) => Promise<void> | void;
 }) {
   const centerPaneConfig = getSubmarinePipelineCenterPaneConfig();
   const currentStageLabel = displayedCurrentStage
@@ -633,6 +641,13 @@ function PipelineCenterPane({
   const submarineArtifactCount = Array.isArray(thread.values.artifacts)
     ? thread.values.artifacts.filter((path) => path.includes("/submarine/")).length
     : 0;
+  const isRehydratingExistingThread =
+    !isNewThread &&
+    thread.isLoading &&
+    thread.messages.length === 0 &&
+    !designBrief &&
+    !finalReport &&
+    !runtime;
   return (
     <div className="flex h-full min-h-0 flex-col bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.10),_transparent_32%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))]">
       {/* Center header — xl only (mobile header is in parent) */}
@@ -761,58 +776,88 @@ function PipelineCenterPane({
           </div>
         </div>
 
-        <div className={centerPaneConfig.stageGridClassName}>
-          {/* data-stage-id instead of id to avoid duplicate-id issues when both
-              mobile and desktop panes are mounted simultaneously */}
-          <div
-            className={centerPaneConfig.stageSectionClassName}
-            data-stage-id="submarine-stage-task-intelligence"
-          >
-            <TaskIntelligenceCard
-              threadId={threadId}
-              snapshot={stageSnapshot}
-              designBrief={designBrief}
-              onConfirm={handleSend}
-            />
+        {isRehydratingExistingThread ? (
+          <div className="grid gap-4">
+            <div className="rounded-[28px] border border-sky-100 bg-white/90 p-6 shadow-[0_18px_60px_rgba(14,165,233,0.10)]">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-600">
+                Rehydrating Thread
+              </div>
+              <h3 className="mt-3 text-xl font-semibold text-stone-900">
+                正在恢复已有仿真任务
+              </h3>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
+                已进入创建完成的潜艇线程，当前正在重新加载首条消息、上传附件和研究产物。恢复完成后，工作台会自动回到对应阶段，而不是回退成新的空白任务。
+              </p>
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <WorkbenchFocusTile
+                  label="线程身份"
+                  value={thread.values.title ?? threadId}
+                />
+                <WorkbenchFocusTile
+                  label="恢复内容"
+                  value="消息、附件与产物"
+                />
+                <WorkbenchFocusTile
+                  label="当前状态"
+                  value="正在重新水合页面状态"
+                />
+              </div>
+            </div>
           </div>
-          <div
-            className={centerPaneConfig.stageSectionClassName}
-            data-stage-id="submarine-stage-geometry-preflight"
-          >
-            <GeometryPreflightCard snapshot={stageSnapshot} geometry={geometry} />
+        ) : (
+          <div className={centerPaneConfig.stageGridClassName}>
+            {/* data-stage-id instead of id to avoid duplicate-id issues when both
+                mobile and desktop panes are mounted simultaneously */}
+            <div
+              className={centerPaneConfig.stageSectionClassName}
+              data-stage-id="submarine-stage-task-intelligence"
+            >
+              <TaskIntelligenceCard
+                threadId={threadId}
+                snapshot={stageSnapshot}
+                designBrief={designBrief}
+                onConfirm={handleSend}
+              />
+            </div>
+            <div
+              className={centerPaneConfig.stageSectionClassName}
+              data-stage-id="submarine-stage-geometry-preflight"
+            >
+              <GeometryPreflightCard snapshot={stageSnapshot} geometry={geometry} />
+            </div>
+            <div
+              className={centerPaneConfig.stageSectionClassName}
+              data-stage-id="submarine-stage-solver-dispatch"
+            >
+              <SolverDispatchCard
+                snapshot={stageSnapshot}
+                solverMetrics={solverMetrics}
+                trendValues={trendValues}
+              />
+            </div>
+            <div
+              className={centerPaneConfig.stageSectionClassName}
+              data-stage-id="submarine-stage-result-reporting"
+            >
+              <ResultReportingCard
+                snapshot={stageSnapshot}
+                finalReport={finalReport}
+                solverMetrics={solverMetrics}
+                reportVirtualPath={runtime?.report_virtual_path}
+              />
+            </div>
+            <div
+              className={cn(centerPaneConfig.stageSectionClassName, "xl:col-span-2")}
+              data-stage-id="submarine-stage-supervisor-review"
+            >
+              <SupervisorReviewCard
+                threadId={threadId}
+                snapshot={stageSnapshot}
+                onConfirm={handleSend}
+              />
+            </div>
           </div>
-          <div
-            className={centerPaneConfig.stageSectionClassName}
-            data-stage-id="submarine-stage-solver-dispatch"
-          >
-            <SolverDispatchCard
-              snapshot={stageSnapshot}
-              solverMetrics={solverMetrics}
-              trendValues={trendValues}
-            />
-          </div>
-          <div
-            className={centerPaneConfig.stageSectionClassName}
-            data-stage-id="submarine-stage-result-reporting"
-          >
-            <ResultReportingCard
-              snapshot={stageSnapshot}
-              finalReport={finalReport}
-              solverMetrics={solverMetrics}
-              reportVirtualPath={runtime?.report_virtual_path}
-            />
-          </div>
-          <div
-            className={cn(centerPaneConfig.stageSectionClassName, "xl:col-span-2")}
-            data-stage-id="submarine-stage-supervisor-review"
-          >
-            <SupervisorReviewCard
-              threadId={threadId}
-              snapshot={stageSnapshot}
-              onConfirm={handleSend}
-            />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -840,7 +885,7 @@ function PipelineChatRail({
   settings: ReturnType<typeof useLocalSettings>[0];
   setSettings: ReturnType<typeof useLocalSettings>[1];
   className?: string;
-  handleSubmit: (message: PromptInputMessage) => void;
+  handleSubmit: (message: PromptInputMessage) => Promise<void> | void;
   onStop: () => Promise<void>;
 }) {
   return (

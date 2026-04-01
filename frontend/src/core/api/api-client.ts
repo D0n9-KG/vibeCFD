@@ -6,9 +6,25 @@ import { getLangGraphBaseURL } from "../config";
 
 import { sanitizeRunStreamOptions } from "./stream-mode";
 
-function createCompatibleClient(isMock?: boolean): LangGraphClient {
+function resolveValidatedApiUrl(isMock?: boolean): string {
+  const apiUrl = getLangGraphBaseURL(isMock).trim();
+
+  if (!apiUrl) {
+    throw new Error("LangGraph base URL is empty or invalid.");
+  }
+
+  try {
+    new URL(apiUrl);
+  } catch {
+    throw new Error("LangGraph base URL is empty or invalid.");
+  }
+
+  return apiUrl;
+}
+
+function createCompatibleClient(apiUrl: string): LangGraphClient {
   const client = new LangGraphClient({
-    apiUrl: getLangGraphBaseURL(isMock),
+    apiUrl,
   });
 
   const originalRunStream = client.runs.stream.bind(client.runs);
@@ -30,8 +46,16 @@ function createCompatibleClient(isMock?: boolean): LangGraphClient {
   return client;
 }
 
-let _singleton: LangGraphClient | null = null;
+const clientsByApiUrl = new Map<string, LangGraphClient>();
+
 export function getAPIClient(isMock?: boolean): LangGraphClient {
-  _singleton ??= createCompatibleClient(isMock);
-  return _singleton;
+  const apiUrl = resolveValidatedApiUrl(isMock);
+  const cachedClient = clientsByApiUrl.get(apiUrl);
+  if (cachedClient) {
+    return cachedClient;
+  }
+
+  const client = createCompatibleClient(apiUrl);
+  clientsByApiUrl.set(apiUrl, client);
+  return client;
 }

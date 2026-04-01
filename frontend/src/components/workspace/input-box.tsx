@@ -126,7 +126,7 @@ export function InputBox({
       reasoning_effort?: "minimal" | "low" | "medium" | "high";
     },
   ) => void;
-  onSubmit?: (message: PromptInputMessage) => void;
+  onSubmit?: (message: PromptInputMessage) => void | Promise<void>;
   onStop?: () => void;
 }) {
   const { t } = useI18n();
@@ -267,7 +267,7 @@ export function InputBox({
       setFollowups([]);
       setFollowupsHidden(false);
       setFollowupsLoading(false);
-      onSubmit?.(message);
+      await onSubmit?.(message);
     },
     [onSubmit, onStop, status],
   );

@@ -1,6 +1,18 @@
 function normalizeErrorMessage(message: string): string {
   let normalized = message.trim();
 
+  if (/Failed to construct 'URL': Invalid URL/i.test(normalized)) {
+    return "LangGraph URL 配置无效，无法创建潜艇仿真线程。";
+  }
+
+  if (/LangGraph base URL is empty or invalid\.?/i.test(normalized)) {
+    return "LangGraph base URL is empty or invalid. Please verify the LangGraph URL configuration.";
+  }
+
+  if (/Thread bootstrap stream did not rebind\.?/i.test(normalized)) {
+    return "新建线程后未能完成流绑定，请在当前潜艇工作台直接重试。";
+  }
+
   const wrappedMatch = /^([A-Za-z]+Error)\((['"])([\s\S]*)\2\)$/.exec(
     normalized,
   );

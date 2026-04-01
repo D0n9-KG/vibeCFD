@@ -28,6 +28,7 @@ from deerflow.tools.builtins.submarine_runtime_context import (
     build_user_confirmation_block_message,
     load_existing_design_brief_payload,
     requires_user_confirmation,
+    resolve_bound_geometry_virtual_path,
     resolve_confirmation_status,
     resolve_execution_preference,
     resolve_task_summary,
@@ -71,6 +72,10 @@ def _resolve_geometry_path(
                     "Geometry path must stay inside the current thread user-data directory",
                 ) from exc
     else:
+        if not uploads_dir.exists():
+            raise ValueError(
+                "No .stl geometry file was found in the current thread uploads directory",
+            )
         candidates = sorted(
             (
                 candidate
@@ -160,6 +165,7 @@ def submarine_solver_dispatch_tool(
     try:
         existing_runtime = (runtime.state or {}).get("submarine_runtime") or {}
         outputs_dir = _get_thread_dir(runtime, "outputs_path")
+        uploads_dir = _get_thread_dir(runtime, "uploads_path")
         existing_brief = load_existing_design_brief_payload(
             outputs_dir=outputs_dir,
             state=runtime.state,
@@ -213,10 +219,13 @@ def submarine_solver_dispatch_tool(
             else existing_runtime.get("selected_case_id")
             or existing_brief.get("selected_case_id")
         )
-        resolved_geometry_input = (
-            geometry_path
-            or existing_runtime.get("geometry_virtual_path")
-            or existing_brief.get("geometry_virtual_path")
+        resolved_geometry_input = resolve_bound_geometry_virtual_path(
+            thread_id=_get_thread_id(runtime),
+            uploads_dir=uploads_dir,
+            explicit_geometry_path=geometry_path,
+            existing_runtime=existing_runtime,
+            existing_brief=existing_brief,
+            uploaded_files=(runtime.state or {}).get("uploaded_files"),
         )
         resolved_geometry_path = _resolve_geometry_path(runtime, resolved_geometry_input)
         workspace_dir = _get_thread_dir(runtime, "workspace_path")

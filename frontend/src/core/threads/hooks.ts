@@ -320,6 +320,10 @@ export function useThreadStream({
             break;
           }
         }
+
+        if (submitTarget === thread) {
+          throw new Error("Thread bootstrap stream did not rebind.");
+        }
       }
 
       let uploadedFileInfo: UploadedFileInfo[] = [];

@@ -82,3 +82,57 @@ void test("explicit environment URLs still win over the standalone dev fallback"
     "https://langgraph.example.test",
   );
 });
+
+void test("explicit environment URLs are trimmed before being returned", () => {
+  assert.equal(
+    resolveBackendBaseURL({
+      backendBaseURL: "  https://gateway.example.test/api  ",
+      location: {
+        origin: "http://localhost:3000",
+        hostname: "localhost",
+        port: "3000",
+      },
+    }),
+    "https://gateway.example.test/api",
+  );
+
+  assert.equal(
+    resolveLangGraphBaseURL({
+      langGraphBaseURL: "  https://langgraph.example.test/api/langgraph  ",
+      isMock: false,
+      location: {
+        origin: "http://localhost:3000",
+        hostname: "localhost",
+        port: "3000",
+      },
+    }),
+    "https://langgraph.example.test/api/langgraph",
+  );
+});
+
+void test("whitespace-only environment URLs fall back to standalone local defaults", () => {
+  assert.equal(
+    resolveBackendBaseURL({
+      backendBaseURL: "   ",
+      location: {
+        origin: "http://localhost:3000",
+        hostname: "localhost",
+        port: "3000",
+      },
+    }),
+    "http://localhost:8001",
+  );
+
+  assert.equal(
+    resolveLangGraphBaseURL({
+      langGraphBaseURL: "   ",
+      isMock: false,
+      location: {
+        origin: "http://localhost:3000",
+        hostname: "localhost",
+        port: "3000",
+      },
+    }),
+    "http://localhost:2024",
+  );
+});
