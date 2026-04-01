@@ -10,9 +10,9 @@
   DeerFlow 前端主线。后续会在这个基础上重构出潜艇仿真工作台，而不是继续使用旧原型的页面结构。
 - [domain/submarine](/C:/Users/D0n9/Desktop/颠覆性大赛/domain/submarine)
   当前保留下来的潜艇领域资产入口，包括案例与 skill 元数据。
-- [docs/superpowers/specs/2026-03-25-claude-code-supervisor-submarine-cfd-design.md](/C:/Users/D0n9/Desktop/颠覆性大赛/docs/superpowers/specs/2026-03-25-claude-code-supervisor-submarine-cfd-design.md)
+- [docs/archive/superpowers/specs/2026-03-25-claude-code-supervisor-submarine-cfd-design.md](/C:/Users/D0n9/Desktop/颠覆性大赛/docs/archive/superpowers/specs/2026-03-25-claude-code-supervisor-submarine-cfd-design.md)
   当前主线的正式系统设计，明确了 `Claude Code Supervisor + DeerFlow CFD Runtime + 专业 subagents + OpenFOAM` 的目标形态。
-- [docs/superpowers/specs/2026-03-25-deerflow-replatform-design.md](/C:/Users/D0n9/Desktop/颠覆性大赛/docs/superpowers/specs/2026-03-25-deerflow-replatform-design.md)
+- [docs/archive/superpowers/specs/2026-03-25-deerflow-replatform-design.md](/C:/Users/D0n9/Desktop/颠覆性大赛/docs/archive/superpowers/specs/2026-03-25-deerflow-replatform-design.md)
   DeerFlow 重平台切换的背景设计说明，作为当前主线的上游背景文档保留。
 - [legacy/current-prototype](/C:/Users/D0n9/Desktop/颠覆性大赛/legacy/current-prototype)
   旧的轻量原型整体归档，只保留为参考资料，不再作为主线继续演化。
@@ -107,10 +107,10 @@
 - DeerFlow 中文说明：[README_zh.md](/C:/Users/D0n9/Desktop/颠覆性大赛/README_zh.md)
 
 如果后续要继续推进，请先阅读：
-[2026-03-25-claude-code-supervisor-submarine-cfd-design.md](/C:/Users/D0n9/Desktop/颠覆性大赛/docs/superpowers/specs/2026-03-25-claude-code-supervisor-submarine-cfd-design.md)
+[2026-03-25-claude-code-supervisor-submarine-cfd-design.md](/C:/Users/D0n9/Desktop/颠覆性大赛/docs/archive/superpowers/specs/2026-03-25-claude-code-supervisor-submarine-cfd-design.md)
 
 背景设计说明见：
-[2026-03-25-deerflow-replatform-design.md](/C:/Users/D0n9/Desktop/颠覆性大赛/docs/superpowers/specs/2026-03-25-deerflow-replatform-design.md)
+[2026-03-25-deerflow-replatform-design.md](/C:/Users/D0n9/Desktop/颠覆性大赛/docs/archive/superpowers/specs/2026-03-25-deerflow-replatform-design.md)
 
 ## Runtime Status Update
 

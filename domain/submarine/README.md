@@ -14,7 +14,7 @@
 ## 当前规范与后续方向
 
 当前主线规范见：
-[2026-03-25-claude-code-supervisor-submarine-cfd-design.md](/C:/Users/D0n9/Desktop/颠覆性大赛/docs/superpowers/specs/2026-03-25-claude-code-supervisor-submarine-cfd-design.md)
+[2026-03-25-claude-code-supervisor-submarine-cfd-design.md](/C:/Users/D0n9/Desktop/颠覆性大赛/docs/archive/superpowers/specs/2026-03-25-claude-code-supervisor-submarine-cfd-design.md)
 
 在这套设计里，`domain/submarine/` 的职责是持续提供潜艇领域事实、案例、skill 元数据和后续模板资产；真正的运行时编排仍然留在 DeerFlow 内部，由 `thread / upload / artifact / subagent / memory / sandbox / MCP` 体系承接。
 
