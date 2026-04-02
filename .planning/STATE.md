@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 05
 current_phase_name: experiment-ops-and-reproducibility
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: Phase 05-01 complete; advancing to 05-02
-last_updated: "2026-04-02T09:56:00Z"
+stopped_at: Phase 05-02 complete; advancing to 05-03
+last_updated: "2026-04-02T10:51:21Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 15
-  completed_plans: 13
-  percent: 67
+  completed_plans: 14
+  percent: 93
 ---
 
 # Project State
@@ -24,32 +24,32 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-02)
 
 **Core value:** A researcher can go from natural-language CFD intent to reproducible, evidence-backed submarine results without manually building and operating OpenFOAM cases.
-**Current focus:** Phase 05 — experiment-ops-and-reproducibility
+**Current focus:** Phase 05 - experiment-ops-and-reproducibility
 
 ## Current Position
 
 **Current Phase:** 05
 **Current Phase Name:** experiment-ops-and-reproducibility
 **Total Phases:** 6
-**Current Plan:** 2
+**Current Plan:** 3
 **Total Plans in Phase:** 3
 **Status:** Executing Phase 05
-**Progress:** [####--] 67%
+**Progress:** [#####-] 93%
 **Last Activity:** 2026-04-02
-**Last Activity Description:** Phase 05-01 complete; canonical provenance manifest shipped
+**Last Activity Description:** Phase 05-02 complete; custom experiment lineage shipped
 
-Phase: 05 (experiment-ops-and-reproducibility) — EXECUTING
-Plan: 2 of 3
+Phase: 05 (experiment-ops-and-reproducibility) - EXECUTING
+Plan: 3 of 3
 Status: Executing Phase 05
-Last activity: 2026-04-02 -- Phase 05-01 complete; canonical provenance manifest shipped
+Last activity: 2026-04-02 -- Phase 05-02 complete; custom experiment lineage shipped
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 12
-- Average duration: ~64 min
-- Total execution time: ~12.7 hours
+- Total plans completed: 14
+- Average duration: ~62 min
+- Total execution time: ~14.5 hours
 
 **By Phase:**
 
@@ -59,10 +59,11 @@ Last activity: 2026-04-02 -- Phase 05-01 complete; canonical provenance manifest
 | 2 | 3 | ~2.7 hours | ~54 min |
 | 3 | 3 | ~4.7 hours | ~94 min |
 | 4 | 3 | ~4.5 hours | ~90 min |
+| 5 | 2 | ~1.9 hours | ~57 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 03-02, 03-03, 04-01, 04-02, 04-03
+- Last 5 plans: 04-01, 04-02, 04-03, 05-01, 05-02
 - Trend: Positive
 
 ## Decisions Made
@@ -78,6 +79,7 @@ Last activity: 2026-04-02 -- Phase 05-01 complete; canonical provenance manifest
 | 4 | Geometry trust must be a structured contract that gates solver inputs, not a prose-only preflight note. | Raw STL heuristics were too easy to over-trust without explicit findings and confirmation state. |
 | 4 | Researcher approval is a pre-compute execution gate and must stay separate from post-compute scientific claim labels. | Approval authorizes execution only; it should not masquerade as validation or claim readiness. |
 | 5 | Every solver-dispatch run needs one canonical provenance manifest that survives reducer merges and final reporting. | Researchers need a single rerun and audit entrypoint instead of reconstructing provenance from scattered artifacts. |
+| 5 | Custom variants belong in the same experiment manifest and compare chain as baseline and deterministic study variants. | Splitting user-authored variants into side channels would make linkage, reporting, and cockpit lineage inconsistent. |
 
 ## Pending Todos
 
@@ -86,10 +88,10 @@ Last activity: 2026-04-02 -- Phase 05-01 complete; canonical provenance manifest
 
 ## Blockers
 
-- Phase 05-02 and 05-03 are still open, so custom-variant lineage and environment parity remain unimplemented beyond the new canonical provenance layer.
+- Phase 05-03 is still open, so environment parity and runtime-profile alignment remain unimplemented beyond the new provenance and experiment-lineage layers.
 
 ## Session
 
-**Last Date:** 2026-04-02T09:56:00Z
-**Stopped At:** Phase 05-01 complete; advancing to 05-02
+**Last Date:** 2026-04-02T10:51:21Z
+**Stopped At:** Phase 05-02 complete; advancing to 05-03
 **Resume File:** .planning/phases/05-experiment-ops-and-reproducibility/05-CONTEXT.md

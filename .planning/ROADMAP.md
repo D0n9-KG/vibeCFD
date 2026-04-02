@@ -91,7 +91,7 @@ Plans:
 
 Plans:
 - [x] 05-01: Persist full run provenance and reproducibility metadata for submarine studies
-- [ ] 05-02: Productize experiment manifests, baseline-vs-variant linkage, and comparison summaries
+- [x] 05-02: Productize experiment manifests, baseline-vs-variant linkage, and comparison summaries
 - [ ] 05-03: Align runtime configuration across local, Docker Compose, and deployment paths with failure recovery guidance
 
 ### Phase 6: Research Delivery Workbench
@@ -117,5 +117,5 @@ Plans:
 | 2. Runtime Solver Productization | 3/3 | Complete | 2026-04-01 |
 | 3. Scientific Verification Gates | 3/3 | Complete | 2026-04-02 |
 | 4. Geometry and Case Intelligence Hardening | 3/3 | Complete    | 2026-04-02 |
-| 5. Experiment Ops and Reproducibility | 0/3 | Not started | - |
+| 5. Experiment Ops and Reproducibility | 2/3 | In Progress | - |
 | 6. Research Delivery Workbench | 0/3 | Not started | - |
