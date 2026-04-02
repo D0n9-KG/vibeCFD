@@ -126,15 +126,32 @@ class SubmarineScientificStudyResult(BaseModel):
     summary_zh: str
 
 
-SubmarineExperimentRunRole = Literal["baseline", "scientific_study_variant"]
+class SubmarineCustomExperimentVariant(BaseModel):
+    variant_id: str
+    variant_label: str
+    parameter_overrides: dict[str, float | int | str] = Field(default_factory=dict)
+    rationale: str
+    compare_target_run_id: str = "baseline"
+
+
+SubmarineExperimentRunRole = Literal[
+    "baseline",
+    "scientific_study_variant",
+    "custom_variant",
+]
 
 
 class SubmarineExperimentRunRecord(BaseModel):
     run_id: str
     experiment_id: str
     run_role: SubmarineExperimentRunRole
+    variant_origin: SubmarineExperimentRunRole = "baseline"
     study_type: SubmarineScientificStudyType | None = None
     variant_id: str | None = None
+    variant_label: str | None = None
+    parameter_overrides: dict[str, float | int | str] = Field(default_factory=dict)
+    baseline_reference_run_id: str | None = None
+    compare_target_run_id: str | None = None
     solver_results_virtual_path: str
     run_record_virtual_path: str
     execution_status: Literal["planned", "in_progress", "completed", "blocked"]
@@ -157,8 +174,13 @@ class SubmarineExperimentManifest(BaseModel):
 class SubmarineRunComparison(BaseModel):
     baseline_run_id: str
     candidate_run_id: str
+    run_role: SubmarineExperimentRunRole = "scientific_study_variant"
+    variant_origin: SubmarineExperimentRunRole = "scientific_study_variant"
     study_type: SubmarineScientificStudyType | None = None
     variant_id: str | None = None
+    variant_label: str | None = None
+    baseline_reference_run_id: str | None = None
+    compare_target_run_id: str | None = None
     compare_status: SubmarineRunCompareStatus
     candidate_execution_status: Literal["planned", "in_progress", "completed", "blocked"] | None = None
     metric_deltas: dict[str, object] = Field(default_factory=dict)

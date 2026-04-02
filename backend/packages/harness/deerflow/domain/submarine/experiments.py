@@ -62,7 +62,13 @@ def build_experiment_run_id(
     *,
     study_type: str | None,
     variant_id: str | None,
+    run_role: str | None = None,
+    variant_origin: str | None = None,
 ) -> str:
+    normalized_variant_id = _slugify(variant_id or "") if variant_id else ""
+    normalized_origin = (variant_origin or run_role or "").strip()
+    if normalized_origin == "custom_variant":
+        return f"custom:{normalized_variant_id}" if normalized_variant_id else "baseline"
     if not study_type or not variant_id:
         return "baseline"
     return f"{study_type}:{variant_id}"
@@ -119,13 +125,23 @@ def build_run_record(
     metric_snapshot: Mapping[str, object] | None = None,
     study_type: str | None = None,
     variant_id: str | None = None,
+    variant_origin: str | None = None,
+    variant_label: str | None = None,
+    parameter_overrides: Mapping[str, float | int | str] | None = None,
+    baseline_reference_run_id: str | None = None,
+    compare_target_run_id: str | None = None,
 ) -> SubmarineExperimentRunRecord:
     return SubmarineExperimentRunRecord(
         run_id=run_id,
         experiment_id=experiment_id,
         run_role=run_role,
+        variant_origin=variant_origin or run_role,
         study_type=study_type,
         variant_id=variant_id,
+        variant_label=variant_label,
+        parameter_overrides=dict(parameter_overrides or {}),
+        baseline_reference_run_id=baseline_reference_run_id,
+        compare_target_run_id=compare_target_run_id,
         solver_results_virtual_path=solver_results_virtual_path,
         run_record_virtual_path=run_record_virtual_path,
         execution_status=execution_status,
@@ -141,27 +157,51 @@ def build_run_comparison(
 ) -> SubmarineRunComparison:
     candidate_status = str(candidate_record.get("execution_status") or "planned")
     candidate_run_id = str(candidate_record.get("run_id") or "unknown")
+    compare_target_run_id = str(
+        candidate_record.get("compare_target_run_id") or baseline_run_id
+    )
+    baseline_reference_run_id = str(
+        candidate_record.get("baseline_reference_run_id") or baseline_run_id
+    )
     if candidate_status in {"planned", "in_progress"}:
         return SubmarineRunComparison(
-            baseline_run_id=baseline_run_id,
+            baseline_run_id=compare_target_run_id,
             candidate_run_id=candidate_run_id,
+            run_role=candidate_record.get("run_role") or "scientific_study_variant",
+            variant_origin=(
+                candidate_record.get("variant_origin")
+                or candidate_record.get("run_role")
+                or "scientific_study_variant"
+            ),
             study_type=candidate_record.get("study_type"),
             variant_id=candidate_record.get("variant_id"),
+            variant_label=candidate_record.get("variant_label"),
+            baseline_reference_run_id=baseline_reference_run_id,
+            compare_target_run_id=compare_target_run_id,
             compare_status="planned",
             candidate_execution_status=candidate_status,
             metric_deltas={},
-            notes="Candidate run is registered but scientific study execution is still pending.",
+            notes="Candidate run is registered but execution is still pending.",
         )
     if candidate_status == "blocked":
         return SubmarineRunComparison(
-            baseline_run_id=baseline_run_id,
+            baseline_run_id=compare_target_run_id,
             candidate_run_id=candidate_run_id,
+            run_role=candidate_record.get("run_role") or "scientific_study_variant",
+            variant_origin=(
+                candidate_record.get("variant_origin")
+                or candidate_record.get("run_role")
+                or "scientific_study_variant"
+            ),
             study_type=candidate_record.get("study_type"),
             variant_id=candidate_record.get("variant_id"),
+            variant_label=candidate_record.get("variant_label"),
+            baseline_reference_run_id=baseline_reference_run_id,
+            compare_target_run_id=compare_target_run_id,
             compare_status="blocked",
             candidate_execution_status=candidate_status,
             metric_deltas={},
-            notes="Candidate run is blocked and cannot be compared against baseline.",
+            notes="Candidate run is blocked and cannot be compared against its target run.",
         )
 
     baseline_snapshot = baseline_record.get("metric_snapshot")
@@ -171,10 +211,19 @@ def build_run_comparison(
         Mapping,
     ):
         return SubmarineRunComparison(
-            baseline_run_id=baseline_run_id,
+            baseline_run_id=compare_target_run_id,
             candidate_run_id=candidate_run_id,
+            run_role=candidate_record.get("run_role") or "scientific_study_variant",
+            variant_origin=(
+                candidate_record.get("variant_origin")
+                or candidate_record.get("run_role")
+                or "scientific_study_variant"
+            ),
             study_type=candidate_record.get("study_type"),
             variant_id=candidate_record.get("variant_id"),
+            variant_label=candidate_record.get("variant_label"),
+            baseline_reference_run_id=baseline_reference_run_id,
+            compare_target_run_id=compare_target_run_id,
             compare_status="missing_metrics",
             candidate_execution_status=candidate_status,
             metric_deltas={},
@@ -205,10 +254,19 @@ def build_run_comparison(
         notes = "Missing compare metrics: " + ", ".join(missing_metrics)
 
     return SubmarineRunComparison(
-        baseline_run_id=baseline_run_id,
+        baseline_run_id=compare_target_run_id,
         candidate_run_id=candidate_run_id,
+        run_role=candidate_record.get("run_role") or "scientific_study_variant",
+        variant_origin=(
+            candidate_record.get("variant_origin")
+            or candidate_record.get("run_role")
+            or "scientific_study_variant"
+        ),
         study_type=candidate_record.get("study_type"),
         variant_id=candidate_record.get("variant_id"),
+        variant_label=candidate_record.get("variant_label"),
+        baseline_reference_run_id=baseline_reference_run_id,
+        compare_target_run_id=compare_target_run_id,
         compare_status=compare_status,
         candidate_execution_status=candidate_status,
         metric_deltas=deltas,

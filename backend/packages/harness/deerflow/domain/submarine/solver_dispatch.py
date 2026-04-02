@@ -30,6 +30,7 @@ from .library import load_case_library, rank_cases
 from .models import (
     GeometryInspection,
     SubmarineCaseMatch,
+    SubmarineCustomExperimentVariant,
     SubmarineExperimentManifest,
 )
 from .output_contract import build_output_delivery_plan
@@ -116,6 +117,32 @@ def _study_variant_run_record_virtual_path(
     )
 
 
+def _custom_variant_slug(variant_id: str) -> str:
+    return _slugify(variant_id)
+
+
+def _custom_variant_virtual_path(
+    run_dir_name: str,
+    variant_id: str,
+    filename: str,
+) -> str:
+    return (
+        f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/custom-variants/"
+        f"{_custom_variant_slug(variant_id)}/{filename}"
+    )
+
+
+def _custom_variant_run_record_virtual_path(
+    run_dir_name: str,
+    variant_id: str,
+) -> str:
+    return _custom_variant_virtual_path(
+        run_dir_name,
+        variant_id,
+        "run-record.json",
+    )
+
+
 def _merge_unique_paths(*groups: list[str]) -> list[str]:
     merged: list[str] = []
     for group in groups:
@@ -153,6 +180,27 @@ def _ensure_study_variant_update(
 ) -> dict[str, object]:
     study_updates = updates.setdefault(study_type, {})
     return study_updates.setdefault(variant_id, {})
+
+
+def _normalize_custom_variants(
+    custom_variants: list[dict] | None,
+) -> list[SubmarineCustomExperimentVariant]:
+    normalized: list[SubmarineCustomExperimentVariant] = []
+    seen_run_ids: set[str] = set()
+    for item in custom_variants or []:
+        variant = SubmarineCustomExperimentVariant.model_validate(item)
+        run_id = build_experiment_run_id(
+            study_type=None,
+            variant_id=variant.variant_id,
+            run_role="custom_variant",
+        )
+        if run_id in seen_run_ids:
+            raise ValueError(
+                f"Duplicate custom variant id `{variant.variant_id}` resolves to `{run_id}`."
+            )
+        seen_run_ids.add(run_id)
+        normalized.append(variant)
+    return normalized
 
 
 def _select_case(candidate_cases: list[SubmarineCaseMatch], selected_case_id: str | None) -> SubmarineCaseMatch | None:
@@ -362,6 +410,7 @@ def run_solver_dispatch(
     delta_t_seconds: float | None = None,
     write_interval_steps: int | None = None,
     requested_outputs: list[dict] | None = None,
+    custom_variants: list[dict] | None = None,
     geometry_findings: list[dict] | None = None,
     scale_assessment: dict | None = None,
     reference_value_suggestions: list[dict] | None = None,
@@ -384,6 +433,18 @@ def run_solver_dispatch(
     normalized_requested_outputs = [
         SubmarineRequestedOutput.model_validate(item).model_dump(mode="json")
         for item in (requested_outputs or [])
+    ]
+    normalized_custom_variants = [
+        item.model_dump(mode="json")
+        for item in _normalize_custom_variants(custom_variants)
+    ]
+    custom_variant_run_ids = [
+        build_experiment_run_id(
+            study_type=None,
+            variant_id=str(item.get("variant_id") or ""),
+            run_role="custom_variant",
+        )
+        for item in normalized_custom_variants
     ]
     simulation_requirements = _resolve_simulation_requirements(
         inlet_velocity_mps=inlet_velocity_mps,
@@ -660,6 +721,8 @@ def run_solver_dispatch(
                 experiment_id=experiment_id,
                 run_id=baseline_run_id,
                 run_role="baseline",
+                variant_origin="baseline",
+                variant_label="Baseline",
                 solver_results_virtual_path=_solver_results_virtual_path(
                     run_dir_name,
                     "solver-results.json",
@@ -908,10 +971,16 @@ def run_solver_dispatch(
                             run_id=build_experiment_run_id(
                                 study_type=definition.study_type,
                                 variant_id=variant.variant_id,
+                                run_role="scientific_study_variant",
                             ),
                             run_role="scientific_study_variant",
+                            variant_origin="scientific_study_variant",
                             study_type=definition.study_type,
                             variant_id=variant.variant_id,
+                            variant_label=variant.variant_label,
+                            parameter_overrides=variant.parameter_overrides,
+                            baseline_reference_run_id=baseline_run_id,
+                            compare_target_run_id=baseline_run_id,
                             solver_results_virtual_path=variant_virtual_path,
                             run_record_virtual_path=variant_run_record_virtual_path,
                             execution_status=str(variant_payload["execution_status"]),
@@ -1050,10 +1119,16 @@ def run_solver_dispatch(
                             run_id=build_experiment_run_id(
                                 study_type=definition.study_type,
                                 variant_id=variant.variant_id,
+                                run_role="scientific_study_variant",
                             ),
                             run_role="scientific_study_variant",
+                            variant_origin="scientific_study_variant",
                             study_type=definition.study_type,
                             variant_id=variant.variant_id,
+                            variant_label=variant.variant_label,
+                            parameter_overrides=variant.parameter_overrides,
+                            baseline_reference_run_id=baseline_run_id,
+                            compare_target_run_id=baseline_run_id,
                             solver_results_virtual_path=variant_virtual_path,
                             run_record_virtual_path=variant_run_record_virtual_path,
                             execution_status="planned",
@@ -1097,6 +1172,95 @@ def run_solver_dispatch(
                 scientific_study_artifacts.append(verification_virtual_path)
 
     if baseline_run_record_model is not None:
+        for custom_variant, custom_variant_run_id in zip(
+            normalized_custom_variants,
+            custom_variant_run_ids,
+            strict=False,
+        ):
+            variant_id = str(custom_variant.get("variant_id") or "")
+            if not variant_id:
+                continue
+            compare_target_run_id = str(
+                custom_variant.get("compare_target_run_id") or baseline_run_id
+            )
+            variant_output_path = _platform_fs_path(
+                artifact_dir
+                / "custom-variants"
+                / _custom_variant_slug(variant_id)
+                / "solver-results.json"
+            )
+            variant_output_path.parent.mkdir(parents=True, exist_ok=True)
+            variant_virtual_path = _custom_variant_virtual_path(
+                run_dir_name,
+                variant_id,
+                "solver-results.json",
+            )
+            variant_run_record_virtual_path = _custom_variant_run_record_virtual_path(
+                run_dir_name,
+                variant_id,
+            )
+            planned_variant_payload = {
+                "variant_origin": "custom_variant",
+                "run_role": "custom_variant",
+                "variant_id": variant_id,
+                "variant_label": custom_variant.get("variant_label"),
+                "rationale": custom_variant.get("rationale"),
+                "execution_status": "planned",
+                "parameter_overrides": custom_variant.get("parameter_overrides") or {},
+                "expected_run_id": custom_variant_run_id,
+                "run_record_virtual_path": variant_run_record_virtual_path,
+                "baseline_reference_run_id": baseline_run_id,
+                "compare_target_run_id": compare_target_run_id,
+                "baseline_solver_results_virtual_path": _solver_results_virtual_path(
+                    run_dir_name,
+                    "solver-results.json",
+                ),
+            }
+            variant_output_path.write_text(
+                json.dumps(
+                    planned_variant_payload,
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            planned_run_record_model = build_run_record(
+                experiment_id=experiment_id,
+                run_id=custom_variant_run_id,
+                run_role="custom_variant",
+                variant_origin="custom_variant",
+                variant_id=variant_id,
+                variant_label=str(custom_variant.get("variant_label") or variant_id),
+                parameter_overrides=custom_variant.get("parameter_overrides") or {},
+                baseline_reference_run_id=baseline_run_id,
+                compare_target_run_id=compare_target_run_id,
+                solver_results_virtual_path=variant_virtual_path,
+                run_record_virtual_path=variant_run_record_virtual_path,
+                execution_status="planned",
+                metric_snapshot={},
+            )
+            variant_run_record_path = _platform_fs_path(
+                artifact_dir
+                / "custom-variants"
+                / _custom_variant_slug(variant_id)
+                / "run-record.json"
+            )
+            variant_run_record_path.write_text(
+                json.dumps(
+                    planned_run_record_model.model_dump(mode="json"),
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            candidate_run_record_models.append(planned_run_record_model)
+            experiment_artifacts.extend(
+                [
+                    variant_virtual_path,
+                    variant_run_record_virtual_path,
+                ]
+            )
+
         all_run_records = [
             baseline_run_record_model,
             *candidate_run_record_models,
@@ -1355,6 +1519,8 @@ def run_solver_dispatch(
         "scientific_verification_assessment": scientific_verification_assessment,
         "simulation_requirements": simulation_requirements,
         "requested_outputs": normalized_requested_outputs,
+        "custom_variants": normalized_custom_variants,
+        "custom_variant_run_ids": custom_variant_run_ids,
         "geometry_findings": geometry_findings or [],
         "scale_assessment": scale_assessment,
         "reference_value_suggestions": reference_value_suggestions or [],
@@ -1396,6 +1562,8 @@ def run_solver_dispatch(
         "geometry_family_hint": geometry.geometry_family,
         "selected_case_id": selected_case.case_id if selected_case else None,
         "requested_outputs": normalized_requested_outputs,
+        "custom_variants": normalized_custom_variants,
+        "custom_variant_run_ids": custom_variant_run_ids,
         "calculation_plan": calculation_plan or [],
         "requires_immediate_confirmation": requires_immediate_confirmation,
         "selected_reference_inputs": selected_reference_inputs,

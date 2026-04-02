@@ -14,6 +14,22 @@ def _write_json(path: Path, payload: dict) -> None:
     )
 
 
+def _write_ascii_stl(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "solid demo\n"
+        "  facet normal 0 0 0\n"
+        "    outer loop\n"
+        "      vertex 0 0 0\n"
+        "      vertex 1 0 0\n"
+        "      vertex 0 1 0\n"
+        "    endloop\n"
+        "  endfacet\n"
+        "endsolid demo\n",
+        encoding="utf-8",
+    )
+
+
 def _mesh_manifest_artifact(run_dir_name: str) -> dict:
     return {
         "selected_case_id": "research_evidence_validated_case",
@@ -142,6 +158,191 @@ def test_experiment_summary_flags_incomplete_planned_variant_linkage(tmp_path):
     assert any(
         "mesh_independence:fine" in item and "compare entry" in item
         for item in summary["linkage_issues"]
+    )
+
+
+def test_runtime_request_accepts_declared_custom_variants_and_defaults_compare_target():
+    contracts_module = importlib.import_module(
+        "deerflow.domain.submarine.contracts"
+    )
+    experiments_module = importlib.import_module(
+        "deerflow.domain.submarine.experiments"
+    )
+
+    request = contracts_module.SubmarineRuntimeRequest(
+        task_summary="Register a custom pressure sweep experiment variant",
+        uploaded_geometry_path="/mnt/user-data/uploads/custom-variant-demo.stl",
+        custom_variants=[
+            {
+                "variant_id": "pressure-sweep",
+                "variant_label": "Pressure Sweep",
+                "parameter_overrides": {"outlet_pressure_pa": 250},
+                "rationale": "Probe outlet pressure sensitivity.",
+            }
+        ],
+    )
+
+    assert request.custom_variants[0].compare_target_run_id == "baseline"
+    assert (
+        experiments_module.build_experiment_run_id(
+            study_type=None,
+            variant_id=request.custom_variants[0].variant_id,
+            run_role="custom_variant",
+        )
+        == "custom:pressure-sweep"
+    )
+
+
+def test_solver_dispatch_registers_declared_custom_variants_before_execution(
+    tmp_path,
+    monkeypatch,
+):
+    solver_dispatch_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch"
+    )
+    models_module = importlib.import_module("deerflow.domain.submarine.models")
+
+    outputs_dir = tmp_path / "outputs"
+    workspace_dir = tmp_path / "workspace"
+    uploads_dir = tmp_path / "uploads"
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "custom-variant-demo.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "inspect_geometry_file",
+        lambda path, hint: models_module.GeometryInspection(
+            file_name=path.name,
+            file_size_bytes=path.stat().st_size,
+            input_format="stl",
+            geometry_family=hint or "DARPA SUBOFF",
+        ),
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "rank_cases",
+        lambda **kwargs: [],
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "_write_openfoam_case_scaffold",
+        lambda **kwargs: {
+            "workspace_case_dir_virtual_path": (
+                "/mnt/user-data/workspace/submarine/solver-dispatch/"
+                "custom-variant-demo/openfoam-case"
+            ),
+            "run_script_virtual_path": (
+                "/mnt/user-data/workspace/submarine/solver-dispatch/"
+                "custom-variant-demo/openfoam-case/Allrun"
+            ),
+            "solver_application": "simpleFoam",
+            "requires_geometry_conversion": False,
+            "execution_readiness": "stl_ready",
+        },
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "collect_requested_postprocess_artifacts",
+        lambda **kwargs: [],
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "_collect_solver_results",
+        lambda **kwargs: {
+            "solver_completed": True,
+            "final_time_seconds": 200.0,
+            "mesh_summary": {"mesh_ok": True, "cells": 9342},
+            "latest_force_coefficients": {"Time": 200.0, "Cd": 0.00312},
+            "latest_forces": {"total_force": [8.0, 0.0, 0.0]},
+        },
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "_render_solver_results_markdown_enriched",
+        lambda results: "# solver results\n",
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "build_stability_evidence",
+        lambda **kwargs: {"status": "passed"},
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "build_scientific_verification_assessment",
+        lambda **kwargs: {"status": "ready", "requirements": []},
+    )
+
+    payload, artifacts = solver_dispatch_module.run_solver_dispatch(
+        geometry_path=geometry_path,
+        outputs_dir=outputs_dir,
+        workspace_dir=workspace_dir,
+        task_description="Execute the baseline run and register a custom pressure sweep.",
+        task_type="resistance",
+        confirmation_status="confirmed",
+        execution_preference="execute_now",
+        geometry_family_hint="DARPA SUBOFF",
+        geometry_virtual_path="/mnt/user-data/uploads/custom-variant-demo.stl",
+        custom_variants=[
+            {
+                "variant_id": "pressure-sweep",
+                "variant_label": "Pressure Sweep",
+                "parameter_overrides": {"outlet_pressure_pa": 250},
+                "rationale": "Probe outlet pressure sensitivity.",
+            }
+        ],
+        execute_now=True,
+        execute_command=lambda command: "simpleFoam finished cleanly",
+    )
+
+    run_dir = outputs_dir / "submarine" / "solver-dispatch" / "custom-variant-demo"
+    experiment_manifest = json.loads(
+        (run_dir / "experiment-manifest.json").read_text(encoding="utf-8")
+    )
+    compare_summary = json.loads(
+        (run_dir / "run-compare-summary.json").read_text(encoding="utf-8")
+    )
+    custom_run_record = json.loads(
+        (
+            run_dir
+            / "custom-variants"
+            / "pressure-sweep"
+            / "run-record.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    custom_manifest_record = next(
+        item
+        for item in experiment_manifest["run_records"]
+        if item["run_id"] == "custom:pressure-sweep"
+    )
+
+    assert payload["custom_variant_run_ids"] == ["custom:pressure-sweep"]
+    assert payload["custom_variants"][0]["compare_target_run_id"] == "baseline"
+    assert any(
+        path.endswith("/custom-variants/pressure-sweep/run-record.json")
+        for path in artifacts
+    )
+    assert custom_manifest_record["run_role"] == "custom_variant"
+    assert custom_manifest_record["variant_origin"] == "custom_variant"
+    assert custom_manifest_record["variant_label"] == "Pressure Sweep"
+    assert custom_manifest_record["parameter_overrides"] == {
+        "outlet_pressure_pa": 250
+    }
+    assert custom_manifest_record["baseline_reference_run_id"] == "baseline"
+    assert custom_manifest_record["compare_target_run_id"] == "baseline"
+    assert custom_manifest_record["execution_status"] == "planned"
+    assert custom_run_record["run_id"] == "custom:pressure-sweep"
+    assert custom_run_record["run_role"] == "custom_variant"
+    assert custom_run_record["baseline_reference_run_id"] == "baseline"
+    assert custom_run_record["compare_target_run_id"] == "baseline"
+    assert any(
+        item["candidate_run_id"] == "custom:pressure-sweep"
+        and item["compare_status"] == "planned"
+        for item in compare_summary["comparisons"]
     )
 
 
