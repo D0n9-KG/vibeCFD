@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from html import escape
+from typing import Any
 
 
 def _is_number(value: object) -> bool:
@@ -408,6 +409,20 @@ def _render_experiment_markdown(experiment_summary: dict | None) -> list[str]:
                 f"- compared_variant_run_ids: `{', '.join(str(item) for item in (experiment_summary.get('compared_variant_run_ids') or [])) or '--'}`",
             ]
         )
+    registered_custom_variant_run_ids = (
+        experiment_summary.get("registered_custom_variant_run_ids") or []
+    )
+    if registered_custom_variant_run_ids:
+        lines.extend(
+            [
+                "",
+                "### Custom Variant Coverage",
+                f"- registered_custom_variant_run_ids: `{', '.join(str(item) for item in registered_custom_variant_run_ids)}`",
+                f"- planned_custom_variant_run_ids: `{', '.join(str(item) for item in (experiment_summary.get('planned_custom_variant_run_ids') or [])) or '--'}`",
+                f"- completed_custom_variant_run_ids: `{', '.join(str(item) for item in (experiment_summary.get('completed_custom_variant_run_ids') or [])) or '--'}`",
+                f"- missing_custom_compare_entry_ids: `{', '.join(str(item) for item in (experiment_summary.get('missing_custom_compare_entry_ids') or [])) or '--'}`",
+            ]
+        )
     lines.extend(
         _render_markdown_items(
             "Missing Variant Run Records",
@@ -471,6 +486,20 @@ def _format_compare_metric_delta_lines(metric_deltas: object) -> list[str]:
     return lines
 
 
+def _is_custom_compare_entry(item: dict[str, Any]) -> bool:
+    run_role = str(item.get("run_role") or item.get("variant_origin") or "").strip()
+    candidate_run_id = str(item.get("candidate_run_id") or "").strip()
+    return run_role == "custom_variant" or candidate_run_id.startswith("custom:")
+
+
+def _format_compare_entry_label(item: dict[str, Any]) -> str:
+    variant_id = str(item.get("variant_id") or "unknown").strip() or "unknown"
+    if _is_custom_compare_entry(item):
+        return f"custom / {variant_id}"
+    study_type = str(item.get("study_type") or "unknown").strip() or "unknown"
+    return f"{study_type} / {variant_id}"
+
+
 def _render_experiment_compare_markdown(
     experiment_compare_summary: dict | None,
 ) -> list[str]:
@@ -523,6 +552,9 @@ def _render_experiment_compare_markdown(
                 continue
             metric_lines = _format_compare_metric_delta_lines(item.get("metric_deltas"))
             detail = " | ".join(metric_lines) if metric_lines else str(item.get("notes") or "No metric delta")
+            compare_target_run_id = str(
+                item.get("compare_target_run_id") or item.get("baseline_run_id") or "baseline"
+            )
             lines.append(
                 "- "
                 + " | ".join(
@@ -530,8 +562,8 @@ def _render_experiment_compare_markdown(
                         f"`{item.get('candidate_run_id')}`",
                         f"`{item.get('compare_status')}`",
                         f"execution=`{item.get('candidate_execution_status') or '--'}`",
-                        str(item.get("study_type") or "--"),
-                        str(item.get("variant_id") or "--"),
+                        _format_compare_entry_label(item),
+                        f"compare_target=`{compare_target_run_id}`",
                         detail,
                     ]
                 )
@@ -872,6 +904,20 @@ def _render_experiment_html(experiment_summary: dict | None) -> str:
             f"<p><strong>recorded_variant_run_ids:</strong> {escape(', '.join(str(item) for item in (experiment_summary.get('recorded_variant_run_ids') or [])) or '--')}</p>"
             f"<p><strong>compared_variant_run_ids:</strong> {escape(', '.join(str(item) for item in (experiment_summary.get('compared_variant_run_ids') or [])) or '--')}</p>"
         )
+    registered_custom_variant_run_ids = [
+        str(item)
+        for item in (experiment_summary.get("registered_custom_variant_run_ids") or [])
+        if str(item)
+    ]
+    custom_coverage_html = ""
+    if registered_custom_variant_run_ids:
+        custom_coverage_html = (
+            "<h3>Custom Variant Coverage</h3>"
+            f"<p><strong>registered_custom_variant_run_ids:</strong> {escape(', '.join(registered_custom_variant_run_ids))}</p>"
+            f"<p><strong>planned_custom_variant_run_ids:</strong> {escape(', '.join(str(item) for item in (experiment_summary.get('planned_custom_variant_run_ids') or [])) or '--')}</p>"
+            f"<p><strong>completed_custom_variant_run_ids:</strong> {escape(', '.join(str(item) for item in (experiment_summary.get('completed_custom_variant_run_ids') or [])) or '--')}</p>"
+            f"<p><strong>missing_custom_compare_entry_ids:</strong> {escape(', '.join(str(item) for item in (experiment_summary.get('missing_custom_compare_entry_ids') or [])) or '--')}</p>"
+        )
     return (
         '<section class="panel">'
         "<h2>Experiment Registry</h2>"
@@ -890,6 +936,7 @@ def _render_experiment_html(experiment_summary: dict | None) -> str:
         f"{_render_html_items('Run Status Counts', _format_status_count_items(experiment_summary.get('run_status_counts')))}"
         f"{_render_html_items('Compare Status Counts', _format_status_count_items(experiment_summary.get('compare_status_counts')))}"
         f"{coverage_html}"
+        f"{custom_coverage_html}"
         f"{_render_html_items('Missing Variant Run Records', _as_string_list(experiment_summary.get('missing_variant_run_record_ids')))}"
         f"{_render_html_items('Missing Compare Entries', _as_string_list(experiment_summary.get('missing_compare_entry_ids')))}"
         f"{_render_html_items('Planned Variant Runs', _as_string_list(experiment_summary.get('planned_variant_run_ids')))}"
@@ -911,7 +958,8 @@ def _render_experiment_compare_html(experiment_compare_summary: dict | None) -> 
         "<li>"
         f"<strong>{escape(str(item.get('candidate_run_id') or '--'))}</strong> "
         f"(<code>{escape(str(item.get('compare_status') or '--'))}</code>)"
-        f"<p>{escape(str(item.get('study_type') or '--'))} / {escape(str(item.get('variant_id') or '--'))}</p>"
+        f"<p>{escape(_format_compare_entry_label(item))}</p>"
+        f"<p><strong>compare_target:</strong> {escape(str(item.get('compare_target_run_id') or item.get('baseline_run_id') or '--'))}</p>"
         f"<p>{escape(' | '.join(_format_compare_metric_delta_lines(item.get('metric_deltas'))) or str(item.get('notes') or 'No metric delta'))}</p>"
         "</li>"
         for item in (experiment_compare_summary.get("comparisons") or [])

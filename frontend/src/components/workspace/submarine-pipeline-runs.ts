@@ -36,6 +36,14 @@ type ThreadValuesLike = {
   submarine_runtime?: SubmarineRuntimeLike | null;
 };
 
+type SubmarineRunLineageLike = {
+  candidate_run_id?: string | null;
+  compare_target_run_id?: string | null;
+  run_role?: string | null;
+  variant_origin?: string | null;
+  variant_id?: string | null;
+};
+
 function normalizeValues(
   values: ThreadValuesLike | null | undefined,
 ): ThreadValuesLike {
@@ -65,6 +73,24 @@ function normalizeArtifacts(artifacts: unknown): string[] {
   return Array.isArray(artifacts)
     ? artifacts.filter((artifact): artifact is string => typeof artifact === "string")
     : [];
+}
+
+export function formatSubmarineRunLineage(
+  entry: SubmarineRunLineageLike | null | undefined,
+): string {
+  const compareTargetRunId = entry?.compare_target_run_id ?? "baseline";
+  const candidateRunId = entry?.candidate_run_id ?? "unknown";
+  const variantId =
+    entry?.variant_id ??
+    (candidateRunId.startsWith("custom:")
+      ? candidateRunId.slice("custom:".length)
+      : candidateRunId);
+  const isCustomVariant =
+    entry?.run_role === "custom_variant" ||
+    entry?.variant_origin === "custom_variant" ||
+    candidateRunId.startsWith("custom:");
+  const lineageLabel = isCustomVariant ? `custom / ${variantId}` : candidateRunId;
+  return `${compareTargetRunId} -> ${candidateRunId} | ${lineageLabel}`;
 }
 
 export function isSubmarineThread(values: ThreadValuesLike | null | undefined): boolean {

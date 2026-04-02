@@ -170,8 +170,12 @@ export type SubmarineExperimentSummary = {
   runStatusCountLines: string[];
   compareStatusCountLines: string[];
   expectedVariantRunIds: string[];
+  registeredCustomVariantRunIds: string[];
   missingVariantRunRecordIds: string[];
   missingCompareEntryIds: string[];
+  plannedCustomVariantRunIds: string[];
+  completedCustomVariantRunIds: string[];
+  missingCustomCompareEntryIds: string[];
   blockedVariantRunIds: string[];
   plannedVariantRunIds: string[];
   missingMetricsVariantRunIds: string[];
@@ -192,9 +196,16 @@ export type SubmarineExperimentCompareSummary = {
   artifactPaths: string[];
   comparisons: Array<{
     candidateRunId: string;
+    runRole: string;
+    variantOrigin: string;
     studyType: string;
     variantId: string;
+    variantLabel: string;
     studyLabel: string;
+    lineageLabel: string;
+    baselineReferenceRunId: string;
+    compareTargetRunId: string;
+    isCustomVariant: boolean;
     compareStatus: string;
     compareStatusLabel: string;
     candidateExecutionStatusLabel: string;
@@ -653,6 +664,59 @@ function formatStatusCountLines(
     }
     return [`${formatStatusLabel(status, labels)}: ${rawCount}`];
   });
+}
+
+function isCustomVariantEntry(
+  item:
+    | {
+        run_role?: string | null;
+        variant_origin?: string | null;
+        candidate_run_id?: string | null;
+      }
+    | null
+    | undefined,
+) {
+  const runRole = item?.run_role ?? item?.variant_origin ?? "";
+  const candidateRunId = item?.candidate_run_id ?? "";
+  return runRole === "custom_variant" || candidateRunId.startsWith("custom:");
+}
+
+function formatExperimentCompareStudyLabel(
+  item:
+    | {
+        run_role?: string | null;
+        variant_origin?: string | null;
+        candidate_run_id?: string | null;
+        study_type?: string | null;
+        variant_id?: string | null;
+      }
+    | null
+    | undefined,
+) {
+  const variantId = item?.variant_id ?? "unknown";
+  if (isCustomVariantEntry(item)) {
+    return `custom / ${variantId}`;
+  }
+  const studyType = item?.study_type ?? "unknown";
+  return `${studyType} / ${variantId}`;
+}
+
+function formatExperimentLineageLabel(
+  item:
+    | {
+        run_role?: string | null;
+        variant_origin?: string | null;
+        candidate_run_id?: string | null;
+        variant_label?: string | null;
+        variant_id?: string | null;
+      }
+    | null
+    | undefined,
+) {
+  if (isCustomVariantEntry(item)) {
+    return `Custom Variant | ${item?.variant_label ?? item?.variant_id ?? "unknown"}`;
+  }
+  return formatExperimentCompareStudyLabel(item);
 }
 
 function formatCompareMetricDeltaLines(metricDeltas: unknown) {
@@ -1892,10 +1956,18 @@ export function buildSubmarineExperimentSummary(
       EXPERIMENT_COMPARE_STATUS_LABELS,
     ),
     expectedVariantRunIds: summary.expected_variant_run_ids?.filter(Boolean) ?? [],
+    registeredCustomVariantRunIds:
+      summary.registered_custom_variant_run_ids?.filter(Boolean) ?? [],
     missingVariantRunRecordIds:
       summary.missing_variant_run_record_ids?.filter(Boolean) ?? [],
     missingCompareEntryIds:
       summary.missing_compare_entry_ids?.filter(Boolean) ?? [],
+    plannedCustomVariantRunIds:
+      summary.planned_custom_variant_run_ids?.filter(Boolean) ?? [],
+    completedCustomVariantRunIds:
+      summary.completed_custom_variant_run_ids?.filter(Boolean) ?? [],
+    missingCustomCompareEntryIds:
+      summary.missing_custom_compare_entry_ids?.filter(Boolean) ?? [],
     blockedVariantRunIds:
       summary.blocked_variant_run_ids?.filter(Boolean) ?? [],
     plannedVariantRunIds:
@@ -1949,12 +2021,23 @@ export function buildSubmarineExperimentCompareSummary(
       const baselineRunRecordPath = item.baseline_run_record_virtual_path ?? "--";
       const candidateRunRecordPath =
         item.candidate_run_record_virtual_path ?? "--";
+      const studyLabel = formatExperimentCompareStudyLabel(item);
+      const lineageLabel = formatExperimentLineageLabel(item);
+      const compareTargetRunId = item.compare_target_run_id ?? summary.baseline_run_id ?? "--";
 
       return {
         candidateRunId: item.candidate_run_id ?? "unknown",
+        runRole: item.run_role ?? "--",
+        variantOrigin: item.variant_origin ?? item.run_role ?? "--",
         studyType,
         variantId,
-        studyLabel: `${studyType} / ${variantId}`,
+        variantLabel: item.variant_label ?? variantId,
+        studyLabel,
+        lineageLabel,
+        baselineReferenceRunId:
+          item.baseline_reference_run_id ?? summary.baseline_run_id ?? "--",
+        compareTargetRunId,
+        isCustomVariant: isCustomVariantEntry(item),
         compareStatus: item.compare_status ?? "--",
         compareStatusLabel: formatStatusLabel(
           item.compare_status,

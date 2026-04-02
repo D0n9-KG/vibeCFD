@@ -2915,7 +2915,22 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
             {
                 "selected_case_id": "research_evidence_validated_case",
                 "baseline_configuration_snapshot": {"task_type": "resistance"},
-                "study_definitions": [],
+                "study_definitions": [
+                    {
+                        "study_type": "mesh_independence",
+                        "summary_label": "Mesh Independence",
+                        "monitored_quantity": "Cd",
+                        "pass_fail_tolerance": 0.02,
+                        "variants": [
+                            {
+                                "study_type": "mesh_independence",
+                                "variant_id": "coarse",
+                                "variant_label": "Coarse",
+                                "rationale": "Coarse mesh validation run.",
+                            }
+                        ],
+                    }
+                ],
                 "artifact_virtual_paths": [
                     "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/study-manifest.json"
                 ],

@@ -1223,8 +1223,12 @@ void test("builds an experiment summary from the final report payload", () => {
         "mesh_independence:coarse",
         "domain_sensitivity:expanded",
       ],
+      registered_custom_variant_run_ids: ["custom:pressure-sweep"],
       missing_variant_run_record_ids: ["domain_sensitivity:expanded"],
       missing_compare_entry_ids: ["domain_sensitivity:expanded"],
+      planned_custom_variant_run_ids: ["custom:pressure-sweep"],
+      completed_custom_variant_run_ids: [],
+      missing_custom_compare_entry_ids: ["custom:pressure-sweep"],
       planned_variant_run_ids: ["domain_sensitivity:expanded"],
       missing_metrics_variant_run_ids: ["mesh_independence:fine"],
       compare_notes: [
@@ -1263,6 +1267,16 @@ void test("builds an experiment summary from the final report payload", () => {
   assert.deepEqual(summary?.compareStatusCountLines, ["Completed: 1", "Planned: 1"]);
   assert.equal(summary?.linkageStatus, "incomplete");
   assert.equal(summary?.linkageIssueCount, 2);
+  assert.deepEqual(summary?.registeredCustomVariantRunIds, [
+    "custom:pressure-sweep",
+  ]);
+  assert.deepEqual(summary?.plannedCustomVariantRunIds, [
+    "custom:pressure-sweep",
+  ]);
+  assert.deepEqual(summary?.completedCustomVariantRunIds, []);
+  assert.deepEqual(summary?.missingCustomCompareEntryIds, [
+    "custom:pressure-sweep",
+  ]);
   assert.deepEqual(summary?.plannedVariantRunIds, ["domain_sensitivity:expanded"]);
   assert.deepEqual(summary?.missingMetricsVariantRunIds, [
     "mesh_independence:fine",
@@ -1359,6 +1373,51 @@ void test("builds an experiment compare summary from the final report payload", 
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-record.json",
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/run-record.json",
   ]);
+});
+
+void test("formats custom variant compare summaries with custom lineage labels", () => {
+  const summary = buildSubmarineExperimentCompareSummary({
+    experiment_compare_summary: {
+      experiment_id: "darpa-suboff-custom-variant-demo",
+      baseline_run_id: "baseline",
+      compare_count: 1,
+      workflow_status: "partial",
+      compare_status_counts: {
+        completed: 0,
+        planned: 1,
+      },
+      planned_candidate_run_ids: ["custom:pressure-sweep"],
+      completed_candidate_run_ids: [],
+      comparisons: [
+        {
+          candidate_run_id: "custom:pressure-sweep",
+          run_role: "custom_variant",
+          variant_origin: "custom_variant",
+          variant_id: "pressure-sweep",
+          variant_label: "Pressure Sweep",
+          baseline_reference_run_id: "baseline",
+          compare_target_run_id: "baseline",
+          compare_status: "planned",
+          candidate_execution_status: "planned",
+          notes: "User-authored pressure sweep variant is queued for execution.",
+        },
+      ],
+    },
+  });
+
+  assert.equal(summary?.comparisons.length, 1);
+  assert.equal(summary?.comparisons[0]?.candidateRunId, "custom:pressure-sweep");
+  assert.equal(summary?.comparisons[0]?.runRole, "custom_variant");
+  assert.equal(summary?.comparisons[0]?.variantOrigin, "custom_variant");
+  assert.equal(summary?.comparisons[0]?.variantLabel, "Pressure Sweep");
+  assert.equal(summary?.comparisons[0]?.studyLabel, "custom / pressure-sweep");
+  assert.equal(
+    summary?.comparisons[0]?.lineageLabel,
+    "Custom Variant | Pressure Sweep",
+  );
+  assert.equal(summary?.comparisons[0]?.baselineReferenceRunId, "baseline");
+  assert.equal(summary?.comparisons[0]?.compareTargetRunId, "baseline");
+  assert.equal(summary?.comparisons[0]?.isCustomVariant, true);
 });
 
 void test("builds a research evidence summary from the final report payload", () => {

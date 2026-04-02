@@ -3,6 +3,7 @@ import test from "node:test";
 
 const {
   deriveSubmarineSidebarRuns,
+  formatSubmarineRunLineage,
   getSubmarineDisplayedNextStage,
   getSubmarineDisplayedStage,
 } = await import(new URL("./submarine-pipeline-runs.ts", import.meta.url).href);
@@ -115,4 +116,18 @@ void test("pending calculation-plan approval also routes the UI to user confirma
 
   assert.equal(displayedStage, "task-intelligence");
   assert.equal(displayedNextStage, "user-confirmation");
+});
+
+void test("formats baseline-to-custom lineage with a custom run label", () => {
+  const label = formatSubmarineRunLineage({
+    compare_target_run_id: "baseline",
+    candidate_run_id: "custom:pressure-sweep",
+    run_role: "custom_variant",
+    variant_id: "pressure-sweep",
+  });
+
+  assert.equal(
+    label,
+    "baseline -> custom:pressure-sweep | custom / pressure-sweep",
+  );
 });

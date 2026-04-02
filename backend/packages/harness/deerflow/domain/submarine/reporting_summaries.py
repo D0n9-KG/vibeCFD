@@ -183,6 +183,14 @@ def _build_experiment_workflow_detail(summary: dict) -> str:
     blocked_variant_run_ids = summary.get("blocked_variant_run_ids") or []
     planned_variant_run_ids = summary.get("planned_variant_run_ids") or []
     missing_metrics_variant_run_ids = summary.get("missing_metrics_variant_run_ids") or []
+    planned_custom_variant_run_ids = summary.get("planned_custom_variant_run_ids") or []
+    completed_custom_variant_run_ids = summary.get("completed_custom_variant_run_ids") or []
+    missing_custom_compare_entry_ids = (
+        summary.get("missing_custom_compare_entry_ids") or []
+    )
+    registered_custom_variant_run_ids = (
+        summary.get("registered_custom_variant_run_ids") or []
+    )
 
     if blocked_variant_run_ids:
         details.append("Blocked variants: " + ", ".join(map(str, blocked_variant_run_ids)))
@@ -205,14 +213,63 @@ def _build_experiment_workflow_detail(summary: dict) -> str:
             "Compare metrics not ready: "
             + ", ".join(map(str, missing_metrics_variant_run_ids))
         )
+    if planned_custom_variant_run_ids:
+        details.append(
+            "Pending custom variants: "
+            + ", ".join(map(str, planned_custom_variant_run_ids))
+        )
+    if missing_custom_compare_entry_ids:
+        details.append(
+            "Custom variants missing compare entries: "
+            + ", ".join(map(str, missing_custom_compare_entry_ids))
+        )
+    if completed_custom_variant_run_ids and not details:
+        details.append(
+            "Completed custom variants: "
+            + ", ".join(map(str, completed_custom_variant_run_ids))
+        )
     if details:
         return " ".join(details)
     workflow_status = str(summary.get("workflow_status") or "").strip()
     if workflow_status == "completed":
+        if registered_custom_variant_run_ids:
+            return "Experiment linkage, run records, and compare coverage are complete across scientific and custom variants."
         return "Experiment linkage, run records, and compare coverage are complete."
     if workflow_status == "planned":
         return "Experiment registry is prepared but variant execution has not started."
     return "Experiment workflow status is available."
+
+
+def _is_custom_variant_entry(item: dict) -> bool:
+    run_role = str(item.get("run_role") or item.get("variant_origin") or "").strip()
+    candidate_run_id = str(item.get("candidate_run_id") or "").strip()
+    return run_role == "custom_variant" or candidate_run_id.startswith("custom:")
+
+
+def _format_compare_entry_label(item: dict) -> str:
+    variant_id = str(item.get("variant_id") or "unknown").strip() or "unknown"
+    if _is_custom_variant_entry(item):
+        return f"custom / {variant_id}"
+    study_type = str(item.get("study_type") or "unknown").strip() or "unknown"
+    return f"{study_type} / {variant_id}"
+
+
+def _format_compare_note(item: dict) -> str:
+    candidate_run_id = str(item.get("candidate_run_id") or "unknown").strip() or "unknown"
+    compare_status = str(item.get("compare_status") or "unknown").strip() or "unknown"
+    compare_target_run_id = (
+        str(item.get("compare_target_run_id") or item.get("baseline_run_id") or "baseline").strip()
+        or "baseline"
+    )
+    if _is_custom_variant_entry(item):
+        variant_label = str(item.get("variant_label") or item.get("variant_id") or candidate_run_id)
+        return (
+            f"Custom Variant | {variant_label} | {candidate_run_id} | {compare_status} "
+            f"| compare target {compare_target_run_id}"
+        )
+    return (
+        f"{_format_compare_entry_label(item)} | {candidate_run_id} | {compare_status}"
+    )
 
 
 def build_scientific_study_summary(
@@ -393,9 +450,7 @@ def build_experiment_summary(
     for item in comparisons:
         if not isinstance(item, dict):
             continue
-        candidate_run_id = str(item.get("candidate_run_id") or "unknown")
-        compare_status = str(item.get("compare_status") or "unknown")
-        compare_notes.append(f"{candidate_run_id} | {compare_status}")
+        compare_notes.append(_format_compare_note(item))
 
     run_records = manifest.get("run_records") or []
     return {
@@ -486,8 +541,20 @@ def build_experiment_compare_summary(
         comparisons.append(
             {
                 "candidate_run_id": candidate_run_id,
+                "run_role": item.get("run_role") or candidate_record.get("run_role"),
+                "variant_origin": item.get("variant_origin")
+                or candidate_record.get("variant_origin")
+                or candidate_record.get("run_role"),
                 "study_type": item.get("study_type"),
                 "variant_id": item.get("variant_id"),
+                "variant_label": item.get("variant_label")
+                or candidate_record.get("variant_label"),
+                "baseline_reference_run_id": item.get("baseline_reference_run_id")
+                or candidate_record.get("baseline_reference_run_id")
+                or baseline_run_id,
+                "compare_target_run_id": item.get("compare_target_run_id")
+                or candidate_record.get("compare_target_run_id")
+                or baseline_run_id,
                 "compare_status": item.get("compare_status"),
                 "candidate_execution_status": item.get("candidate_execution_status")
                 or candidate_record.get("execution_status"),

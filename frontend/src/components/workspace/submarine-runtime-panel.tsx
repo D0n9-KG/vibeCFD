@@ -411,6 +411,40 @@ export function SubmarineRuntimePanel({
     () => buildSubmarineExperimentCompareSummary(finalReport),
     [finalReport],
   );
+  const customVariantLineageItems = useMemo(() => {
+    const lines: string[] = [];
+    const seen = new Set<string>();
+
+    for (const item of experimentCompareSummary?.comparisons ?? []) {
+      if (!item.isCustomVariant) {
+        continue;
+      }
+      const line = [
+        item.lineageLabel,
+        item.candidateRunId,
+        `compare target ${item.compareTargetRunId}`,
+        item.candidateExecutionStatusLabel,
+        item.compareStatusLabel,
+      ].join(" | ");
+      if (!seen.has(line)) {
+        seen.add(line);
+        lines.push(line);
+      }
+    }
+
+    for (const runId of experimentSummary?.missingCustomCompareEntryIds ?? []) {
+      const line = `Custom Variant | ${runId.replace(/^custom:/, "")} | ${runId} | compare target baseline | compare pending`;
+      if (!seen.has(line)) {
+        seen.add(line);
+        lines.push(line);
+      }
+    }
+
+    return lines;
+  }, [
+    experimentCompareSummary?.comparisons,
+    experimentSummary?.missingCustomCompareEntryIds,
+  ]);
   const scientificVerificationSummary = useMemo(
     () =>
       buildSubmarineScientificVerificationSummary(
@@ -1131,6 +1165,11 @@ export function SubmarineRuntimePanel({
                         ]}
                         emptyText="No outstanding experiment workflow gaps are recorded."
                       />
+                      <LabeledList
+                        title="Custom Variant Lineage"
+                        items={customVariantLineageItems}
+                        emptyText="No custom variant lineage is recorded."
+                      />
                     </div>
                   </div>
                 ) : null}
@@ -1386,7 +1425,7 @@ export function SubmarineRuntimePanel({
                         title="Compared Runs"
                         items={experimentCompareSummary.comparisons.map(
                           (item) =>
-                            `${experimentCompareSummary.baselineRunId} -> ${item.candidateRunId} | ${item.compareStatusLabel} | ${item.candidateExecutionStatusLabel} | ${item.studyLabel}`,
+                            `${item.compareTargetRunId} -> ${item.candidateRunId} | ${item.compareStatusLabel} | ${item.candidateExecutionStatusLabel} | ${item.studyLabel}`,
                         )}
                         emptyText="No experiment comparisons are recorded yet."
                       />
@@ -1403,17 +1442,21 @@ export function SubmarineRuntimePanel({
                                 {item.compareStatusLabel}
                               </Badge>
                               <span className="text-sm font-medium text-foreground">
-                                {experimentCompareSummary.baselineRunId}
+                                {item.compareTargetRunId}
                                 {" -> "}
                                 {item.candidateRunId}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {item.studyLabel}
+                                {item.lineageLabel}
                               </span>
                             </div>
-                            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                              <KeyValue label="Study Type" value={item.studyType} />
-                              <KeyValue label="Variant" value={item.variantId} />
+                            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                              <KeyValue
+                                label="Compare Target"
+                                value={item.compareTargetRunId}
+                              />
+                              <KeyValue label="Study Type" value={item.studyLabel} />
+                              <KeyValue label="Variant" value={item.variantLabel} />
                               <KeyValue label="Status" value={item.compareStatusLabel} />
                               <KeyValue
                                 label="Candidate Execution"

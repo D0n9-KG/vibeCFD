@@ -37,6 +37,14 @@ export type SubmarineRequestedOutputPayload = {
   notes?: string | null;
 };
 
+export type SubmarineCustomExperimentVariantPayload = {
+  variant_id?: string | null;
+  variant_label?: string | null;
+  rationale?: string | null;
+  compare_target_run_id?: string | null;
+  parameter_overrides?: Record<string, unknown> | null;
+};
+
 export type SubmarineGeometryFinding = {
   finding_id?: string | null;
   category?: string | null;
@@ -286,6 +294,7 @@ export type SubmarineDispatchPayload = {
     | SubmarineScientificVerificationAssessment
     | null;
   requested_outputs?: SubmarineRequestedOutputPayload[] | null;
+  custom_variants?: SubmarineCustomExperimentVariantPayload[] | null;
   output_delivery_plan?: SubmarineOutputDeliveryPlanItem[] | null;
   artifact_virtual_paths?: string[] | null;
   request_virtual_path?: string | null;
@@ -348,6 +357,7 @@ export type SubmarineRuntimeSnapshotPayload = {
   selected_case_id?: string | null;
   simulation_requirements?: SubmarineSimulationRequirements | null;
   requested_outputs?: SubmarineRequestedOutputPayload[] | null;
+  custom_variants?: SubmarineCustomExperimentVariantPayload[] | null;
   output_delivery_plan?: SubmarineOutputDeliveryPlanItem[] | null;
   stage_status?: string | null;
   runtime_status?: string | null;
@@ -474,9 +484,13 @@ export type SubmarineExperimentSummaryPayload = {
   expected_variant_run_ids?: string[] | null;
   recorded_variant_run_ids?: string[] | null;
   compared_variant_run_ids?: string[] | null;
+  registered_custom_variant_run_ids?: string[] | null;
   additional_variant_run_ids?: string[] | null;
   missing_variant_run_record_ids?: string[] | null;
   missing_compare_entry_ids?: string[] | null;
+  planned_custom_variant_run_ids?: string[] | null;
+  completed_custom_variant_run_ids?: string[] | null;
+  missing_custom_compare_entry_ids?: string[] | null;
   orphan_compare_entry_ids?: string[] | null;
   run_status_counts?: Record<string, number> | null;
   compare_status_counts?: Record<string, number> | null;
@@ -492,8 +506,13 @@ export type SubmarineExperimentSummaryPayload = {
 
 export type SubmarineExperimentCompareEntryPayload = {
   candidate_run_id?: string | null;
+  run_role?: string | null;
+  variant_origin?: string | null;
   study_type?: string | null;
   variant_id?: string | null;
+  variant_label?: string | null;
+  baseline_reference_run_id?: string | null;
+  compare_target_run_id?: string | null;
   compare_status?: string | null;
   candidate_execution_status?: string | null;
   notes?: string | null;

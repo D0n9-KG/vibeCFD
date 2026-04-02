@@ -142,6 +142,7 @@ def submarine_solver_dispatch_tool(
     write_interval_steps: int | None = None,
     execute_now: bool | None = None,
     execute_scientific_studies: bool = False,
+    custom_variants: list[dict] | None = None,
     solver_command: str | None = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
 ) -> Command:
@@ -161,6 +162,7 @@ def submarine_solver_dispatch_tool(
         write_interval_steps: Optional write interval in time steps.
         execute_now: Whether to execute the dispatch command immediately inside the current DeerFlow sandbox. When omitted, recover the latest confirmed execution intent from the design brief.
         execute_scientific_studies: Whether to execute the planned scientific study variants in addition to the baseline run.
+        custom_variants: Optional custom experiment variants to register in the experiment manifest alongside the baseline and scientific-study variants.
         solver_command: Optional command to run when `execute_now=true`, for example `simpleFoam -case /mnt/user-data/workspace/case`.
     """
     try:
@@ -296,6 +298,12 @@ def submarine_solver_dispatch_tool(
                 existing_runtime.get("requested_outputs")
                 or existing_brief.get("requested_outputs")
             ),
+            custom_variants=(
+                custom_variants
+                if custom_variants is not None
+                else existing_runtime.get("custom_variants")
+                or existing_brief.get("custom_variants")
+            ),
             geometry_findings=(
                 existing_runtime.get("geometry_findings")
                 or existing_brief.get("geometry_findings")
@@ -384,6 +392,7 @@ def submarine_solver_dispatch_tool(
         selected_case_id=selected_case.get("case_id"),
         simulation_requirements=payload.get("simulation_requirements"),
         requested_outputs=payload.get("requested_outputs"),
+        custom_variants=payload.get("custom_variants"),
         output_delivery_plan=payload.get("output_delivery_plan"),
         stage_status=dispatch_status,
         runtime_status=runtime_truth["runtime_status"],
