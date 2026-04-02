@@ -41,6 +41,9 @@ export type SubmarinePipelineStatusInput = {
   scientificGateStatus?: string | null;
   allowedClaimLevel?: string | null;
   scientificVerificationStatus?: string | null;
+  environmentParityStatus?: string | null;
+  reproducibilityStatus?: string | null;
+  environmentProfileLabel?: string | null;
 };
 
 const DEFAULT_SUMMARY =
@@ -75,6 +78,13 @@ const SCIENTIFIC_VERIFICATION_STATUS_LABELS: Record<string, string> = {
   research_ready: "SCI-01 已通过",
   needs_more_verification: "SCI-01 仍需补证",
   blocked: "SCI-01 已阻塞",
+};
+
+const RUNTIME_PARITY_STATUS_LABELS: Record<string, string> = {
+  matched: "Matched",
+  drifted_but_runnable: "Drifted but runnable",
+  unknown: "Unknown environment profile",
+  blocked: "Blocked runtime parity",
 };
 
 function normalizeRuntimeStatus(
@@ -148,6 +158,9 @@ function buildCompletedScientificStatus({
   scientificGateStatus,
   allowedClaimLevel,
   scientificVerificationStatus,
+  environmentParityStatus,
+  reproducibilityStatus,
+  environmentProfileLabel,
 }: {
   hasFinalReport: boolean;
   runtimeSummary?: string | null;
@@ -155,6 +168,9 @@ function buildCompletedScientificStatus({
   scientificGateStatus?: string | null;
   allowedClaimLevel?: string | null;
   scientificVerificationStatus?: string | null;
+  environmentParityStatus?: string | null;
+  reproducibilityStatus?: string | null;
+  environmentProfileLabel?: string | null;
 }): SubmarinePipelineStatus | null {
   const gateLabel =
     SCIENTIFIC_GATE_STATUS_LABELS[scientificGateStatus ?? ""] ??
@@ -168,6 +184,44 @@ function buildCompletedScientificStatus({
     SCIENTIFIC_VERIFICATION_STATUS_LABELS[scientificVerificationStatus ?? ""] ??
     scientificVerificationStatus ??
     null;
+  const parityState = reproducibilityStatus ?? environmentParityStatus ?? null;
+  const parityLabel =
+    RUNTIME_PARITY_STATUS_LABELS[parityState ?? ""] ?? parityState ?? null;
+  const profileLabel = environmentProfileLabel ?? "the active runtime profile";
+
+  if (parityState === "blocked") {
+    return {
+      tone: "error",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: "Blocked runtime parity",
+      outputStatus: "结果已完成，但可复现运行环境被阻塞",
+      summaryText:
+        runtimeSummary ??
+        `${parityLabel ?? "Blocked runtime parity"} for ${profileLabel}. Restore the required runtime prerequisites before treating this run as reproducible.`,
+      errorBanner: {
+        title: "Runtime Parity Blocked",
+        message: parityLabel ?? "Blocked runtime parity",
+        guidance:
+          "Restore the required runtime profile, mounts, and Docker socket access before relying on reproducible reruns.",
+      },
+    };
+  }
+
+  if (parityState === "drifted_but_runnable" || parityState === "unknown") {
+    return {
+      tone: "ready",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: parityLabel ?? "Reproducibility limited",
+      outputStatus:
+        parityState === "drifted_but_runnable"
+          ? "结果已完成，但运行环境与复现配置发生漂移"
+          : "结果已完成，但当前运行环境配置无法确认",
+      summaryText:
+        runtimeSummary ??
+        `${parityLabel ?? "Reproducibility limited"} for ${profileLabel}. Scientific evidence is preserved, but reproducibility is limited until runtime parity is restored.`,
+      errorBanner: null,
+    };
+  }
 
   if (scientificGateStatus === "blocked") {
     const summary =
@@ -335,6 +389,9 @@ export function getSubmarinePipelineStatus({
   scientificGateStatus,
   allowedClaimLevel,
   scientificVerificationStatus,
+  environmentParityStatus,
+  reproducibilityStatus,
+  environmentProfileLabel,
 }: SubmarinePipelineStatusInput): SubmarinePipelineStatus {
   if (threadError) {
     const message = getThreadErrorMessage(
@@ -404,6 +461,9 @@ export function getSubmarinePipelineStatus({
       scientificGateStatus,
       allowedClaimLevel,
       scientificVerificationStatus,
+      environmentParityStatus,
+      reproducibilityStatus,
+      environmentProfileLabel,
     });
     if (scientificCompletionStatus) {
       return scientificCompletionStatus;

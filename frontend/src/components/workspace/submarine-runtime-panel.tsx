@@ -54,6 +54,7 @@ import {
   buildSubmarineFigureDeliverySummary,
   buildSubmarineOutputDeliverySummary,
   buildSubmarineResearchEvidenceSummary,
+  buildSubmarineReproducibilitySummary,
   buildSubmarineResultCards,
   buildSubmarineScientificGateSummary,
   buildSubmarineScientificFollowupSummary,
@@ -363,6 +364,17 @@ export function SubmarineRuntimePanel({
   const researchEvidenceSummary = useMemo(
     () => buildSubmarineResearchEvidenceSummary(finalReport),
     [finalReport],
+  );
+  const reproducibilitySummary = useMemo(
+    () =>
+      buildSubmarineReproducibilitySummary(
+        finalReport?.reproducibility_summary ||
+          finalReport?.environment_parity_assessment ||
+          finalReport?.environment_fingerprint
+          ? finalReport
+          : runtime,
+      ),
+    [finalReport, runtime],
   );
   const scientificGateSummary = useMemo(
     () =>
@@ -1007,6 +1019,42 @@ export function SubmarineRuntimePanel({
                         title="Gate Artifacts"
                         items={scientificGateSummary.artifactPaths}
                         emptyText="No scientific supervisor gate artifacts are recorded."
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                {reproducibilitySummary ? (
+                  <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <KeyValue
+                        label="Manifest"
+                        value={reproducibilitySummary.manifestPath}
+                      />
+                      <KeyValue
+                        label="Profile"
+                        value={reproducibilitySummary.profileLabel}
+                      />
+                      <KeyValue
+                        label="Parity"
+                        value={reproducibilitySummary.parityStatusLabel}
+                      />
+                      <KeyValue
+                        label="Reproducibility"
+                        value={
+                          reproducibilitySummary.reproducibilityStatusLabel
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <LabeledList
+                        title="Drift Reasons"
+                        items={reproducibilitySummary.driftReasons}
+                        emptyText="No runtime parity drift reasons are recorded."
+                      />
+                      <LabeledList
+                        title="Recovery Guidance"
+                        items={reproducibilitySummary.recoveryGuidance}
+                        emptyText="No reproducibility recovery guidance is recorded."
                       />
                     </div>
                   </div>

@@ -409,6 +409,7 @@ def submarine_solver_dispatch_tool(
         stability_evidence=payload.get("stability_evidence"),
         provenance_summary=payload.get("provenance_summary"),
         environment_fingerprint=payload.get("environment_fingerprint"),
+        environment_parity_assessment=payload.get("environment_parity_assessment"),
         supervisor_handoff_virtual_path=payload.get("supervisor_handoff_virtual_path"),
         next_recommended_stage=payload["next_recommended_stage"],
         report_virtual_path=payload["report_virtual_path"],

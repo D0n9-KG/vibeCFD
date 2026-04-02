@@ -3034,6 +3034,13 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
                     "profile_id": "research-ready-profile",
                     "runtime_origin": "unit-test",
                 },
+                "environment_parity_assessment": {
+                    "profile_id": "research-ready-profile",
+                    "profile_label": "Research Ready Profile",
+                    "parity_status": "matched",
+                    "drift_reasons": [],
+                    "recovery_guidance": [],
+                },
             },
             ensure_ascii=False,
             indent=2,
@@ -3063,6 +3070,13 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
                 "environment_fingerprint": {
                     "profile_id": "research-ready-profile",
                     "runtime_origin": "unit-test",
+                },
+                "environment_parity_assessment": {
+                    "profile_id": "research-ready-profile",
+                    "profile_label": "Research Ready Profile",
+                    "parity_status": "matched",
+                    "drift_reasons": [],
+                    "recovery_guidance": [],
                 },
                 "artifact_virtual_paths": [
                     "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/solver-results.json",
@@ -3096,6 +3110,10 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
     assert research["validation_status"] == "validated"
     assert research["provenance_status"] == "traceable"
     assert research["readiness_status"] == "research_ready"
+    assert final_payload["reproducibility_summary"]["parity_status"] == "matched"
+    assert final_payload["reproducibility_summary"]["reproducibility_status"] == (
+        "matched"
+    )
     assert final_payload["provenance_summary"]["manifest_virtual_path"] == (
         provenance_manifest_virtual_path
     )
@@ -3201,6 +3219,92 @@ def test_research_evidence_summary_downgrades_when_provenance_manifest_is_missin
     assert any(
         "Canonical provenance manifest is missing" in item
         for item in summary["evidence_gaps"]
+    )
+
+
+def test_research_evidence_summary_downgrades_when_environment_parity_drifts():
+    evidence_module = importlib.import_module("deerflow.domain.submarine.evidence")
+    models_module = importlib.import_module("deerflow.domain.submarine.models")
+
+    summary = evidence_module.build_research_evidence_summary(
+        acceptance_profile=models_module.SubmarineCaseAcceptanceProfile(
+            profile_id="research-evidence-parity-drift",
+            summary_zh="Parity drifted after a scientifically valid run",
+            benchmark_targets=[
+                models_module.SubmarineBenchmarkTarget(
+                    metric_id="cd_at_3_05_mps",
+                    quantity="Cd",
+                    summary_zh="Compare Cd against reference",
+                    reference_value=0.00314,
+                    relative_tolerance=0.02,
+                    inlet_velocity_mps=3.05,
+                )
+            ],
+        ),
+        acceptance_assessment={
+            "benchmark_comparisons": [
+                {
+                    "metric_id": "cd_at_3_05_mps",
+                    "quantity": "Cd",
+                    "status": "passed",
+                    "observed_value": 0.00312,
+                    "reference_value": 0.00314,
+                    "relative_error": 0.0064,
+                    "relative_tolerance": 0.02,
+                    "target_inlet_velocity_mps": 3.05,
+                    "observed_inlet_velocity_mps": 3.05,
+                }
+            ]
+        },
+        scientific_verification_assessment={
+            "status": "research_ready",
+            "passed_requirements": ["mesh_independence_study"],
+        },
+        provenance_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+            "manifest_completeness_status": "complete",
+            "parity_status": "drifted_but_runnable",
+            "drift_reasons": [
+                "Host mount strategy `workspace_path` does not match `docker_compose_dev` expectations."
+            ],
+            "recovery_guidance": [
+                "Align DEER_FLOW_RUNTIME_PROFILE with the actual runtime path before treating the run as reproducible."
+            ],
+        },
+        scientific_study_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "workflow_status": "completed",
+            "study_execution_status": "completed",
+        },
+        experiment_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+            "compare_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+            "linkage_status": "consistent",
+            "workflow_status": "completed",
+        },
+        output_delivery_plan=[
+            {
+                "delivery_status": "delivered",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
+                ],
+            }
+        ],
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/final-report.json",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json",
+        ],
+    )
+
+    assert summary["verification_status"] == "passed"
+    assert summary["validation_status"] == "validated"
+    assert summary["provenance_status"] == "partial"
+    assert summary["readiness_status"] == "validated_with_gaps"
+    assert any(
+        "Environment parity drifted" in item for item in summary["evidence_gaps"]
+    )
+    assert any(
+        "Host mount strategy" in item for item in summary["evidence_gaps"]
     )
 
 
@@ -3831,6 +3935,18 @@ def test_reporting_decomposition_module_render_keeps_followup_and_requested_outp
         "next_recommended_stage": "supervisor-review",
         "source_report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/dispatch-summary.md",
         "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/scientific-remediation-handoff.json",
+        "reproducibility_summary": {
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/provenance-manifest.json",
+            "profile_id": "docker_compose_dev",
+            "parity_status": "drifted_but_runnable",
+            "reproducibility_status": "drifted_but_runnable",
+            "drift_reasons": [
+                "Host mount strategy `workspace_path` does not match `docker_compose_dev` expectations."
+            ],
+            "recovery_guidance": [
+                "Align DEER_FLOW_RUNTIME_PROFILE with the actual runtime path before treating the run as reproducible."
+            ],
+        },
         "output_delivery_plan": [],
     }
 
@@ -3839,9 +3955,13 @@ def test_reporting_decomposition_module_render_keeps_followup_and_requested_outp
 
     assert "## Requested Outputs" in markdown
     assert "selector=patch[hull]" in markdown
+    assert "## Reproducibility" in markdown
+    assert "drifted_but_runnable" in markdown
     assert "## Scientific Follow-Up History" in markdown
     assert "dispatch_refreshed_report" in markdown
     assert "## 建议" in markdown
+    assert "<h2>Reproducibility</h2>" in html
+    assert "drifted_but_runnable" in html
     assert "<h2>Scientific Follow-Up History</h2>" in html
     assert "selector=patch[hull]" in html
 

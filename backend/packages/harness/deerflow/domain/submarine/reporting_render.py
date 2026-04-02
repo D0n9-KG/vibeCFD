@@ -595,6 +595,34 @@ def _render_research_evidence_markdown(research_evidence_summary: dict | None) -
     return lines
 
 
+def _render_reproducibility_markdown(
+    reproducibility_summary: dict | None,
+) -> list[str]:
+    if not reproducibility_summary:
+        return []
+
+    lines = [
+        "",
+        "## Reproducibility",
+        f"- manifest: `{reproducibility_summary.get('manifest_virtual_path') or '--'}`",
+        f"- profile_id: `{reproducibility_summary.get('profile_id') or '--'}`",
+        f"- parity_status: `{reproducibility_summary.get('parity_status') or '--'}`",
+        (
+            f"- reproducibility_status: "
+            f"`{reproducibility_summary.get('reproducibility_status') or '--'}`"
+        ),
+    ]
+    drift_reasons = reproducibility_summary.get("drift_reasons") or []
+    if drift_reasons:
+        lines.extend(["", "### Drift Reasons"])
+        lines.extend(f"- {item}" for item in drift_reasons)
+    recovery_guidance = reproducibility_summary.get("recovery_guidance") or []
+    if recovery_guidance:
+        lines.extend(["", "### Recovery Guidance"])
+        lines.extend(f"- {item}" for item in recovery_guidance)
+    return lines
+
+
 def _render_scientific_gate_markdown(scientific_supervisor_gate: dict | None) -> list[str]:
     if not scientific_supervisor_gate:
         return []
@@ -1006,6 +1034,33 @@ def _render_research_evidence_html(research_evidence_summary: dict | None) -> st
         f"<ul>{passed_items}</ul>"
         "<h3>Evidence Gaps</h3>"
         f"<ul>{gap_items}</ul>"
+        "</section>"
+    )
+
+
+def _render_reproducibility_html(reproducibility_summary: dict | None) -> str:
+    if not reproducibility_summary:
+        return ""
+
+    drift_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (reproducibility_summary.get("drift_reasons") or [])
+    ) or "<li>None</li>"
+    guidance_items = "".join(
+        f"<li>{escape(str(item))}</li>"
+        for item in (reproducibility_summary.get("recovery_guidance") or [])
+    ) or "<li>None</li>"
+    return (
+        '<section class="panel">'
+        "<h2>Reproducibility</h2>"
+        f"<p><strong>manifest:</strong> {escape(str(reproducibility_summary.get('manifest_virtual_path') or '--'))}</p>"
+        f"<p><strong>profile_id:</strong> {escape(str(reproducibility_summary.get('profile_id') or '--'))}</p>"
+        f"<p><strong>parity_status:</strong> {escape(str(reproducibility_summary.get('parity_status') or '--'))}</p>"
+        f"<p><strong>reproducibility_status:</strong> {escape(str(reproducibility_summary.get('reproducibility_status') or '--'))}</p>"
+        "<h3>Drift Reasons</h3>"
+        f"<ul>{drift_items}</ul>"
+        "<h3>Recovery Guidance</h3>"
+        f"<ul>{guidance_items}</ul>"
         "</section>"
     )
 
@@ -1445,6 +1500,7 @@ def render_markdown(payload: dict) -> str:
     lines.extend(_render_acceptance_markdown(payload.get("acceptance_assessment")))
     lines.extend(_render_experiment_markdown(payload.get("experiment_summary")))
     lines.extend(_render_research_evidence_markdown(payload.get("research_evidence_summary")))
+    lines.extend(_render_reproducibility_markdown(payload.get("reproducibility_summary")))
     lines.extend(_render_scientific_gate_markdown(payload.get("scientific_supervisor_gate")))
     lines.extend(
         _render_scientific_remediation_markdown(
@@ -1682,6 +1738,9 @@ def render_html(payload: dict) -> str:
     research_evidence_section = _render_research_evidence_html(
         payload.get("research_evidence_summary")
     )
+    reproducibility_section = _render_reproducibility_html(
+        payload.get("reproducibility_summary")
+    )
     scientific_gate_section = _render_scientific_gate_html(
         payload.get("scientific_supervisor_gate")
     )
@@ -1789,12 +1848,13 @@ def render_html(payload: dict) -> str:
       <ul>{source_items}</ul>
     </section>
     {requested_outputs_section}
-      {metrics_section}
-      {acceptance_section}
-      {experiment_section}
-      {research_evidence_section}
-      {scientific_gate_section}
-      {scientific_remediation_section}
+    {metrics_section}
+    {acceptance_section}
+    {experiment_section}
+    {research_evidence_section}
+    {reproducibility_section}
+    {scientific_gate_section}
+    {scientific_remediation_section}
       {scientific_remediation_handoff_section}
       {scientific_followup_section}
       {scientific_study_section}

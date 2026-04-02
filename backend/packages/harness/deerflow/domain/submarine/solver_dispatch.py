@@ -17,6 +17,10 @@ from .calculation_plan import (
     extract_geometry_reference_inputs,
 )
 from .contracts import SubmarineRequestedOutput, build_supervisor_review_contract
+from .environment_parity import (
+    build_environment_fingerprint as build_environment_fingerprint_assessment_input,
+    build_environment_parity_assessment,
+)
 from .experiments import (
     build_experiment_id,
     build_experiment_run_id,
@@ -159,17 +163,19 @@ def _build_environment_fingerprint(
     outputs_dir: Path,
     execute_command: Callable[[str], str] | None,
 ) -> dict[str, object]:
+    fingerprint = build_environment_fingerprint_assessment_input(
+        workspace_dir=workspace_dir,
+        outputs_dir=outputs_dir,
+    ).model_dump(mode="json")
     relative_artifact_dir = artifact_dir
     try:
         relative_artifact_dir = artifact_dir.relative_to(outputs_dir)
     except ValueError:
         pass
-    return {
-        "runtime_origin": "workspace" if workspace_dir is not None else "outputs_only",
-        "workspace_available": workspace_dir is not None,
-        "sandbox_command_available": execute_command is not None,
-        "artifact_root": str(relative_artifact_dir).replace("\\", "/"),
-    }
+    fingerprint["workspace_available"] = workspace_dir is not None
+    fingerprint["sandbox_command_available"] = execute_command is not None
+    fingerprint["artifact_root"] = str(relative_artifact_dir).replace("\\", "/")
+    return fingerprint
 
 
 def _ensure_study_variant_update(
@@ -1479,6 +1485,9 @@ def run_solver_dispatch(
         outputs_dir=outputs_dir,
         execute_command=execute_command,
     )
+    environment_parity_assessment = build_environment_parity_assessment(
+        environment_fingerprint
+    ).model_dump(mode="json")
     provenance_manifest_model = build_run_provenance_manifest(
         experiment_id=experiment_id,
         run_id=baseline_run_id,
@@ -1491,6 +1500,7 @@ def run_solver_dispatch(
         approval_snapshot=approval_snapshot,
         artifact_entrypoints=provenance_artifact_entrypoints,
         environment_fingerprint=environment_fingerprint,
+        environment_parity_assessment=environment_parity_assessment,
     )
     provenance_manifest = provenance_manifest_model.model_dump(mode="json")
     provenance_summary = build_provenance_summary(
@@ -1536,6 +1546,7 @@ def run_solver_dispatch(
         "provenance_manifest_virtual_path": provenance_manifest_virtual_path,
         "provenance_summary": provenance_summary,
         "environment_fingerprint": environment_fingerprint,
+        "environment_parity_assessment": environment_parity_assessment,
         "review_status": review.review_status,
         "next_recommended_stage": review.next_recommended_stage,
         "artifact_virtual_paths": review.artifact_virtual_paths,
@@ -1575,6 +1586,7 @@ def run_solver_dispatch(
         "request_virtual_path": request_virtual_path,
         "provenance_manifest_virtual_path": provenance_manifest_virtual_path,
         "provenance_summary": provenance_summary,
+        "environment_parity_assessment": environment_parity_assessment,
         "execution_log_virtual_path": execution_log_virtual_path,
         "solver_results_virtual_path": solver_results_virtual_path,
         "stability_evidence_virtual_path": stability_evidence_virtual_path,

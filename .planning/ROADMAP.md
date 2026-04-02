@@ -14,7 +14,7 @@ This roadmap turns the current DeerFlow-based submarine CFD prototype into a res
 - [x] **Phase 2: Runtime Solver Productization** - Turn solver dispatch into a controllable DeerFlow runtime flow with captured outputs
 - [x] **Phase 3: Scientific Verification Gates** - Gate claim level on residual, stability, benchmark, and sensitivity evidence
 - [x] **Phase 4: Geometry and Case Intelligence Hardening** - Improve geometry preflight, scale assumptions, and case-library trustworthiness (completed 2026-04-02)
-- [ ] **Phase 5: Experiment Ops and Reproducibility** - Add study provenance, baseline-vs-variant tracking, and environment consistency
+- [x] **Phase 5: Experiment Ops and Reproducibility** - Add study provenance, baseline-vs-variant tracking, and environment consistency (completed 2026-04-02)
 - [ ] **Phase 6: Research Delivery Workbench** - Finish the supervisor/report loop for researcher-facing delivery and follow-up
 
 ## Phase Details
@@ -92,7 +92,7 @@ Plans:
 Plans:
 - [x] 05-01: Persist full run provenance and reproducibility metadata for submarine studies
 - [x] 05-02: Productize experiment manifests, baseline-vs-variant linkage, and comparison summaries
-- [ ] 05-03: Align runtime configuration across local, Docker Compose, and deployment paths with failure recovery guidance
+- [x] 05-03: Align runtime configuration across local, Docker Compose, and deployment paths with failure recovery guidance
 
 ### Phase 6: Research Delivery Workbench
 **Goal**: Complete the researcher-facing delivery loop with reports, supervisor gate decisions, and guided follow-up actions.
@@ -117,5 +117,5 @@ Plans:
 | 2. Runtime Solver Productization | 3/3 | Complete | 2026-04-01 |
 | 3. Scientific Verification Gates | 3/3 | Complete | 2026-04-02 |
 | 4. Geometry and Case Intelligence Hardening | 3/3 | Complete    | 2026-04-02 |
-| 5. Experiment Ops and Reproducibility | 2/3 | In Progress | - |
+| 5. Experiment Ops and Reproducibility | 3/3 | Complete | 2026-04-02 |
 | 6. Research Delivery Workbench | 0/3 | Not started | - |

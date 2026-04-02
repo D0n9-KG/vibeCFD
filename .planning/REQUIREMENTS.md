@@ -31,9 +31,9 @@
 
 ### Reproducibility and Operations
 
-- [ ] **OPS-01**: Every run records reproducible provenance for geometry, case template, solver settings, runtime environment, and outputs
-- [ ] **OPS-02**: Researchers can launch baseline-vs-variant studies and trace comparison results across study manifests and artifacts
-- [ ] **OPS-03**: Runtime configuration is consistent across local dev, Docker Compose, and deployed environments
+- [x] **OPS-01**: Every run records reproducible provenance for geometry, case template, solver settings, runtime environment, and outputs
+- [x] **OPS-02**: Researchers can launch baseline-vs-variant studies and trace comparison results across study manifests and artifacts
+- [x] **OPS-03**: Runtime configuration is consistent across local dev, Docker Compose, and deployed environments
 
 ### Delivery and Review
 
@@ -82,9 +82,9 @@
 | GEO-01 | Phase 4 | Completed |
 | GEO-02 | Phase 4 | Completed |
 | GEO-03 | Phase 4 | Completed |
-| OPS-01 | Phase 5 | Pending |
-| OPS-02 | Phase 5 | Pending |
-| OPS-03 | Phase 5 | Pending |
+| OPS-01 | Phase 5 | Completed |
+| OPS-02 | Phase 5 | Completed |
+| OPS-03 | Phase 5 | Completed |
 | RPT-01 | Phase 6 | Pending |
 | RPT-02 | Phase 6 | Pending |
 
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-04-01*
-*Last updated: 2026-04-02 after Phase 4 completion*
+*Last updated: 2026-04-02 after Phase 5 completion*

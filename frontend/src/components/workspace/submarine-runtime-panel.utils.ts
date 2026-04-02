@@ -4,6 +4,7 @@ import type {
   SubmarineFinalReportPayload,
   SubmarineOutputDeliveryPlanItem,
   SubmarineRequestedOutputPayload,
+  SubmarineRuntimeSnapshotPayload,
 } from "./submarine-runtime-panel.contract";
 
 export type SubmarineArtifactGroupId =
@@ -255,6 +256,18 @@ export type SubmarineResearchEvidenceSummary = {
   artifactPaths: string[];
 };
 
+export type SubmarineReproducibilitySummary = {
+  manifestPath: string;
+  profileId: string;
+  profileLabel: string;
+  parityStatus: string;
+  reproducibilityStatus: string;
+  parityStatusLabel: string;
+  reproducibilityStatusLabel: string;
+  driftReasons: string[];
+  recoveryGuidance: string[];
+};
+
 export type SubmarineScientificGateSummary = {
   gateStatus: string;
   allowedClaimLevel: string;
@@ -498,6 +511,13 @@ const RESEARCH_EVIDENCE_DIMENSION_LABELS: Record<string, string> = {
   high: "High",
   medium: "Medium",
   low: "Low",
+};
+
+const REPRODUCIBILITY_STATUS_LABELS: Record<string, string> = {
+  matched: "Matched",
+  drifted_but_runnable: "Drifted But Runnable",
+  unknown: "Unknown Environment Profile",
+  blocked: "Blocked Runtime Parity",
 };
 
 const SCIENTIFIC_GATE_STATUS_LABELS: Record<string, string> = {
@@ -2136,6 +2156,63 @@ export function buildSubmarineResearchEvidenceSummary(
     benchmarkHighlights: summary.benchmark_highlights?.filter(Boolean) ?? [],
     provenanceHighlights: summary.provenance_highlights?.filter(Boolean) ?? [],
     artifactPaths: summary.artifact_virtual_paths?.filter(Boolean) ?? [],
+  };
+}
+
+export function buildSubmarineReproducibilitySummary(
+  payload:
+    | SubmarineFinalReportPayload
+    | SubmarineRuntimeSnapshotPayload
+    | null
+    | undefined,
+): SubmarineReproducibilitySummary | null {
+  if (!payload) {
+    return null;
+  }
+
+  const reproducibilitySummary =
+    "reproducibility_summary" in payload
+      ? payload.reproducibility_summary
+      : undefined;
+  const parityAssessment =
+    payload.environment_parity_assessment ?? payload.environment_fingerprint;
+  if (!reproducibilitySummary && !parityAssessment) {
+    return null;
+  }
+
+  const parityStatus =
+    reproducibilitySummary?.parity_status ??
+    parityAssessment?.parity_status ??
+    "--";
+  const reproducibilityStatus =
+    reproducibilitySummary?.reproducibility_status ?? parityStatus;
+  const profileId =
+    reproducibilitySummary?.profile_id ?? parityAssessment?.profile_id ?? "--";
+  const profileLabel = parityAssessment?.profile_label ?? profileId;
+  const manifestPath =
+    reproducibilitySummary?.manifest_virtual_path ??
+    payload.provenance_manifest_virtual_path ??
+    "--";
+
+  return {
+    manifestPath,
+    profileId,
+    profileLabel,
+    parityStatus,
+    reproducibilityStatus,
+    parityStatusLabel:
+      REPRODUCIBILITY_STATUS_LABELS[parityStatus] ?? parityStatus,
+    reproducibilityStatusLabel:
+      REPRODUCIBILITY_STATUS_LABELS[reproducibilityStatus] ??
+      reproducibilityStatus,
+    driftReasons:
+      reproducibilitySummary?.drift_reasons?.filter(Boolean) ??
+      parityAssessment?.drift_reasons?.filter(Boolean) ??
+      [],
+    recoveryGuidance:
+      reproducibilitySummary?.recovery_guidance?.filter(Boolean) ??
+      parityAssessment?.recovery_guidance?.filter(Boolean) ??
+      [],
   };
 }
 

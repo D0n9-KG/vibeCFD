@@ -345,6 +345,17 @@ export function SubmarinePipeline({
         allowedClaimLevel: runtime?.allowed_claim_level,
         scientificVerificationStatus:
           runtime?.scientific_verification_assessment?.status,
+        environmentParityStatus:
+          finalReport?.reproducibility_summary?.parity_status ??
+          finalReport?.environment_parity_assessment?.parity_status ??
+          runtime?.environment_parity_assessment?.parity_status,
+        reproducibilityStatus:
+          finalReport?.reproducibility_summary?.reproducibility_status ??
+          finalReport?.environment_parity_assessment?.parity_status ??
+          runtime?.environment_parity_assessment?.parity_status,
+        environmentProfileLabel:
+          finalReport?.environment_parity_assessment?.profile_label ??
+          runtime?.environment_parity_assessment?.profile_label,
       }),
     [
       designBrief,

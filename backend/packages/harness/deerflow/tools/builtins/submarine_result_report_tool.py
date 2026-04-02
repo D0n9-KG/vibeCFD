@@ -114,6 +114,8 @@ def submarine_result_report_tool(
         provenance_summary=payload.get("provenance_summary"),
         environment_fingerprint=payload.get("environment_fingerprint")
         or snapshot.environment_fingerprint,
+        environment_parity_assessment=payload.get("environment_parity_assessment")
+        or snapshot.environment_parity_assessment,
         supervisor_handoff_virtual_path=payload.get("supervisor_handoff_virtual_path"),
         scientific_followup_history_virtual_path=(
             scientific_followup_summary.get("history_virtual_path")

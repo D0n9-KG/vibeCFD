@@ -196,6 +196,34 @@ class SubmarineRunCompareSummary(BaseModel):
     compare_status_counts: dict[str, int] = Field(default_factory=dict)
 
 
+SubmarineEnvironmentParityStatus = Literal[
+    "matched",
+    "drifted_but_runnable",
+    "unknown",
+    "blocked",
+]
+
+
+class SubmarineEnvironmentFingerprint(BaseModel):
+    profile_id: str = "unknown"
+    profile_label: str = "Unknown environment profile"
+    runtime_origin: str = "unknown"
+    compose_file: str | None = None
+    sandbox_image: str | None = None
+    deer_flow_home: str | None = None
+    deer_flow_root: str | None = None
+    docker_socket_available: bool = False
+    host_mount_strategy: str | None = None
+    config_sources: list[str] = Field(default_factory=list)
+    parity_status: SubmarineEnvironmentParityStatus = "unknown"
+    drift_reasons: list[str] = Field(default_factory=list)
+    recovery_guidance: list[str] = Field(default_factory=list)
+
+
+class SubmarineEnvironmentParityAssessment(SubmarineEnvironmentFingerprint):
+    pass
+
+
 SubmarineRunProvenanceManifestCompletenessStatus = Literal["complete", "partial"]
 
 
@@ -211,7 +239,12 @@ class SubmarineRunProvenanceManifest(BaseModel):
     simulation_requirements_snapshot: dict[str, object] = Field(default_factory=dict)
     approval_snapshot: dict[str, object] = Field(default_factory=dict)
     artifact_entrypoints: dict[str, str] = Field(default_factory=dict)
-    environment_fingerprint: dict[str, object] = Field(default_factory=dict)
+    environment_fingerprint: SubmarineEnvironmentFingerprint = Field(
+        default_factory=SubmarineEnvironmentFingerprint
+    )
+    environment_parity_assessment: SubmarineEnvironmentParityAssessment = Field(
+        default_factory=SubmarineEnvironmentParityAssessment
+    )
 
 
 SubmarineResearchReadinessStatus = Literal[
@@ -250,6 +283,23 @@ class SubmarineResearchEvidenceSummary(BaseModel):
     benchmark_highlights: list[str] = Field(default_factory=list)
     provenance_highlights: list[str] = Field(default_factory=list)
     artifact_virtual_paths: list[str] = Field(default_factory=list)
+
+
+SubmarineReproducibilityStatus = Literal[
+    "matched",
+    "drifted_but_runnable",
+    "unknown",
+    "blocked",
+]
+
+
+class SubmarineReproducibilitySummary(BaseModel):
+    manifest_virtual_path: str | None = None
+    profile_id: str = "unknown"
+    parity_status: SubmarineEnvironmentParityStatus = "unknown"
+    reproducibility_status: SubmarineReproducibilityStatus = "unknown"
+    drift_reasons: list[str] = Field(default_factory=list)
+    recovery_guidance: list[str] = Field(default_factory=list)
 
 
 class SubmarineCaseAcceptanceProfile(BaseModel):

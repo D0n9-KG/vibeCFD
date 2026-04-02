@@ -25,8 +25,12 @@ def _design_brief_runtime_update() -> dict:
             "run_id": "baseline",
         },
         "environment_fingerprint": {
-            "profile_id": "local-cli",
-            "runtime_origin": "unit-test",
+            "profile_id": "local_cli",
+            "runtime_origin": "unit_test",
+        },
+        "environment_parity_assessment": {
+            "profile_id": "local_cli",
+            "parity_status": "matched",
         },
         "requested_outputs": [
             {
@@ -85,6 +89,9 @@ def _delegation_runtime_update() -> dict:
         },
         "environment_fingerprint": {
             "docker_socket_available": False,
+        },
+        "environment_parity_assessment": {
+            "drift_reasons": ["Host mount strategy drifted from the declared profile."],
         },
         "requested_outputs": [
             {
@@ -184,8 +191,13 @@ def test_thread_state_merges_parallel_submarine_runtime_updates():
         "/openfoam-request.json"
     )
     assert runtime_state["provenance_summary"]["manifest_completeness_status"] == "complete"
-    assert runtime_state["environment_fingerprint"]["profile_id"] == "local-cli"
+    assert runtime_state["environment_fingerprint"]["profile_id"] == "local_cli"
     assert runtime_state["environment_fingerprint"]["docker_socket_available"] is False
+    assert runtime_state["environment_parity_assessment"]["profile_id"] == "local_cli"
+    assert runtime_state["environment_parity_assessment"]["parity_status"] == "matched"
+    assert runtime_state["environment_parity_assessment"]["drift_reasons"] == [
+        "Host mount strategy drifted from the declared profile."
+    ]
     assert runtime_state["requested_outputs"][0]["notes"] == (
         "Promoted into the execution-ready baseline package."
     )

@@ -22,6 +22,7 @@ _REQUIRED_MANIFEST_FIELDS = (
     "approval_snapshot",
     "artifact_entrypoints",
     "environment_fingerprint",
+    "environment_parity_assessment",
 )
 
 
@@ -78,6 +79,7 @@ def build_run_provenance_manifest(
     approval_snapshot: Mapping[str, Any] | None,
     artifact_entrypoints: Mapping[str, str] | None,
     environment_fingerprint: Mapping[str, Any] | None,
+    environment_parity_assessment: Mapping[str, Any] | None,
 ) -> SubmarineRunProvenanceManifest:
     return SubmarineRunProvenanceManifest(
         experiment_id=experiment_id,
@@ -90,7 +92,8 @@ def build_run_provenance_manifest(
         simulation_requirements_snapshot=dict(simulation_requirements or {}),
         approval_snapshot=dict(approval_snapshot or {}),
         artifact_entrypoints=dict(artifact_entrypoints or {}),
-        environment_fingerprint=dict(environment_fingerprint or {}),
+        environment_fingerprint=environment_fingerprint or {},
+        environment_parity_assessment=environment_parity_assessment or {},
     )
 
 
@@ -128,6 +131,24 @@ def build_provenance_summary(
         "selected_case_id": manifest.get("selected_case_id"),
         "requested_output_ids": list(manifest.get("requested_output_ids") or []),
         "artifact_entrypoints": artifact_entrypoints,
+        "profile_id": _as_mapping(manifest.get("environment_fingerprint")).get(
+            "profile_id"
+        ),
+        "parity_status": _as_mapping(
+            manifest.get("environment_parity_assessment")
+        ).get("parity_status"),
+        "drift_reasons": list(
+            _as_mapping(manifest.get("environment_parity_assessment")).get(
+                "drift_reasons"
+            )
+            or []
+        ),
+        "recovery_guidance": list(
+            _as_mapping(manifest.get("environment_parity_assessment")).get(
+                "recovery_guidance"
+            )
+            or []
+        ),
         "manifest_completeness_status": determine_provenance_manifest_completeness(
             manifest
         ),

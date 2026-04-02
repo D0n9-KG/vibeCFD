@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from .artifact_store import (
@@ -32,6 +33,16 @@ def resolve_selected_case(selected_case_id: str | None) -> SubmarineCase | None:
     if not selected_case_id:
         return None
     return load_case_library().case_index.get(selected_case_id)
+
+
+def _as_mapping(value: object) -> Mapping[str, object]:
+    if isinstance(value, Mapping):
+        return value
+    if hasattr(value, "model_dump"):
+        dumped = value.model_dump(mode="json")
+        if isinstance(dumped, Mapping):
+            return dumped
+    return {}
 
 
 def _pick_primary_reference(selected_case: SubmarineCase):
@@ -504,6 +515,46 @@ def build_provenance_summary(
     )
 
 
+def build_reproducibility_summary(
+    *,
+    outputs_dir: Path,
+    artifact_virtual_paths: list[str],
+    provenance_manifest_virtual_path: str | None = None,
+    environment_parity_assessment: Mapping[str, object] | None = None,
+) -> dict | None:
+    loaded = load_canonical_provenance_manifest_payload(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=artifact_virtual_paths,
+        provenance_manifest_virtual_path=provenance_manifest_virtual_path,
+    )
+    manifest_virtual_path = loaded[0] if loaded is not None else provenance_manifest_virtual_path
+    manifest = loaded[1] if loaded is not None else {}
+    if manifest_virtual_path is None and not environment_parity_assessment:
+        return None
+
+    parity_mapping = _as_mapping(environment_parity_assessment) or _as_mapping(
+        _as_mapping(manifest).get("environment_parity_assessment")
+    )
+    fingerprint_mapping = _as_mapping(_as_mapping(manifest).get("environment_fingerprint"))
+    parity_status = str(
+        parity_mapping.get("parity_status")
+        or fingerprint_mapping.get("parity_status")
+        or "unknown"
+    )
+    profile_id = str(
+        parity_mapping.get("profile_id") or fingerprint_mapping.get("profile_id") or "unknown"
+    )
+
+    return {
+        "manifest_virtual_path": manifest_virtual_path,
+        "profile_id": profile_id,
+        "parity_status": parity_status,
+        "reproducibility_status": parity_status,
+        "drift_reasons": list(parity_mapping.get("drift_reasons") or []),
+        "recovery_guidance": list(parity_mapping.get("recovery_guidance") or []),
+    }
+
+
 def build_experiment_compare_summary(
     *,
     outputs_dir: Path,
@@ -652,6 +703,7 @@ __all__ = [
     "build_experiment_summary",
     "build_figure_delivery_summary",
     "build_provenance_summary",
+    "build_reproducibility_summary",
     "build_selected_case_provenance_summary",
     "build_scientific_study_summary",
     "resolve_outputs_artifact",

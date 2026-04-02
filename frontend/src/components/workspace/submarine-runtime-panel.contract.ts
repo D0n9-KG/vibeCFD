@@ -337,6 +337,31 @@ export type SubmarineRuntimeTimelineEventPayload = {
   timestamp?: string | null;
 };
 
+export type SubmarineEnvironmentParityAssessmentPayload = {
+  profile_id?: string | null;
+  profile_label?: string | null;
+  runtime_origin?: string | null;
+  compose_file?: string | null;
+  sandbox_image?: string | null;
+  deer_flow_home?: string | null;
+  deer_flow_root?: string | null;
+  docker_socket_available?: boolean | null;
+  host_mount_strategy?: string | null;
+  config_sources?: string[] | null;
+  parity_status?: string | null;
+  drift_reasons?: string[] | null;
+  recovery_guidance?: string[] | null;
+};
+
+export type SubmarineReproducibilitySummaryPayload = {
+  manifest_virtual_path?: string | null;
+  profile_id?: string | null;
+  parity_status?: string | null;
+  reproducibility_status?: string | null;
+  drift_reasons?: string[] | null;
+  recovery_guidance?: string[] | null;
+};
+
 export type SubmarineRuntimeSnapshotPayload = {
   current_stage?: string | null;
   task_summary?: string | null;
@@ -371,6 +396,13 @@ export type SubmarineRuntimeSnapshotPayload = {
   solver_results_virtual_path?: string | null;
   stability_evidence_virtual_path?: string | null;
   stability_evidence?: SubmarineStabilityEvidencePayload | null;
+  provenance_manifest_virtual_path?: string | null;
+  environment_fingerprint?:
+    | SubmarineEnvironmentParityAssessmentPayload
+    | null;
+  environment_parity_assessment?:
+    | SubmarineEnvironmentParityAssessmentPayload
+    | null;
   supervisor_handoff_virtual_path?: string | null;
   scientific_followup_history_virtual_path?: string | null;
   review_status?: string | null;
@@ -598,6 +630,14 @@ export type SubmarineFinalReportPayload = {
     | null;
   stability_evidence_virtual_path?: string | null;
   stability_evidence?: SubmarineStabilityEvidencePayload | null;
+  provenance_manifest_virtual_path?: string | null;
+  environment_fingerprint?:
+    | SubmarineEnvironmentParityAssessmentPayload
+    | null;
+  environment_parity_assessment?:
+    | SubmarineEnvironmentParityAssessmentPayload
+    | null;
+  reproducibility_summary?: SubmarineReproducibilitySummaryPayload | null;
   acceptance_assessment?: SubmarineAcceptanceAssessment | null;
   research_evidence_summary?: SubmarineResearchEvidenceSummaryPayload | null;
   scientific_supervisor_gate?: SubmarineScientificSupervisorGatePayload | null;

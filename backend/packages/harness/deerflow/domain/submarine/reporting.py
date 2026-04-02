@@ -24,6 +24,7 @@ from .reporting_summaries import (
     build_experiment_summary,
     build_figure_delivery_summary,
     build_provenance_summary,
+    build_reproducibility_summary,
     build_selected_case_provenance_summary,
     build_scientific_study_summary,
     resolve_outputs_artifact,
@@ -67,6 +68,7 @@ _build_experiment_summary = build_experiment_summary
 _build_experiment_compare_summary = build_experiment_compare_summary
 _build_figure_delivery_summary = build_figure_delivery_summary
 _build_provenance_summary = build_provenance_summary
+_build_reproducibility_summary = build_reproducibility_summary
 _build_selected_case_provenance_summary = build_selected_case_provenance_summary
 _render_delivery_readiness_markdown = render_delivery_readiness_markdown
 _render_markdown = render_markdown
@@ -237,6 +239,12 @@ def run_result_report(
         if isinstance(provenance_summary, dict)
         else snapshot.provenance_manifest_virtual_path
     )
+    reproducibility_summary = _build_reproducibility_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+        provenance_manifest_virtual_path=provenance_manifest_virtual_path,
+        environment_parity_assessment=snapshot.environment_parity_assessment,
+    )
     output_delivery_plan = build_output_delivery_plan(
         snapshot.requested_outputs,
         stage="result-reporting",
@@ -331,6 +339,8 @@ def run_result_report(
         "provenance_manifest_virtual_path": provenance_manifest_virtual_path,
         "provenance_summary": provenance_summary,
         "environment_fingerprint": snapshot.environment_fingerprint,
+        "environment_parity_assessment": snapshot.environment_parity_assessment,
+        "reproducibility_summary": reproducibility_summary,
         "stability_evidence_virtual_path": stability_evidence_virtual_path,
         "stability_evidence": stability_evidence,
         "supervisor_handoff_virtual_path": scientific_remediation_handoff_json_artifact,

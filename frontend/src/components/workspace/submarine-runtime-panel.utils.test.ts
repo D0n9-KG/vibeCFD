@@ -12,6 +12,7 @@ const {
   buildSubmarineFigureDeliverySummary,
   buildSubmarineOutputDeliverySummary,
   buildSubmarineResearchEvidenceSummary,
+  buildSubmarineReproducibilitySummary,
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
   formatSubmarineBenchmarkComparisonSummaryLine,
@@ -247,6 +248,51 @@ void test("builds a design brief summary from the structured brief payload", () 
   assert.equal(summary?.requirementPairs[0]?.label, "来流速度");
   assert.equal(summary?.requirementPairs[0]?.value, "7.50 m/s");
   assert.equal(summary?.requirementPairs.at(-1)?.value, "20");
+});
+
+void test("builds a reproducibility summary from parity-aware report payloads", () => {
+  const summary = buildSubmarineReproducibilitySummary({
+    provenance_manifest_virtual_path:
+      "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+    environment_parity_assessment: {
+      profile_id: "docker_compose_dev",
+      profile_label: "Docker Compose Dev",
+      parity_status: "drifted_but_runnable",
+      drift_reasons: [
+        "Host mount strategy `workspace_path` does not match expectations.",
+      ],
+      recovery_guidance: [
+        "Align DEER_FLOW_RUNTIME_PROFILE with the active compose path.",
+      ],
+    },
+    reproducibility_summary: {
+      manifest_virtual_path:
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+      profile_id: "docker_compose_dev",
+      parity_status: "drifted_but_runnable",
+      reproducibility_status: "drifted_but_runnable",
+      drift_reasons: [
+        "Host mount strategy `workspace_path` does not match expectations.",
+      ],
+      recovery_guidance: [
+        "Align DEER_FLOW_RUNTIME_PROFILE with the active compose path.",
+      ],
+    },
+  } as SubmarineFinalReportPayload);
+
+  assert.equal(
+    summary?.manifestPath,
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+  );
+  assert.equal(summary?.profileLabel, "Docker Compose Dev");
+  assert.equal(summary?.parityStatusLabel, "Drifted But Runnable");
+  assert.equal(summary?.reproducibilityStatusLabel, "Drifted But Runnable");
+  assert.deepEqual(summary?.driftReasons, [
+    "Host mount strategy `workspace_path` does not match expectations.",
+  ]);
+  assert.deepEqual(summary?.recoveryGuidance, [
+    "Align DEER_FLOW_RUNTIME_PROFILE with the active compose path.",
+  ]);
 });
 
 void test("prefers runtime execution plan over stale design brief outline", () => {

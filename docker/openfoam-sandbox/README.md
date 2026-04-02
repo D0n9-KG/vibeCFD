@@ -38,4 +38,14 @@ Use this image from `config.yaml`:
 sandbox:
   use: deerflow.community.aio_sandbox:AioSandboxProvider
   image: deer-flow-openfoam-sandbox:latest
+  environment:
+    DEER_FLOW_RUNTIME_PROFILE: local_cli
 ```
+
+## Runtime Profile Vocabulary
+
+Use the same `DEER_FLOW_RUNTIME_PROFILE` value across local runs, Docker Compose, and deployed environments so provenance parity stays honest in solver dispatch and result reporting.
+
+- `local_cli`: local Codex or CLI-driven runs outside Docker Compose
+- `docker_compose_dev`: the development stack from `docker/docker-compose-dev.yaml`
+- `docker_compose_deployed`: the deployed stack from `docker/docker-compose.yaml`

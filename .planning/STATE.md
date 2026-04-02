@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 05
-current_phase_name: experiment-ops-and-reproducibility
-current_plan: 3
-status: executing
-stopped_at: Phase 05-02 complete; advancing to 05-03
-last_updated: "2026-04-02T10:51:21Z"
+current_phase: 06
+current_phase_name: research-delivery-workbench
+current_plan: Not started
+status: planning
+stopped_at: Phase 05 complete; ready to discuss 06-01
+last_updated: "2026-04-02T12:01:21.565Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 15
-  completed_plans: 14
-  percent: 93
+  completed_phases: 5
+  total_plans: 18
+  completed_plans: 15
+  percent: 83
 ---
 
 # Project State
@@ -24,32 +24,33 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-02)
 
 **Core value:** A researcher can go from natural-language CFD intent to reproducible, evidence-backed submarine results without manually building and operating OpenFOAM cases.
-**Current focus:** Phase 05 - experiment-ops-and-reproducibility
+**Current focus:** Phase 06 - research-delivery-workbench
 
 ## Current Position
 
-**Current Phase:** 05
-**Current Phase Name:** experiment-ops-and-reproducibility
+**Current Phase:** 06
+**Current Phase Name:** research delivery workbench
 **Total Phases:** 6
-**Current Plan:** 3
+**Current Plan:** Not started
 **Total Plans in Phase:** 3
-**Status:** Executing Phase 05
-**Progress:** [#####-] 93%
+**Status:** Ready to plan
+**Progress:** [#####-] 83%
 **Last Activity:** 2026-04-02
-**Last Activity Description:** Phase 05-02 complete; custom experiment lineage shipped
+**Last Activity Description:** Phase 05 complete, transitioned to Phase 06
 
-Phase: 05 (experiment-ops-and-reproducibility) - EXECUTING
-Plan: 3 of 3
-Status: Executing Phase 05
-Last activity: 2026-04-02 -- Phase 05-02 complete; custom experiment lineage shipped
+Phase: 06 (research-delivery-workbench) - READY TO PLAN
+Plan: Not started
+Status: Ready to plan Phase 06
+Last activity: 2026-04-02 -- Phase 05 complete, transitioned to Phase 06
 
 ## Performance Metrics
 
 **Velocity:**
 
 - Total plans completed: 14
+- Total plans completed: 15
 - Average duration: ~62 min
-- Total execution time: ~14.5 hours
+- Total execution time: ~15.5 hours
 
 **By Phase:**
 
@@ -59,11 +60,11 @@ Last activity: 2026-04-02 -- Phase 05-02 complete; custom experiment lineage shi
 | 2 | 3 | ~2.7 hours | ~54 min |
 | 3 | 3 | ~4.7 hours | ~94 min |
 | 4 | 3 | ~4.5 hours | ~90 min |
-| 5 | 2 | ~1.9 hours | ~57 min |
+| 5 | 3 | ~2.9 hours | ~58 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 04-01, 04-02, 04-03, 05-01, 05-02
+- Last 5 plans: 04-02, 04-03, 05-01, 05-02, 05-03
 - Trend: Positive
 
 ## Decisions Made
@@ -80,6 +81,7 @@ Last activity: 2026-04-02 -- Phase 05-02 complete; custom experiment lineage shi
 | 4 | Researcher approval is a pre-compute execution gate and must stay separate from post-compute scientific claim labels. | Approval authorizes execution only; it should not masquerade as validation or claim readiness. |
 | 5 | Every solver-dispatch run needs one canonical provenance manifest that survives reducer merges and final reporting. | Researchers need a single rerun and audit entrypoint instead of reconstructing provenance from scattered artifacts. |
 | 5 | Custom variants belong in the same experiment manifest and compare chain as baseline and deterministic study variants. | Splitting user-authored variants into side channels would make linkage, reporting, and cockpit lineage inconsistent. |
+| 5 | Runtime parity must downgrade reproducibility separately from scientific truth so drift stays operator-honest without corrupting evidence claims. | Environment mismatch affects rerun confidence, not whether benchmark or verification evidence was scientifically observed. |
 
 ## Pending Todos
 
@@ -88,10 +90,10 @@ Last activity: 2026-04-02 -- Phase 05-02 complete; custom experiment lineage shi
 
 ## Blockers
 
-- Phase 05-03 is still open, so environment parity and runtime-profile alignment remain unimplemented beyond the new provenance and experiment-lineage layers.
+- No blocking implementation issues are open for Phase 05. Non-blocking follow-up: `.planning/phases/05-experiment-ops-and-reproducibility/05-UAT.md` still contains pending test placeholders flagged during phase closeout.
 
 ## Session
 
-**Last Date:** 2026-04-02T10:51:21Z
-**Stopped At:** Phase 05-02 complete; advancing to 05-03
-**Resume File:** .planning/phases/05-experiment-ops-and-reproducibility/05-CONTEXT.md
+**Last Date:** 2026-04-02T12:01:21.565Z
+**Stopped At:** Phase 05 complete; ready to discuss 06-01
+**Resume File:** .planning/phases/06-research-delivery-workbench/06-CONTEXT.md

@@ -284,6 +284,10 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
     geometry_path = uploads_dir / "type209-demo.stl"
     _write_ascii_stl(geometry_path)
 
+    monkeypatch.delenv("DEER_FLOW_RUNTIME_PROFILE", raising=False)
+    monkeypatch.delenv("DEER_FLOW_DOCKER_SOCKET", raising=False)
+    monkeypatch.delenv("DEER_FLOW_HOST_BASE_DIR", raising=False)
+    monkeypatch.delenv("DEER_FLOW_HOST_SKILLS_PATH", raising=False)
     monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
 
     result = tool_module.submarine_solver_dispatch_tool.func(
@@ -319,7 +323,11 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
         "/provenance-manifest.json"
     )
     assert payload["provenance_summary"]["manifest_completeness_status"] == "complete"
+    assert payload["environment_parity_assessment"]["parity_status"] == "matched"
     assert provenance_manifest["task_type"] == "resistance"
+    assert provenance_manifest["environment_parity_assessment"]["parity_status"] == (
+        "matched"
+    )
     assert provenance_manifest["artifact_entrypoints"]["request"].endswith(
         "/openfoam-request.json"
     )
@@ -328,6 +336,62 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
     )
     assert "solver_results" not in provenance_manifest["artifact_entrypoints"]
     assert md_path.exists()
+
+
+def test_submarine_solver_dispatch_marks_drifted_but_runnable_environment_parity(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-parity-drift"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "parity-drift.stl"
+    _write_ascii_stl(geometry_path)
+
+    fake_socket = tmp_path / "fake-docker.sock"
+    fake_socket.write_text("", encoding="utf-8")
+
+    monkeypatch.setenv("DEER_FLOW_RUNTIME_PROFILE", "docker_compose_dev")
+    monkeypatch.setenv("DEER_FLOW_DOCKER_SOCKET", str(fake_socket))
+    monkeypatch.delenv("DEER_FLOW_HOST_BASE_DIR", raising=False)
+    monkeypatch.delenv("DEER_FLOW_HOST_SKILLS_PATH", raising=False)
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/parity-drift.stl",
+        task_description="Exercise provenance parity drift reporting",
+        task_type="resistance",
+        geometry_family_hint="Type 209",
+        execute_now=False,
+        tool_call_id="tc-dispatch-parity-drift",
+    )
+
+    payload = result.update["submarine_runtime"]
+    provenance_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "parity-drift"
+        / "provenance-manifest.json"
+    )
+    provenance_manifest = json.loads(provenance_path.read_text(encoding="utf-8"))
+
+    assert payload["environment_parity_assessment"]["parity_status"] == (
+        "drifted_but_runnable"
+    )
+    assert payload["provenance_summary"]["parity_status"] == "drifted_but_runnable"
+    assert provenance_manifest["environment_parity_assessment"]["parity_status"] == (
+        "drifted_but_runnable"
+    )
+    assert "environment_parity_assessment" in provenance_manifest
+    assert any(
+        "Host mount strategy" in item
+        for item in provenance_manifest["environment_parity_assessment"]["drift_reasons"]
+    )
 
 
 def test_submarine_solver_dispatch_emits_scientific_study_plan_artifacts(tmp_path, monkeypatch):
@@ -526,7 +590,8 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
         "/provenance-manifest.json"
     )
     assert runtime_state["provenance_summary"]["manifest_completeness_status"] == "complete"
-    assert runtime_state["environment_fingerprint"]["runtime_origin"] == "workspace"
+    assert runtime_state["environment_fingerprint"]["runtime_origin"] == "unit_test"
+    assert runtime_state["environment_parity_assessment"]["parity_status"] == "matched"
     assert runtime_state["execution_log_virtual_path"] is None
     assert runtime_state["solver_results_virtual_path"] is None
     assert runtime_state["supervisor_handoff_virtual_path"].endswith("/supervisor-handoff.json")

@@ -301,6 +301,7 @@ class SubmarineRuntimeSnapshot(BaseModel):
     stability_evidence: dict[str, Any] | None = None
     provenance_summary: dict[str, Any] | None = None
     environment_fingerprint: dict[str, Any] | None = None
+    environment_parity_assessment: dict[str, Any] | None = None
     supervisor_handoff_virtual_path: str | None = None
     scientific_followup_history_virtual_path: str | None = None
     review_status: Literal["ready_for_supervisor", "needs_user_confirmation", "blocked"] = "ready_for_supervisor"
@@ -385,6 +386,7 @@ def build_runtime_snapshot(
     stability_evidence: dict[str, Any] | None = None,
     provenance_summary: dict[str, Any] | None = None,
     environment_fingerprint: dict[str, Any] | None = None,
+    environment_parity_assessment: dict[str, Any] | None = None,
     supervisor_handoff_virtual_path: str | None = None,
     scientific_followup_history_virtual_path: str | None = None,
     review_status: Literal["ready_for_supervisor", "needs_user_confirmation", "blocked"] = "ready_for_supervisor",
@@ -448,6 +450,7 @@ def build_runtime_snapshot(
         stability_evidence=stability_evidence,
         provenance_summary=provenance_summary,
         environment_fingerprint=environment_fingerprint,
+        environment_parity_assessment=environment_parity_assessment,
         supervisor_handoff_virtual_path=supervisor_handoff_virtual_path,
         scientific_followup_history_virtual_path=scientific_followup_history_virtual_path,
         review_status=review_status,

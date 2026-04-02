@@ -225,3 +225,31 @@ void test("labels completed runtimes as awaiting scientific evidence when SCI-01
   assert.match(status.summaryText, /SCI-01/);
   assert.equal(status.errorBanner, null);
 });
+
+void test("surfaces reproducibility drift with parity-specific copy instead of scientific claim labels", () => {
+  const status = getSubmarinePipelineStatus({
+    threadError: null,
+    threadIsLoading: false,
+    isNewThread: false,
+    hasMessages: true,
+    hasDesignBrief: true,
+    hasFinalReport: true,
+    designBriefSummary: "baseline 已确认",
+    runtimeTaskSummary: "结果整理完成",
+    runtimeStatus: "completed",
+    runtimeSummary: null,
+    scientificGateStatus: "claim_limited",
+    allowedClaimLevel: "validated_with_gaps",
+    reproducibilityStatus: "drifted_but_runnable",
+    environmentProfileLabel: "Docker Compose Dev",
+  });
+
+  assert.equal(status.tone, "ready");
+  assert.equal(status.runLabel, "Drifted but runnable");
+  assert.match(status.summaryText, /Docker Compose Dev/);
+  assert.doesNotMatch(
+    status.summaryText,
+    /claim_limited|validated_with_gaps|research_ready/,
+  );
+  assert.equal(status.errorBanner, null);
+});

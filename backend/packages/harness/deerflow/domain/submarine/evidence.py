@@ -254,6 +254,9 @@ def build_provenance_status(
         for item in delivered_outputs
         for path in _as_string_list(item.get("artifact_virtual_paths"))
     ]
+    reproducibility_status = str(provenance.get("parity_status") or "unknown").strip()
+    reproducibility_gaps = _as_string_list(provenance.get("drift_reasons"))
+    reproducibility_guidance = _as_string_list(provenance.get("recovery_guidance"))
 
     highlights: list[str] = []
     gaps: list[str] = []
@@ -278,6 +281,10 @@ def build_provenance_status(
         highlights.append("Scientific study workflow is complete.")
     if delivered_artifact_paths:
         highlights.append("Requested output artifacts were exported for this run.")
+    if reproducibility_status == "matched":
+        highlights.append(
+            "Environment parity matches the declared runtime profile for reproducible reruns."
+        )
     has_core_evidence_artifacts = any(
         path.endswith("/solver-results.json")
         or path.endswith("/verification-mesh-independence.json")
@@ -299,6 +306,7 @@ def build_provenance_status(
         and has_study_manifest
         and study_workflow_status == "completed"
         and (bool(delivered_artifact_paths) or has_core_evidence_artifacts)
+        and reproducibility_status == "matched"
     )
     if traceable:
         return "traceable", [], gaps, highlights
@@ -335,6 +343,25 @@ def build_provenance_status(
             gaps.append(
                 "Requested outputs or core scientific evidence artifacts are not yet linked."
             )
+        if reproducibility_status == "drifted_but_runnable":
+            gaps.append(
+                "Environment parity drifted from the declared runtime profile, so reruns are only partially reproducible."
+            )
+        elif reproducibility_status == "unknown":
+            gaps.append(
+                "Environment parity could not be confirmed for this run, so reproducibility remains partial."
+            )
+        elif reproducibility_status == "blocked":
+            gaps.append(
+                "Environment parity is blocked because one or more runtime prerequisites are missing."
+            )
+        gaps.extend(
+            f"Environment parity detail: {item}" for item in reproducibility_gaps
+        )
+        gaps.extend(
+            f"Reproducibility recovery guidance: {item}"
+            for item in reproducibility_guidance
+        )
         return "partial", [], gaps, highlights
 
     return "missing", [], ["Research provenance artifacts are missing."], highlights

@@ -39,6 +39,7 @@ class SubmarineRuntimeState(TypedDict):
     solver_results_virtual_path: NotRequired[str | None]
     provenance_summary: NotRequired[dict[str, object] | None]
     environment_fingerprint: NotRequired[dict[str, object] | None]
+    environment_parity_assessment: NotRequired[dict[str, object] | None]
     supervisor_handoff_virtual_path: NotRequired[str | None]
     scientific_followup_history_virtual_path: NotRequired[str | None]
     review_status: NotRequired[str]
@@ -305,7 +306,11 @@ def merge_submarine_runtime(
                 **(prior_value if isinstance(prior_value, dict) else {}),
                 **value,
             }
-        elif key in {"provenance_summary", "environment_fingerprint"} and isinstance(value, dict):
+        elif key in {
+            "provenance_summary",
+            "environment_fingerprint",
+            "environment_parity_assessment",
+        } and isinstance(value, dict):
             prior_value = merged.get(key)
             merged[key] = {
                 **(prior_value if isinstance(prior_value, dict) else {}),
