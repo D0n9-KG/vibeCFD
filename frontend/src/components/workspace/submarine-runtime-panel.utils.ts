@@ -374,14 +374,14 @@ const GROUP_LABELS: Record<SubmarineArtifactGroupId, string> = {
 };
 
 const ACCEPTANCE_STATUS_LABELS: Record<string, string> = {
-  ready_for_review: "寰呭鏍?",
-  blocked: "宸查樆濉? ",
+  ready_for_review: "待复核",
+  blocked: "已阻断",
 };
 
 const ACCEPTANCE_CONFIDENCE_LABELS: Record<string, string> = {
-  high: "楂?",
-  medium: "涓?",
-  low: "浣?",
+  high: "高",
+  medium: "中",
+  low: "低",
 };
 
 const SCIENTIFIC_VERIFICATION_STATUS_LABELS: Record<string, string> = {
@@ -856,15 +856,15 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
   [
     "/delivery-readiness.md",
     {
-      label: "浜や粯灏辩华",
-      externalLinkLabel: "鍦ㄦ柊绐楀彛鎵撳紑浜や粯灏辩华",
+      label: "交付就绪评估",
+      externalLinkLabel: "在新窗口打开交付就绪评估",
     },
   ],
   [
     "/delivery-readiness.json",
     {
-      label: "浜や粯灏辩华 JSON",
-      externalLinkLabel: "鍦ㄦ柊绐楀彛鎵撳紑浜や粯灏辩华 JSON",
+      label: "交付就绪评估 JSON",
+      externalLinkLabel: "在新窗口打开交付就绪评估 JSON",
     },
   ],
   [

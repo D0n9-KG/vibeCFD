@@ -60,36 +60,36 @@
   "requested_outputs": [
     {
       "output_id": "drag_coefficient",
-      "label": "???? Cd",
-      "requested_label": "???? Cd",
+      "label": "阻力系数 Cd",
+      "requested_label": "阻力系数 Cd",
       "support_level": "supported",
-      "notes": "?????? solver-results.json ???????????"
+      "notes": "可直接从 solver-results.json 提取最终 Cd 数值。"
     },
     {
       "output_id": "force_breakdown",
-      "label": "????",
-      "requested_label": "????????",
+      "label": "力与力矩分解",
+      "requested_label": "总阻力与力矩分解",
       "support_level": "supported",
-      "notes": "?????????????????????"
+      "notes": "可提供 pressure/viscous/total force 与 moment 摘要。"
     },
     {
       "output_id": "residual_history",
-      "label": "??????",
-      "requested_label": "??????",
+      "label": "残差收敛历史",
+      "requested_label": "残差收敛历史",
       "support_level": "supported",
-      "notes": "??????? solver ???????????????"
+      "notes": "可结合 solver 日志和结果文件整理主要残差趋势。"
     },
     {
       "output_id": "chinese_report",
-      "label": "??????",
-      "requested_label": "??????",
+      "label": "中文结果报告",
+      "requested_label": "中文结果报告",
       "support_level": "supported",
-      "notes": "???????????????????????"
+      "notes": "可生成面向研究复核的中文阶段报告。"
     },
     {
       "output_id": "wake_velocity_slice",
-      "label": "??????",
-      "requested_label": "??????",
+      "label": "尾流速度切片",
+      "requested_label": "尾流速度切片",
       "support_level": "supported",
       "postprocess_spec": {
         "field": "U",
@@ -110,14 +110,14 @@
           "report"
         ]
       },
-      "notes": "???????????????????? run ????????????"
+      "notes": "当前配置支持该后处理，但本次 run 尚未产出对应 artifact。"
     },
     {
       "output_id": "streamlines",
-      "label": "???",
-      "requested_label": "???",
+      "label": "流线图",
+      "requested_label": "流线图",
       "support_level": "not_yet_supported",
-      "notes": "????????????? artifact?"
+      "notes": "当前流程暂未稳定产出该类 artifact。"
     }
   ]
 }

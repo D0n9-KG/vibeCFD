@@ -5,7 +5,7 @@
         "content": [
           {
             "type": "text",
-            "text": "???? DARPA SUBOFF ?? STL???????? CFD ????????"
+            "text": "我上传了 DARPA SUBOFF 裸艇 STL，希望完成基线 CFD 计算，并同时整理结果交付内容。"
           }
         ],
         "additional_kwargs": {},
@@ -23,7 +23,7 @@
         "id": "submarine-system-1"
       },
       {
-        "content": "????? CFD ???????????? DARPA SUBOFF?OpenFOAM ??????? Time=200????? dispatch request??????solver ?????????????? runtime ??? artifacts ???????",
+        "content": "已完成潜艇 CFD 结果交付演示：几何识别为 DARPA SUBOFF，OpenFOAM 基线计算已跑到 Time=200，并生成了 dispatch request、solver 结果、结果报告与 runtime artifacts。",
         "additional_kwargs": {},
         "response_metadata": {
           "finish_reason": "stop",
@@ -37,7 +37,7 @@
         "usage_metadata": null
       }
     ],
-    "title": "?? CFD ??????",
+    "title": "潜艇 CFD 结果交付演示",
     "artifacts": [
       "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.md",
       "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.html",
@@ -55,7 +55,7 @@
     ],
     "submarine_runtime": {
       "current_stage": "result-reporting",
-      "task_summary": "????? DARPA SUBOFF ?? STL??? DeerFlow + OpenFOAM ????????? request/log/results/report ?????????",
+      "task_summary": "基于上传的 DARPA SUBOFF 裸艇 STL 完成 DeerFlow + OpenFOAM 基线阻力计算，并输出 request、log、results、report 等可追溯产物。",
       "task_type": "resistance",
       "geometry_virtual_path": "/mnt/user-data/uploads/live-forces-suboff.stl",
       "geometry_family": "DARPA SUBOFF",
@@ -72,7 +72,7 @@
         {
           "role_id": "claude-code-supervisor",
           "owner": "Claude Code",
-          "goal": "?????????????????????????????? brief ???",
+          "goal": "与用户持续确认任务目标、交付物和边界条件，形成可执行 brief 草案。",
           "status": "completed",
           "target_skills": [
             "submarine-case-search",
@@ -82,7 +82,7 @@
         {
           "role_id": "task-intelligence",
           "owner": "DeerFlow task-intelligence",
-          "goal": "?????????????? SUBOFF ???????????????",
+          "goal": "完成任务理解、识别 SUBOFF 基线案例并规划执行路径。",
           "status": "completed",
           "target_skills": [
             "submarine-geometry-check"
@@ -91,7 +91,7 @@
         {
           "role_id": "geometry-preflight",
           "owner": "DeerFlow geometry-preflight",
-          "goal": "?? STL ????????????????????????",
+          "goal": "对 STL 做几何预检，判断是否满足进入求解的前处理条件。",
           "status": "completed",
           "target_skills": [
             "submarine-solver-dispatch",
@@ -101,7 +101,7 @@
         {
           "role_id": "solver-dispatch",
           "owner": "DeerFlow solver-dispatch",
-          "goal": "?? OpenFOAM case??????????? request/log/results ?????????",
+          "goal": "准备 OpenFOAM case，执行求解并回收 request、log、results 等核心产物。",
           "status": "completed",
           "target_skills": [
             "submarine-report",
@@ -111,7 +111,7 @@
         {
           "role_id": "result-reporting",
           "owner": "DeerFlow result-reporting",
-          "goal": "???????????????????? Supervisor ????????",
+          "goal": "整理结果、请求输出与交付说明，供 Supervisor 继续复核。",
           "status": "completed"
         }
       ],
@@ -128,8 +128,8 @@
         {
           "stage": "task-intelligence",
           "actor": "claude-code-supervisor",
-          "title": "?? CFD ????",
-          "summary": "???? SUBOFF ?? 5 m/s ?????????????????",
+          "title": "更新 CFD 设计简报",
+          "summary": "围绕 SUBOFF 裸艇 5 m/s 基线阻力任务，整理出第一版执行方案和交付目标。",
           "status": "draft",
           "timestamp": "2026-03-26T10:10:00+00:00"
         },
@@ -137,8 +137,8 @@
           "stage": "geometry-preflight",
           "actor": "geometry-preflight",
           "role_id": "geometry-preflight",
-          "title": "??????",
-          "summary": "???????? DARPA SUBOFF ??????? OpenFOAM ???????",
+          "title": "完成几何预检",
+          "summary": "已识别为 DARPA SUBOFF 几何，可以继续进入 OpenFOAM 基线求解。",
           "status": "ready_for_supervisor",
           "skill_names": [
             "submarine-geometry-check"
@@ -149,8 +149,8 @@
           "stage": "solver-dispatch",
           "actor": "solver-dispatch",
           "role_id": "solver-dispatch",
-          "title": "?? OpenFOAM ?????",
-          "summary": "??? request??????solver-results ? handoff?????? Time=200?",
+          "title": "执行 OpenFOAM 基线求解",
+          "summary": "已生成 request 并写回 solver-results 与 handoff，当前求解完成到 Time=200。",
           "status": "executed",
           "skill_names": [
             "submarine-solver-dispatch",
@@ -162,8 +162,8 @@
           "stage": "result-reporting",
           "actor": "result-reporting",
           "role_id": "result-reporting",
-          "title": "????????",
-          "summary": "???????????? requested output ????????? runtime?",
+          "title": "整理结果交付",
+          "summary": "已整理结果报告、requested output 说明以及 runtime 可追溯产物。",
           "status": "ready_for_supervisor",
           "skill_names": [
             "submarine-report",
@@ -190,36 +190,36 @@
       "requested_outputs": [
         {
           "output_id": "drag_coefficient",
-          "label": "???? Cd",
-          "requested_label": "???? Cd",
+          "label": "阻力系数 Cd",
+          "requested_label": "阻力系数 Cd",
           "support_level": "supported",
-          "notes": "?????? solver-results.json ???????????"
+          "notes": "可直接从 solver-results.json 提取最终 Cd 数值。"
         },
         {
           "output_id": "force_breakdown",
-          "label": "????",
-          "requested_label": "????????",
+          "label": "力与力矩分解",
+          "requested_label": "总阻力与力矩分解",
           "support_level": "supported",
-          "notes": "?????????????????????"
+          "notes": "可提供 pressure/viscous/total force 与 moment 摘要。"
         },
         {
           "output_id": "residual_history",
-          "label": "??????",
-          "requested_label": "??????",
+          "label": "残差收敛历史",
+          "requested_label": "残差收敛历史",
           "support_level": "supported",
-          "notes": "??????? solver ???????????????"
+          "notes": "可结合 solver 日志和结果文件整理主要残差趋势。"
         },
         {
           "output_id": "chinese_report",
-          "label": "??????",
-          "requested_label": "??????",
+          "label": "中文结果报告",
+          "requested_label": "中文结果报告",
           "support_level": "supported",
-          "notes": "???????????????????????"
+          "notes": "可生成面向研究复核的中文阶段报告。"
         },
         {
           "output_id": "wake_velocity_slice",
-          "label": "??????",
-          "requested_label": "??????",
+          "label": "尾流速度切片",
+          "requested_label": "尾流速度切片",
           "support_level": "supported",
           "postprocess_spec": {
             "field": "U",
@@ -240,40 +240,40 @@
               "report"
             ]
           },
-          "notes": "???????????????????? run ????????????"
+          "notes": "当前配置支持该后处理，但本次 run 尚未产出对应 artifact。"
         },
         {
           "output_id": "streamlines",
-          "label": "???",
-          "requested_label": "???",
+          "label": "流线图",
+          "requested_label": "流线图",
           "support_level": "not_yet_supported",
-          "notes": "????????????? artifact?"
+          "notes": "当前流程暂未稳定产出该类 artifact。"
         }
       ],
       "output_delivery_plan": [
         {
           "output_id": "drag_coefficient",
-          "label": "???? Cd",
+          "label": "阻力系数 Cd",
           "delivery_status": "delivered",
-          "detail": "?? solver-results.json ???? Cd = 0.003295?",
+          "detail": "已在 solver-results.json 中提取最终 Cd = 0.003295。",
           "artifact_virtual_paths": [
             "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json"
           ]
         },
         {
           "output_id": "force_breakdown",
-          "label": "????",
+          "label": "力与力矩分解",
           "delivery_status": "delivered",
-          "detail": "??? pressure/viscous/total force ? moment ???",
+          "detail": "已提供 pressure/viscous/total force 与 moment 摘要。",
           "artifact_virtual_paths": [
             "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json"
           ]
         },
         {
           "output_id": "residual_history",
-          "label": "??????",
+          "label": "残差收敛历史",
           "delivery_status": "delivered",
-          "detail": "??? solver ????? openfoam-run.log?????????",
+          "detail": "可结合 solver 结果与 openfoam-run.log 进一步整理残差曲线。",
           "artifact_virtual_paths": [
             "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
             "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log"
@@ -281,9 +281,9 @@
         },
         {
           "output_id": "chinese_report",
-          "label": "??????",
+          "label": "中文结果报告",
           "delivery_status": "delivered",
-          "detail": "??????????????",
+          "detail": "已生成可审阅的中文阶段报告。",
           "artifact_virtual_paths": [
             "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
             "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.html",
@@ -292,16 +292,16 @@
         },
         {
           "output_id": "wake_velocity_slice",
-          "label": "??????",
+          "label": "尾流速度切片",
           "delivery_status": "not_available_for_this_run",
-          "detail": "?? run ??????? artifact???????????????",
+          "detail": "当前 run 尚未导出对应 artifact，因此本轮无法直接交付。",
           "artifact_virtual_paths": []
         },
         {
           "output_id": "streamlines",
-          "label": "???",
+          "label": "流线图",
           "delivery_status": "not_yet_supported",
-          "detail": "????????????? artifact?",
+          "detail": "当前流程暂未稳定产出该类 artifact。",
           "artifact_virtual_paths": []
         }
       ],

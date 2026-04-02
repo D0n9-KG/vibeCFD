@@ -350,8 +350,8 @@ void test("returns delivery-readiness labels for acceptance artifacts", () => {
     "/mnt/user-data/outputs/submarine/reports/demo/delivery-readiness.json",
   );
 
-  assert.equal(meta.label, "浜や粯灏辩华 JSON");
-  assert.equal(meta.externalLinkLabel, "鍦ㄦ柊绐楀彛鎵撳紑浜や粯灏辩华 JSON");
+  assert.equal(meta.label, "交付就绪评估 JSON");
+  assert.equal(meta.externalLinkLabel, "在新窗口打开交付就绪评估 JSON");
 });
 
 void test("returns stable labels for scientific verification artifacts", () => {
@@ -448,8 +448,8 @@ void test("builds an acceptance summary from the final report payload", () => {
     },
   });
 
-  assert.equal(summary?.statusLabel, "寰呭鏍?");
-  assert.equal(summary?.confidenceLabel, "涓?");
+  assert.equal(summary?.statusLabel, "待复核");
+  assert.equal(summary?.confidenceLabel, "中");
   assert.deepEqual(summary?.blockingIssues, []);
   assert.equal(summary?.warnings.length, 1);
   assert.equal(summary?.passedChecks.length, 2);

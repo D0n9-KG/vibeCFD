@@ -637,9 +637,9 @@ export function GeometryPreflightCard({
 
   const resolvedDescription =
     state === "blocked"
-      ? snapshot?.runtime_summary ?? "鍑犱綍棰勬鍙楅樆"
+      ? snapshot?.runtime_summary ?? "几何预检受阻"
       : state === "failed"
-        ? snapshot?.runtime_summary ?? "鍑犱綍棰勬澶辫触"
+        ? snapshot?.runtime_summary ?? "几何预检失败"
         : description;
 
   return (
