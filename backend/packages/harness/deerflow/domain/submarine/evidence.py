@@ -206,16 +206,22 @@ def build_validation_status(
 
 def build_provenance_status(
     *,
+    provenance_summary: object | None,
     experiment_summary: object | None,
     scientific_study_summary: object | None,
     output_delivery_plan: list[dict[str, Any]] | None,
     artifact_virtual_paths: list[str] | None,
 ) -> tuple[str, list[str], list[str], list[str]]:
+    provenance = _as_mapping(provenance_summary)
     experiment = _as_mapping(experiment_summary)
     studies = _as_mapping(scientific_study_summary)
     artifacts = artifact_virtual_paths or []
     delivery_items = output_delivery_plan or []
 
+    has_provenance_manifest = bool(provenance.get("manifest_virtual_path"))
+    manifest_completeness_status = str(
+        provenance.get("manifest_completeness_status") or ""
+    ).strip()
     has_report_artifact = any(
         path.endswith("/final-report.json") or path.endswith("/delivery-readiness.json")
         for path in artifacts
@@ -252,6 +258,10 @@ def build_provenance_status(
     highlights: list[str] = []
     gaps: list[str] = []
 
+    if has_provenance_manifest:
+        highlights.append("Canonical provenance manifest is available for this run.")
+    if manifest_completeness_status == "complete":
+        highlights.append("Canonical provenance manifest is complete.")
     if has_experiment_manifest and has_experiment_compare:
         highlights.append("Experiment manifest and compare summary are available.")
     if experiment_linkage_status == "consistent" and (
@@ -279,7 +289,9 @@ def build_provenance_status(
         highlights.append("Core solver and scientific verification artifacts are available.")
 
     traceable = (
-        has_report_artifact
+        has_provenance_manifest
+        and manifest_completeness_status == "complete"
+        and has_report_artifact
         and has_experiment_manifest
         and has_experiment_compare
         and experiment_linkage_status == "consistent"
@@ -291,7 +303,17 @@ def build_provenance_status(
     if traceable:
         return "traceable", [], gaps, highlights
 
-    if has_report_artifact or has_experiment_manifest or has_study_manifest or delivered_outputs:
+    if (
+        has_provenance_manifest
+        or has_report_artifact
+        or has_experiment_manifest
+        or has_study_manifest
+        or delivered_outputs
+    ):
+        if not has_provenance_manifest:
+            gaps.append("Canonical provenance manifest is missing from the evidence trail.")
+        elif manifest_completeness_status != "complete":
+            gaps.append("Canonical provenance manifest is incomplete.")
         if not has_experiment_manifest or not has_experiment_compare:
             gaps.append("Experiment registry entrypoints are incomplete.")
         if experiment_linkage_status != "consistent":
@@ -323,6 +345,7 @@ def build_research_evidence_summary(
     acceptance_profile: SubmarineCaseAcceptanceProfile | Mapping[str, Any] | None,
     acceptance_assessment: object | None,
     scientific_verification_assessment: object | None,
+    provenance_summary: object | None,
     scientific_study_summary: object | None,
     experiment_summary: object | None,
     output_delivery_plan: list[dict[str, Any]] | None,
@@ -349,6 +372,7 @@ def build_research_evidence_summary(
         provenance_gaps,
         provenance_highlights,
     ) = build_provenance_status(
+        provenance_summary=provenance_summary,
         experiment_summary=experiment_summary,
         scientific_study_summary=scientific_study_summary,
         output_delivery_plan=output_delivery_plan,

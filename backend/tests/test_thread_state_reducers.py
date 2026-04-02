@@ -15,10 +15,19 @@ def _design_brief_runtime_update() -> dict:
         "next_recommended_stage": "geometry-preflight",
         "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/demo/cfd-design-brief.md",
         "request_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json",
+        "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
         "artifact_virtual_paths": [
             "/mnt/user-data/outputs/submarine/reports/demo/cfd-design-brief.json",
             "/mnt/user-data/outputs/submarine/reports/demo/cfd-design-brief.md",
         ],
+        "provenance_summary": {
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+            "run_id": "baseline",
+        },
+        "environment_fingerprint": {
+            "profile_id": "local-cli",
+            "runtime_origin": "unit-test",
+        },
         "requested_outputs": [
             {
                 "output_id": "drag_coefficient",
@@ -68,6 +77,15 @@ def _design_brief_runtime_update() -> dict:
 
 def _delegation_runtime_update() -> dict:
     return {
+        "provenance_summary": {
+            "artifact_entrypoints": {
+                "request": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json"
+            },
+            "manifest_completeness_status": "complete",
+        },
+        "environment_fingerprint": {
+            "docker_socket_available": False,
+        },
         "requested_outputs": [
             {
                 "output_id": "drag_coefficient",
@@ -156,6 +174,18 @@ def test_thread_state_merges_parallel_submarine_runtime_updates():
         "/mnt/user-data/outputs/submarine/reports/demo/cfd-design-brief.md",
     ]
     assert runtime_state["request_virtual_path"].endswith("/openfoam-request.json")
+    assert runtime_state["provenance_manifest_virtual_path"].endswith(
+        "/provenance-manifest.json"
+    )
+    assert runtime_state["provenance_summary"]["manifest_virtual_path"].endswith(
+        "/provenance-manifest.json"
+    )
+    assert runtime_state["provenance_summary"]["artifact_entrypoints"]["request"].endswith(
+        "/openfoam-request.json"
+    )
+    assert runtime_state["provenance_summary"]["manifest_completeness_status"] == "complete"
+    assert runtime_state["environment_fingerprint"]["profile_id"] == "local-cli"
+    assert runtime_state["environment_fingerprint"]["docker_socket_available"] is False
     assert runtime_state["requested_outputs"][0]["notes"] == (
         "Promoted into the execution-ready baseline package."
     )

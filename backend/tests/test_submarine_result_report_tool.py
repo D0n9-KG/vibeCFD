@@ -2978,6 +2978,53 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
         ),
         encoding="utf-8",
     )
+    provenance_manifest_virtual_path = (
+        "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/provenance-manifest.json"
+    )
+    (solver_results_dir / "provenance-manifest.json").write_text(
+        json.dumps(
+            {
+                "manifest_version": "v1",
+                "experiment_id": "research-evidence-validated-case-research-ready-resistance",
+                "run_id": "baseline",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "selected_case_id": "research_evidence_validated_case",
+                "requested_output_ids": ["drag_coefficient"],
+                "simulation_requirements_snapshot": {
+                    "inlet_velocity_mps": 3.05,
+                    "fluid_density_kg_m3": 1000.0,
+                    "kinematic_viscosity_m2ps": 1.0e-06,
+                    "end_time_seconds": 200.0,
+                    "delta_t_seconds": 1.0,
+                    "write_interval_steps": 50,
+                },
+                "approval_snapshot": {
+                    "confirmation_status": "confirmed",
+                    "review_status": "ready_for_supervisor",
+                    "next_recommended_stage": "result-reporting",
+                },
+                "artifact_entrypoints": {
+                    "request": "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/openfoam-request.json",
+                    "solver_results": "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/solver-results.json",
+                    "study_manifest": "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/study-manifest.json",
+                    "experiment_manifest": "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/experiment-manifest.json",
+                    "run_record": "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/experiment-manifest.json",
+                    "run_compare_summary": "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/run-compare-summary.json",
+                    "dispatch_summary_markdown": "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/dispatch-summary.md",
+                    "dispatch_summary_html": "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/dispatch-summary.html",
+                },
+                "environment_fingerprint": {
+                    "profile_id": "research-ready-profile",
+                    "runtime_origin": "unit-test",
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     runtime = SimpleNamespace(
         state={
@@ -2997,8 +3044,14 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
                 "review_status": "ready_for_supervisor",
                 "next_recommended_stage": "result-reporting",
                 "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/dispatch-summary.md",
+                "provenance_manifest_virtual_path": provenance_manifest_virtual_path,
+                "environment_fingerprint": {
+                    "profile_id": "research-ready-profile",
+                    "runtime_origin": "unit-test",
+                },
                 "artifact_virtual_paths": [
                     "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/solver-results.json",
+                    provenance_manifest_virtual_path,
                     "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/study-manifest.json",
                     "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/experiment-manifest.json",
                     "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/run-compare-summary.json",
@@ -3028,6 +3081,12 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
     assert research["validation_status"] == "validated"
     assert research["provenance_status"] == "traceable"
     assert research["readiness_status"] == "research_ready"
+    assert final_payload["provenance_summary"]["manifest_virtual_path"] == (
+        provenance_manifest_virtual_path
+    )
+    assert (
+        final_payload["provenance_summary"]["manifest_completeness_status"] == "complete"
+    )
     assert gate["gate_status"] == "ready_for_claim"
     assert gate["allowed_claim_level"] == "research_ready"
     assert gate["recommended_stage"] == "supervisor-review"
@@ -3045,8 +3104,89 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
         path.endswith("/supervisor-scientific-gate.json")
         for path in final_payload["artifact_virtual_paths"]
     )
+    assert (
+        result.update["submarine_runtime"]["provenance_manifest_virtual_path"]
+        == provenance_manifest_virtual_path
+    )
+    assert (
+        result.update["submarine_runtime"]["provenance_summary"]["manifest_virtual_path"]
+        == provenance_manifest_virtual_path
+    )
     assert result.update["submarine_runtime"]["scientific_gate_status"] == "ready_for_claim"
     assert result.update["submarine_runtime"]["execution_plan"][-1]["status"] == "ready"
+
+
+def test_research_evidence_summary_downgrades_when_provenance_manifest_is_missing():
+    evidence_module = importlib.import_module("deerflow.domain.submarine.evidence")
+    models_module = importlib.import_module("deerflow.domain.submarine.models")
+
+    summary = evidence_module.build_research_evidence_summary(
+        acceptance_profile=models_module.SubmarineCaseAcceptanceProfile(
+            profile_id="research-evidence-partial",
+            summary_zh="Provenance manifest missing",
+            benchmark_targets=[
+                models_module.SubmarineBenchmarkTarget(
+                    metric_id="cd_at_3_05_mps",
+                    quantity="Cd",
+                    summary_zh="Compare Cd against reference",
+                    reference_value=0.00314,
+                    relative_tolerance=0.02,
+                    inlet_velocity_mps=3.05,
+                )
+            ],
+        ),
+        acceptance_assessment={
+            "benchmark_comparisons": [
+                {
+                    "metric_id": "cd_at_3_05_mps",
+                    "quantity": "Cd",
+                    "status": "passed",
+                    "observed_value": 0.00312,
+                    "reference_value": 0.00314,
+                    "relative_error": 0.0064,
+                    "relative_tolerance": 0.02,
+                    "target_inlet_velocity_mps": 3.05,
+                    "observed_inlet_velocity_mps": 3.05,
+                }
+            ]
+        },
+        scientific_verification_assessment={
+            "status": "research_ready",
+            "passed_requirements": ["mesh_independence_study"],
+        },
+        provenance_summary=None,
+        scientific_study_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "workflow_status": "completed",
+            "study_execution_status": "completed",
+        },
+        experiment_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+            "compare_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+            "linkage_status": "consistent",
+            "workflow_status": "completed",
+        },
+        output_delivery_plan=[
+            {
+                "delivery_status": "delivered",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
+                ],
+            }
+        ],
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/final-report.json",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json",
+        ],
+    )
+
+    assert summary["validation_status"] == "validated"
+    assert summary["provenance_status"] == "partial"
+    assert summary["readiness_status"] == "validated_with_gaps"
+    assert any(
+        "Canonical provenance manifest is missing" in item
+        for item in summary["evidence_gaps"]
+    )
 
 
 def test_submarine_result_report_marks_validation_failed_in_research_evidence_summary(

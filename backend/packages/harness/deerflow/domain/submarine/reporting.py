@@ -23,6 +23,7 @@ from .reporting_summaries import (
     build_experiment_compare_summary,
     build_experiment_summary,
     build_figure_delivery_summary,
+    build_provenance_summary,
     build_selected_case_provenance_summary,
     build_scientific_study_summary,
     resolve_outputs_artifact,
@@ -65,6 +66,7 @@ _build_scientific_study_summary = build_scientific_study_summary
 _build_experiment_summary = build_experiment_summary
 _build_experiment_compare_summary = build_experiment_compare_summary
 _build_figure_delivery_summary = build_figure_delivery_summary
+_build_provenance_summary = build_provenance_summary
 _build_selected_case_provenance_summary = build_selected_case_provenance_summary
 _render_delivery_readiness_markdown = render_delivery_readiness_markdown
 _render_markdown = render_markdown
@@ -225,6 +227,16 @@ def run_result_report(
         outputs_dir=outputs_dir,
         artifact_virtual_paths=all_artifacts,
     )
+    provenance_summary = _build_provenance_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+        provenance_manifest_virtual_path=snapshot.provenance_manifest_virtual_path,
+    )
+    provenance_manifest_virtual_path = (
+        provenance_summary.get("manifest_virtual_path")
+        if isinstance(provenance_summary, dict)
+        else snapshot.provenance_manifest_virtual_path
+    )
     output_delivery_plan = build_output_delivery_plan(
         snapshot.requested_outputs,
         stage="result-reporting",
@@ -236,6 +248,7 @@ def run_result_report(
         acceptance_profile=selected_case.acceptance_profile if selected_case else None,
         acceptance_assessment=acceptance_assessment,
         scientific_verification_assessment=scientific_verification_assessment,
+        provenance_summary=provenance_summary,
         scientific_study_summary=scientific_study_summary,
         experiment_summary=experiment_summary,
         output_delivery_plan=output_delivery_plan,
@@ -315,6 +328,9 @@ def run_result_report(
         "selected_case_provenance_summary": selected_case_provenance_summary,
         "workspace_case_dir_virtual_path": snapshot.workspace_case_dir_virtual_path,
         "run_script_virtual_path": snapshot.run_script_virtual_path,
+        "provenance_manifest_virtual_path": provenance_manifest_virtual_path,
+        "provenance_summary": provenance_summary,
+        "environment_fingerprint": snapshot.environment_fingerprint,
         "stability_evidence_virtual_path": stability_evidence_virtual_path,
         "stability_evidence": stability_evidence,
         "supervisor_handoff_virtual_path": scientific_remediation_handoff_json_artifact,

@@ -105,10 +105,15 @@ def submarine_result_report_tool(
         workspace_case_dir_virtual_path=snapshot.workspace_case_dir_virtual_path,
         run_script_virtual_path=snapshot.run_script_virtual_path,
         request_virtual_path=snapshot.request_virtual_path,
+        provenance_manifest_virtual_path=payload.get("provenance_manifest_virtual_path")
+        or snapshot.provenance_manifest_virtual_path,
         execution_log_virtual_path=snapshot.execution_log_virtual_path,
         solver_results_virtual_path=snapshot.solver_results_virtual_path,
         stability_evidence_virtual_path=payload.get("stability_evidence_virtual_path"),
         stability_evidence=payload.get("stability_evidence"),
+        provenance_summary=payload.get("provenance_summary"),
+        environment_fingerprint=payload.get("environment_fingerprint")
+        or snapshot.environment_fingerprint,
         supervisor_handoff_virtual_path=payload.get("supervisor_handoff_virtual_path"),
         scientific_followup_history_virtual_path=(
             scientific_followup_summary.get("history_virtual_path")

@@ -168,7 +168,10 @@ def build_scientific_remediation_summary(
 
     if (
         str(gate.get("remediation_stage") or "") == "result-reporting"
-        or provenance_status in {"partial", "missing"}
+        or (
+            provenance_status in {"partial", "missing"}
+            and validation_status == "validated"
+        )
     ) and current_readiness != "research_ready":
         actions.append(
             _build_action(

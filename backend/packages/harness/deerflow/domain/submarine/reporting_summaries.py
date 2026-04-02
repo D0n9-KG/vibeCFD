@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .artifact_store import (
+    load_canonical_provenance_manifest_payload,
     load_first_json_payload_from_artifacts,
     resolve_outputs_artifact,
 )
@@ -12,6 +13,7 @@ from .experiment_linkage import build_experiment_linkage_assessment
 from .figure_delivery import build_figure_delivery_summary as _build_figure_delivery_from_manifest
 from .library import load_case_library
 from .models import SubmarineCase
+from .provenance import build_provenance_summary as _build_provenance_summary_from_manifest
 
 
 def load_json_payload_from_artifacts(
@@ -426,6 +428,27 @@ def build_experiment_summary(
     }
 
 
+def build_provenance_summary(
+    *,
+    outputs_dir: Path,
+    artifact_virtual_paths: list[str],
+    provenance_manifest_virtual_path: str | None = None,
+) -> dict | None:
+    loaded = load_canonical_provenance_manifest_payload(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=artifact_virtual_paths,
+        provenance_manifest_virtual_path=provenance_manifest_virtual_path,
+    )
+    if loaded is None:
+        return None
+
+    manifest_virtual_path, manifest = loaded
+    return _build_provenance_summary_from_manifest(
+        manifest_virtual_path=manifest_virtual_path,
+        manifest_payload=manifest,
+    )
+
+
 def build_experiment_compare_summary(
     *,
     outputs_dir: Path,
@@ -561,6 +584,7 @@ __all__ = [
     "build_experiment_compare_summary",
     "build_experiment_summary",
     "build_figure_delivery_summary",
+    "build_provenance_summary",
     "build_selected_case_provenance_summary",
     "build_scientific_study_summary",
     "resolve_outputs_artifact",
