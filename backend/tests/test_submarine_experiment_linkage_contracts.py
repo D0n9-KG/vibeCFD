@@ -549,10 +549,9 @@ def test_result_report_marks_validated_run_with_incomplete_experiment_linkage_as
     assert remediation["actions"][0]["owner_stage"] == "result-reporting"
     assert handoff["handoff_status"] == "ready_for_auto_followup"
     assert handoff["tool_name"] == "submarine_result_report"
-    assert "linkage_status" in final_markdown
-    assert "workflow_status" in final_markdown
-    assert "Run Status Counts" in final_markdown
-    assert "Compare Status Counts" in final_markdown
-    assert "mesh_independence:fine" in final_markdown
-    assert "<strong>workflow_status:</strong> partial" in final_html
-    assert "Missing Compare Entries" in final_html
+    evidence_index = final_payload["evidence_index"]
+    assert any(group["group_id"] == "research_evidence" for group in evidence_index)
+    assert "## 结论与证据" in final_markdown
+    assert "## 证据索引" in final_markdown
+    assert "<h2>结论与证据</h2>" in final_html
+    assert "<h2>证据索引</h2>" in final_html

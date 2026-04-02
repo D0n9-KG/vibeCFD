@@ -263,9 +263,17 @@ def test_submarine_domain_builds_research_evidence_summary_semantics():
                 "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
                 "/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-mesh-independence.json",
             ],
+            "workflow_status": "completed",
+        },
+        provenance_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+            "manifest_completeness_status": "complete",
+            "parity_status": "matched",
         },
         experiment_summary={
             "experiment_status": "completed",
+            "workflow_status": "completed",
+            "linkage_status": "consistent",
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
             "compare_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
             "run_count": 7,
@@ -318,9 +326,17 @@ def test_submarine_domain_builds_research_evidence_summary_semantics():
             "artifact_virtual_paths": [
                 "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
             ],
+            "workflow_status": "completed",
+        },
+        provenance_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+            "manifest_completeness_status": "complete",
+            "parity_status": "matched",
         },
         experiment_summary={
             "experiment_status": "completed",
+            "workflow_status": "completed",
+            "linkage_status": "consistent",
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
             "compare_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
             "run_count": 7,
@@ -371,6 +387,7 @@ def test_submarine_domain_builds_research_evidence_summary_semantics():
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
             "artifact_virtual_paths": [],
         },
+        provenance_summary=None,
         experiment_summary={
             "experiment_status": "completed",
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
@@ -406,6 +423,7 @@ def test_submarine_domain_builds_research_evidence_summary_semantics():
             "missing_evidence": [],
             "passed_requirements": ["Scientific verification requirements passed."],
         },
+        provenance_summary=None,
         scientific_study_summary=None,
         experiment_summary=None,
         output_delivery_plan=[

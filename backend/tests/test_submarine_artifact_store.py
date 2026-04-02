@@ -130,6 +130,7 @@ def test_artifact_store_builds_canonical_solver_dispatch_bundle():
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/dispatch-summary.md",
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/dispatch-summary.html",
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/supervisor-handoff.json",
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-plan.json",
         "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
