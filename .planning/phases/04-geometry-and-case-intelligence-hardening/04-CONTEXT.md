@@ -40,6 +40,7 @@ This phase does not add CAD-first intake, new CFD domains, or a new claim-level 
 - **D-11:** Phase 4 should not introduce an additional trust-tier or engineering-only status ladder; weak references and estimated values should be handled through clear disclosure plus researcher confirmation records.
 - **D-12:** The product should prefer a simple approval model with plan items marked as pending researcher confirmation or researcher confirmed, rather than a broad new taxonomy of trust states.
 - **D-13:** Existing scientific claim levels (`delivery_only`, `verified_but_not_validated`, `validated_with_gaps`, `research_ready`) should remain in place for post-compute evidence and report gating, but they must not be reused to describe pre-compute geometry/case approval state.
+- **D-14:** Researcher confirmation means the calculation plan is approved for execution; it must not be treated as automatic evidence that raises the post-compute scientific claim level.
 
 ### The Agent's Discretion
 - Exact heuristics and thresholds for deciding whether an uncertainty is severe enough to require immediate clarification
@@ -105,6 +106,7 @@ This phase does not add CAD-first intake, new CFD domains, or a new claim-level 
 - The approved draft needs to feed the same runtime state that solver-dispatch and reporting already consume.
 - Case-library provenance and acceptance logic need to become inspectable from the workbench and carried into the calculation-plan draft.
 - Solver dispatch should be gated on researcher-confirmed plan state rather than implicit AI assumptions.
+- Post-compute scientific gates should continue to evaluate evidence quality independently, even when the plan itself was explicitly researcher-confirmed.
 
 </code_context>
 

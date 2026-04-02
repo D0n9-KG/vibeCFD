@@ -85,3 +85,15 @@
 
 **User's choice:** Keep the system simple and avoid introducing many new status levels.
 **Notes:** The final record should show what was uncertain, what the AI suggested, and what the researcher accepted or modified, without creating a confusing parallel taxonomy. The existing scientific claim levels should stay, but only for post-compute evidence/report gating rather than pre-compute plan approval.
+
+---
+
+## Plan Approval vs Claim Level
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Couple them tightly | Treat researcher confirmation as direct evidence for a higher claim level | |
+| Keep them separate | Researcher confirmation approves execution, while claim level is still decided by post-compute evidence | ✓ |
+
+**User's choice:** Keep researcher plan approval separate from scientific claim-level evaluation.
+**Notes:** A confirmed plan means the run may proceed, but the resulting claim level must still depend on stability, benchmark, verification, and reporting evidence after the computation finishes.
