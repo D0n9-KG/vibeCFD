@@ -5,9 +5,9 @@ milestone_name: milestone
 current_phase: 4
 current_phase_name: Geometry and Case Intelligence Hardening
 current_plan: 01
-status: Ready to discuss
-stopped_at: Phase 4 context gathered; ready to plan geometry and case hardening
-last_updated: "2026-04-02T03:37:41.273Z"
+status: Ready to execute
+stopped_at: Phase 4 planned; ready to execute geometry and case hardening
+last_updated: "2026-04-02T04:24:56Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 6
@@ -33,14 +33,14 @@ See: `.planning/PROJECT.md` (updated 2026-04-01)
 **Total Phases:** 6
 **Current Plan:** 01
 **Total Plans in Phase:** 3
-**Status:** Ready to discuss
+**Status:** Ready to execute
 **Progress:** [###---] 50%
 **Last Activity:** 2026-04-02
-**Last Activity Description:** Completed 03-03 by productizing benchmark-backed claim gating, wiring SCI-03 summaries into the active workbench, and validating the new UI against refreshed mock threads
+**Last Activity Description:** Planned Phase 4 by refreshing research, creating a Nyquist validation strategy, and splitting geometry trust, case provenance, and researcher-approval hardening into 04-01 through 04-03
 
 Phase: 4 of 6 (Geometry and Case Intelligence Hardening)
 Plan: 1 of 3
-Status: Ready to discuss
+Status: Ready to execute
 Last activity: 2026-04-02
 
 ## Performance Metrics
@@ -93,11 +93,11 @@ Last activity: 2026-04-02
 
 ## Blockers
 
-- Phase 4 has not started yet, so geometry inspection still lacks robust unit, scale, and reference-value sanity checks.
-- Most non-SUBOFF case-library entries still rely on placeholder references and need hardening before broader research use.
+- Phase 4 is planned but not yet executed, so geometry inspection still lacks robust unit, scale, and reference-value sanity checks in production code.
+- Most non-SUBOFF case-library entries still rely on placeholder or weak references and need the 04-02 hardening pass before broader research use.
 
 ## Session
 
-**Last Date:** 2026-04-02T03:37:41.269Z
-**Stopped At:** Phase 4 context gathered; ready to plan geometry and case hardening
-**Resume File:** .planning/phases/04-geometry-and-case-intelligence-hardening/04-CONTEXT.md
+**Last Date:** 2026-04-02T04:24:56Z
+**Stopped At:** Phase 4 planned; ready to execute geometry and case hardening
+**Resume File:** .planning/phases/04-geometry-and-case-intelligence-hardening/04-01-PLAN.md
