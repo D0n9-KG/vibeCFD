@@ -174,6 +174,24 @@ class SubmarineRunCompareSummary(BaseModel):
     compare_status_counts: dict[str, int] = Field(default_factory=dict)
 
 
+SubmarineRunProvenanceManifestCompletenessStatus = Literal["complete", "partial"]
+
+
+class SubmarineRunProvenanceManifest(BaseModel):
+    manifest_version: str = "v1"
+    experiment_id: str
+    run_id: str
+    task_type: str
+    geometry_virtual_path: str
+    geometry_family: str | None = None
+    selected_case_id: str | None = None
+    requested_output_ids: list[str] = Field(default_factory=list)
+    simulation_requirements_snapshot: dict[str, object] = Field(default_factory=dict)
+    approval_snapshot: dict[str, object] = Field(default_factory=dict)
+    artifact_entrypoints: dict[str, str] = Field(default_factory=dict)
+    environment_fingerprint: dict[str, object] = Field(default_factory=dict)
+
+
 SubmarineResearchReadinessStatus = Literal[
     "blocked",
     "insufficient_evidence",

@@ -1193,6 +1193,7 @@ def test_submarine_solver_dispatch_emits_baseline_experiment_artifacts(
     compare_summary = json.loads(compare_summary_path.read_text(encoding="utf-8"))
 
     assert any(path.endswith("/experiment-manifest.json") for path in artifacts)
+    assert any(path.endswith("/provenance-manifest.json") for path in artifacts)
     assert any(path.endswith("/run-record.json") for path in artifacts)
     assert any(path.endswith("/run-compare-summary.json") for path in artifacts)
     assert payload["experiment_manifest"]["baseline_run_id"] == "baseline"

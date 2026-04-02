@@ -19,6 +19,7 @@ _SOLVER_RESULTS_MARKDOWN_FILENAME = "solver-results.md"
 _STABILITY_EVIDENCE_FILENAME = "stability-evidence.json"
 _STUDY_PLAN_FILENAME = "study-plan.json"
 _STUDY_MANIFEST_FILENAME = "study-manifest.json"
+_PROVENANCE_MANIFEST_FILENAME = "provenance-manifest.json"
 
 
 def resolve_outputs_artifact(outputs_dir: Path, virtual_path: str) -> Path | None:
@@ -113,6 +114,10 @@ def build_canonical_solver_dispatch_artifact_bundle(
             _DISPATCH_SUMMARY_HTML_FILENAME,
         ),
         build_solver_dispatch_artifact_virtual_path(run_dir_name, _REQUEST_FILENAME),
+        build_solver_dispatch_artifact_virtual_path(
+            run_dir_name,
+            _PROVENANCE_MANIFEST_FILENAME,
+        ),
         build_solver_dispatch_artifact_virtual_path(
             run_dir_name,
             _SUPERVISOR_HANDOFF_FILENAME,
@@ -221,10 +226,31 @@ def load_canonical_stability_evidence_payload(
     return resolved_virtual_path, payload
 
 
+def load_canonical_provenance_manifest_payload(
+    *,
+    outputs_dir: Path,
+    artifact_virtual_paths: Sequence[str],
+    provenance_manifest_virtual_path: str | None = None,
+) -> tuple[str, dict] | None:
+    resolved_virtual_path = resolve_canonical_solver_dispatch_artifact(
+        artifact_virtual_paths=artifact_virtual_paths,
+        explicit_virtual_path=provenance_manifest_virtual_path,
+        filename=_PROVENANCE_MANIFEST_FILENAME,
+    )
+    if resolved_virtual_path is None:
+        return None
+
+    payload = load_json_outputs_artifact(outputs_dir, resolved_virtual_path)
+    if payload is None:
+        return None
+    return resolved_virtual_path, payload
+
+
 __all__ = [
     "build_canonical_solver_dispatch_artifact_bundle",
     "build_solver_dispatch_artifact_virtual_path",
     "dedupe_virtual_paths",
+    "load_canonical_provenance_manifest_payload",
     "load_canonical_solver_dispatch_request_payload",
     "load_canonical_solver_results_payload",
     "load_canonical_stability_evidence_payload",
