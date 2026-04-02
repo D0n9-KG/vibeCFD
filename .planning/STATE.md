@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 05
-current_phase_name: experiment ops and reproducibility
-current_plan: Not started
-status: planning
-stopped_at: Phase 5 context gathered
-last_updated: "2026-04-02T07:57:53.489Z"
+current_phase_name: experiment-ops-and-reproducibility
+current_plan: 2
+status: executing
+stopped_at: Phase 05-01 complete; advancing to 05-02
+last_updated: "2026-04-02T09:56:00Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 15
+  completed_plans: 13
   percent: 67
 ---
 
@@ -24,24 +24,24 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-02)
 
 **Core value:** A researcher can go from natural-language CFD intent to reproducible, evidence-backed submarine results without manually building and operating OpenFOAM cases.
-**Current focus:** Phase 5 - Experiment Ops and Reproducibility
+**Current focus:** Phase 05 — experiment-ops-and-reproducibility
 
 ## Current Position
 
 **Current Phase:** 05
-**Current Phase Name:** experiment ops and reproducibility
+**Current Phase Name:** experiment-ops-and-reproducibility
 **Total Phases:** 6
-**Current Plan:** Not started
+**Current Plan:** 2
 **Total Plans in Phase:** 3
-**Status:** Ready to plan
+**Status:** Executing Phase 05
 **Progress:** [####--] 67%
 **Last Activity:** 2026-04-02
-**Last Activity Description:** Phase 4 complete, transitioned to Phase 05
+**Last Activity Description:** Phase 05-01 complete; canonical provenance manifest shipped
 
-Phase: 5 of 6 (Experiment Ops and Reproducibility)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-02
+Phase: 05 (experiment-ops-and-reproducibility) — EXECUTING
+Plan: 2 of 3
+Status: Executing Phase 05
+Last activity: 2026-04-02 -- Phase 05-01 complete; canonical provenance manifest shipped
 
 ## Performance Metrics
 
@@ -77,6 +77,7 @@ Last activity: 2026-04-02
 | 3 | Benchmark references that do not match the current run condition must remain visible as explicit `not_applicable` evidence and claim-limiting advice. | Missing or mismatched references are scientifically meaningful and should not disappear from the claim narrative. |
 | 4 | Geometry trust must be a structured contract that gates solver inputs, not a prose-only preflight note. | Raw STL heuristics were too easy to over-trust without explicit findings and confirmation state. |
 | 4 | Researcher approval is a pre-compute execution gate and must stay separate from post-compute scientific claim labels. | Approval authorizes execution only; it should not masquerade as validation or claim readiness. |
+| 5 | Every solver-dispatch run needs one canonical provenance manifest that survives reducer merges and final reporting. | Researchers need a single rerun and audit entrypoint instead of reconstructing provenance from scattered artifacts. |
 
 ## Pending Todos
 
@@ -85,10 +86,10 @@ Last activity: 2026-04-02
 
 ## Blockers
 
-- Phase 5 is not planned yet, so experiment provenance, baseline-vs-variant reproducibility, and environment consistency are still roadmap debt rather than active implementation.
+- Phase 05-02 and 05-03 are still open, so custom-variant lineage and environment parity remain unimplemented beyond the new canonical provenance layer.
 
 ## Session
 
-**Last Date:** 2026-04-02T07:57:53.486Z
-**Stopped At:** Phase 5 context gathered
+**Last Date:** 2026-04-02T09:56:00Z
+**Stopped At:** Phase 05-01 complete; advancing to 05-02
 **Resume File:** .planning/phases/05-experiment-ops-and-reproducibility/05-CONTEXT.md

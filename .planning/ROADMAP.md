@@ -90,7 +90,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 05-01: Persist full run provenance and reproducibility metadata for submarine studies
+- [x] 05-01: Persist full run provenance and reproducibility metadata for submarine studies
 - [ ] 05-02: Productize experiment manifests, baseline-vs-variant linkage, and comparison summaries
 - [ ] 05-03: Align runtime configuration across local, Docker Compose, and deployment paths with failure recovery guidance
 
