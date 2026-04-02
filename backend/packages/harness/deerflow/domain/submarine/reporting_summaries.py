@@ -698,11 +698,390 @@ def build_figure_delivery_summary(
         manifest_virtual_path=manifest_virtual_path,
     )
 
+
+def _dedupe_strings(values: list[object] | None) -> list[str]:
+    deduped: list[str] = []
+    for value in values or []:
+        text = str(value or "").strip()
+        if text and text not in deduped:
+            deduped.append(text)
+    return deduped
+
+
+def _claim_level_label_zh(value: object) -> str:
+    return {
+        "delivery_only": "仅限交付说明",
+        "verified_but_not_validated": "已验证但未完成外部验证",
+        "validated_with_gaps": "已验证但仍有证据缺口",
+        "research_ready": "研究结论可交付",
+    }.get(str(value or "").strip(), str(value or "").strip() or "待判定")
+
+
+def _review_status_label_zh(value: object) -> str:
+    return {
+        "ready_for_supervisor": "待复核",
+        "needs_user_confirmation": "待研究者确认",
+        "blocked": "已阻塞",
+    }.get(str(value or "").strip(), str(value or "").strip() or "待判定")
+
+
+def _reproducibility_status_label_zh(value: object) -> str:
+    return {
+        "matched": "环境一致，可复现",
+        "drifted_but_runnable": "环境漂移但仍可运行",
+        "unknown": "环境画像未知",
+        "blocked": "环境不满足复现要求",
+    }.get(str(value or "").strip(), str(value or "").strip() or "待判定")
+
+
+def _confidence_label_zh(value: object) -> str:
+    return {
+        "low": "低",
+        "medium": "中",
+        "high": "高",
+    }.get(str(value or "").strip(), str(value or "").strip() or "待判定")
+
+
+def _recommended_next_step_zh(
+    *,
+    scientific_supervisor_gate: dict | None,
+    research_evidence_summary: dict | None,
+    reproducibility_summary: dict | None,
+    scientific_followup_summary: dict | None,
+) -> str:
+    blocking_reasons = _dedupe_strings(
+        (scientific_supervisor_gate or {}).get("blocking_reasons")
+    )
+    evidence_gaps = _dedupe_strings(
+        (research_evidence_summary or {}).get("evidence_gaps")
+    )
+    drift_reasons = _dedupe_strings(
+        (reproducibility_summary or {}).get("drift_reasons")
+    )
+    followup_history_path = str(
+        (scientific_followup_summary or {}).get("history_virtual_path") or ""
+    ).strip()
+
+    if blocking_reasons:
+        return "先处理当前阻塞项并修正设置或证据链，再决定是否继续求解。"
+    if evidence_gaps:
+        return "优先补齐缺失证据或外部对照，再决定是否提升当前结论等级。"
+    if drift_reasons:
+        return "先校准运行环境与 provenance，再将本次结果视为可复现实验结论。"
+    if followup_history_path:
+        return "回到聊天确认当前任务是否结束，或基于既有 follow-up 记录继续扩展研究。"
+    return "回到聊天确认当前任务是否结束，或根据证据索引继续扩展研究。"
+
+
+def build_report_overview(
+    *,
+    summary_zh: str,
+    scientific_supervisor_gate: dict | None,
+    reproducibility_summary: dict | None,
+    review_status: str | None,
+    scientific_followup_summary: dict | None,
+    research_evidence_summary: dict | None,
+) -> dict:
+    allowed_claim_level = str(
+        (scientific_supervisor_gate or {}).get("allowed_claim_level")
+        or "delivery_only"
+    )
+    reproducibility_status = str(
+        (reproducibility_summary or {}).get("reproducibility_status")
+        or (reproducibility_summary or {}).get("parity_status")
+        or "unknown"
+    )
+    return {
+        "current_conclusion_zh": summary_zh.strip() or "当前暂无可交付结论摘要。",
+        "allowed_claim_level": allowed_claim_level,
+        "review_status": review_status or "ready_for_supervisor",
+        "reproducibility_status": reproducibility_status,
+        "recommended_next_step_zh": _recommended_next_step_zh(
+            scientific_supervisor_gate=scientific_supervisor_gate,
+            research_evidence_summary=research_evidence_summary,
+            reproducibility_summary=reproducibility_summary,
+            scientific_followup_summary=scientific_followup_summary,
+        ),
+    }
+
+
+def build_delivery_highlights(
+    *,
+    solver_metrics: dict | None,
+    scientific_supervisor_gate: dict | None,
+    reproducibility_summary: dict | None,
+    review_status: str | None,
+    figure_delivery_summary: dict | None,
+    final_artifact_virtual_paths: list[str],
+    source_report_virtual_path: str | None,
+    provenance_manifest_virtual_path: str | None,
+    scientific_gate_virtual_path: str | None,
+) -> dict:
+    metric_lines: list[str] = []
+    latest_force_coefficients = (solver_metrics or {}).get("latest_force_coefficients") or {}
+    latest_forces = (solver_metrics or {}).get("latest_forces") or {}
+    total_force = latest_forces.get("total_force") or []
+
+    cd = latest_force_coefficients.get("Cd")
+    if isinstance(cd, (int, float)):
+        metric_lines.append(f"阻力系数 Cd：{cd:.6f}")
+    final_time = (solver_metrics or {}).get("final_time_seconds")
+    if isinstance(final_time, (int, float)):
+        metric_lines.append(f"最终时间步：{final_time:g} s")
+    if total_force and isinstance(total_force[0], (int, float)):
+        metric_lines.append(f"总阻力 Fx：{total_force[0]:.4f} N")
+
+    metric_lines.append(
+        "允许结论等级："
+        + _claim_level_label_zh(
+            (scientific_supervisor_gate or {}).get("allowed_claim_level")
+        )
+    )
+    metric_lines.append("复核状态：" + _review_status_label_zh(review_status))
+    metric_lines.append(
+        "复现状态："
+        + _reproducibility_status_label_zh(
+            (reproducibility_summary or {}).get("reproducibility_status")
+            or (reproducibility_summary or {}).get("parity_status")
+        )
+    )
+
+    figure_titles = _dedupe_strings(
+        [
+            item.get("title") or item.get("output_id")
+            for item in (figure_delivery_summary or {}).get("figures") or []
+            if isinstance(item, dict)
+        ]
+    )
+    highlight_artifact_virtual_paths = _dedupe_strings(
+        [
+            source_report_virtual_path,
+            provenance_manifest_virtual_path,
+            scientific_gate_virtual_path,
+            *(final_artifact_virtual_paths or []),
+            *((figure_delivery_summary or {}).get("artifact_virtual_paths") or []),
+            *(
+                path
+                for item in (figure_delivery_summary or {}).get("figures") or []
+                if isinstance(item, dict)
+                for path in (item.get("artifact_virtual_paths") or [])
+            ),
+        ]
+    )
+    return {
+        "metric_lines": metric_lines,
+        "figure_titles": figure_titles,
+        "highlight_artifact_virtual_paths": highlight_artifact_virtual_paths[:8],
+    }
+
+
+def build_conclusion_sections(
+    *,
+    summary_zh: str,
+    scientific_supervisor_gate: dict | None,
+    research_evidence_summary: dict | None,
+    reproducibility_summary: dict | None,
+    provenance_manifest_virtual_path: str | None,
+    scientific_gate_virtual_path: str | None,
+    stability_evidence_virtual_path: str | None,
+    source_report_virtual_path: str | None,
+    source_artifact_virtual_paths: list[str],
+    final_artifact_virtual_paths: list[str],
+    figure_delivery_summary: dict | None,
+    scientific_followup_summary: dict | None,
+) -> list[dict]:
+    gate = scientific_supervisor_gate or {}
+    research = research_evidence_summary or {}
+    reproducibility = reproducibility_summary or {}
+    followup = scientific_followup_summary or {}
+
+    allowed_claim_level = str(gate.get("allowed_claim_level") or "delivery_only")
+    confidence_label = _confidence_label_zh(research.get("confidence"))
+    blocking_reasons = _dedupe_strings(gate.get("blocking_reasons"))
+    advisory_notes = _dedupe_strings(gate.get("advisory_notes"))
+    evidence_gaps = _dedupe_strings(research.get("evidence_gaps"))
+    drift_reasons = _dedupe_strings(reproducibility.get("drift_reasons"))
+    provenance_highlights = _dedupe_strings(research.get("provenance_highlights"))
+
+    figure_titles = _dedupe_strings(
+        [
+            item.get("title") or item.get("output_id")
+            for item in (figure_delivery_summary or {}).get("figures") or []
+            if isinstance(item, dict)
+        ]
+    )
+
+    sections = [
+        {
+            "conclusion_id": "current_conclusion",
+            "title_zh": "当前研究结论",
+            "summary_zh": summary_zh.strip() or "当前暂无可交付结论摘要。",
+            "claim_level": allowed_claim_level,
+            "confidence_label": confidence_label,
+            "inline_source_refs": _dedupe_strings(
+                [
+                    source_report_virtual_path,
+                    scientific_gate_virtual_path,
+                    provenance_manifest_virtual_path,
+                ]
+            ),
+            "evidence_gap_notes": evidence_gaps[:3] or blocking_reasons[:3],
+            "artifact_virtual_paths": _dedupe_strings(
+                [
+                    source_report_virtual_path,
+                    provenance_manifest_virtual_path,
+                    *final_artifact_virtual_paths,
+                ]
+            )[:8],
+        },
+        {
+            "conclusion_id": "evidence_boundary",
+            "title_zh": "证据与结论边界",
+            "summary_zh": "；".join(
+                [
+                    f"当前允许的 claim level 为“{_claim_level_label_zh(allowed_claim_level)}”",
+                    *(blocking_reasons[:1] or advisory_notes[:1] or ["当前未记录额外阻塞说明"]),
+                ]
+            ),
+            "claim_level": allowed_claim_level,
+            "confidence_label": confidence_label,
+            "inline_source_refs": _dedupe_strings(
+                [
+                    scientific_gate_virtual_path,
+                    *((research.get("artifact_virtual_paths") or [])),
+                    stability_evidence_virtual_path,
+                ]
+            ),
+            "evidence_gap_notes": evidence_gaps[:4]
+            or blocking_reasons[:4]
+            or advisory_notes[:4],
+            "artifact_virtual_paths": _dedupe_strings(
+                [
+                    scientific_gate_virtual_path,
+                    *((research.get("artifact_virtual_paths") or [])),
+                    stability_evidence_virtual_path,
+                ]
+            )[:8],
+        },
+        {
+            "conclusion_id": "reproducibility_traceability",
+            "title_zh": "复现与追溯锚点",
+            "summary_zh": "；".join(
+                [
+                    f"复现状态为“{_reproducibility_status_label_zh(reproducibility.get('reproducibility_status') or reproducibility.get('parity_status'))}”",
+                    *(
+                        provenance_highlights[:1]
+                        or (["已记录 provenance manifest。"] if provenance_manifest_virtual_path else [])
+                    ),
+                    *(figure_titles[:1] and [f"代表图表可从“{figure_titles[0]}”开始追溯。"] or []),
+                ]
+            ),
+            "claim_level": allowed_claim_level,
+            "confidence_label": confidence_label,
+            "inline_source_refs": _dedupe_strings(
+                [
+                    provenance_manifest_virtual_path,
+                    source_report_virtual_path,
+                    followup.get("history_virtual_path"),
+                ]
+            ),
+            "evidence_gap_notes": drift_reasons[:4] or _dedupe_strings(followup.get("latest_notes"))[:4],
+            "artifact_virtual_paths": _dedupe_strings(
+                [
+                    provenance_manifest_virtual_path,
+                    source_report_virtual_path,
+                    *source_artifact_virtual_paths,
+                    *((figure_delivery_summary or {}).get("artifact_virtual_paths") or []),
+                ]
+            )[:8],
+        },
+    ]
+    return sections
+
+
+def build_evidence_index(
+    *,
+    research_evidence_summary: dict | None,
+    figure_delivery_summary: dict | None,
+    scientific_followup_summary: dict | None,
+    source_artifact_virtual_paths: list[str],
+    final_artifact_virtual_paths: list[str],
+    provenance_manifest_virtual_path: str | None,
+    source_report_virtual_path: str | None,
+    scientific_gate_virtual_path: str | None,
+    stability_evidence_virtual_path: str | None,
+    supervisor_handoff_virtual_path: str | None,
+) -> list[dict]:
+    index: list[dict] = []
+
+    def add_group(group_id: str, group_title_zh: str, paths: list[object] | None) -> None:
+        artifact_virtual_paths = _dedupe_strings(paths)
+        if not artifact_virtual_paths:
+            return
+        index.append(
+            {
+                "group_id": group_id,
+                "group_title_zh": group_title_zh,
+                "artifact_virtual_paths": artifact_virtual_paths,
+                "provenance_manifest_virtual_path": provenance_manifest_virtual_path,
+            }
+        )
+
+    add_group(
+        "research_evidence",
+        "研究证据与科学判断",
+        [
+            *((research_evidence_summary or {}).get("artifact_virtual_paths") or []),
+            scientific_gate_virtual_path,
+            stability_evidence_virtual_path,
+        ],
+    )
+    add_group(
+        "figures_and_delivery",
+        "代表图表与交付产物",
+        [
+            *final_artifact_virtual_paths,
+            *((figure_delivery_summary or {}).get("artifact_virtual_paths") or []),
+            *(
+                path
+                for item in (figure_delivery_summary or {}).get("figures") or []
+                if isinstance(item, dict)
+                for path in (item.get("artifact_virtual_paths") or [])
+            ),
+        ],
+    )
+    add_group(
+        "runtime_and_lineage",
+        "运行产物与追溯锚点",
+        [
+            source_report_virtual_path,
+            provenance_manifest_virtual_path,
+            supervisor_handoff_virtual_path,
+            *source_artifact_virtual_paths,
+        ],
+    )
+    add_group(
+        "followup_and_refresh",
+        "后续动作与刷新链路",
+        [
+            *((scientific_followup_summary or {}).get("artifact_virtual_paths") or []),
+            (scientific_followup_summary or {}).get("latest_result_report_virtual_path"),
+            (
+                scientific_followup_summary or {}
+            ).get("latest_result_supervisor_handoff_virtual_path"),
+        ],
+    )
+    return index
+
 __all__ = [
+    "build_conclusion_sections",
+    "build_delivery_highlights",
+    "build_evidence_index",
     "build_experiment_compare_summary",
     "build_experiment_summary",
     "build_figure_delivery_summary",
     "build_provenance_summary",
+    "build_report_overview",
     "build_reproducibility_summary",
     "build_selected_case_provenance_summary",
     "build_scientific_study_summary",

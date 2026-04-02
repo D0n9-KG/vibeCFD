@@ -140,6 +140,8 @@ def submarine_result_report_tool(
             "allowed_claim_level"
         ),
         scientific_gate_virtual_path=payload.get("scientific_gate_virtual_path"),
+        decision_status=payload.get("decision_status"),
+        delivery_decision_summary=payload.get("delivery_decision_summary"),
         activity_timeline=extend_runtime_timeline(
             snapshot,
             build_runtime_event(

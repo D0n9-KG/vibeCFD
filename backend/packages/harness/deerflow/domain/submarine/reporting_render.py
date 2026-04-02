@@ -1871,4 +1871,678 @@ def render_html(payload: dict) -> str:
 </html>
 """
 
+
+def _report_text(value: object, fallback: str = "--") -> str:
+    text = str(value or "").strip()
+    return text or fallback
+
+
+def _report_string_list(values: object) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    deduped: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        if text and text not in deduped:
+            deduped.append(text)
+    return deduped
+
+
+def _report_overview(payload: dict) -> dict[str, object]:
+    overview = payload.get("report_overview")
+    if isinstance(overview, dict):
+        return overview
+
+    reproducibility_summary = payload.get("reproducibility_summary")
+    reproducibility_status = "--"
+    if isinstance(reproducibility_summary, dict):
+        reproducibility_status = _report_text(
+            reproducibility_summary.get("reproducibility_status")
+            or reproducibility_summary.get("parity_status"),
+            fallback="unknown",
+        )
+
+    next_stage = _report_text(payload.get("next_recommended_stage"), fallback="")
+    recommended_next_step = (
+        f"建议先进入 `{next_stage}` 阶段继续补齐证据链。"
+        if next_stage
+        else "回到聊天确认下一步研究动作。"
+    )
+    return {
+        "current_conclusion_zh": _report_text(
+            payload.get("summary_zh"),
+            fallback="当前暂无可交付结论摘要。",
+        ),
+        "allowed_claim_level": _report_text(
+            payload.get("allowed_claim_level"),
+            fallback="delivery_only",
+        ),
+        "review_status": _report_text(
+            payload.get("review_status"),
+            fallback="ready_for_supervisor",
+        ),
+        "reproducibility_status": reproducibility_status,
+        "recommended_next_step_zh": recommended_next_step,
+    }
+
+
+def _delivery_highlights(payload: dict) -> dict[str, object]:
+    highlights = payload.get("delivery_highlights")
+    if isinstance(highlights, dict):
+        return highlights
+
+    solver_metrics = payload.get("solver_metrics") or {}
+    overview = _report_overview(payload)
+    figure_delivery_summary = payload.get("figure_delivery_summary") or {}
+    metric_lines: list[str] = []
+
+    if isinstance(solver_metrics, dict):
+        coefficient_metrics = solver_metrics.get("latest_force_coefficients") or {}
+        if isinstance(coefficient_metrics, dict) and _is_number(
+            coefficient_metrics.get("Cd")
+        ):
+            metric_lines.append(f"阻力系数 Cd：{float(coefficient_metrics['Cd']):.6f}")
+
+        if _is_number(solver_metrics.get("final_time_seconds")):
+            metric_lines.append(
+                f"最终时间步：{float(solver_metrics['final_time_seconds']):g} s"
+            )
+
+        forces = solver_metrics.get("latest_forces") or {}
+        total_force = forces.get("total_force") if isinstance(forces, dict) else None
+        if (
+            isinstance(total_force, list)
+            and total_force
+            and _is_number(total_force[0])
+        ):
+            metric_lines.append(f"总阻力 Fx：{float(total_force[0]):.4f} N")
+
+    metric_lines.append(
+        "允许结论等级："
+        + _report_text(overview.get("allowed_claim_level"), fallback="delivery_only")
+    )
+    metric_lines.append(
+        "复核状态：" + _report_text(overview.get("review_status"), fallback="blocked")
+    )
+    metric_lines.append(
+        "可复现状态："
+        + _report_text(overview.get("reproducibility_status"), fallback="unknown")
+    )
+
+    figure_titles: list[str] = []
+    if isinstance(figure_delivery_summary, dict):
+        for item in figure_delivery_summary.get("figures") or []:
+            if not isinstance(item, dict):
+                continue
+            figure_title = _report_text(
+                item.get("title") or item.get("output_id"),
+                fallback="",
+            )
+            if figure_title and figure_title not in figure_titles:
+                figure_titles.append(figure_title)
+
+    highlight_artifact_virtual_paths = _report_string_list(
+        [
+            payload.get("source_report_virtual_path"),
+            payload.get("provenance_manifest_virtual_path"),
+            payload.get("scientific_gate_virtual_path"),
+            *(_report_string_list(payload.get("final_artifact_virtual_paths"))),
+            *(_report_string_list(payload.get("source_artifact_virtual_paths"))),
+        ]
+    )[:8]
+
+    return {
+        "metric_lines": metric_lines,
+        "figure_titles": figure_titles,
+        "highlight_artifact_virtual_paths": highlight_artifact_virtual_paths,
+    }
+
+
+def _conclusion_sections(payload: dict) -> list[dict[str, object]]:
+    sections = payload.get("conclusion_sections")
+    if isinstance(sections, list):
+        normalized: list[dict[str, object]] = []
+        for item in sections:
+            if not isinstance(item, dict):
+                continue
+            normalized.append(
+                {
+                    "conclusion_id": _report_text(
+                        item.get("conclusion_id"), fallback="conclusion"
+                    ),
+                    "title_zh": _report_text(
+                        item.get("title_zh"), fallback="当前结论"
+                    ),
+                    "summary_zh": _report_text(
+                        item.get("summary_zh"), fallback="暂无结论说明。"
+                    ),
+                    "claim_level": _report_text(
+                        item.get("claim_level"), fallback="delivery_only"
+                    ),
+                    "confidence_label": _report_text(
+                        item.get("confidence_label"), fallback="--"
+                    ),
+                    "inline_source_refs": _report_string_list(
+                        item.get("inline_source_refs")
+                    ),
+                    "evidence_gap_notes": _report_string_list(
+                        item.get("evidence_gap_notes")
+                    ),
+                    "artifact_virtual_paths": _report_string_list(
+                        item.get("artifact_virtual_paths")
+                    ),
+                }
+            )
+        if normalized:
+            return normalized
+
+    overview = _report_overview(payload)
+    research_summary = payload.get("research_evidence_summary") or {}
+    evidence_gap_notes: list[str] = []
+    if isinstance(research_summary, dict):
+        evidence_gap_notes = _report_string_list(research_summary.get("evidence_gaps"))
+
+    return [
+        {
+            "conclusion_id": "current_conclusion",
+            "title_zh": "当前研究结论",
+            "summary_zh": _report_text(
+                overview.get("current_conclusion_zh"),
+                fallback="暂无结论说明。",
+            ),
+            "claim_level": _report_text(
+                overview.get("allowed_claim_level"),
+                fallback="delivery_only",
+            ),
+            "confidence_label": _report_text(
+                (research_summary.get("confidence") if isinstance(research_summary, dict) else None),
+                fallback="--",
+            ),
+            "inline_source_refs": _report_string_list(
+                [
+                    payload.get("source_report_virtual_path"),
+                    payload.get("scientific_gate_virtual_path"),
+                    payload.get("provenance_manifest_virtual_path"),
+                ]
+            ),
+            "evidence_gap_notes": evidence_gap_notes,
+            "artifact_virtual_paths": _report_string_list(
+                [
+                    *(_report_string_list(payload.get("source_artifact_virtual_paths"))),
+                    *(_report_string_list(payload.get("final_artifact_virtual_paths"))),
+                ]
+            )[:8],
+        }
+    ]
+
+
+def _build_evidence_group(
+    group_id: str,
+    group_title_zh: str,
+    artifact_virtual_paths: object,
+    provenance_manifest_virtual_path: object,
+) -> dict[str, object] | None:
+    paths = _report_string_list(artifact_virtual_paths)
+    provenance_path = _report_text(provenance_manifest_virtual_path, fallback="")
+    if not paths and not provenance_path:
+        return None
+    return {
+        "group_id": group_id,
+        "group_title_zh": group_title_zh,
+        "artifact_virtual_paths": paths,
+        "provenance_manifest_virtual_path": provenance_path or None,
+    }
+
+
+def _evidence_index(payload: dict) -> list[dict[str, object]]:
+    evidence_index = payload.get("evidence_index")
+    if isinstance(evidence_index, list):
+        normalized: list[dict[str, object]] = []
+        for item in evidence_index:
+            if not isinstance(item, dict):
+                continue
+            normalized_item = _build_evidence_group(
+                _report_text(item.get("group_id"), fallback="evidence_group"),
+                _report_text(item.get("group_title_zh"), fallback="证据分组"),
+                item.get("artifact_virtual_paths"),
+                item.get("provenance_manifest_virtual_path"),
+            )
+            if normalized_item:
+                normalized.append(normalized_item)
+        if normalized:
+            return normalized
+
+    groups: list[dict[str, object]] = []
+    provenance_manifest_virtual_path = payload.get("provenance_manifest_virtual_path")
+    figure_delivery_summary = payload.get("figure_delivery_summary") or {}
+    research_evidence_summary = payload.get("research_evidence_summary") or {}
+    scientific_followup_summary = payload.get("scientific_followup_summary") or {}
+
+    for maybe_group in [
+        _build_evidence_group(
+            "research_evidence",
+            "研究证据与科学判断",
+            [
+                *(
+                    _report_string_list(
+                        research_evidence_summary.get("artifact_virtual_paths")
+                        if isinstance(research_evidence_summary, dict)
+                        else []
+                    )
+                ),
+                payload.get("scientific_gate_virtual_path"),
+                payload.get("stability_evidence_virtual_path"),
+            ],
+            provenance_manifest_virtual_path,
+        ),
+        _build_evidence_group(
+            "figures_and_delivery",
+            "代表图表与交付产物",
+            [
+                *(_report_string_list(payload.get("final_artifact_virtual_paths"))),
+                *(
+                    _report_string_list(
+                        figure_delivery_summary.get("artifact_virtual_paths")
+                        if isinstance(figure_delivery_summary, dict)
+                        else []
+                    )
+                ),
+            ],
+            provenance_manifest_virtual_path,
+        ),
+        _build_evidence_group(
+            "runtime_and_lineage",
+            "运行产物与追溯锚点",
+            [
+                payload.get("source_report_virtual_path"),
+                payload.get("supervisor_handoff_virtual_path"),
+                *(_report_string_list(payload.get("source_artifact_virtual_paths"))),
+            ],
+            provenance_manifest_virtual_path,
+        ),
+        _build_evidence_group(
+            "followup_and_refresh",
+            "后续动作与刷新链路",
+            (
+                scientific_followup_summary.get("artifact_virtual_paths")
+                if isinstance(scientific_followup_summary, dict)
+                else []
+            ),
+            provenance_manifest_virtual_path,
+        ),
+    ]:
+        if maybe_group:
+            groups.append(maybe_group)
+
+    return groups
+
+
+def _markdown_inline_paths(paths: list[str]) -> str:
+    if not paths:
+        return "暂无"
+    return "；".join(f"`{path}`" for path in paths)
+
+
+def _render_conclusion_summary_markdown(overview: dict[str, object]) -> list[str]:
+    return [
+        "## 结论摘要",
+        _report_text(overview.get("current_conclusion_zh"), fallback="暂无结论摘要。"),
+        "",
+        f"- 允许结论等级：`{_report_text(overview.get('allowed_claim_level'), fallback='delivery_only')}`",
+        f"- 复核状态：`{_report_text(overview.get('review_status'), fallback='blocked')}`",
+        f"- 可复现状态：`{_report_text(overview.get('reproducibility_status'), fallback='unknown')}`",
+    ]
+
+
+def _render_delivery_highlights_markdown(highlights: dict[str, object]) -> list[str]:
+    metric_lines = _report_string_list(highlights.get("metric_lines"))
+    figure_titles = _report_string_list(highlights.get("figure_titles"))
+    highlight_paths = _report_string_list(highlights.get("highlight_artifact_virtual_paths"))
+
+    lines = ["", "## 关键指标与代表图表"]
+    lines.extend(["", "### 关键指标"])
+    lines.extend(f"- {item}" for item in (metric_lines or ["暂无关键指标摘要。"]))
+    lines.extend(["", "### 代表图表"])
+    lines.extend(f"- {item}" for item in (figure_titles or ["暂无代表图表。"]))
+    lines.extend(["", "### 高亮产物"])
+    lines.extend(
+        f"- `{path}`" for path in (highlight_paths or ["暂无高亮产物。"])
+    )
+    return lines
+
+
+def _render_conclusion_sections_markdown(
+    sections: list[dict[str, object]],
+) -> list[str]:
+    lines = ["", "## 结论与证据"]
+    if not sections:
+        lines.append("- 暂无结论条目。")
+        return lines
+
+    for section in sections:
+        evidence_gap_notes = _report_string_list(section.get("evidence_gap_notes"))
+        artifact_paths = _report_string_list(section.get("artifact_virtual_paths"))
+        lines.extend(
+            [
+                "",
+                f"### {_report_text(section.get('title_zh'), fallback='当前结论')}",
+                _report_text(section.get("summary_zh"), fallback="暂无结论说明。"),
+                f"- 来源：{_markdown_inline_paths(_report_string_list(section.get('inline_source_refs')))}",
+                f"- Claim level：`{_report_text(section.get('claim_level'), fallback='delivery_only')}`",
+                f"- 置信度：{_report_text(section.get('confidence_label'), fallback='--')}",
+                f"- 证据缺口：{'; '.join(evidence_gap_notes) if evidence_gap_notes else '暂无'}",
+                f"- 关联产物：{_markdown_inline_paths(artifact_paths)}",
+            ]
+        )
+    return lines
+
+
+def _render_evidence_index_markdown(
+    evidence_index: list[dict[str, object]],
+) -> list[str]:
+    lines = ["", "## 证据索引"]
+    if not evidence_index:
+        lines.append("- 暂无证据索引。")
+        return lines
+
+    for group in evidence_index:
+        artifact_paths = _report_string_list(group.get("artifact_virtual_paths"))
+        provenance_manifest_virtual_path = _report_text(
+            group.get("provenance_manifest_virtual_path"),
+            fallback="",
+        )
+        lines.extend(
+            [
+                "",
+                f"### {_report_text(group.get('group_title_zh'), fallback='证据分组')}",
+            ]
+        )
+        lines.extend(
+            f"- `{path}`" for path in (artifact_paths or ["暂无分组产物。"])
+        )
+        if provenance_manifest_virtual_path:
+            lines.append(
+                f"- provenance_manifest_virtual_path：`{provenance_manifest_virtual_path}`"
+            )
+    return lines
+
+
+def _render_next_steps_markdown(payload: dict, overview: dict[str, object]) -> list[str]:
+    suggestions = [
+        _report_text(
+            overview.get("recommended_next_step_zh"),
+            fallback="回到聊天确认下一步研究动作。",
+        ),
+        *_build_dynamic_report_recommendations(payload),
+    ]
+    deduped_suggestions = _report_string_list(suggestions)
+    followup_summary = payload.get("scientific_followup_summary") or {}
+
+    lines = ["", "## 建议下一步"]
+    lines.extend(f"- {item}" for item in deduped_suggestions)
+
+    next_stage = _report_text(payload.get("next_recommended_stage"), fallback="")
+    if next_stage:
+        lines.append(f"- next_recommended_stage：`{next_stage}`")
+
+    source_report_virtual_path = _report_text(
+        payload.get("source_report_virtual_path"), fallback=""
+    )
+    if source_report_virtual_path:
+        lines.append(f"- source_report_virtual_path：`{source_report_virtual_path}`")
+
+    supervisor_handoff_virtual_path = _report_text(
+        payload.get("supervisor_handoff_virtual_path"),
+        fallback="",
+    )
+    if supervisor_handoff_virtual_path:
+        lines.append(
+            f"- supervisor_handoff_virtual_path：`{supervisor_handoff_virtual_path}`"
+        )
+
+    if isinstance(followup_summary, dict):
+        history_virtual_path = _report_text(
+            followup_summary.get("history_virtual_path"), fallback=""
+        )
+        if history_virtual_path:
+            lines.append(f"- history_virtual_path：`{history_virtual_path}`")
+
+    return lines
+
+
+def render_markdown(payload: dict) -> str:
+    overview = _report_overview(payload)
+    highlights = _delivery_highlights(payload)
+    sections = _conclusion_sections(payload)
+    evidence_index = _evidence_index(payload)
+
+    lines = [
+        f"# {_report_text(payload.get('report_title'), fallback='潜艇 CFD 阶段报告')}",
+        "",
+    ]
+    lines.extend(_render_conclusion_summary_markdown(overview))
+    lines.extend(_render_delivery_highlights_markdown(highlights))
+    lines.extend(_render_conclusion_sections_markdown(sections))
+    lines.extend(_render_evidence_index_markdown(evidence_index))
+    lines.extend(_render_next_steps_markdown(payload, overview))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _html_inline_paths(paths: list[str]) -> str:
+    if not paths:
+        return "暂无"
+    return "；".join(f"<code>{escape(path)}</code>" for path in paths)
+
+
+def _render_html_list(items: list[str], empty_text: str) -> str:
+    if not items:
+        return f"<li>{escape(empty_text)}</li>"
+    return "".join(f"<li>{escape(item)}</li>" for item in items)
+
+
+def _render_conclusion_summary_html(overview: dict[str, object]) -> str:
+    return (
+        '<section class="panel">'
+        "<h2>结论摘要</h2>"
+        f"<p>{escape(_report_text(overview.get('current_conclusion_zh'), fallback='暂无结论摘要。'))}</p>"
+        f"<p><strong>允许结论等级：</strong> <code>{escape(_report_text(overview.get('allowed_claim_level'), fallback='delivery_only'))}</code></p>"
+        f"<p><strong>复核状态：</strong> <code>{escape(_report_text(overview.get('review_status'), fallback='blocked'))}</code></p>"
+        f"<p><strong>可复现状态：</strong> <code>{escape(_report_text(overview.get('reproducibility_status'), fallback='unknown'))}</code></p>"
+        "</section>"
+    )
+
+
+def _render_delivery_highlights_html(highlights: dict[str, object]) -> str:
+    metric_lines = _report_string_list(highlights.get("metric_lines"))
+    figure_titles = _report_string_list(highlights.get("figure_titles"))
+    highlight_paths = _report_string_list(highlights.get("highlight_artifact_virtual_paths"))
+    return (
+        '<section class="panel">'
+        "<h2>关键指标与代表图表</h2>"
+        "<h3>关键指标</h3>"
+        f"<ul>{_render_html_list(metric_lines, '暂无关键指标摘要。')}</ul>"
+        "<h3>代表图表</h3>"
+        f"<ul>{_render_html_list(figure_titles, '暂无代表图表。')}</ul>"
+        "<h3>高亮产物</h3>"
+        "<ul>"
+        + (
+            "".join(f"<li><code>{escape(path)}</code></li>" for path in highlight_paths)
+            or "<li>暂无高亮产物。</li>"
+        )
+        + "</ul>"
+        "</section>"
+    )
+
+
+def _render_conclusion_sections_html(
+    sections: list[dict[str, object]],
+) -> str:
+    if not sections:
+        return '<section class="panel"><h2>结论与证据</h2><p>暂无结论条目。</p></section>'
+
+    rendered_sections = []
+    for section in sections:
+        evidence_gap_notes = _report_string_list(section.get("evidence_gap_notes"))
+        artifact_paths = _report_string_list(section.get("artifact_virtual_paths"))
+        rendered_sections.append(
+            '<article class="conclusion-card">'
+            f"<h3>{escape(_report_text(section.get('title_zh'), fallback='当前结论'))}</h3>"
+            f"<p>{escape(_report_text(section.get('summary_zh'), fallback='暂无结论说明。'))}</p>"
+            f"<p><strong>来源：</strong> {_html_inline_paths(_report_string_list(section.get('inline_source_refs')))}</p>"
+            f"<p><strong>Claim level：</strong> <code>{escape(_report_text(section.get('claim_level'), fallback='delivery_only'))}</code></p>"
+            f"<p><strong>置信度：</strong> {escape(_report_text(section.get('confidence_label'), fallback='--'))}</p>"
+            f"<p><strong>证据缺口：</strong> {escape('; '.join(evidence_gap_notes) if evidence_gap_notes else '暂无')}</p>"
+            f"<p><strong>关联产物：</strong> {_html_inline_paths(artifact_paths)}</p>"
+            "</article>"
+        )
+
+    return (
+        '<section class="panel">'
+        "<h2>结论与证据</h2>"
+        + "".join(rendered_sections)
+        + "</section>"
+    )
+
+
+def _render_evidence_index_html(
+    evidence_index: list[dict[str, object]],
+) -> str:
+    if not evidence_index:
+        return '<section class="panel"><h2>证据索引</h2><p>暂无证据索引。</p></section>'
+
+    rendered_groups = []
+    for group in evidence_index:
+        artifact_paths = _report_string_list(group.get("artifact_virtual_paths"))
+        provenance_manifest_virtual_path = _report_text(
+            group.get("provenance_manifest_virtual_path"),
+            fallback="",
+        )
+        rendered_groups.append(
+            '<div class="evidence-group">'
+            f"<h3>{escape(_report_text(group.get('group_title_zh'), fallback='证据分组'))}</h3>"
+            "<ul>"
+            + (
+                "".join(f"<li><code>{escape(path)}</code></li>" for path in artifact_paths)
+                or "<li>暂无分组产物。</li>"
+            )
+            + (
+                f"<li><strong>provenance_manifest_virtual_path：</strong> <code>{escape(provenance_manifest_virtual_path)}</code></li>"
+                if provenance_manifest_virtual_path
+                else ""
+            )
+            + "</ul>"
+            "</div>"
+        )
+
+    return (
+        '<section class="panel">'
+        "<h2>证据索引</h2>"
+        + "".join(rendered_groups)
+        + "</section>"
+    )
+
+
+def _render_next_steps_html(payload: dict, overview: dict[str, object]) -> str:
+    suggestions = _report_string_list(
+        [
+            _report_text(
+                overview.get("recommended_next_step_zh"),
+                fallback="回到聊天确认下一步研究动作。",
+            ),
+            *_build_dynamic_report_recommendations(payload),
+        ]
+    )
+    followup_summary = payload.get("scientific_followup_summary") or {}
+
+    detail_items = []
+    for label, value in [
+        ("next_recommended_stage", payload.get("next_recommended_stage")),
+        ("source_report_virtual_path", payload.get("source_report_virtual_path")),
+        (
+            "supervisor_handoff_virtual_path",
+            payload.get("supervisor_handoff_virtual_path"),
+        ),
+        (
+            "history_virtual_path",
+            followup_summary.get("history_virtual_path")
+            if isinstance(followup_summary, dict)
+            else None,
+        ),
+    ]:
+        text = _report_text(value, fallback="")
+        if text:
+            detail_items.append(
+                f"<li><strong>{escape(label)}：</strong> <code>{escape(text)}</code></li>"
+            )
+
+    return (
+        '<section class="panel">'
+        "<h2>建议下一步</h2>"
+        f"<ul>{_render_html_list(suggestions, '回到聊天确认下一步研究动作。')}</ul>"
+        + (f"<ul>{''.join(detail_items)}</ul>" if detail_items else "")
+        + "</section>"
+    )
+
+
+def render_html(payload: dict) -> str:
+    overview = _report_overview(payload)
+    highlights = _delivery_highlights(payload)
+    sections = _conclusion_sections(payload)
+    evidence_index = _evidence_index(payload)
+
+    return f"""<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>{escape(_report_text(payload.get("report_title"), fallback="潜艇 CFD 阶段报告"))}</title>
+    <style>
+      body {{
+        margin: 0;
+        padding: 32px;
+        font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif;
+        background: #f7f8fa;
+        color: #111827;
+      }}
+      .panel {{
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 20px 24px;
+        margin-bottom: 16px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      }}
+      .conclusion-card,
+      .evidence-group {{
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 16px;
+        background: #f8fafc;
+        margin-top: 12px;
+      }}
+      h1, h2, h3 {{ margin: 0 0 12px; }}
+      p {{ line-height: 1.7; }}
+      ul {{ margin: 0; padding-left: 20px; }}
+      li {{ margin-bottom: 8px; }}
+      strong {{ color: #0f172a; }}
+      code {{
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      }}
+    </style>
+  </head>
+  <body>
+    <section class="panel">
+      <h1>{escape(_report_text(payload.get("report_title"), fallback="潜艇 CFD 阶段报告"))}</h1>
+      <p>{escape(_report_text(payload.get("summary_zh"), fallback="暂无摘要。"))}</p>
+    </section>
+    {_render_conclusion_summary_html(overview)}
+    {_render_delivery_highlights_html(highlights)}
+    {_render_conclusion_sections_html(sections)}
+    {_render_evidence_index_html(evidence_index)}
+    {_render_next_steps_html(payload, overview)}
+  </body>
+</html>
+"""
+
+
 __all__ = ["render_delivery_readiness_markdown", "render_html", "render_markdown"]

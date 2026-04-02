@@ -412,6 +412,8 @@ export type SubmarineRuntimeSnapshotPayload = {
   scientific_gate_status?: string | null;
   allowed_claim_level?: string | null;
   scientific_gate_virtual_path?: string | null;
+  decision_status?: string | null;
+  delivery_decision_summary?: SubmarineDeliveryDecisionSummaryPayload | null;
   next_recommended_stage?: string | null;
   report_virtual_path?: string | null;
   artifact_virtual_paths?: string[] | null;
@@ -482,6 +484,24 @@ export type SubmarineScientificRemediationHandoffPayload = {
   manual_actions?: SubmarineScientificRemediationManualActionPayload[] | null;
 };
 
+export type SubmarineDeliveryDecisionOptionPayload = {
+  option_id?: string | null;
+  label_zh?: string | null;
+  summary_zh?: string | null;
+  followup_kind?: string | null;
+  requires_additional_execution?: boolean | null;
+};
+
+export type SubmarineDeliveryDecisionSummaryPayload = {
+  decision_status?: string | null;
+  decision_question_zh?: string | null;
+  recommended_option_id?: string | null;
+  options?: SubmarineDeliveryDecisionOptionPayload[] | null;
+  blocking_reason_lines?: string[] | null;
+  advisory_note_lines?: string[] | null;
+  artifact_virtual_paths?: string[] | null;
+};
+
 export type SubmarineScientificFollowupSummaryPayload = {
   history_virtual_path?: string | null;
   entry_count?: number | null;
@@ -489,9 +509,14 @@ export type SubmarineScientificFollowupSummaryPayload = {
   latest_handoff_status?: string | null;
   latest_recommended_action_id?: string | null;
   latest_tool_name?: string | null;
+  latest_followup_kind?: string | null;
+  latest_decision_summary_zh?: string | null;
+  latest_source_conclusion_ids?: string[] | null;
+  latest_source_evidence_gap_ids?: string[] | null;
   latest_dispatch_stage_status?: string | null;
   report_refreshed?: boolean | null;
   latest_result_report_virtual_path?: string | null;
+  latest_result_provenance_manifest_virtual_path?: string | null;
   latest_result_supervisor_handoff_virtual_path?: string | null;
   latest_notes?: string[] | null;
   artifact_virtual_paths?: string[] | null;
@@ -621,6 +646,38 @@ export type SubmarineScientificStudySummaryPayload = {
   studies?: SubmarineScientificStudyEntryPayload[] | null;
 };
 
+export type SubmarineReportOverviewPayload = {
+  current_conclusion_zh?: string | null;
+  allowed_claim_level?: string | null;
+  review_status?: string | null;
+  reproducibility_status?: string | null;
+  recommended_next_step_zh?: string | null;
+};
+
+export type SubmarineDeliveryHighlightsPayload = {
+  metric_lines?: string[] | null;
+  figure_titles?: string[] | null;
+  highlight_artifact_virtual_paths?: string[] | null;
+};
+
+export type SubmarineConclusionSectionPayload = {
+  conclusion_id?: string | null;
+  title_zh?: string | null;
+  summary_zh?: string | null;
+  claim_level?: string | null;
+  confidence_label?: string | null;
+  inline_source_refs?: string[] | null;
+  evidence_gap_notes?: string[] | null;
+  artifact_virtual_paths?: string[] | null;
+};
+
+export type SubmarineEvidenceIndexGroupPayload = {
+  group_id?: string | null;
+  group_title_zh?: string | null;
+  artifact_virtual_paths?: string[] | null;
+  provenance_manifest_virtual_path?: string | null;
+};
+
 export type SubmarineFinalReportPayload = {
   summary_zh?: string;
   solver_metrics?: SubmarineSolverMetrics | null;
@@ -638,11 +695,17 @@ export type SubmarineFinalReportPayload = {
     | SubmarineEnvironmentParityAssessmentPayload
     | null;
   reproducibility_summary?: SubmarineReproducibilitySummaryPayload | null;
+  report_overview?: SubmarineReportOverviewPayload | null;
+  delivery_highlights?: SubmarineDeliveryHighlightsPayload | null;
+  conclusion_sections?: SubmarineConclusionSectionPayload[] | null;
+  evidence_index?: SubmarineEvidenceIndexGroupPayload[] | null;
   acceptance_assessment?: SubmarineAcceptanceAssessment | null;
   research_evidence_summary?: SubmarineResearchEvidenceSummaryPayload | null;
   scientific_supervisor_gate?: SubmarineScientificSupervisorGatePayload | null;
   scientific_gate_status?: string | null;
   allowed_claim_level?: string | null;
+  decision_status?: string | null;
+  delivery_decision_summary?: SubmarineDeliveryDecisionSummaryPayload | null;
   scientific_remediation_summary?:
     | SubmarineScientificRemediationSummaryPayload
     | null;

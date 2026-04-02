@@ -286,6 +286,8 @@ export function SubmarinePipeline({
       review_status: runtime.review_status,
       scientific_gate_status: runtime.scientific_gate_status,
       allowed_claim_level: runtime.allowed_claim_level,
+      decision_status: runtime.decision_status,
+      delivery_decision_summary: runtime.delivery_decision_summary ?? null,
       report_virtual_path: runtime.report_virtual_path,
       // Strip fields not in StageRuntimeSnapshot (target_skills)
       execution_plan: runtime.execution_plan?.map((item) => ({
@@ -343,6 +345,7 @@ export function SubmarinePipeline({
         ).filter((item) => item?.approval_state !== "researcher_confirmed").length,
         scientificGateStatus: runtime?.scientific_gate_status,
         allowedClaimLevel: runtime?.allowed_claim_level,
+        decisionStatus: runtime?.decision_status ?? finalReport?.decision_status,
         scientificVerificationStatus:
           runtime?.scientific_verification_assessment?.status,
         environmentParityStatus:
@@ -360,11 +363,13 @@ export function SubmarinePipeline({
     [
       designBrief,
       finalReport,
+      finalReport?.decision_status,
       isNewThread,
       runtime?.calculation_plan,
       runtime?.allowed_claim_level,
       runtime?.blocker_detail,
       runtime?.clarification_required,
+      runtime?.decision_status,
       runtime?.geometry_findings,
       runtime?.recovery_guidance,
       runtime?.reference_value_suggestions,

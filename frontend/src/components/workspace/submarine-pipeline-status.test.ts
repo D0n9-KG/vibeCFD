@@ -204,6 +204,80 @@ void test("surfaces completed scientific gate blockers instead of looking fully 
   assert.equal(status.errorBanner?.title, "Scientific Gate Blocked");
 });
 
+void test("routes blocked delivery decisions back to chat before scientific gate fallback copy", () => {
+  const status = getSubmarinePipelineStatus({
+    threadError: null,
+    threadIsLoading: false,
+    isNewThread: false,
+    hasMessages: true,
+    hasDesignBrief: true,
+    hasFinalReport: true,
+    designBriefSummary: "baseline 已确认",
+    runtimeTaskSummary: "结果整理完成",
+    runtimeStatus: "completed",
+    runtimeSummary: null,
+    scientificGateStatus: "blocked",
+    allowedClaimLevel: "delivery_only",
+    decisionStatus: "blocked_by_setup",
+  });
+
+  assert.equal(status.tone, "error");
+  assert.equal(status.runLabel, "Blocked by setup");
+  assert.equal(status.outputStatus, "请在聊天中确认下一步。");
+  assert.match(status.summaryText, /Current scientific gate:/);
+  assert.equal(status.errorBanner?.title, "Chat Decision Required");
+});
+
+void test("routes evidence-gap delivery decisions back to chat", () => {
+  const status = getSubmarinePipelineStatus({
+    threadError: null,
+    threadIsLoading: false,
+    isNewThread: false,
+    hasMessages: true,
+    hasDesignBrief: true,
+    hasFinalReport: true,
+    designBriefSummary: "baseline 已确认",
+    runtimeTaskSummary: "结果整理完成",
+    runtimeStatus: "completed",
+    runtimeSummary: null,
+    scientificGateStatus: "claim_limited",
+    allowedClaimLevel: "validated_with_gaps",
+    decisionStatus: "needs_more_evidence",
+  });
+
+  assert.equal(status.tone, "ready");
+  assert.equal(status.runLabel, "Needs more evidence");
+  assert.equal(status.outputStatus, "请在聊天中确认下一步。");
+  assert.match(status.summaryText, /Current scientific gate:/);
+  assert.match(status.summaryText, /Allowed claim level:/);
+  assert.equal(status.errorBanner, null);
+});
+
+void test("routes ready delivery decisions back to chat instead of scientific-claim copy", () => {
+  const status = getSubmarinePipelineStatus({
+    threadError: null,
+    threadIsLoading: false,
+    isNewThread: false,
+    hasMessages: true,
+    hasDesignBrief: true,
+    hasFinalReport: true,
+    designBriefSummary: "baseline 已确认",
+    runtimeTaskSummary: "结果整理完成",
+    runtimeStatus: "completed",
+    runtimeSummary: null,
+    scientificGateStatus: "ready_for_claim",
+    allowedClaimLevel: "research_ready",
+    decisionStatus: "ready_for_user_decision",
+  });
+
+  assert.equal(status.tone, "ready");
+  assert.equal(status.runLabel, "Awaiting chat decision");
+  assert.equal(status.outputStatus, "请在聊天中确认下一步。");
+  assert.match(status.summaryText, /Current scientific gate:/);
+  assert.match(status.summaryText, /Allowed claim level:/);
+  assert.equal(status.errorBanner, null);
+});
+
 void test("labels completed runtimes as awaiting scientific evidence when SCI-01 is incomplete", () => {
   const status = getSubmarinePipelineStatus({
     threadError: null,

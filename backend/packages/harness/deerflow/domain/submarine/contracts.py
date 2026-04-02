@@ -52,6 +52,12 @@ class SupervisorReviewContract(BaseModel):
         "research_ready",
     ] | None = None
     scientific_gate_virtual_path: str | None = None
+    decision_status: Literal[
+        "ready_for_user_decision",
+        "needs_more_evidence",
+        "blocked_by_setup",
+    ] | None = None
+    delivery_decision_summary: "SubmarineDeliveryDecisionSummary | None" = None
 
 
 class SubmarineRuntimeEvent(BaseModel):
@@ -128,6 +134,28 @@ SubmarineScientificClaimLevel = Literal[
     "validated_with_gaps",
     "research_ready",
 ]
+SubmarineDeliveryDecisionStatus = Literal[
+    "ready_for_user_decision",
+    "needs_more_evidence",
+    "blocked_by_setup",
+]
+SubmarineDeliveryDecisionOptionId = Literal[
+    "finish_task",
+    "add_evidence",
+    "fix_setup",
+    "extend_study",
+]
+SubmarineScientificFollowupKind = Literal[
+    "evidence_supplement",
+    "parameter_correction",
+    "study_extension",
+    "task_complete",
+]
+SubmarineScientificFollowupTaskCompletionStatus = Literal[
+    "completed",
+    "continued",
+    "unknown",
+]
 
 
 class SubmarineScientificSupervisorGate(BaseModel):
@@ -138,6 +166,24 @@ class SubmarineScientificSupervisorGate(BaseModel):
     remediation_stage: str | None = None
     blocking_reasons: list[str] = Field(default_factory=list)
     advisory_notes: list[str] = Field(default_factory=list)
+    artifact_virtual_paths: list[str] = Field(default_factory=list)
+
+
+class SubmarineDeliveryDecisionOption(BaseModel):
+    option_id: SubmarineDeliveryDecisionOptionId
+    label_zh: str
+    summary_zh: str
+    followup_kind: SubmarineScientificFollowupKind
+    requires_additional_execution: bool = False
+
+
+class SubmarineDeliveryDecisionSummary(BaseModel):
+    decision_status: SubmarineDeliveryDecisionStatus
+    decision_question_zh: str
+    recommended_option_id: SubmarineDeliveryDecisionOptionId | None = None
+    options: list[SubmarineDeliveryDecisionOption] = Field(default_factory=list)
+    blocking_reason_lines: list[str] = Field(default_factory=list)
+    advisory_note_lines: list[str] = Field(default_factory=list)
     artifact_virtual_paths: list[str] = Field(default_factory=list)
 
 
@@ -309,6 +355,8 @@ class SubmarineRuntimeSnapshot(BaseModel):
     scientific_gate_status: SubmarineScientificGateStatus | None = None
     allowed_claim_level: SubmarineScientificClaimLevel | None = None
     scientific_gate_virtual_path: str | None = None
+    decision_status: SubmarineDeliveryDecisionStatus | None = None
+    delivery_decision_summary: SubmarineDeliveryDecisionSummary | None = None
     next_recommended_stage: str
     report_virtual_path: str
     artifact_virtual_paths: list[str] = Field(default_factory=list)
@@ -325,6 +373,8 @@ def build_supervisor_review_contract(
     scientific_gate_status: SubmarineScientificGateStatus | None = None,
     allowed_claim_level: SubmarineScientificClaimLevel | None = None,
     scientific_gate_virtual_path: str | None = None,
+    decision_status: SubmarineDeliveryDecisionStatus | None = None,
+    delivery_decision_summary: SubmarineDeliveryDecisionSummary | dict[str, Any] | None = None,
 ) -> SupervisorReviewContract:
     return SupervisorReviewContract(
         review_status=review_status,
@@ -334,6 +384,8 @@ def build_supervisor_review_contract(
         scientific_gate_status=scientific_gate_status,
         allowed_claim_level=allowed_claim_level,
         scientific_gate_virtual_path=scientific_gate_virtual_path,
+        decision_status=decision_status,
+        delivery_decision_summary=delivery_decision_summary,
     )
 
 
@@ -394,6 +446,8 @@ def build_runtime_snapshot(
     scientific_gate_status: SubmarineScientificGateStatus | None = None,
     allowed_claim_level: SubmarineScientificClaimLevel | None = None,
     scientific_gate_virtual_path: str | None = None,
+    decision_status: SubmarineDeliveryDecisionStatus | None = None,
+    delivery_decision_summary: SubmarineDeliveryDecisionSummary | dict[str, Any] | None = None,
     activity_timeline: list[SubmarineRuntimeEvent | dict] | None = None,
 ) -> SubmarineRuntimeSnapshot:
     from .runtime_plan import build_runtime_status_payload
@@ -458,6 +512,8 @@ def build_runtime_snapshot(
         scientific_gate_status=scientific_gate_status,
         allowed_claim_level=allowed_claim_level,
         scientific_gate_virtual_path=scientific_gate_virtual_path,
+        decision_status=decision_status,
+        delivery_decision_summary=delivery_decision_summary,
         next_recommended_stage=next_recommended_stage,
         report_virtual_path=report_virtual_path,
         artifact_virtual_paths=artifact_virtual_paths or [],

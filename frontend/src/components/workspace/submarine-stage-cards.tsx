@@ -12,6 +12,7 @@ import {
 import { SubmarineConvergenceChart } from "./submarine-convergence-chart";
 import {
   buildSubmarineAcceptanceSummary,
+  buildSubmarineDeliveryDecisionSummary,
   buildSubmarineExperimentCompareSummary,
   buildSubmarineExperimentSummary,
   buildSubmarineResearchEvidenceSummary,
@@ -21,6 +22,7 @@ import {
 } from "./submarine-runtime-panel.utils";
 import type {
   SubmarineCalculationPlanItem,
+  SubmarineDeliveryDecisionSummaryPayload,
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
   SubmarineGeometryPayload,
@@ -53,6 +55,8 @@ export type StageRuntimeSnapshot = {
   review_status?: string | null;
   scientific_gate_status?: string | null;
   allowed_claim_level?: string | null;
+  decision_status?: string | null;
+  delivery_decision_summary?: SubmarineDeliveryDecisionSummaryPayload | null;
   report_virtual_path?: string | null;
   execution_plan?: Array<{
     role_id?: string | null;
@@ -1494,15 +1498,12 @@ interface SupervisorReviewCardProps {
 }
 
 export function SupervisorReviewCard({
-  threadId,
   snapshot,
   finalReport,
-  onConfirm,
 }: SupervisorReviewCardProps) {
   const state = resolveStageState("supervisor-review", snapshot);
   const reviewStatus = snapshot?.review_status ?? null;
   const gateStatus = snapshot?.scientific_gate_status ?? null;
-  const needsUserConfirmation = reviewStatus === "needs_user_confirmation";
   const scientificGateSummary = buildSubmarineScientificGateSummary(
     finalReport?.scientific_supervisor_gate
       ? finalReport
@@ -1518,6 +1519,16 @@ export function SupervisorReviewCard({
         : null,
   );
   const researchEvidenceSummary = buildSubmarineResearchEvidenceSummary(finalReport);
+  const deliveryDecisionSummary = buildSubmarineDeliveryDecisionSummary(
+    finalReport?.delivery_decision_summary
+      ? finalReport
+      : snapshot?.delivery_decision_summary || snapshot?.decision_status
+        ? {
+            delivery_decision_summary: snapshot?.delivery_decision_summary,
+            decision_status: snapshot?.decision_status,
+          }
+        : null,
+  );
 
   const description =
     state === "done"
@@ -1534,20 +1545,6 @@ export function SupervisorReviewCard({
       : state === "failed"
         ? snapshot?.runtime_summary ?? "Supervisor review failed"
         : null;
-
-  const handleAccept = useCallback(() => {
-    onConfirm(threadId, {
-      role: "human",
-      content: "确认通过，批准当前结果",
-    });
-  }, [threadId, onConfirm]);
-
-  const handleReject = useCallback(() => {
-    onConfirm(threadId, {
-      role: "human",
-      content: "需要重新计算，请说明修改意见",
-    });
-  }, [threadId, onConfirm]);
 
   return (
     <StageCard
@@ -1661,25 +1658,66 @@ export function SupervisorReviewCard({
         </div>
       )}
 
-      {/* User confirmation buttons */}
-      {needsUserConfirmation && (
-        <div className="mt-2 flex gap-2">
-          <button
-            type="button"
-            className="rounded-md bg-green-500 px-4 py-1.5 text-[12px] font-semibold text-white hover:bg-green-600"
-            onClick={handleAccept}
-          >
-            ✓ 确认通过
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-stone-200 bg-white px-4 py-1.5 text-[12px] text-stone-700 hover:bg-stone-50"
-            onClick={handleReject}
-          >
-            需要重算
-          </button>
+      {deliveryDecisionSummary ? (
+        <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 text-sky-950">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700">
+            Continue in Chat
+          </div>
+          <div className="mt-1 text-sm font-medium">请在聊天中确认下一步。</div>
+          {deliveryDecisionSummary.question !== deliveryDecisionSummary.chatPrompt ? (
+            <div className="mt-1 text-[11px] leading-5 text-sky-800">
+              {deliveryDecisionSummary.question}
+            </div>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+            <span className="rounded-full bg-white/80 px-2.5 py-1 font-medium text-sky-800">
+              {deliveryDecisionSummary.decisionStatusLabel}
+            </span>
+            <span className="rounded-full bg-white/80 px-2.5 py-1 font-medium text-sky-800">
+              推荐：{deliveryDecisionSummary.recommendedOptionLabel}
+            </span>
+          </div>
+          {deliveryDecisionSummary.options.length > 0 ? (
+            <div className="mt-3 space-y-2">
+              {deliveryDecisionSummary.options.map((item) => (
+                <div
+                  key={item.optionId}
+                  className="rounded-xl border border-sky-200 bg-white/80 px-3 py-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-sky-950">
+                      {item.label}
+                    </span>
+                    {item.optionId === deliveryDecisionSummary.recommendedOptionId ? (
+                      <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-700">
+                        Recommended
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-1 text-[11px] leading-5 text-sky-900">
+                    {item.summary}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {(deliveryDecisionSummary.blockingReasons.length > 0 ||
+            deliveryDecisionSummary.advisoryNotes.length > 0) && (
+            <div className="mt-3 grid gap-3 xl:grid-cols-2">
+              <StageListCard
+                title="Blocking Context"
+                items={deliveryDecisionSummary.blockingReasons}
+                emptyText="No blocking context is recorded."
+              />
+              <StageListCard
+                title="Advisory Notes"
+                items={deliveryDecisionSummary.advisoryNotes}
+                emptyText="No advisory notes are recorded."
+              />
+            </div>
+          )}
         </div>
-      )}
+      ) : null}
 
       {state === "active" && !reviewStatus && (
         <div className="text-[11px] text-stone-400">Supervisor 正在复核…</div>
@@ -1689,7 +1727,7 @@ export function SupervisorReviewCard({
           title="复核阶段负责收口科研闭环"
           items={[
             "检查 claim level、验证状态与证据缺口",
-            "决定是否接受当前结果、要求重算或触发 followup",
+            "整理下一步选项，并提示用户回到主聊天确认",
             "把用户确认与 scientific gate 串成完整交付闭环",
           ]}
         />

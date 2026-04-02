@@ -1,4 +1,5 @@
 import type {
+  SubmarineDeliveryDecisionSummaryPayload,
   SubmarineDesignBriefPayload,
   SubmarineExecutionOutlineItem,
   SubmarineFinalReportPayload,
@@ -325,19 +326,78 @@ export type SubmarineScientificRemediationHandoffSummary = {
   }>;
 };
 
+export type SubmarineDeliveryDecisionSummary = {
+  decisionStatus: string;
+  decisionStatusLabel: string;
+  question: string;
+  chatPrompt: string;
+  recommendedOptionId: string;
+  recommendedOptionLabel: string;
+  options: Array<{
+    optionId: string;
+    label: string;
+    summary: string;
+    followupKind: string;
+    followupKindLabel: string;
+    requiresAdditionalExecution: boolean;
+  }>;
+  blockingReasons: string[];
+  advisoryNotes: string[];
+  artifactPaths: string[];
+};
+
 export type SubmarineScientificFollowupSummary = {
   entryCount: number;
   latestOutcomeLabel: string;
   latestHandoffStatusLabel: string;
   latestRecommendedActionId: string;
   latestToolName: string;
+  latestFollowupKind: string;
+  latestFollowupKindLabel: string;
+  latestDecisionSummary: string;
+  latestSourceConclusionIds: string[];
+  latestSourceEvidenceGapIds: string[];
   latestDispatchStageStatusLabel: string;
   reportRefreshedLabel: string;
   historyPath: string;
   latestResultReportPath: string;
+  latestResultProvenanceManifestPath: string;
   latestResultHandoffPath: string;
   latestNotes: string[];
   artifactPaths: string[];
+};
+
+export type SubmarineReportOverviewSummary = {
+  currentConclusion: string;
+  allowedClaimLevel: string;
+  allowedClaimLevelLabel: string;
+  reviewStatus: string;
+  reviewStatusLabel: string;
+  reproducibilityStatus: string;
+  reproducibilityStatusLabel: string;
+  recommendedNextStep: string;
+};
+
+export type SubmarineConclusionSectionSummary = {
+  conclusionId: string;
+  title: string;
+  summary: string;
+  claimLevel: string;
+  claimLevelLabel: string;
+  confidenceLabel: string;
+  inlineSourceRefs: string[];
+  evidenceGapNotes: string[];
+  artifactPaths: string[];
+};
+
+export type SubmarineEvidenceIndexSummary = {
+  groupCount: number;
+  groups: Array<{
+    groupId: string;
+    groupTitle: string;
+    artifactPaths: string[];
+    provenanceManifestPath: string;
+  }>;
 };
 
 export type SubmarineAcceptanceSummary = {
@@ -520,6 +580,12 @@ const REPRODUCIBILITY_STATUS_LABELS: Record<string, string> = {
   blocked: "Blocked Runtime Parity",
 };
 
+const REPORT_REVIEW_STATUS_LABELS: Record<string, string> = {
+  ready_for_supervisor: "Ready For Supervisor",
+  needs_user_confirmation: "Needs User Confirmation",
+  blocked: "Blocked",
+};
+
 const SCIENTIFIC_GATE_STATUS_LABELS: Record<string, string> = {
   ready_for_claim: "Ready For Claim",
   claim_limited: "Claim Limited",
@@ -596,6 +662,21 @@ const SCIENTIFIC_REMEDIATION_HANDOFF_STATUS_LABELS: Record<string, string> = {
   not_needed: "Not Needed",
 };
 
+const DELIVERY_DECISION_STATUS_LABELS: Record<string, string> = {
+  ready_for_user_decision: "Ready For User Decision",
+  needs_more_evidence: "Needs More Evidence",
+  blocked_by_setup: "Blocked By Setup",
+};
+
+const DELIVERY_DECISION_FOLLOWUP_KIND_LABELS: Record<string, string> = {
+  evidence_supplement: "Evidence Supplement",
+  parameter_correction: "Parameter Correction",
+  study_extension: "Study Extension",
+  task_complete: "Task Complete",
+};
+
+const DELIVERY_DECISION_CHAT_PROMPT = "请在聊天中确认下一步。";
+
 const SCIENTIFIC_FOLLOWUP_OUTCOME_LABELS: Record<string, string> = {
   error: "Error",
   invalid_tool_args: "Invalid Tool Args",
@@ -606,6 +687,13 @@ const SCIENTIFIC_FOLLOWUP_OUTCOME_LABELS: Record<string, string> = {
   dispatch_planned: "Dispatch Planned",
   dispatch_failed: "Dispatch Failed",
   dispatch_refreshed_report: "Dispatch Refreshed Report",
+};
+
+const SCIENTIFIC_FOLLOWUP_KIND_LABELS: Record<string, string> = {
+  evidence_supplement: "补充证据",
+  parameter_correction: "修正参数",
+  study_extension: "扩展研究",
+  task_complete: "任务完成",
 };
 
 const DISPATCH_STAGE_STATUS_LABELS: Record<string, string> = {
@@ -2216,6 +2304,73 @@ export function buildSubmarineReproducibilitySummary(
   };
 }
 
+export function buildSubmarineReportOverviewSummary(
+  payload: SubmarineFinalReportPayload | null | undefined,
+): SubmarineReportOverviewSummary | null {
+  const overview = payload?.report_overview;
+  if (!overview) {
+    return null;
+  }
+
+  const allowedClaimLevel = overview.allowed_claim_level ?? "--";
+  const reviewStatus = overview.review_status ?? "--";
+  const reproducibilityStatus = overview.reproducibility_status ?? "--";
+
+  return {
+    currentConclusion: overview.current_conclusion_zh ?? "--",
+    allowedClaimLevel,
+    allowedClaimLevelLabel:
+      SCIENTIFIC_CLAIM_LEVEL_LABELS[allowedClaimLevel] ?? allowedClaimLevel,
+    reviewStatus,
+    reviewStatusLabel:
+      REPORT_REVIEW_STATUS_LABELS[reviewStatus] ?? reviewStatus,
+    reproducibilityStatus,
+    reproducibilityStatusLabel:
+      REPRODUCIBILITY_STATUS_LABELS[reproducibilityStatus] ??
+      reproducibilityStatus,
+    recommendedNextStep: overview.recommended_next_step_zh ?? "--",
+  };
+}
+
+export function buildSubmarineConclusionSectionsSummary(
+  payload: SubmarineFinalReportPayload | null | undefined,
+): SubmarineConclusionSectionSummary[] {
+  return (payload?.conclusion_sections ?? []).filter(Boolean).map((item) => {
+    const claimLevel = item.claim_level ?? "--";
+    return {
+      conclusionId: item.conclusion_id ?? "conclusion",
+      title: item.title_zh ?? "--",
+      summary: item.summary_zh ?? "--",
+      claimLevel,
+      claimLevelLabel:
+        SCIENTIFIC_CLAIM_LEVEL_LABELS[claimLevel] ?? claimLevel,
+      confidenceLabel: item.confidence_label ?? "--",
+      inlineSourceRefs: item.inline_source_refs?.filter(Boolean) ?? [],
+      evidenceGapNotes: item.evidence_gap_notes?.filter(Boolean) ?? [],
+      artifactPaths: item.artifact_virtual_paths?.filter(Boolean) ?? [],
+    };
+  });
+}
+
+export function buildSubmarineEvidenceIndexSummary(
+  payload: SubmarineFinalReportPayload | null | undefined,
+): SubmarineEvidenceIndexSummary | null {
+  const groups = (payload?.evidence_index ?? []).filter(Boolean).map((item) => ({
+    groupId: item.group_id ?? "evidence_group",
+    groupTitle: item.group_title_zh ?? "--",
+    artifactPaths: item.artifact_virtual_paths?.filter(Boolean) ?? [],
+    provenanceManifestPath: item.provenance_manifest_virtual_path ?? "--",
+  }));
+  if (groups.length === 0) {
+    return null;
+  }
+
+  return {
+    groupCount: groups.length,
+    groups,
+  };
+}
+
 export function buildSubmarineScientificGateSummary(
   payload: SubmarineFinalReportPayload | null | undefined,
 ): SubmarineScientificGateSummary | null {
@@ -2360,6 +2515,52 @@ export function buildSubmarineScientificRemediationHandoffSummary(
   };
 }
 
+export function buildSubmarineDeliveryDecisionSummary(
+  payload:
+    | {
+        delivery_decision_summary?: SubmarineDeliveryDecisionSummaryPayload | null;
+        decision_status?: string | null;
+      }
+    | null
+    | undefined,
+): SubmarineDeliveryDecisionSummary | null {
+  const summary = payload?.delivery_decision_summary;
+  if (!summary && !payload?.decision_status) {
+    return null;
+  }
+
+  const decisionStatus = summary?.decision_status ?? payload?.decision_status ?? "--";
+  const options = (summary?.options ?? []).filter(Boolean).map((item) => ({
+    optionId: item.option_id ?? "unknown",
+    label: item.label_zh ?? item.option_id ?? "--",
+    summary: item.summary_zh ?? "--",
+    followupKind: item.followup_kind ?? "--",
+    followupKindLabel:
+      DELIVERY_DECISION_FOLLOWUP_KIND_LABELS[item.followup_kind ?? ""] ??
+      item.followup_kind ??
+      "--",
+    requiresAdditionalExecution: Boolean(item.requires_additional_execution),
+  }));
+  const recommendedOptionId = summary?.recommended_option_id ?? "none";
+  const recommendedOptionLabel =
+    options.find((item) => item.optionId === recommendedOptionId)?.label ??
+    recommendedOptionId;
+
+  return {
+    decisionStatus,
+    decisionStatusLabel:
+      DELIVERY_DECISION_STATUS_LABELS[decisionStatus] ?? decisionStatus,
+    question: summary?.decision_question_zh ?? DELIVERY_DECISION_CHAT_PROMPT,
+    chatPrompt: DELIVERY_DECISION_CHAT_PROMPT,
+    recommendedOptionId,
+    recommendedOptionLabel,
+    options,
+    blockingReasons: summary?.blocking_reason_lines?.filter(Boolean) ?? [],
+    advisoryNotes: summary?.advisory_note_lines?.filter(Boolean) ?? [],
+    artifactPaths: summary?.artifact_virtual_paths?.filter(Boolean) ?? [],
+  };
+}
+
 export function buildSubmarineScientificFollowupSummary(
   payload: SubmarineFinalReportPayload | null | undefined,
 ): SubmarineScientificFollowupSummary | null {
@@ -2385,6 +2586,16 @@ export function buildSubmarineScientificFollowupSummary(
       "--",
     latestRecommendedActionId: summary.latest_recommended_action_id ?? "none",
     latestToolName: summary.latest_tool_name ?? "none",
+    latestFollowupKind: summary.latest_followup_kind ?? "none",
+    latestFollowupKindLabel:
+      SCIENTIFIC_FOLLOWUP_KIND_LABELS[summary.latest_followup_kind ?? ""] ??
+      summary.latest_followup_kind ??
+      "none",
+    latestDecisionSummary: summary.latest_decision_summary_zh ?? "--",
+    latestSourceConclusionIds:
+      summary.latest_source_conclusion_ids?.filter(Boolean) ?? [],
+    latestSourceEvidenceGapIds:
+      summary.latest_source_evidence_gap_ids?.filter(Boolean) ?? [],
     latestDispatchStageStatusLabel:
       DISPATCH_STAGE_STATUS_LABELS[summary.latest_dispatch_stage_status ?? ""] ??
       summary.latest_dispatch_stage_status ??
@@ -2392,6 +2603,8 @@ export function buildSubmarineScientificFollowupSummary(
     reportRefreshedLabel: summary.report_refreshed ? "Yes" : "No",
     historyPath: summary.history_virtual_path ?? "--",
     latestResultReportPath: summary.latest_result_report_virtual_path ?? "--",
+    latestResultProvenanceManifestPath:
+      summary.latest_result_provenance_manifest_virtual_path ?? "--",
     latestResultHandoffPath:
       summary.latest_result_supervisor_handoff_virtual_path ?? "--",
     latestNotes: summary.latest_notes?.filter(Boolean) ?? [],

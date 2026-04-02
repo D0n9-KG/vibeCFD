@@ -33,6 +33,7 @@ def _make_runtime(
                 "review_status": "ready_for_supervisor",
                 "next_recommended_stage": "supervisor-review",
                 "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+                "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
                 "artifact_virtual_paths": [],
                 "activity_timeline": [],
                 "supervisor_handoff_virtual_path": supervisor_handoff_virtual_path,
@@ -202,6 +203,91 @@ def test_submarine_scientific_followup_reports_not_needed_handoff(tmp_path):
     assert history_entry["outcome_status"] == "not_needed"
     assert history_entry["report_refreshed"] is False
     assert history_entry["source_handoff_virtual_path"] == handoff_virtual_path
+
+
+def test_submarine_scientific_followup_records_task_complete_without_rerun(
+    tmp_path, monkeypatch
+):
+    tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_scientific_followup_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-followup-task-complete"
+    handoff_virtual_path = _write_handoff_artifact(
+        paths,
+        thread_id=thread_id,
+        payload={
+            "handoff_status": "manual_followup_required",
+            "recommended_action_id": "attach-validation-reference",
+            "tool_name": None,
+            "tool_args": None,
+            "reason": "The user accepted the current evidence package as sufficient.",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"
+            ],
+            "manual_actions": [],
+        },
+    )
+    runtime = _make_runtime(
+        paths,
+        thread_id=thread_id,
+        supervisor_handoff_virtual_path=handoff_virtual_path,
+    )
+
+    dispatch_calls: list[dict[str, object]] = []
+    report_calls: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        tool_module,
+        "submarine_solver_dispatch_tool",
+        SimpleNamespace(func=lambda **kwargs: dispatch_calls.append(kwargs)),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        tool_module,
+        "submarine_result_report_tool",
+        SimpleNamespace(func=lambda **kwargs: report_calls.append(kwargs)),
+        raising=False,
+    )
+
+    result = tool_module.submarine_scientific_followup_tool.func(
+        runtime=runtime,
+        followup_kind="task_complete",
+        decision_summary_zh="接受当前结论作为任务终点。",
+        source_conclusion_ids=["current_conclusion"],
+        source_evidence_gap_ids=["missing_validation_reference"],
+        tool_call_id="tc-followup-task-complete",
+    )
+
+    history = _read_report_artifact(
+        paths,
+        thread_id=thread_id,
+        filename="scientific-followup-history.json",
+    )
+    history_entry = history["entries"][0]
+
+    assert dispatch_calls == []
+    assert report_calls == []
+    assert "task completion" in result.update["messages"][0].content
+    assert history["entry_count"] == 1
+    assert history_entry["followup_kind"] == "task_complete"
+    assert history_entry["decision_summary_zh"] == "接受当前结论作为任务终点。"
+    assert history_entry["source_conclusion_ids"] == ["current_conclusion"]
+    assert history_entry["source_evidence_gap_ids"] == [
+        "missing_validation_reference"
+    ]
+    assert history_entry["task_completion_status"] == "completed"
+    assert history_entry["outcome_status"] == "task_complete"
+    assert history_entry["report_refreshed"] is False
+    assert (
+        history_entry["result_report_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/demo/final-report.md"
+    )
+    assert (
+        history_entry["result_provenance_manifest_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json"
+    )
 
 
 def test_submarine_scientific_followup_executes_solver_dispatch_handoff(
@@ -474,6 +560,7 @@ def test_submarine_scientific_followup_refreshes_report_after_executed_dispatch(
                     "current_stage": "result-reporting",
                     "stage_status": "executed",
                     "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+                    "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest-refreshed.json",
                     "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
                 },
                 "messages": [
@@ -500,6 +587,10 @@ def test_submarine_scientific_followup_refreshes_report_after_executed_dispatch(
 
     result = tool_module.submarine_scientific_followup_tool.func(
         runtime=runtime,
+        followup_kind="evidence_supplement",
+        decision_summary_zh="补齐外部验证证据后刷新报告。",
+        source_conclusion_ids=["current_conclusion"],
+        source_evidence_gap_ids=["missing_validation_reference"],
         tool_call_id="tc-followup-refresh",
     )
 
@@ -523,11 +614,22 @@ def test_submarine_scientific_followup_refreshes_report_after_executed_dispatch(
     ].content
     assert history["entry_count"] == 1
     assert history_entry["outcome_status"] == "dispatch_refreshed_report"
+    assert history_entry["followup_kind"] == "evidence_supplement"
+    assert history_entry["decision_summary_zh"] == "补齐外部验证证据后刷新报告。"
+    assert history_entry["source_conclusion_ids"] == ["current_conclusion"]
+    assert history_entry["source_evidence_gap_ids"] == [
+        "missing_validation_reference"
+    ]
+    assert history_entry["task_completion_status"] == "continued"
     assert history_entry["dispatch_stage_status"] == "executed"
     assert history_entry["report_refreshed"] is True
     assert (
         history_entry["result_report_virtual_path"]
         == "/mnt/user-data/outputs/submarine/reports/demo/final-report.md"
+    )
+    assert (
+        history_entry["result_provenance_manifest_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest-refreshed.json"
     )
     assert (
         history_entry["result_supervisor_handoff_virtual_path"]

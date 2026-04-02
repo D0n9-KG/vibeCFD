@@ -102,9 +102,28 @@ def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypat
     assert payload["next_recommended_stage"] == "solver-dispatch"
     assert payload["scientific_supervisor_gate"]["gate_status"] == "blocked"
     assert payload["scientific_supervisor_gate"]["allowed_claim_level"] == "delivery_only"
+    assert payload["decision_status"] == "blocked_by_setup"
+    assert payload["delivery_decision_summary"]["decision_status"] == "blocked_by_setup"
+    assert payload["delivery_decision_summary"]["recommended_option_id"] == "fix_setup"
+    assert [item["option_id"] for item in payload["delivery_decision_summary"]["options"]] == [
+        "fix_setup"
+    ]
     assert payload["scientific_followup_summary"] is None
     assert payload["report_virtual_path"].endswith("/final-report.md")
     assert payload["artifact_virtual_paths"]
+    assert payload["report_overview"]["current_conclusion_zh"] == payload["summary_zh"]
+    assert payload["report_overview"]["allowed_claim_level"] == "delivery_only"
+    assert payload["delivery_highlights"]["metric_lines"]
+    assert payload["conclusion_sections"]
+    assert (
+        payload["conclusion_sections"][0]["claim_level"]
+        == payload["report_overview"]["allowed_claim_level"]
+    )
+    assert payload["conclusion_sections"][0]["inline_source_refs"]
+    assert payload["evidence_index"]
+    assert any(
+        item["group_id"] == "runtime_and_lineage" for item in payload["evidence_index"]
+    )
     assert result.update["submarine_runtime"]["current_stage"] == "result-reporting"
     assert result.update["submarine_runtime"]["report_virtual_path"].endswith("/final-report.md")
     assert (
@@ -112,6 +131,13 @@ def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypat
         is None
     )
     assert result.update["submarine_runtime"]["scientific_gate_status"] == "blocked"
+    assert result.update["submarine_runtime"]["decision_status"] == "blocked_by_setup"
+    assert (
+        result.update["submarine_runtime"]["delivery_decision_summary"][
+            "recommended_option_id"
+        ]
+        == "fix_setup"
+    )
 
 
 def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
@@ -303,28 +329,41 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
     assert payload["solver_metrics"]["simulation_requirements"]["end_time_seconds"] == 600.0
     assert payload["solver_metrics"]["mesh_summary"]["cells"] == 9342
     assert payload["solver_metrics"]["residual_summary"]["latest_by_field"]["p"]["final_residual"] == 0.00014
-    assert "计算要求" in markdown
-    assert "write_interval_steps" in markdown
-    assert "网格质量摘要" in markdown
-    assert "残差收敛摘要" in markdown
-    assert "- 任务摘要: `真实 OpenFOAM 结果整理`" in markdown
-    assert "confirmed" in markdown
-    assert "execute_now" in markdown
-    assert "<strong>任务摘要:</strong> 真实 OpenFOAM 结果整理" in html
-    assert "confirmed" in html
-    assert "execute_now" in html
-    assert "<strong>执行就绪状态:</strong> stl_ready" in html
-    assert "<strong>选定案例:</strong> darpa_suboff_bare_hull_resistance" in html
-    assert f"<strong>review_status:</strong> {payload['review_status']}" in html
-    assert f"<strong>next_recommended_stage:</strong> {payload['next_recommended_stage']}" in html
-    assert (
-        f"<strong>source_report_virtual_path:</strong> {payload['source_report_virtual_path']}"
-        in html
+    assert payload["report_overview"]["allowed_claim_level"] == "delivery_only"
+    assert payload["report_overview"]["review_status"] == payload["review_status"]
+    assert payload["delivery_highlights"]["metric_lines"]
+    assert any("Cd" in line for line in payload["delivery_highlights"]["metric_lines"])
+    assert payload["conclusion_sections"]
+    assert payload["conclusion_sections"][0]["claim_level"] == "delivery_only"
+    assert payload["evidence_index"]
+    markdown_headings = [
+        "## 结论摘要",
+        "## 关键指标与代表图表",
+        "## 结论与证据",
+        "## 证据索引",
+        "## 建议下一步",
+    ]
+    html_headings = [
+        "<h2>结论摘要</h2>",
+        "<h2>关键指标与代表图表</h2>",
+        "<h2>结论与证据</h2>",
+        "<h2>证据索引</h2>",
+        "<h2>建议下一步</h2>",
+    ]
+    assert [markdown.index(item) for item in markdown_headings] == sorted(
+        markdown.index(item) for item in markdown_headings
     )
-    assert (
-        f"<strong>supervisor_handoff_virtual_path:</strong> {payload['supervisor_handoff_virtual_path']}"
-        in html
+    assert [html.index(item) for item in html_headings] == sorted(
+        html.index(item) for item in html_headings
     )
+    assert "来源：" in markdown
+    assert "Claim level：" in markdown
+    assert "置信度：" in markdown
+    assert "证据缺口：" in markdown
+    assert "<strong>来源：</strong>" in html
+    assert "<strong>Claim level：</strong>" in html
+    assert "<strong>置信度：</strong>" in html
+    assert "<strong>证据缺口：</strong>" in html
     assert any(path.endswith("/final-report.json") for path in result.update["artifacts"])
     assert len(result.update["submarine_runtime"]["activity_timeline"]) == 3
     assert result.update["submarine_runtime"]["activity_timeline"][-1]["stage"] == "result-reporting"
@@ -1566,16 +1605,12 @@ def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
         path.endswith("/figure-manifest.json")
         for path in final_payload["artifact_virtual_paths"]
     )
-    assert "## Figure Delivery" in final_markdown
-    assert "Surface pressure contour over the selected hull patches" in final_markdown
-    assert "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)" in final_markdown
-    assert "<h2>Figure Delivery</h2>" in final_html
-    assert "Surface pressure contour over the selected hull patches" in final_html
-    assert "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)" in final_html
-    assert "selector=patch[hull]" in final_markdown
-    assert "selector=plane[x/Lref=1.25; normal=(1, 0, 0)]" in final_markdown
-    assert "selector=patch[hull]" in final_html
-    assert "selector=plane[x/Lref=1.25; normal=(1, 0, 0)]" in final_html
+    assert "## 关键指标与代表图表" in final_markdown
+    assert "Surface Pressure Result" in final_markdown
+    assert "Wake Velocity Slice" in final_markdown
+    assert "<h2>关键指标与代表图表</h2>" in final_html
+    assert "Surface Pressure Result" in final_html
+    assert "Wake Velocity Slice" in final_html
 
 
 def test_submarine_result_report_adds_scientific_verification_assessment(tmp_path):
@@ -1794,7 +1829,7 @@ def test_submarine_result_report_adds_scientific_verification_assessment(tmp_pat
         "mesh independence" in item.lower()
         for item in assessment["missing_evidence"]
     )
-    assert "Scientific Verification" in markdown
+    assert "## 结论与证据" in markdown
 
 
 def test_scientific_verification_marks_study_artifact_as_passed(tmp_path):
@@ -2570,10 +2605,8 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
         "/studies/mesh-independence/coarse/run-record.json"
     )
     assert comparison["metric_deltas"]["Cd"]["relative_delta"] == 0.01
-    assert "## Experiment Compare" in final_markdown
-    assert "mesh_independence:coarse" in final_markdown
-    assert "<h2>Experiment Compare</h2>" in final_html
-    assert "mesh_independence:coarse" in final_html
+    assert "## 证据索引" in final_markdown
+    assert "<h2>证据索引</h2>" in final_html
 
 
 def test_submarine_result_report_marks_verified_but_not_validated_without_benchmark_reference(
@@ -2783,6 +2816,20 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     assert gate["allowed_claim_level"] == "verified_but_not_validated"
     assert gate["recommended_stage"] == "supervisor-review"
     assert gate["remediation_stage"] == "solver-dispatch"
+    assert final_payload["decision_status"] == "needs_more_evidence"
+    assert (
+        final_payload["delivery_decision_summary"]["decision_status"]
+        == "needs_more_evidence"
+    )
+    assert (
+        final_payload["delivery_decision_summary"]["recommended_option_id"]
+        == "add_evidence"
+    )
+    assert [item["option_id"] for item in final_payload["delivery_decision_summary"]["options"]] == [
+        "add_evidence",
+        "finish_task",
+        "extend_study",
+    ]
     assert remediation["plan_status"] == "recommended"
     assert remediation["current_claim_level"] == "verified_but_not_validated"
     assert remediation["target_claim_level"] == "research_ready"
@@ -2807,15 +2854,14 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     assert handoff_path.exists()
     handoff_payload = json.loads(handoff_path.read_text(encoding="utf-8"))
     assert handoff_payload["handoff_status"] == "manual_followup_required"
-    assert "## Scientific Remediation Plan" in final_markdown
-    assert "attach-validation-reference" in final_markdown
-    assert "进入 `supervisor-review` 审阅当前 claim level，并确认是否需要执行手动整改项。" in final_markdown
-    assert "<h2>Scientific Remediation Plan</h2>" in final_html
-    assert "attach-validation-reference" in final_html
-    assert "进入 <code>supervisor-review</code> 审阅当前 claim level，并确认是否需要执行手动整改项。" in final_html
+    assert "## 建议下一步" in final_markdown
+    assert final_payload["report_overview"]["recommended_next_step_zh"] in final_markdown
+    assert "<h2>建议下一步</h2>" in final_html
+    assert final_payload["report_overview"]["recommended_next_step_zh"] in final_html
     assert result.update["submarine_runtime"]["supervisor_handoff_virtual_path"].endswith(
         "/scientific-remediation-handoff.json"
     )
+    assert result.update["submarine_runtime"]["decision_status"] == "needs_more_evidence"
 
 
 def test_submarine_result_report_marks_research_ready_with_validation_and_traceable_evidence(
@@ -3124,6 +3170,15 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
     assert gate["allowed_claim_level"] == "research_ready"
     assert gate["recommended_stage"] == "supervisor-review"
     assert gate["remediation_stage"] is None
+    assert final_payload["decision_status"] == "ready_for_user_decision"
+    assert (
+        final_payload["delivery_decision_summary"]["recommended_option_id"]
+        == "finish_task"
+    )
+    assert [item["option_id"] for item in final_payload["delivery_decision_summary"]["options"]] == [
+        "finish_task",
+        "extend_study",
+    ]
     assert final_payload["review_status"] == "ready_for_supervisor"
     assert final_payload["next_recommended_stage"] == "supervisor-review"
     assert final_payload["scientific_gate_virtual_path"].endswith(
@@ -3137,6 +3192,7 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
         path.endswith("/supervisor-scientific-gate.json")
         for path in final_payload["artifact_virtual_paths"]
     )
+    assert result.update["submarine_runtime"]["decision_status"] == "ready_for_user_decision"
     assert (
         result.update["submarine_runtime"]["provenance_manifest_virtual_path"]
         == provenance_manifest_virtual_path
@@ -3472,7 +3528,7 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
         "/supervisor-scientific-gate.json"
     )
     assert "回到 `solver-dispatch` 补齐验证或整改项后，再刷新最终报告。" in markdown
-    assert "回到 <code>solver-dispatch</code> 补齐验证或整改项后，再刷新最终报告。" in html
+    assert final_payload["report_overview"]["recommended_next_step_zh"] in html
     assert result.update["submarine_runtime"]["review_status"] == "blocked"
     assert result.update["submarine_runtime"]["scientific_gate_status"] == "blocked"
     assert result.update["submarine_runtime"]["execution_plan"][-1]["status"] == "blocked"
@@ -3534,11 +3590,17 @@ def test_submarine_result_report_surfaces_scientific_followup_summary(
                         "handoff_status": "ready_for_auto_followup",
                         "recommended_action_id": "execute-scientific-studies",
                         "tool_name": "submarine_solver_dispatch",
+                        "followup_kind": "parameter_correction",
+                        "decision_summary_zh": "先修正设置，再决定是否重新运行。",
+                        "source_conclusion_ids": ["current_conclusion"],
+                        "source_evidence_gap_ids": ["invalid_setup"],
                         "outcome_status": "dispatch_failed",
                         "dispatch_stage_status": "failed",
                         "report_refreshed": False,
                         "result_report_virtual_path": None,
+                        "result_provenance_manifest_virtual_path": None,
                         "result_supervisor_handoff_virtual_path": None,
+                        "task_completion_status": "continued",
                         "artifact_virtual_paths": [history_virtual_path],
                         "notes": ["The solver dispatch failed in the previous attempt."],
                     },
@@ -3550,14 +3612,21 @@ def test_submarine_result_report_surfaces_scientific_followup_summary(
                         "handoff_status": "ready_for_auto_followup",
                         "recommended_action_id": "execute-scientific-studies",
                         "tool_name": "submarine_solver_dispatch",
+                        "followup_kind": "evidence_supplement",
+                        "decision_summary_zh": "补齐外部验证证据后刷新报告。",
+                        "source_conclusion_ids": ["current_conclusion"],
+                        "source_evidence_gap_ids": ["missing_validation_reference"],
                         "outcome_status": "dispatch_refreshed_report",
                         "dispatch_stage_status": "executed",
                         "report_refreshed": True,
                         "result_report_virtual_path": "/mnt/user-data/outputs/submarine/reports/followup-summary/final-report.md",
+                        "result_provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/followup-summary/provenance-manifest.json",
                         "result_supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/followup-summary/scientific-remediation-handoff.json",
+                        "task_completion_status": "continued",
                         "artifact_virtual_paths": [
                             history_virtual_path,
                             "/mnt/user-data/outputs/submarine/reports/followup-summary/final-report.md",
+                            "/mnt/user-data/outputs/submarine/solver-dispatch/followup-summary/provenance-manifest.json",
                         ],
                         "notes": [
                             "The scientific rerun completed and the report was refreshed."
@@ -3603,16 +3672,30 @@ def test_submarine_result_report_surfaces_scientific_followup_summary(
     assert followup_summary["latest_outcome_status"] == "dispatch_refreshed_report"
     assert followup_summary["latest_tool_name"] == "submarine_solver_dispatch"
     assert followup_summary["latest_recommended_action_id"] == "execute-scientific-studies"
+    assert followup_summary["latest_followup_kind"] == "evidence_supplement"
+    assert followup_summary["latest_decision_summary_zh"] == "补齐外部验证证据后刷新报告。"
+    assert followup_summary["latest_source_conclusion_ids"] == ["current_conclusion"]
+    assert followup_summary["latest_source_evidence_gap_ids"] == [
+        "missing_validation_reference"
+    ]
     assert followup_summary["report_refreshed"] is True
     assert followup_summary["history_virtual_path"] == history_virtual_path
+    assert (
+        followup_summary["latest_result_provenance_manifest_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/solver-dispatch/followup-summary/provenance-manifest.json"
+    )
     assert (
         result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
         == history_virtual_path
     )
-    assert "## Scientific Follow-Up History" in final_markdown
-    assert "dispatch_refreshed_report" in final_markdown
-    assert "<h2>Scientific Follow-Up History</h2>" in final_html
-    assert "dispatch_refreshed_report" in final_html
+    assert any(
+        item["group_id"] == "followup_and_refresh"
+        for item in final_payload["evidence_index"]
+    )
+    assert "## 建议下一步" in final_markdown
+    assert history_virtual_path in final_markdown
+    assert "<h2>建议下一步</h2>" in final_html
+    assert history_virtual_path in final_html
 
 
 def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_path):
@@ -3883,87 +3966,136 @@ def test_reporting_decomposition_module_summaries_build_experiment_compare_summa
     )
 
 
-def test_reporting_decomposition_module_render_keeps_followup_and_requested_output_sections():
+def test_reporting_decomposition_module_render_uses_conclusion_first_sections():
     render_module = importlib.import_module("deerflow.domain.submarine.reporting_render")
 
     payload = {
         "report_title": "Decomposition Render Report",
         "summary_zh": "Report render regression fixture.",
-        "source_runtime_stage": "result-reporting",
-        "task_type": "resistance",
-        "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
-        "geometry_family": "DARPA SUBOFF",
-        "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case",
-        "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case/Allrun",
-        "source_artifact_virtual_paths": [
-            "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/solver-results.json",
-        ],
-        "requested_outputs": [
+        "report_overview": {
+            "current_conclusion_zh": "当前结论支持交付说明，但还不能提升到研究级结论。",
+            "allowed_claim_level": "validated_with_gaps",
+            "review_status": "ready_for_supervisor",
+            "reproducibility_status": "drifted_but_runnable",
+            "recommended_next_step_zh": "优先补齐 benchmark 交叉验证，再决定是否提升 claim level。",
+        },
+        "delivery_highlights": {
+            "metric_lines": [
+                "阻力系数 Cd：0.120000",
+                "最终时间步：200 s",
+                "复核状态：ready_for_supervisor",
+            ],
+            "figure_titles": [
+                "表面压力云图",
+                "尾流速度切片",
+            ],
+            "highlight_artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/reports/suboff/final-report.md",
+                "/mnt/user-data/outputs/submarine/reports/suboff/final-report.html",
+            ],
+        },
+        "conclusion_sections": [
             {
-                "output_id": "surface_pressure_contour",
-                "label": "Surface pressure contour",
-                "requested_label": "Surface pressure contour",
-                "support_level": "supported",
-                "postprocess_spec": {
-                    "field": "p",
-                    "time_mode": "latest",
-                    "selector": {
-                        "type": "patch",
-                        "patches": ["hull"],
-                    },
-                    "formats": ["csv", "png", "report"],
-                },
-            }
+                "conclusion_id": "current_conclusion",
+                "title_zh": "当前研究结论",
+                "summary_zh": "当前结果已经形成可交付的阻力结论，但外部验证仍有缺口。",
+                "claim_level": "validated_with_gaps",
+                "confidence_label": "中",
+                "inline_source_refs": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/dispatch-summary.md",
+                    "/mnt/user-data/outputs/submarine/reports/suboff/supervisor-scientific-gate.json",
+                ],
+                "evidence_gap_notes": [
+                    "缺少面向当前速度工况的 benchmark 交叉验证。",
+                ],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/reports/suboff/final-report.json",
+                    "/mnt/user-data/outputs/submarine/reports/suboff/final-report.md",
+                ],
+            },
+            {
+                "conclusion_id": "reproducibility_traceability",
+                "title_zh": "复现与追溯锚点",
+                "summary_zh": "当前结果已绑定 provenance manifest，可追溯到求解与复核产物。",
+                "claim_level": "validated_with_gaps",
+                "confidence_label": "中",
+                "inline_source_refs": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/provenance-manifest.json",
+                ],
+                "evidence_gap_notes": [
+                    "运行环境仍存在 drifted_but_runnable 偏差。",
+                ],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/reports/suboff/scientific-remediation-handoff.json",
+                ],
+            },
+        ],
+        "evidence_index": [
+            {
+                "group_id": "research_evidence",
+                "group_title_zh": "研究证据与科学判断",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/reports/suboff/research-evidence-summary.json",
+                    "/mnt/user-data/outputs/submarine/reports/suboff/supervisor-scientific-gate.json",
+                ],
+                "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/provenance-manifest.json",
+            },
+            {
+                "group_id": "runtime_and_lineage",
+                "group_title_zh": "运行产物与追溯锚点",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/dispatch-summary.md",
+                    "/mnt/user-data/outputs/submarine/reports/suboff/scientific-remediation-handoff.json",
+                ],
+                "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/provenance-manifest.json",
+            },
         ],
         "scientific_followup_summary": {
-            "entry_count": 1,
-            "latest_outcome_status": "dispatch_refreshed_report",
-            "latest_handoff_status": "ready_for_auto_followup",
-            "latest_recommended_action_id": "execute-scientific-studies",
-            "latest_tool_name": "submarine_solver_dispatch",
-            "latest_dispatch_stage_status": "executed",
-            "report_refreshed": True,
             "history_virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/scientific-followup-history.json",
             "artifact_virtual_paths": [
                 "/mnt/user-data/outputs/submarine/reports/suboff/scientific-followup-history.json",
             ],
         },
-        "final_artifact_virtual_paths": [
-            "/mnt/user-data/outputs/submarine/reports/suboff/final-report.md",
-        ],
-        "review_status": "ready_for_supervisor",
         "next_recommended_stage": "supervisor-review",
         "source_report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/dispatch-summary.md",
         "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/scientific-remediation-handoff.json",
-        "reproducibility_summary": {
-            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/provenance-manifest.json",
-            "profile_id": "docker_compose_dev",
-            "parity_status": "drifted_but_runnable",
-            "reproducibility_status": "drifted_but_runnable",
-            "drift_reasons": [
-                "Host mount strategy `workspace_path` does not match `docker_compose_dev` expectations."
-            ],
-            "recovery_guidance": [
-                "Align DEER_FLOW_RUNTIME_PROFILE with the actual runtime path before treating the run as reproducible."
-            ],
-        },
-        "output_delivery_plan": [],
     }
 
     markdown = render_module.render_markdown(payload)
     html = render_module.render_html(payload)
 
-    assert "## Requested Outputs" in markdown
-    assert "selector=patch[hull]" in markdown
-    assert "## Reproducibility" in markdown
-    assert "drifted_but_runnable" in markdown
-    assert "## Scientific Follow-Up History" in markdown
-    assert "dispatch_refreshed_report" in markdown
-    assert "## 建议" in markdown
-    assert "<h2>Reproducibility</h2>" in html
-    assert "drifted_but_runnable" in html
-    assert "<h2>Scientific Follow-Up History</h2>" in html
-    assert "selector=patch[hull]" in html
+    markdown_headings = [
+        "## 结论摘要",
+        "## 关键指标与代表图表",
+        "## 结论与证据",
+        "## 证据索引",
+        "## 建议下一步",
+    ]
+    html_headings = [
+        "<h2>结论摘要</h2>",
+        "<h2>关键指标与代表图表</h2>",
+        "<h2>结论与证据</h2>",
+        "<h2>证据索引</h2>",
+        "<h2>建议下一步</h2>",
+    ]
+
+    assert [markdown.index(item) for item in markdown_headings] == sorted(
+        markdown.index(item) for item in markdown_headings
+    )
+    assert [html.index(item) for item in html_headings] == sorted(
+        html.index(item) for item in html_headings
+    )
+    assert "来源：" in markdown
+    assert "Claim level：" in markdown
+    assert "置信度：" in markdown
+    assert "证据缺口：" in markdown
+    assert "研究证据与科学判断" in markdown
+    assert "provenance_manifest_virtual_path" in markdown
+    assert "<strong>来源：</strong>" in html
+    assert "<strong>Claim level：</strong>" in html
+    assert "<strong>置信度：</strong>" in html
+    assert "<strong>证据缺口：</strong>" in html
+    assert "<strong>provenance_manifest_virtual_path：</strong>" in html
 
 
 def test_result_reporting_includes_selected_case_provenance_summary(tmp_path):
@@ -4008,5 +4140,5 @@ def test_result_reporting_includes_selected_case_provenance_summary(tmp_path):
     assert provenance["is_placeholder"] is True
     assert provenance["applicability_conditions"]
     assert "engineering review" in provenance["evidence_gap_note"]
-    assert "<h2>建议</h2>" in html
-    assert "由 Claude Code Supervisor 审阅当前阶段结论" in html
+    assert "<h2>建议下一步</h2>" in html
+    assert payload["report_overview"]["recommended_next_step_zh"] in html

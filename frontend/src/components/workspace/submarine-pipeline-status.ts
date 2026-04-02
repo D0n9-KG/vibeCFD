@@ -40,6 +40,7 @@ export type SubmarinePipelineStatusInput = {
   pendingCalculationPlanCount?: number | null;
   scientificGateStatus?: string | null;
   allowedClaimLevel?: string | null;
+  decisionStatus?: string | null;
   scientificVerificationStatus?: string | null;
   environmentParityStatus?: string | null;
   reproducibilityStatus?: string | null;
@@ -72,6 +73,12 @@ const SCIENTIFIC_CLAIM_LEVEL_LABELS: Record<string, string> = {
   verified_but_not_validated: "已验证但未外部校核",
   validated_with_gaps: "已校核但仍有缺口",
   research_ready: "可用于科研结论",
+};
+
+const DELIVERY_DECISION_STATUS_LABELS: Record<string, string> = {
+  ready_for_user_decision: "Awaiting chat decision",
+  needs_more_evidence: "Needs more evidence",
+  blocked_by_setup: "Blocked by setup",
 };
 
 const SCIENTIFIC_VERIFICATION_STATUS_LABELS: Record<string, string> = {
@@ -157,6 +164,7 @@ function buildCompletedScientificStatus({
   runtimeTaskSummary,
   scientificGateStatus,
   allowedClaimLevel,
+  decisionStatus,
   scientificVerificationStatus,
   environmentParityStatus,
   reproducibilityStatus,
@@ -167,6 +175,7 @@ function buildCompletedScientificStatus({
   runtimeTaskSummary?: string | null;
   scientificGateStatus?: string | null;
   allowedClaimLevel?: string | null;
+  decisionStatus?: string | null;
   scientificVerificationStatus?: string | null;
   environmentParityStatus?: string | null;
   reproducibilityStatus?: string | null;
@@ -179,6 +188,10 @@ function buildCompletedScientificStatus({
   const claimLabel =
     SCIENTIFIC_CLAIM_LEVEL_LABELS[allowedClaimLevel ?? ""] ??
     allowedClaimLevel ??
+    null;
+  const decisionLabel =
+    DELIVERY_DECISION_STATUS_LABELS[decisionStatus ?? ""] ??
+    decisionStatus ??
     null;
   const verificationLabel =
     SCIENTIFIC_VERIFICATION_STATUS_LABELS[scientificVerificationStatus ?? ""] ??
@@ -223,6 +236,50 @@ function buildCompletedScientificStatus({
     };
   }
 
+  if (decisionStatus === "blocked_by_setup") {
+    return {
+      tone: "error",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: decisionLabel ?? "Blocked by setup",
+      outputStatus: "请在聊天中确认下一步。",
+      summaryText:
+        runtimeSummary ??
+        `请在聊天中确认下一步。Current scientific gate: ${gateLabel ?? "Blocked"}. Allowed claim level: ${claimLabel ?? "Delivery Only"}.`,
+      errorBanner: {
+        title: "Chat Decision Required",
+        message: gateLabel ?? "Scientific gate is blocked",
+        guidance:
+          "Use the main chat to decide whether to fix setup, correct inputs, or restore the missing evidence chain before refreshing the report.",
+      },
+    };
+  }
+
+  if (decisionStatus === "needs_more_evidence") {
+    return {
+      tone: "ready",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: decisionLabel ?? "Needs more evidence",
+      outputStatus: "请在聊天中确认下一步。",
+      summaryText:
+        runtimeSummary ??
+        `请在聊天中确认下一步。Current scientific gate: ${gateLabel ?? "Claim Limited"}. Allowed claim level: ${claimLabel ?? "Pending"}.`,
+      errorBanner: null,
+    };
+  }
+
+  if (decisionStatus === "ready_for_user_decision") {
+    return {
+      tone: "ready",
+      agentLabel: "CFD runtime 已完成",
+      runLabel: decisionLabel ?? "Awaiting chat decision",
+      outputStatus: "请在聊天中确认下一步。",
+      summaryText:
+        runtimeSummary ??
+        `请在聊天中确认下一步。Current scientific gate: ${gateLabel ?? "Ready For Claim"}. Allowed claim level: ${claimLabel ?? "Research Ready"}.`,
+      errorBanner: null,
+    };
+  }
+
   if (scientificGateStatus === "blocked") {
     const summary =
       runtimeSummary ??
@@ -261,7 +318,9 @@ function buildCompletedScientificStatus({
       tone: "ready",
       agentLabel: "CFD runtime 已完成",
       runLabel: "科研就绪",
-      outputStatus: hasFinalReport ? "结果报告已生成，可支持更强科研声明" : "求解已完成，具备更强科研声明条件",
+      outputStatus: hasFinalReport
+        ? "结果报告已生成，可支持更强科研声明"
+        : "求解已完成，具备更强科研声明条件",
       summaryText:
         runtimeSummary ??
         `当前科学门禁状态：${gateLabel ?? "可支持更强科研声明"}。允许声明级别：${claimLabel ?? "可用于科研结论"}`,
@@ -304,7 +363,9 @@ function buildCompletedScientificStatus({
       tone: "ready",
       agentLabel: "CFD runtime 已完成",
       runLabel: "SCI-01 已通过",
-      outputStatus: hasFinalReport ? "结果报告已生成，SCI-01 已通过" : "求解已完成，SCI-01 已通过",
+      outputStatus: hasFinalReport
+        ? "结果报告已生成，SCI-01 已通过"
+        : "求解已完成，SCI-01 已通过",
       summaryText:
         runtimeSummary ??
         verificationLabel ??
@@ -388,6 +449,7 @@ export function getSubmarinePipelineStatus({
   pendingCalculationPlanCount,
   scientificGateStatus,
   allowedClaimLevel,
+  decisionStatus,
   scientificVerificationStatus,
   environmentParityStatus,
   reproducibilityStatus,
@@ -433,7 +495,10 @@ export function getSubmarinePipelineStatus({
   }
 
   const normalizedRuntimeStatus = normalizeRuntimeStatus(runtimeStatus);
-  if (normalizedRuntimeStatus === "blocked" || normalizedRuntimeStatus === "failed") {
+  if (
+    normalizedRuntimeStatus === "blocked" ||
+    normalizedRuntimeStatus === "failed"
+  ) {
     return buildRuntimeErrorStatus({
       runtimeStatus: normalizedRuntimeStatus,
       runtimeSummary,
@@ -460,6 +525,7 @@ export function getSubmarinePipelineStatus({
       runtimeTaskSummary,
       scientificGateStatus,
       allowedClaimLevel,
+      decisionStatus,
       scientificVerificationStatus,
       environmentParityStatus,
       reproducibilityStatus,

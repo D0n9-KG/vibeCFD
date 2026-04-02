@@ -5,16 +5,20 @@ import type { SubmarineFinalReportPayload } from "./submarine-runtime-panel.cont
 
 const {
   buildSubmarineAcceptanceSummary,
+  buildSubmarineConclusionSectionsSummary,
   buildSubmarineDesignBriefSummary,
+  buildSubmarineEvidenceIndexSummary,
   buildSubmarineStageTrack,
   buildSubmarineExperimentCompareSummary,
   buildSubmarineExperimentSummary,
   buildSubmarineFigureDeliverySummary,
   buildSubmarineOutputDeliverySummary,
+  buildSubmarineReportOverviewSummary,
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineReproducibilitySummary,
   buildSubmarineExecutionOutline,
   buildSubmarineResultCards,
+  buildSubmarineDeliveryDecisionSummary,
   formatSubmarineBenchmarkComparisonSummaryLine,
   formatSubmarineExecutionRoleLabel,
   formatSubmarineRuntimeStageLabel,
@@ -293,6 +297,96 @@ void test("builds a reproducibility summary from parity-aware report payloads", 
   assert.deepEqual(summary?.recoveryGuidance, [
     "Align DEER_FLOW_RUNTIME_PROFILE with the active compose path.",
   ]);
+});
+
+void test("builds a report overview summary from final report payloads", () => {
+  const summary = buildSubmarineReportOverviewSummary({
+    report_overview: {
+      current_conclusion_zh: "当前结论可以用于交付说明，但仍需补齐外部验证证据。",
+      allowed_claim_level: "validated_with_gaps",
+      review_status: "ready_for_supervisor",
+      reproducibility_status: "drifted_but_runnable",
+      recommended_next_step_zh: "优先补齐外部基准对照，再决定是否提升结论等级。",
+    },
+  } as SubmarineFinalReportPayload);
+
+  assert.equal(
+    summary?.currentConclusion,
+    "当前结论可以用于交付说明，但仍需补齐外部验证证据。",
+  );
+  assert.equal(summary?.allowedClaimLevelLabel, "Validated With Gaps");
+  assert.equal(summary?.reviewStatusLabel, "Ready For Supervisor");
+  assert.equal(summary?.reproducibilityStatusLabel, "Drifted But Runnable");
+  assert.equal(
+    summary?.recommendedNextStep,
+    "优先补齐外部基准对照，再决定是否提升结论等级。",
+  );
+});
+
+void test("builds conclusion section summaries from final report payloads", () => {
+  const sections = buildSubmarineConclusionSectionsSummary({
+    conclusion_sections: [
+      {
+        conclusion_id: "current_conclusion",
+        title_zh: "当前研究结论",
+        summary_zh: "当前结果已经形成面向交付的阻力结论。",
+        claim_level: "verified_but_not_validated",
+        confidence_label: "中",
+        inline_source_refs: [
+          "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+          "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
+        ],
+        evidence_gap_notes: ["缺少外部 benchmark 交叉验证。"],
+        artifact_virtual_paths: [
+          "/mnt/user-data/outputs/submarine/reports/demo/final-report.json",
+        ],
+      },
+    ],
+  } as SubmarineFinalReportPayload);
+
+  assert.equal(sections.length, 1);
+  assert.equal(sections[0]?.conclusionId, "current_conclusion");
+  assert.equal(sections[0]?.title, "当前研究结论");
+  assert.equal(sections[0]?.claimLevelLabel, "Verified But Not Validated");
+  assert.deepEqual(sections[0]?.inlineSourceRefs, [
+    "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+    "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
+  ]);
+  assert.deepEqual(sections[0]?.evidenceGapNotes, [
+    "缺少外部 benchmark 交叉验证。",
+  ]);
+  assert.deepEqual(sections[0]?.artifactPaths, [
+    "/mnt/user-data/outputs/submarine/reports/demo/final-report.json",
+  ]);
+});
+
+void test("builds evidence index summaries from final report payloads", () => {
+  const summary = buildSubmarineEvidenceIndexSummary({
+    evidence_index: [
+      {
+        group_id: "research_evidence",
+        group_title_zh: "研究证据与科学判断",
+        artifact_virtual_paths: [
+          "/mnt/user-data/outputs/submarine/reports/demo/research-evidence-summary.json",
+          "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
+        ],
+        provenance_manifest_virtual_path:
+          "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+      },
+    ],
+  } as SubmarineFinalReportPayload);
+
+  assert.equal(summary?.groupCount, 1);
+  assert.equal(summary?.groups[0]?.groupId, "research_evidence");
+  assert.equal(summary?.groups[0]?.groupTitle, "研究证据与科学判断");
+  assert.deepEqual(summary?.groups[0]?.artifactPaths, [
+    "/mnt/user-data/outputs/submarine/reports/demo/research-evidence-summary.json",
+    "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
+  ]);
+  assert.equal(
+    summary?.groups[0]?.provenanceManifestPath,
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+  );
 });
 
 void test("prefers runtime execution plan over stale design brief outline", () => {
@@ -1651,6 +1745,77 @@ void test(
 );
 
 void test(
+  "builds a chat-driven delivery decision summary from the final report payload",
+  () => {
+    const summary = buildSubmarineDeliveryDecisionSummary({
+      decision_status: "needs_more_evidence",
+      delivery_decision_summary: {
+        decision_status: "needs_more_evidence",
+        decision_question_zh: "当前结论可以交付，但仍有证据缺口。请在聊天中确认下一步。",
+        recommended_option_id: "add_evidence",
+        options: [
+          {
+            option_id: "add_evidence",
+            label_zh: "补充证据",
+            summary_zh: "优先补齐缺失证据，再决定是否提升 claim level。",
+            followup_kind: "evidence_supplement",
+            requires_additional_execution: true,
+          },
+          {
+            option_id: "finish_task",
+            label_zh: "完成任务",
+            summary_zh: "接受当前结论作为本次任务终点，并在聊天中确认收口。",
+            followup_kind: "task_complete",
+            requires_additional_execution: false,
+          },
+        ],
+        blocking_reason_lines: ["No applicable benchmark target was available."],
+        advisory_note_lines: ["The current conclusion can still support delivery copy."],
+        artifact_virtual_paths: [
+          "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-plan.json",
+        ],
+      },
+    });
+
+    assert.equal(summary?.decisionStatus, "needs_more_evidence");
+    assert.equal(summary?.decisionStatusLabel, "Needs More Evidence");
+    assert.equal(
+      summary?.question,
+      "当前结论可以交付，但仍有证据缺口。请在聊天中确认下一步。",
+    );
+    assert.equal(summary?.chatPrompt, "请在聊天中确认下一步。");
+    assert.equal(summary?.recommendedOptionId, "add_evidence");
+    assert.equal(summary?.recommendedOptionLabel, "补充证据");
+    assert.equal(summary?.options.length, 2);
+    assert.deepEqual(summary?.options[0], {
+      optionId: "add_evidence",
+      label: "补充证据",
+      summary: "优先补齐缺失证据，再决定是否提升 claim level。",
+      followupKind: "evidence_supplement",
+      followupKindLabel: "Evidence Supplement",
+      requiresAdditionalExecution: true,
+    });
+    assert.deepEqual(summary?.options[1], {
+      optionId: "finish_task",
+      label: "完成任务",
+      summary: "接受当前结论作为本次任务终点，并在聊天中确认收口。",
+      followupKind: "task_complete",
+      followupKindLabel: "Task Complete",
+      requiresAdditionalExecution: false,
+    });
+    assert.deepEqual(summary?.blockingReasons, [
+      "No applicable benchmark target was available.",
+    ]);
+    assert.deepEqual(summary?.advisoryNotes, [
+      "The current conclusion can still support delivery copy.",
+    ]);
+    assert.deepEqual(summary?.artifactPaths, [
+      "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-plan.json",
+    ]);
+  },
+);
+
+void test(
   "builds a scientific followup summary from the final report payload",
   () => {
     const payload: SubmarineFinalReportPayload = {
@@ -1662,10 +1827,16 @@ void test(
         latest_handoff_status: "ready_for_auto_followup",
         latest_recommended_action_id: "execute-scientific-studies",
         latest_tool_name: "submarine_solver_dispatch",
+        latest_followup_kind: "evidence_supplement",
+        latest_decision_summary_zh: "补齐外部验证证据后刷新报告。",
+        latest_source_conclusion_ids: ["current_conclusion"],
+        latest_source_evidence_gap_ids: ["missing_validation_reference"],
         latest_dispatch_stage_status: "executed",
         report_refreshed: true,
         latest_result_report_virtual_path:
           "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+        latest_result_provenance_manifest_virtual_path:
+          "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
         latest_result_supervisor_handoff_virtual_path:
           "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
         latest_notes: [
@@ -1684,6 +1855,13 @@ void test(
     assert.equal(summary?.latestHandoffStatusLabel, "Ready For Auto Follow-Up");
     assert.equal(summary?.latestRecommendedActionId, "execute-scientific-studies");
     assert.equal(summary?.latestToolName, "submarine_solver_dispatch");
+    assert.equal(summary?.latestFollowupKind, "evidence_supplement");
+    assert.equal(summary?.latestFollowupKindLabel, "补充证据");
+    assert.equal(summary?.latestDecisionSummary, "补齐外部验证证据后刷新报告。");
+    assert.deepEqual(summary?.latestSourceConclusionIds, ["current_conclusion"]);
+    assert.deepEqual(summary?.latestSourceEvidenceGapIds, [
+      "missing_validation_reference",
+    ]);
     assert.equal(summary?.latestDispatchStageStatusLabel, "Executed");
     assert.equal(summary?.reportRefreshedLabel, "Yes");
     assert.equal(
@@ -1693,6 +1871,10 @@ void test(
     assert.equal(
       summary?.latestResultReportPath,
       "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+    );
+    assert.equal(
+      summary?.latestResultProvenanceManifestPath,
+      "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
     );
     assert.equal(
       summary?.latestResultHandoffPath,

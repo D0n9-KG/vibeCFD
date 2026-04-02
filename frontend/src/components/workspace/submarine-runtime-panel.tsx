@@ -46,6 +46,9 @@ import {
 } from "./submarine-runtime-panel.trends";
 import {
   buildSubmarineAcceptanceSummary,
+  buildSubmarineConclusionSectionsSummary,
+  buildSubmarineDeliveryDecisionSummary,
+  buildSubmarineEvidenceIndexSummary,
   buildSubmarineExecutionOutline,
   buildSubmarineStageTrack,
   buildSubmarineDesignBriefSummary,
@@ -53,6 +56,7 @@ import {
   buildSubmarineExperimentSummary,
   buildSubmarineFigureDeliverySummary,
   buildSubmarineOutputDeliverySummary,
+  buildSubmarineReportOverviewSummary,
   buildSubmarineResearchEvidenceSummary,
   buildSubmarineReproducibilitySummary,
   buildSubmarineResultCards,
@@ -357,6 +361,31 @@ export function SubmarineRuntimePanel({
     (acceptanceSummary?.outputDelivery?.length ?? 0) > 0
       ? acceptanceSummary!.outputDelivery
       : runtimeOutputDeliverySummary;
+  const reportOverviewSummary = useMemo(
+    () => buildSubmarineReportOverviewSummary(finalReport),
+    [finalReport],
+  );
+  const deliveryHighlights = useMemo(() => {
+    const summary = finalReport?.delivery_highlights;
+    if (!summary) {
+      return null;
+    }
+
+    return {
+      metricLines: summary.metric_lines?.filter(Boolean) ?? [],
+      figureTitles: summary.figure_titles?.filter(Boolean) ?? [],
+      highlightArtifactPaths:
+        summary.highlight_artifact_virtual_paths?.filter(Boolean) ?? [],
+    };
+  }, [finalReport]);
+  const conclusionSectionsSummary = useMemo(
+    () => buildSubmarineConclusionSectionsSummary(finalReport),
+    [finalReport],
+  );
+  const evidenceIndexSummary = useMemo(
+    () => buildSubmarineEvidenceIndexSummary(finalReport),
+    [finalReport],
+  );
   const figureDeliverySummary = useMemo(
     () => buildSubmarineFigureDeliverySummary(finalReport),
     [finalReport],
@@ -402,6 +431,20 @@ export function SubmarineRuntimePanel({
       runtime?.scientific_gate_status,
       runtime?.scientific_gate_virtual_path,
     ],
+  );
+  const deliveryDecisionSummary = useMemo(
+    () =>
+      buildSubmarineDeliveryDecisionSummary(
+        finalReport?.delivery_decision_summary
+          ? finalReport
+          : runtime?.delivery_decision_summary || runtime?.decision_status
+            ? {
+                delivery_decision_summary: runtime?.delivery_decision_summary,
+                decision_status: runtime?.decision_status,
+              }
+            : null,
+      ),
+    [finalReport, runtime?.decision_status, runtime?.delivery_decision_summary],
   );
   const experimentSummary = useMemo(
     () => buildSubmarineExperimentSummary(finalReport),
@@ -516,6 +559,10 @@ export function SubmarineRuntimePanel({
     ],
   );
   const timelineEvents = runtime?.activity_timeline ?? [];
+  const openArtifact = (artifactPath: string) => {
+    select(artifactPath);
+    setOpen(true);
+  };
 
   const solverMetrics =
     finalReport?.solver_metrics ?? dispatchPayload?.solver_results ?? solverResults;
@@ -915,6 +962,186 @@ export function SubmarineRuntimePanel({
                   }
                 />
               </div>
+              {reportOverviewSummary ||
+              deliveryHighlights ||
+              conclusionSectionsSummary.length > 0 ||
+              evidenceIndexSummary ? (
+                <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-foreground">
+                        结论优先交付
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Workbench mirrors the packaged final report contract and
+                        artifact linkage.
+                      </div>
+                    </div>
+                    {reportOverviewSummary ? (
+                      <Badge variant="outline" className="bg-background/80">
+                        {reportOverviewSummary.reviewStatusLabel}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  {reportOverviewSummary ? (
+                    <>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <KeyValue
+                          label="Allowed Claim"
+                          value={reportOverviewSummary.allowedClaimLevelLabel}
+                        />
+                        <KeyValue
+                          label="Review Status"
+                          value={reportOverviewSummary.reviewStatusLabel}
+                        />
+                        <KeyValue
+                          label="Reproducibility"
+                          value={
+                            reportOverviewSummary.reproducibilityStatusLabel
+                          }
+                        />
+                        <KeyValue
+                          label="Evidence Groups"
+                          value={
+                            evidenceIndexSummary
+                              ? `${evidenceIndexSummary.groupCount}`
+                              : "--"
+                          }
+                        />
+                      </div>
+                      <div className="rounded-xl border bg-muted/20 p-4">
+                        <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                          Current Conclusion
+                        </div>
+                        <div className="mt-2 text-sm leading-6 text-foreground">
+                          {reportOverviewSummary.currentConclusion}
+                        </div>
+                        <div className="mt-4 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                          Recommended Next Step
+                        </div>
+                        <div className="mt-1 text-sm leading-6 text-muted-foreground">
+                          {reportOverviewSummary.recommendedNextStep}
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+                  {deliveryHighlights ? (
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      <LabeledList
+                        title="关键指标"
+                        items={deliveryHighlights.metricLines}
+                        emptyText="当前没有写入关键指标摘要。"
+                      />
+                      <LabeledList
+                        title="代表图表"
+                        items={deliveryHighlights.figureTitles}
+                        emptyText="当前没有写入代表图表。"
+                      />
+                      <ArtifactPathList
+                        title="高亮产物"
+                        paths={deliveryHighlights.highlightArtifactPaths}
+                        emptyText="当前没有高亮产物链接。"
+                        onOpenArtifact={openArtifact}
+                      />
+                    </div>
+                  ) : null}
+                  {conclusionSectionsSummary.length > 0 ? (
+                    <div className="space-y-3">
+                      {conclusionSectionsSummary.map((section) => (
+                        <div
+                          key={section.conclusionId}
+                          className="rounded-xl border bg-muted/20 p-4"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="bg-background/80">
+                              {section.claimLevelLabel}
+                            </Badge>
+                            <span className="text-sm font-medium text-foreground">
+                              {section.title}
+                            </span>
+                          </div>
+                          <div className="mt-3 text-sm leading-6 text-foreground">
+                            {section.summary}
+                          </div>
+                          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            <KeyValue
+                              label="Claim Level"
+                              value={section.claimLevelLabel}
+                            />
+                            <KeyValue
+                              label="Confidence"
+                              value={section.confidenceLabel}
+                            />
+                            <KeyValue
+                              label="Sources"
+                              value={`${section.inlineSourceRefs.length}`}
+                            />
+                            <KeyValue
+                              label="Artifacts"
+                              value={`${section.artifactPaths.length}`}
+                            />
+                          </div>
+                          <div className="mt-3 grid gap-4 xl:grid-cols-3">
+                            <LabeledList
+                              title="来源"
+                              items={section.inlineSourceRefs}
+                              emptyText="当前没有内联来源引用。"
+                            />
+                            <LabeledList
+                              title="证据缺口"
+                              items={section.evidenceGapNotes}
+                              emptyText="当前没有记录证据缺口。"
+                            />
+                            <ArtifactPathList
+                              title="关联产物"
+                              paths={section.artifactPaths}
+                              emptyText="当前没有关联产物。"
+                              onOpenArtifact={openArtifact}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {evidenceIndexSummary ? (
+                    <div className="space-y-3">
+                      {evidenceIndexSummary.groups.map((group) => (
+                        <div
+                          key={group.groupId}
+                          className="rounded-xl border bg-muted/20 p-4"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="bg-background/80">
+                              {group.groupId}
+                            </Badge>
+                            <span className="text-sm font-medium text-foreground">
+                              {group.groupTitle}
+                            </span>
+                          </div>
+                          <div className="mt-3 grid gap-4 xl:grid-cols-2">
+                            <ArtifactPathList
+                              title="证据产物"
+                              paths={group.artifactPaths}
+                              emptyText="当前没有证据产物链接。"
+                              onOpenArtifact={openArtifact}
+                            />
+                            <ArtifactPathList
+                              title="Provenance Manifest"
+                              paths={
+                                group.provenanceManifestPath !== "--"
+                                  ? [group.provenanceManifestPath]
+                                  : []
+                              }
+                              emptyText="当前没有 provenance manifest 链接。"
+                              onOpenArtifact={openArtifact}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               {!acceptanceSummary && outputDeliverySummary.length > 0 ? (
                 <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                   <div className="grid gap-3 md:grid-cols-3">
@@ -979,6 +1206,75 @@ export function SubmarineRuntimePanel({
                     emptyText="当前还没有记录请求输出的交付状态。"
                   />
                 </div>
+                ) : null}
+                {deliveryDecisionSummary ? (
+                  <div className="mt-4 space-y-4 rounded-xl border border-sky-200 bg-sky-50/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <KeyValue
+                        label="Decision Status"
+                        value={deliveryDecisionSummary.decisionStatusLabel}
+                      />
+                      <KeyValue
+                        label="Recommended"
+                        value={deliveryDecisionSummary.recommendedOptionLabel}
+                      />
+                      <KeyValue
+                        label="Decision Question"
+                        value={deliveryDecisionSummary.question}
+                      />
+                      <KeyValue
+                        label="Chat Prompt"
+                        value={deliveryDecisionSummary.chatPrompt}
+                      />
+                    </div>
+                    <div className="rounded-xl border border-sky-200 bg-white/80 px-4 py-3 text-sm font-medium text-sky-950">
+                      请在聊天中确认下一步。
+                    </div>
+                    {deliveryDecisionSummary.options.length > 0 ? (
+                      <div className="space-y-3">
+                        {deliveryDecisionSummary.options.map((item) => (
+                          <div
+                            key={item.optionId}
+                            className="rounded-xl border bg-background/80 p-4"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="bg-white/80">
+                                {item.followupKindLabel}
+                              </Badge>
+                              {item.optionId ===
+                              deliveryDecisionSummary.recommendedOptionId ? (
+                                <Badge variant="secondary">Recommended</Badge>
+                              ) : null}
+                              <span className="text-sm font-medium text-foreground">
+                                {item.label}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-sm leading-6 text-muted-foreground">
+                              {item.summary}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      <LabeledList
+                        title="Blocking Context"
+                        items={deliveryDecisionSummary.blockingReasons}
+                        emptyText="No blocking context is recorded."
+                      />
+                      <LabeledList
+                        title="Advisory Notes"
+                        items={deliveryDecisionSummary.advisoryNotes}
+                        emptyText="No advisory notes are recorded."
+                      />
+                      <ArtifactPathList
+                        title="Decision Artifacts"
+                        paths={deliveryDecisionSummary.artifactPaths}
+                        emptyText="No decision artifacts are recorded."
+                        onOpenArtifact={openArtifact}
+                      />
+                    </div>
+                  </div>
                 ) : null}
                 {scientificGateSummary ? (
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
@@ -1366,7 +1662,7 @@ export function SubmarineRuntimePanel({
                 ) : null}
                 {scientificFollowupSummary ? (
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <KeyValue
                         label="Follow-Up Entries"
                         value={`${scientificFollowupSummary.entryCount}`}
@@ -1378,6 +1674,10 @@ export function SubmarineRuntimePanel({
                       <KeyValue
                         label="Latest Handoff"
                         value={scientificFollowupSummary.latestHandoffStatusLabel}
+                      />
+                      <KeyValue
+                        label="Latest Kind"
+                        value={scientificFollowupSummary.latestFollowupKindLabel}
                       />
                       <KeyValue
                         label="Report Refreshed"
@@ -1395,29 +1695,63 @@ export function SubmarineRuntimePanel({
                         emptyText="No follow-up contract details are recorded."
                       />
                       <LabeledList
-                        title="Latest Follow-Up Paths"
+                        title="Latest Decision Context"
                         items={[
-                          scientificFollowupSummary.historyPath,
+                          `kind | ${scientificFollowupSummary.latestFollowupKindLabel}`,
+                          ...(scientificFollowupSummary.latestDecisionSummary !== "--"
+                            ? [scientificFollowupSummary.latestDecisionSummary]
+                            : []),
+                        ]}
+                        emptyText="No follow-up decision summary is recorded."
+                      />
+                      <LabeledList
+                        title="Triggering IDs"
+                        items={[
+                          ...scientificFollowupSummary.latestSourceConclusionIds.map(
+                            (item) => `conclusion | ${item}`,
+                          ),
+                          ...scientificFollowupSummary.latestSourceEvidenceGapIds.map(
+                            (item) => `evidence-gap | ${item}`,
+                          ),
+                        ]}
+                        emptyText="No source conclusion or evidence-gap ids are recorded."
+                      />
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      <ArtifactPathList
+                        title="Latest Evidence Anchor"
+                        paths={[
+                          ...(scientificFollowupSummary.historyPath !== "--"
+                            ? [scientificFollowupSummary.historyPath]
+                            : []),
                           ...(scientificFollowupSummary.latestResultReportPath !== "--"
                             ? [scientificFollowupSummary.latestResultReportPath]
+                            : []),
+                          ...(scientificFollowupSummary.latestResultProvenanceManifestPath !==
+                          "--"
+                            ? [
+                                scientificFollowupSummary.latestResultProvenanceManifestPath,
+                              ]
                             : []),
                           ...(scientificFollowupSummary.latestResultHandoffPath !== "--"
                             ? [scientificFollowupSummary.latestResultHandoffPath]
                             : []),
                         ]}
-                        emptyText="No follow-up artifact paths are recorded."
+                        emptyText="No refreshed report or provenance anchor is recorded."
+                        onOpenArtifact={openArtifact}
                       />
                       <LabeledList
                         title="Latest Follow-Up Notes"
                         items={scientificFollowupSummary.latestNotes}
                         emptyText="No follow-up notes are recorded."
                       />
+                      <ArtifactPathList
+                        title="Follow-Up Artifacts"
+                        paths={scientificFollowupSummary.artifactPaths}
+                        emptyText="No follow-up artifacts are recorded."
+                        onOpenArtifact={openArtifact}
+                      />
                     </div>
-                    <LabeledList
-                      title="Follow-Up Artifacts"
-                      items={scientificFollowupSummary.artifactPaths}
-                      emptyText="No follow-up artifacts are recorded."
-                    />
                   </div>
                 ) : null}
                 {experimentCompareSummary ? (
@@ -2438,6 +2772,64 @@ function LabeledList({
             </li>
           ))}
         </ul>
+      ) : (
+        <div className="text-sm text-muted-foreground">{emptyText}</div>
+      )}
+    </div>
+  );
+}
+
+function ArtifactPathList({
+  title,
+  paths,
+  emptyText,
+  onOpenArtifact,
+}: {
+  title: string;
+  paths: string[];
+  emptyText: string;
+  onOpenArtifact: (artifactPath: string) => void;
+}) {
+  const uniquePaths = paths.filter(
+    (artifactPath, index, allPaths) =>
+      Boolean(artifactPath) && allPaths.indexOf(artifactPath) === index,
+  );
+
+  return (
+    <div className="rounded-xl border bg-background/70 p-4">
+      <div className="mb-3 text-sm font-medium text-foreground">{title}</div>
+      {uniquePaths.length > 0 ? (
+        <div className="space-y-2">
+          {uniquePaths.map((artifactPath) => {
+            const Icon = artifactIcon(artifactPath);
+            const meta = getSubmarineArtifactMeta(artifactPath);
+            return (
+              <button
+                key={`${title}-${artifactPath}`}
+                type="button"
+                className="flex w-full items-center justify-between gap-3 rounded-xl border bg-muted/20 p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
+                onClick={() => onOpenArtifact(artifactPath)}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="rounded-lg border bg-background/80 p-2">
+                    <Icon className="size-4 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-foreground">
+                      {meta.label}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {artifactPath}
+                    </div>
+                  </div>
+                </div>
+                <Badge variant="outline" className="shrink-0 bg-background/80">
+                  打开
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
       ) : (
         <div className="text-sm text-muted-foreground">{emptyText}</div>
       )}

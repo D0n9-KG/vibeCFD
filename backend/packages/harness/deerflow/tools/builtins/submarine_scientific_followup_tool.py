@@ -70,6 +70,16 @@ def _with_unique_paths(*path_groups: object) -> list[str]:
     return combined
 
 
+def _task_completion_status_for_followup_kind(
+    followup_kind: str | None,
+) -> str | None:
+    if not followup_kind:
+        return None
+    if followup_kind == "task_complete":
+        return "completed"
+    return "continued"
+
+
 def _augment_runtime_update(
     runtime_update: Mapping[str, object] | None,
     *,
@@ -135,11 +145,17 @@ def _record_followup_history(
     handoff_status: str,
     recommended_action_id: str | None,
     tool_name: str | None,
+    followup_kind: str | None = None,
+    decision_summary_zh: str | None = None,
+    source_conclusion_ids: list[str] | None = None,
+    source_evidence_gap_ids: list[str] | None = None,
     outcome_status: str,
     dispatch_stage_status: str | None = None,
     report_refreshed: bool = False,
     result_report_virtual_path: str | None = None,
+    result_provenance_manifest_virtual_path: str | None = None,
     result_supervisor_handoff_virtual_path: str | None = None,
+    task_completion_status: str | None = None,
     artifact_virtual_paths: list[str] | None = None,
     notes: list[str] | None = None,
 ) -> str | None:
@@ -162,14 +178,23 @@ def _record_followup_history(
             "handoff_status": handoff_status,
             "recommended_action_id": recommended_action_id,
             "tool_name": tool_name,
+            "followup_kind": followup_kind,
+            "decision_summary_zh": decision_summary_zh,
+            "source_conclusion_ids": source_conclusion_ids or [],
+            "source_evidence_gap_ids": source_evidence_gap_ids or [],
             "outcome_status": outcome_status,
             "dispatch_stage_status": dispatch_stage_status,
             "report_refreshed": report_refreshed,
             "result_report_virtual_path": result_report_virtual_path,
+            "result_provenance_manifest_virtual_path": (
+                result_provenance_manifest_virtual_path
+            ),
             "result_supervisor_handoff_virtual_path": result_supervisor_handoff_virtual_path,
+            "task_completion_status": task_completion_status,
             "artifact_virtual_paths": _with_unique_paths(
                 source_handoff_virtual_path,
                 result_report_virtual_path,
+                result_provenance_manifest_virtual_path,
                 result_supervisor_handoff_virtual_path,
                 artifact_virtual_paths or [],
             ),
@@ -183,12 +208,20 @@ def _record_followup_history(
 def submarine_scientific_followup_tool(
     runtime: ToolRuntime[ContextT, ThreadState],
     handoff_virtual_path: str | None = None,
+    followup_kind: str | None = None,
+    decision_summary_zh: str | None = None,
+    source_conclusion_ids: list[str] | None = None,
+    source_evidence_gap_ids: list[str] | None = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
 ) -> Command:
     """Continue a submarine CFD run from the latest scientific remediation handoff.
 
     Args:
         handoff_virtual_path: Optional handoff artifact path. Defaults to the current runtime `supervisor_handoff_virtual_path`.
+        followup_kind: Optional follow-up decision kind chosen in chat.
+        decision_summary_zh: Optional Chinese decision summary explaining why follow-up continues or ends.
+        source_conclusion_ids: Optional source conclusion ids that triggered this follow-up choice.
+        source_evidence_gap_ids: Optional source evidence gap ids that triggered this follow-up choice.
     """
     snapshot = None
     outputs_dir = None
@@ -220,7 +253,14 @@ def submarine_scientific_followup_tool(
             handoff_status="error",
             recommended_action_id=None,
             tool_name=None,
+            followup_kind=followup_kind,
+            decision_summary_zh=decision_summary_zh,
+            source_conclusion_ids=source_conclusion_ids,
+            source_evidence_gap_ids=source_evidence_gap_ids,
             outcome_status="error",
+            task_completion_status=_task_completion_status_for_followup_kind(
+                followup_kind
+            ),
             notes=[str(exc)],
         )
         if not history_virtual_path:
@@ -237,6 +277,59 @@ def submarine_scientific_followup_tool(
     recommended_action_id = str(handoff.get("recommended_action_id") or "none")
     reason = str(handoff.get("reason") or "No detail")
     tool_name = handoff.get("tool_name")
+    followup_history_kwargs = {
+        "followup_kind": followup_kind,
+        "decision_summary_zh": decision_summary_zh,
+        "source_conclusion_ids": source_conclusion_ids,
+        "source_evidence_gap_ids": source_evidence_gap_ids,
+        "task_completion_status": _task_completion_status_for_followup_kind(
+            followup_kind
+        ),
+    }
+
+    if followup_kind == "task_complete":
+        task_complete_command = Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        (
+                            "Scientific follow-up recorded task completion without "
+                            f"executing a rerun. handoff_status={handoff_status}; "
+                            f"recommended_action_id={recommended_action_id}"
+                        ),
+                        tool_call_id=tool_call_id,
+                    )
+                ]
+            }
+        )
+        history_virtual_path = _record_followup_history(
+            runtime=runtime,
+            snapshot=snapshot,
+            source_handoff_virtual_path=resolved_handoff_virtual_path,
+            handoff_status=handoff_status,
+            recommended_action_id=recommended_action_id,
+            tool_name=tool_name if isinstance(tool_name, str) else None,
+            outcome_status="task_complete",
+            report_refreshed=False,
+            result_report_virtual_path=snapshot.report_virtual_path,
+            result_provenance_manifest_virtual_path=(
+                snapshot.provenance_manifest_virtual_path
+            ),
+            artifact_virtual_paths=handoff.get("artifact_virtual_paths")
+            if isinstance(handoff.get("artifact_virtual_paths"), list)
+            else None,
+            notes=[decision_summary_zh or reason],
+            **followup_history_kwargs,
+        )
+        if not history_virtual_path:
+            return task_complete_command
+        return Command(
+            update=_augment_command_update(
+                task_complete_command,
+                snapshot=snapshot,
+                history_virtual_path=history_virtual_path,
+            )
+        )
 
     if handoff_status != "ready_for_auto_followup":
         non_executing_command = Command(
@@ -266,6 +359,7 @@ def submarine_scientific_followup_tool(
             if isinstance(handoff.get("artifact_virtual_paths"), list)
             else None,
             notes=[reason],
+            **followup_history_kwargs,
         )
         if not history_virtual_path:
             return non_executing_command
@@ -302,6 +396,7 @@ def submarine_scientific_followup_tool(
             tool_name=tool_name if isinstance(tool_name, str) else None,
             outcome_status="invalid_tool_args",
             notes=[reason],
+            **followup_history_kwargs,
         )
         if not history_virtual_path:
             return invalid_args_command
@@ -346,6 +441,11 @@ def submarine_scientific_followup_tool(
                     if dispatch_runtime.get("report_virtual_path")
                     else None
                 ),
+                result_provenance_manifest_virtual_path=(
+                    str(dispatch_runtime.get("provenance_manifest_virtual_path"))
+                    if dispatch_runtime.get("provenance_manifest_virtual_path")
+                    else snapshot.provenance_manifest_virtual_path
+                ),
                 result_supervisor_handoff_virtual_path=(
                     str(dispatch_runtime.get("supervisor_handoff_virtual_path"))
                     if dispatch_runtime.get("supervisor_handoff_virtual_path")
@@ -357,6 +457,7 @@ def submarine_scientific_followup_tool(
                     else None
                 ),
                 notes=[reason],
+                **followup_history_kwargs,
             )
             if not history_virtual_path:
                 return dispatch_result
@@ -396,6 +497,11 @@ def submarine_scientific_followup_tool(
                 if report_runtime and report_runtime.get("report_virtual_path")
                 else None
             ),
+            result_provenance_manifest_virtual_path=(
+                str(report_runtime.get("provenance_manifest_virtual_path"))
+                if report_runtime and report_runtime.get("provenance_manifest_virtual_path")
+                else snapshot.provenance_manifest_virtual_path
+            ),
             result_supervisor_handoff_virtual_path=(
                 str(report_runtime.get("supervisor_handoff_virtual_path"))
                 if report_runtime
@@ -411,6 +517,7 @@ def submarine_scientific_followup_tool(
                 else [],
             ),
             notes=[reason],
+            **followup_history_kwargs,
         )
         if not history_virtual_path:
             return report_result
@@ -448,6 +555,11 @@ def submarine_scientific_followup_tool(
                 if report_runtime and report_runtime.get("report_virtual_path")
                 else None
             ),
+            result_provenance_manifest_virtual_path=(
+                str(report_runtime.get("provenance_manifest_virtual_path"))
+                if report_runtime and report_runtime.get("provenance_manifest_virtual_path")
+                else snapshot.provenance_manifest_virtual_path
+            ),
             result_supervisor_handoff_virtual_path=(
                 str(report_runtime.get("supervisor_handoff_virtual_path"))
                 if report_runtime
@@ -460,6 +572,7 @@ def submarine_scientific_followup_tool(
                 else None
             ),
             notes=[reason],
+            **followup_history_kwargs,
         )
         if not history_virtual_path:
             return report_result
@@ -499,6 +612,7 @@ def submarine_scientific_followup_tool(
         if isinstance(handoff.get("artifact_virtual_paths"), list)
         else None,
         notes=[reason],
+        **followup_history_kwargs,
     )
     if not history_virtual_path:
         return unsupported_command

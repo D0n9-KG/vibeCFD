@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 06
-current_phase_name: research delivery workbench
-current_plan: Not started
-status: planning
-stopped_at: Phase 6 context gathered
-last_updated: "2026-04-02T13:47:19.039Z"
-last_activity: 2026-04-02
+current_phase_name: research-delivery-workbench
+current_plan: 3
+status: completed
+stopped_at: Phase 6 execution completed and summaries written
+last_updated: "2026-04-03T00:43:28.3479845+08:00"
+last_activity: 2026-04-03
 progress:
   total_phases: 6
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
-  percent: 83
+  completed_phases: 6
+  total_plans: 18
+  completed_plans: 18
+  percent: 100
 ---
 
 # Project State
@@ -24,33 +24,32 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-02)
 
 **Core value:** A researcher can go from natural-language CFD intent to reproducible, evidence-backed submarine results without manually building and operating OpenFOAM cases.
-**Current focus:** Phase 06 - research-delivery-workbench
+**Current focus:** Phase 06 completed; ready for milestone audit and closeout.
 
 ## Current Position
 
 **Current Phase:** 06
-**Current Phase Name:** research delivery workbench
+**Current Phase Name:** research-delivery-workbench
 **Total Phases:** 6
-**Current Plan:** Not started
+**Current Plan:** 3
 **Total Plans in Phase:** 3
-**Status:** Ready to plan
-**Progress:** [#####-] 83%
-**Last Activity:** 2026-04-02
-**Last Activity Description:** Phase 05 complete, transitioned to Phase 06
+**Status:** Completed Phase 06
+**Progress:** [######] 100%
+**Last Activity:** 2026-04-03
+**Last Activity Description:** Phase 06 execution finished, verified, and summarized
 
-Phase: 06 (research-delivery-workbench) - READY TO PLAN
-Plan: Not started
-Status: Ready to plan Phase 06
-Last activity: 2026-04-02 -- Phase 05 complete, transitioned to Phase 06
+Phase: 06 (research-delivery-workbench) - COMPLETED
+Plan: 3 of 3
+Status: Completed Phase 06
+Last activity: 2026-04-03 -- Phase 06 execution finished and summaries created
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 14
-- Total plans completed: 15
-- Average duration: ~62 min
-- Total execution time: ~15.5 hours
+- Total plans completed: 18
+- Average duration: ~57 min
+- Total execution time: ~17.2 hours
 
 **By Phase:**
 
@@ -61,10 +60,11 @@ Last activity: 2026-04-02 -- Phase 05 complete, transitioned to Phase 06
 | 3 | 3 | ~4.7 hours | ~94 min |
 | 4 | 3 | ~4.5 hours | ~90 min |
 | 5 | 3 | ~2.9 hours | ~58 min |
+| 6 | 3 | ~1.7 hours | ~33 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 04-02, 04-03, 05-01, 05-02, 05-03
+- Last 5 plans: 05-02, 05-03, 06-01, 06-02, 06-03
 - Trend: Positive
 
 ## Decisions Made
@@ -82,6 +82,9 @@ Last activity: 2026-04-02 -- Phase 05 complete, transitioned to Phase 06
 | 5 | Every solver-dispatch run needs one canonical provenance manifest that survives reducer merges and final reporting. | Researchers need a single rerun and audit entrypoint instead of reconstructing provenance from scattered artifacts. |
 | 5 | Custom variants belong in the same experiment manifest and compare chain as baseline and deterministic study variants. | Splitting user-authored variants into side channels would make linkage, reporting, and cockpit lineage inconsistent. |
 | 5 | Runtime parity must downgrade reproducibility separately from scientific truth so drift stays operator-honest without corrupting evidence claims. | Environment mismatch affects rerun confidence, not whether benchmark or verification evidence was scientifically observed. |
+| 6 | Final research delivery must be conclusion-first, inline-evidenced, and shared by exported reports and the cockpit. | Researchers should read one report shape everywhere instead of translating between JSON dumps and UI-only summaries. |
+| 6 | Supervisor next-step choice remains chat-driven even when the workbench can enumerate plausible options. | A lightweight research cockpit should surface truth and options without becoming a button-heavy approval workflow shell. |
+| 6 | Scientific follow-up history must record decision intent and refreshed provenance anchors while staying bounded to one explicit user-confirmed step. | Auditability and safety both improve when rerun lineage is explicit and the system never auto-loops from history alone. |
 
 ## Pending Todos
 
@@ -90,10 +93,10 @@ Last activity: 2026-04-02 -- Phase 05 complete, transitioned to Phase 06
 
 ## Blockers
 
-- No blocking implementation issues are open for Phase 05. Non-blocking follow-up: `.planning/phases/05-experiment-ops-and-reproducibility/05-UAT.md` still contains pending test placeholders flagged during phase closeout.
+- No blocking implementation issues are open for Phase 06. Non-blocking follow-up remains limited to mock/non-mock thread validation and residual UAT cleanup.
 
 ## Session
 
-**Last Date:** 2026-04-02T13:47:19.036Z
-**Stopped At:** Phase 6 context gathered
-**Resume File:** .planning/phases/06-research-delivery-workbench/06-CONTEXT.md
+**Last Date:** 2026-04-03T00:43:28.3479845+08:00
+**Stopped At:** Phase 6 execution completed and summaries written
+**Resume File:** .planning/phases/06-research-delivery-workbench/06-03-SUMMARY.md
