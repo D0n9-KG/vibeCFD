@@ -34,6 +34,11 @@ from .models import (
 )
 from .output_contract import build_output_delivery_plan
 from .postprocess import collect_requested_postprocess_artifacts
+from .provenance import (
+    build_provenance_approval_snapshot,
+    build_provenance_summary,
+    build_run_provenance_manifest,
+)
 from .solver_dispatch_case import (
     DEFAULT_DELTA_T_SECONDS,
     DEFAULT_END_TIME_SECONDS,
@@ -118,6 +123,26 @@ def _merge_unique_paths(*groups: list[str]) -> list[str]:
             if path and path not in merged:
                 merged.append(path)
     return merged
+
+
+def _build_environment_fingerprint(
+    *,
+    workspace_dir: Path | None,
+    artifact_dir: Path,
+    outputs_dir: Path,
+    execute_command: Callable[[str], str] | None,
+) -> dict[str, object]:
+    relative_artifact_dir = artifact_dir
+    try:
+        relative_artifact_dir = artifact_dir.relative_to(outputs_dir)
+    except ValueError:
+        pass
+    return {
+        "runtime_origin": "workspace" if workspace_dir is not None else "outputs_only",
+        "workspace_available": workspace_dir is not None,
+        "sandbox_command_available": execute_command is not None,
+        "artifact_root": str(relative_artifact_dir).replace("\\", "/"),
+    }
 
 
 def _ensure_study_variant_update(
@@ -412,6 +437,7 @@ def run_solver_dispatch(
     experiment_manifest_path = artifact_dir / "experiment-manifest.json"
     baseline_run_record_path = artifact_dir / "run-record.json"
     run_compare_summary_path = artifact_dir / "run-compare-summary.json"
+    provenance_manifest_path = artifact_dir / "provenance-manifest.json"
     request_virtual_path = _artifact_virtual_path(run_dir_name, "openfoam-request.json")
     report_virtual_path = _artifact_virtual_path(run_dir_name, "dispatch-summary.md")
     supervisor_handoff_virtual_path = _artifact_virtual_path(
@@ -426,6 +452,10 @@ def run_solver_dispatch(
         selected_case_id=selected_case.case_id if selected_case else None,
         run_dir_name=run_dir_name,
         task_type=task_type,
+    )
+    baseline_run_id = build_experiment_run_id(
+        study_type=None,
+        variant_id=None,
     )
 
     scientific_study_manifest_model = None
@@ -628,10 +658,7 @@ def run_solver_dispatch(
             )
             baseline_run_record_model = build_run_record(
                 experiment_id=experiment_id,
-                run_id=build_experiment_run_id(
-                    study_type=None,
-                    variant_id=None,
-                ),
+                run_id=baseline_run_id,
                 run_role="baseline",
                 solver_results_virtual_path=_solver_results_virtual_path(
                     run_dir_name,
@@ -1248,6 +1275,64 @@ def run_solver_dispatch(
         solver_metrics=solver_results,
         artifact_virtual_paths=artifacts,
     )
+    approval_snapshot = build_provenance_approval_snapshot(
+        confirmation_status=confirmation_status,
+        review_status=review.review_status,
+        next_recommended_stage=review.next_recommended_stage,
+        pending_calculation_plan=pending_calculation_plan,
+        requires_immediate_confirmation=requires_immediate_confirmation,
+        selected_reference_inputs=selected_reference_inputs,
+    )
+    provenance_manifest_virtual_path = _artifact_virtual_path(
+        run_dir_name,
+        "provenance-manifest.json",
+    )
+    provenance_artifact_entrypoints = {
+        "request": request_virtual_path,
+        "dispatch_summary_markdown": report_virtual_path,
+        "dispatch_summary_html": _artifact_virtual_path(run_dir_name, "dispatch-summary.html"),
+    }
+    if solver_results_virtual_path:
+        provenance_artifact_entrypoints["solver_results"] = solver_results_virtual_path
+    if scientific_study_manifest is not None:
+        provenance_artifact_entrypoints["study_manifest"] = _artifact_virtual_path(
+            run_dir_name,
+            "study-manifest.json",
+        )
+    if experiment_manifest is not None:
+        provenance_artifact_entrypoints["experiment_manifest"] = (
+            experiment_manifest_virtual_path
+        )
+    if baseline_run_record_model is not None:
+        provenance_artifact_entrypoints["run_record"] = baseline_run_record_virtual_path
+    if run_compare_summary is not None:
+        provenance_artifact_entrypoints["run_compare_summary"] = (
+            run_compare_summary_virtual_path
+        )
+    environment_fingerprint = _build_environment_fingerprint(
+        workspace_dir=workspace_dir,
+        artifact_dir=artifact_dir,
+        outputs_dir=outputs_dir,
+        execute_command=execute_command,
+    )
+    provenance_manifest_model = build_run_provenance_manifest(
+        experiment_id=experiment_id,
+        run_id=baseline_run_id,
+        task_type=task_type,
+        geometry_virtual_path=geometry_virtual_path or geometry.file_name,
+        geometry_family=geometry.geometry_family,
+        selected_case_id=selected_case.case_id if selected_case else None,
+        requested_outputs=normalized_requested_outputs,
+        simulation_requirements=simulation_requirements,
+        approval_snapshot=approval_snapshot,
+        artifact_entrypoints=provenance_artifact_entrypoints,
+        environment_fingerprint=environment_fingerprint,
+    )
+    provenance_manifest = provenance_manifest_model.model_dump(mode="json")
+    provenance_summary = build_provenance_summary(
+        manifest_virtual_path=provenance_manifest_virtual_path,
+        manifest_payload=provenance_manifest,
+    )
 
     payload = {
         "task_description": task_description,
@@ -1282,6 +1367,9 @@ def run_solver_dispatch(
         "scientific_study_manifest": scientific_study_manifest,
         "experiment_manifest": experiment_manifest,
         "run_compare_summary": run_compare_summary,
+        "provenance_manifest_virtual_path": provenance_manifest_virtual_path,
+        "provenance_summary": provenance_summary,
+        "environment_fingerprint": environment_fingerprint,
         "review_status": review.review_status,
         "next_recommended_stage": review.next_recommended_stage,
         "artifact_virtual_paths": review.artifact_virtual_paths,
@@ -1317,6 +1405,8 @@ def run_solver_dispatch(
         "report_virtual_path": payload["report_virtual_path"],
         "artifact_virtual_paths": payload["artifact_virtual_paths"],
         "request_virtual_path": request_virtual_path,
+        "provenance_manifest_virtual_path": provenance_manifest_virtual_path,
+        "provenance_summary": provenance_summary,
         "execution_log_virtual_path": execution_log_virtual_path,
         "solver_results_virtual_path": solver_results_virtual_path,
         "stability_evidence_virtual_path": stability_evidence_virtual_path,
@@ -1330,6 +1420,10 @@ def run_solver_dispatch(
     }
 
     request_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    provenance_manifest_path.write_text(
+        json.dumps(provenance_manifest, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     markdown_path.write_text(_render_markdown(payload), encoding="utf-8")
     html_path.write_text(_render_html(payload), encoding="utf-8")
     handoff_path.write_text(json.dumps(supervisor_handoff, ensure_ascii=False, indent=2), encoding="utf-8")

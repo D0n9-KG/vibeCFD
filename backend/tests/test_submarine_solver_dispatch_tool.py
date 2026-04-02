@@ -300,15 +300,33 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
     assert any(path.endswith("/openfoam-request.json") for path in artifacts)
     assert any(path.endswith("/dispatch-summary.md") for path in artifacts)
     assert any(path.endswith("/dispatch-summary.html") for path in artifacts)
+    assert any(path.endswith("/provenance-manifest.json") for path in artifacts)
 
     json_path = outputs_dir / "submarine" / "solver-dispatch" / "type209-demo" / "openfoam-request.json"
     md_path = outputs_dir / "submarine" / "solver-dispatch" / "type209-demo" / "dispatch-summary.md"
+    provenance_path = (
+        outputs_dir / "submarine" / "solver-dispatch" / "type209-demo" / "provenance-manifest.json"
+    )
     payload = json.loads(json_path.read_text(encoding="utf-8"))
+    provenance_manifest = json.loads(provenance_path.read_text(encoding="utf-8"))
 
     assert payload["dispatch_status"] == "planned"
     assert payload["execution_readiness"] == "stl_ready"
     assert payload["geometry"]["geometry_family"] == "Type 209"
     assert payload["selected_case"]["case_id"]
+    assert payload["provenance_manifest_virtual_path"].endswith("/provenance-manifest.json")
+    assert payload["provenance_summary"]["manifest_virtual_path"].endswith(
+        "/provenance-manifest.json"
+    )
+    assert payload["provenance_summary"]["manifest_completeness_status"] == "complete"
+    assert provenance_manifest["task_type"] == "resistance"
+    assert provenance_manifest["artifact_entrypoints"]["request"].endswith(
+        "/openfoam-request.json"
+    )
+    assert provenance_manifest["artifact_entrypoints"]["dispatch_summary_markdown"].endswith(
+        "/dispatch-summary.md"
+    )
+    assert "solver_results" not in provenance_manifest["artifact_entrypoints"]
     assert md_path.exists()
 
 
@@ -501,6 +519,14 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["workspace_case_dir_virtual_path"].endswith("/openfoam-case")
     assert runtime_state["run_script_virtual_path"].endswith("/Allrun")
     assert runtime_state["request_virtual_path"].endswith("/openfoam-request.json")
+    assert runtime_state["provenance_manifest_virtual_path"].endswith(
+        "/provenance-manifest.json"
+    )
+    assert runtime_state["provenance_summary"]["manifest_virtual_path"].endswith(
+        "/provenance-manifest.json"
+    )
+    assert runtime_state["provenance_summary"]["manifest_completeness_status"] == "complete"
+    assert runtime_state["environment_fingerprint"]["runtime_origin"] == "workspace"
     assert runtime_state["execution_log_virtual_path"] is None
     assert runtime_state["solver_results_virtual_path"] is None
     assert runtime_state["supervisor_handoff_virtual_path"].endswith("/supervisor-handoff.json")
@@ -1191,6 +1217,14 @@ def test_submarine_solver_dispatch_emits_baseline_experiment_artifacts(
     experiment_manifest = json.loads(experiment_manifest_path.read_text(encoding="utf-8"))
     run_record = json.loads(run_record_path.read_text(encoding="utf-8"))
     compare_summary = json.loads(compare_summary_path.read_text(encoding="utf-8"))
+    provenance_manifest_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "baseline-experiment-demo"
+        / "provenance-manifest.json"
+    )
+    provenance_manifest = json.loads(provenance_manifest_path.read_text(encoding="utf-8"))
 
     assert any(path.endswith("/experiment-manifest.json") for path in artifacts)
     assert any(path.endswith("/provenance-manifest.json") for path in artifacts)
@@ -1218,6 +1252,15 @@ def test_submarine_solver_dispatch_emits_baseline_experiment_artifacts(
         item["candidate_run_id"] == "mesh_independence:coarse"
         and item["candidate_execution_status"] == "planned"
         for item in compare_summary["comparisons"]
+    )
+    assert payload["provenance_summary"]["artifact_entrypoints"]["request"].endswith(
+        "/openfoam-request.json"
+    )
+    assert payload["provenance_summary"]["artifact_entrypoints"]["run_record"].endswith(
+        "/run-record.json"
+    )
+    assert provenance_manifest["artifact_entrypoints"]["run_compare_summary"].endswith(
+        "/run-compare-summary.json"
     )
 
 
