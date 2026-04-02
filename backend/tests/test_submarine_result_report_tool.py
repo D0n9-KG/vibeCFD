@@ -3689,5 +3689,49 @@ def test_reporting_decomposition_module_render_keeps_followup_and_requested_outp
     assert "## 建议" in markdown
     assert "<h2>Scientific Follow-Up History</h2>" in html
     assert "selector=patch[hull]" in html
+
+
+def test_result_reporting_includes_selected_case_provenance_summary(tmp_path):
+    contracts_module = importlib.import_module("deerflow.domain.submarine.contracts")
+    reporting_module = importlib.import_module("deerflow.domain.submarine.reporting")
+
+    outputs_dir = tmp_path / "outputs"
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    snapshot = contracts_module.SubmarineRuntimeSnapshot.model_validate(
+        {
+            "current_stage": "geometry-preflight",
+            "task_summary": "Review the engineering Type 209 drag workflow assumptions.",
+            "confirmation_status": "confirmed",
+            "execution_preference": "preflight_then_execute",
+            "task_type": "resistance",
+            "geometry_virtual_path": "/mnt/user-data/uploads/type209-provenance.stl",
+            "geometry_family": "Type 209",
+            "selected_case_id": "type209_engineering_drag",
+            "review_status": "needs_user_confirmation",
+            "next_recommended_stage": "user-confirmation",
+            "report_virtual_path": "/mnt/user-data/outputs/submarine/geometry-check/type209-provenance/geometry-check.md",
+            "artifact_virtual_paths": [],
+        }
+    )
+
+    payload, _ = reporting_module.run_result_report(
+        snapshot=snapshot,
+        outputs_dir=outputs_dir,
+        report_title="Type 209 provenance report",
+    )
+
+    html_path = (
+        outputs_dir / "submarine" / "reports" / "type209-provenance" / "final-report.html"
+    )
+    html = html_path.read_text(encoding="utf-8")
+    provenance = payload["selected_case_provenance_summary"]
+
+    assert provenance["case_id"] == "type209_engineering_drag"
+    assert provenance["source_label"] == "Type 209 engineering placeholder"
+    assert provenance["source_type"] == "placeholder_reference"
+    assert provenance["is_placeholder"] is True
+    assert provenance["applicability_conditions"]
+    assert "engineering review" in provenance["evidence_gap_note"]
     assert "<h2>建议</h2>" in html
     assert "由 Claude Code Supervisor 审阅当前阶段结论" in html

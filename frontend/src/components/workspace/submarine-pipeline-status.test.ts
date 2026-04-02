@@ -128,6 +128,59 @@ void test("keeps the persisted runtime narrative for healthy running threads", (
   );
 });
 
+void test("surfaces immediate pre-compute clarification without reusing scientific claim labels", () => {
+  const status = getSubmarinePipelineStatus({
+    threadError: null,
+    threadIsLoading: false,
+    isNewThread: false,
+    hasMessages: true,
+    hasDesignBrief: true,
+    hasFinalReport: false,
+    designBriefSummary: "Geometry scale and case provenance were drafted for review.",
+    runtimeTaskSummary: "Waiting for researcher input before execution.",
+    runtimeStatus: "ready",
+    reviewStatus: "needs_user_confirmation",
+    nextRecommendedStage: "user-confirmation",
+    requiresImmediateConfirmation: true,
+    pendingCalculationPlanCount: 2,
+    scientificGateStatus: "claim_limited",
+    allowedClaimLevel: "validated_with_gaps",
+  });
+
+  assert.equal(status.tone, "ready");
+  assert.equal(status.agentLabel, "Research plan ready");
+  assert.equal(status.runLabel, "Needs clarification");
+  assert.equal(status.outputStatus, "Immediate clarification required");
+  assert.match(status.summaryText, /Immediate researcher clarification/);
+  assert.doesNotMatch(
+    status.summaryText,
+    /validated_with_gaps|claim_limited|research_ready/,
+  );
+  assert.equal(status.errorBanner, null);
+});
+
+void test("surfaces pending researcher confirmation before solver dispatch", () => {
+  const status = getSubmarinePipelineStatus({
+    threadError: null,
+    threadIsLoading: false,
+    isNewThread: false,
+    hasMessages: true,
+    hasDesignBrief: true,
+    hasFinalReport: false,
+    designBriefSummary: "The calculation plan is ready for a final human check.",
+    runtimeTaskSummary: "Pre-compute approval is still pending.",
+    runtimeStatus: "ready",
+    pendingCalculationPlanCount: 3,
+  });
+
+  assert.equal(status.tone, "ready");
+  assert.equal(status.agentLabel, "Research plan ready");
+  assert.equal(status.runLabel, "Awaiting confirmation");
+  assert.equal(status.outputStatus, "Pending researcher confirmation");
+  assert.match(status.summaryText, /3 calculation-plan item\(s\)/);
+  assert.equal(status.errorBanner, null);
+});
+
 void test("surfaces completed scientific gate blockers instead of looking fully ready", () => {
   const status = getSubmarinePipelineStatus({
     threadError: null,

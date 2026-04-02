@@ -23,6 +23,7 @@ from .reporting_summaries import (
     build_experiment_compare_summary,
     build_experiment_summary,
     build_figure_delivery_summary,
+    build_selected_case_provenance_summary,
     build_scientific_study_summary,
     resolve_outputs_artifact,
     resolve_selected_case,
@@ -64,6 +65,7 @@ _build_scientific_study_summary = build_scientific_study_summary
 _build_experiment_summary = build_experiment_summary
 _build_experiment_compare_summary = build_experiment_compare_summary
 _build_figure_delivery_summary = build_figure_delivery_summary
+_build_selected_case_provenance_summary = build_selected_case_provenance_summary
 _render_delivery_readiness_markdown = render_delivery_readiness_markdown
 _render_markdown = render_markdown
 _render_html = render_html
@@ -182,6 +184,9 @@ def run_result_report(
     stability_evidence_virtual_path = loaded_stability_evidence[0] if loaded_stability_evidence else None
     stability_evidence = loaded_stability_evidence[1] if loaded_stability_evidence else None
     selected_case = _resolve_selected_case(snapshot.selected_case_id)
+    selected_case_provenance_summary = _build_selected_case_provenance_summary(
+        selected_case
+    )
     scientific_verification_requirements = [
         item.model_dump(mode="json")
         for item in build_effective_scientific_verification_requirements(
@@ -307,6 +312,7 @@ def run_result_report(
             if selected_case and selected_case.acceptance_profile
             else None
         ),
+        "selected_case_provenance_summary": selected_case_provenance_summary,
         "workspace_case_dir_virtual_path": snapshot.workspace_case_dir_virtual_path,
         "run_script_virtual_path": snapshot.run_script_virtual_path,
         "stability_evidence_virtual_path": stability_evidence_virtual_path,

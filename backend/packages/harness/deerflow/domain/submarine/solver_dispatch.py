@@ -11,6 +11,11 @@ from .artifact_store import (
     build_canonical_solver_dispatch_artifact_bundle,
     build_solver_dispatch_artifact_virtual_path,
 )
+from .calculation_plan import (
+    calculation_plan_requires_confirmation,
+    calculation_plan_requires_immediate_confirmation,
+    extract_geometry_reference_inputs,
+)
 from .contracts import SubmarineRequestedOutput, build_supervisor_review_contract
 from .experiments import (
     build_experiment_id,
@@ -332,6 +337,12 @@ def run_solver_dispatch(
     delta_t_seconds: float | None = None,
     write_interval_steps: int | None = None,
     requested_outputs: list[dict] | None = None,
+    geometry_findings: list[dict] | None = None,
+    scale_assessment: dict | None = None,
+    reference_value_suggestions: list[dict] | None = None,
+    clarification_required: bool = False,
+    calculation_plan: list[dict] | None = None,
+    requires_immediate_confirmation: bool = False,
     solver_command: str | None = None,
     execute_now: bool = False,
     execute_scientific_studies: bool = False,
@@ -356,6 +367,32 @@ def run_solver_dispatch(
         end_time_seconds=end_time_seconds,
         delta_t_seconds=delta_t_seconds,
         write_interval_steps=write_interval_steps,
+    )
+    selected_reference_inputs = extract_geometry_reference_inputs(calculation_plan)
+    if (
+        selected_reference_inputs is None
+        and reference_value_suggestions
+    ):
+        low_risk_values = {
+            item.get("quantity"): item.get("value")
+            for item in reference_value_suggestions
+            if item.get("is_low_risk") and not item.get("requires_confirmation")
+        }
+        if low_risk_values:
+            selected_reference_inputs = {
+                key: value
+                for key, value in low_risk_values.items()
+                if value is not None
+            }
+            if selected_reference_inputs:
+                selected_reference_inputs["approval_state"] = "pending_researcher_confirmation"
+                selected_reference_inputs["justification"] = (
+                    "Derived from low-risk geometry reference suggestions."
+                )
+    pending_calculation_plan = calculation_plan_requires_confirmation(calculation_plan)
+    requires_immediate_confirmation = (
+        requires_immediate_confirmation
+        or calculation_plan_requires_immediate_confirmation(calculation_plan)
     )
 
     run_dir_name = _slugify(geometry_path.stem)
@@ -497,7 +534,7 @@ def run_solver_dispatch(
         )
         scientific_study_manifest = scientific_study_manifest_model.model_dump(mode="json")
 
-    case_scaffold: dict[str, str | bool] = {}
+    case_scaffold: dict[str, object] = {}
     if workspace_dir is not None:
         case_scaffold = _write_openfoam_case_scaffold(
             workspace_dir=workspace_dir,
@@ -507,6 +544,7 @@ def run_solver_dispatch(
             selected_case=selected_case,
             simulation_requirements=simulation_requirements,
             requested_outputs=normalized_requested_outputs,
+            reference_inputs=selected_reference_inputs,
         )
 
     effective_solver_command = solver_command or (
@@ -525,7 +563,12 @@ def run_solver_dispatch(
     scientific_study_artifacts: list[str] = []
     scientific_variant_results: dict[str, dict[str, dict[str, object] | None]] = {}
     experiment_artifacts: list[str] = []
-    if execute_now and effective_solver_command and execute_command is not None:
+    if (
+        execute_now
+        and not pending_calculation_plan
+        and effective_solver_command
+        and execute_command is not None
+    ):
         command_output = execute_command(effective_solver_command)
         log_path.write_text(command_output, encoding="utf-8")
         dispatch_status = "failed" if _looks_like_solver_failure(command_output) else "executed"
@@ -1183,7 +1226,10 @@ def run_solver_dispatch(
 
     review_status = "ready_for_supervisor"
     next_stage = "result-reporting" if dispatch_status == "executed" else "solver-dispatch"
-    if case_scaffold.get("requires_geometry_conversion"):
+    if pending_calculation_plan:
+        review_status = "needs_user_confirmation"
+        next_stage = "user-confirmation"
+    elif case_scaffold.get("requires_geometry_conversion"):
         review_status = "needs_user_confirmation"
         next_stage = "geometry-preflight"
     elif dispatch_status == "failed":
@@ -1224,6 +1270,13 @@ def run_solver_dispatch(
         "scientific_verification_assessment": scientific_verification_assessment,
         "simulation_requirements": simulation_requirements,
         "requested_outputs": normalized_requested_outputs,
+        "geometry_findings": geometry_findings or [],
+        "scale_assessment": scale_assessment,
+        "reference_value_suggestions": reference_value_suggestions or [],
+        "clarification_required": clarification_required,
+        "calculation_plan": calculation_plan or [],
+        "requires_immediate_confirmation": requires_immediate_confirmation,
+        "selected_reference_inputs": selected_reference_inputs,
         "output_delivery_plan": output_delivery_plan,
         "scientific_study_plan": scientific_study_plan,
         "scientific_study_manifest": scientific_study_manifest,
@@ -1255,6 +1308,9 @@ def run_solver_dispatch(
         "geometry_family_hint": geometry.geometry_family,
         "selected_case_id": selected_case.case_id if selected_case else None,
         "requested_outputs": normalized_requested_outputs,
+        "calculation_plan": calculation_plan or [],
+        "requires_immediate_confirmation": requires_immediate_confirmation,
+        "selected_reference_inputs": selected_reference_inputs,
         "output_delivery_plan": output_delivery_plan,
         "review_status": payload["review_status"],
         "next_recommended_stage": payload["next_recommended_stage"],

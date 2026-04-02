@@ -34,6 +34,10 @@ export type SubmarinePipelineStatusInput = {
   runtimeSummary?: string | null;
   recoveryGuidance?: string | null;
   blockerDetail?: string | null;
+  reviewStatus?: string | null;
+  nextRecommendedStage?: string | null;
+  requiresImmediateConfirmation?: boolean | null;
+  pendingCalculationPlanCount?: number | null;
   scientificGateStatus?: string | null;
   allowedClaimLevel?: string | null;
   scientificVerificationStatus?: string | null;
@@ -259,6 +263,58 @@ function buildCompletedScientificStatus({
   return null;
 }
 
+function buildPrecomputeApprovalStatus({
+  designBriefSummary,
+  runtimeTaskSummary,
+  runtimeSummary,
+  reviewStatus,
+  nextRecommendedStage,
+  requiresImmediateConfirmation,
+  pendingCalculationPlanCount,
+}: {
+  designBriefSummary?: string | null;
+  runtimeTaskSummary?: string | null;
+  runtimeSummary?: string | null;
+  reviewStatus?: string | null;
+  nextRecommendedStage?: string | null;
+  requiresImmediateConfirmation?: boolean | null;
+  pendingCalculationPlanCount?: number | null;
+}): SubmarinePipelineStatus | null {
+  const pendingCount = Math.max(0, pendingCalculationPlanCount ?? 0);
+  const needsImmediateClarification =
+    Boolean(requiresImmediateConfirmation) ||
+    nextRecommendedStage === "user-confirmation";
+  const needsResearcherConfirmation =
+    needsImmediateClarification ||
+    reviewStatus === "needs_user_confirmation" ||
+    pendingCount > 0;
+
+  if (!needsResearcherConfirmation) {
+    return null;
+  }
+
+  const baseSummary = needsImmediateClarification
+    ? "Immediate researcher clarification is required before any real computation can begin."
+    : pendingCount > 0
+      ? `${pendingCount} calculation-plan item(s) are still waiting for researcher confirmation before solver dispatch.`
+      : "The calculation plan is ready for researcher confirmation before solver dispatch.";
+  const detail =
+    runtimeSummary ?? runtimeTaskSummary ?? designBriefSummary ?? null;
+
+  return {
+    tone: "ready",
+    agentLabel: "Research plan ready",
+    runLabel: needsImmediateClarification
+      ? "Needs clarification"
+      : "Awaiting confirmation",
+    outputStatus: needsImmediateClarification
+      ? "Immediate clarification required"
+      : "Pending researcher confirmation",
+    summaryText: detail ? `${baseSummary} ${detail}` : baseSummary,
+    errorBanner: null,
+  };
+}
+
 export function getSubmarinePipelineStatus({
   threadError,
   threadIsLoading,
@@ -272,6 +328,10 @@ export function getSubmarinePipelineStatus({
   runtimeSummary,
   recoveryGuidance,
   blockerDetail,
+  reviewStatus,
+  nextRecommendedStage,
+  requiresImmediateConfirmation,
+  pendingCalculationPlanCount,
   scientificGateStatus,
   allowedClaimLevel,
   scientificVerificationStatus,
@@ -357,6 +417,19 @@ export function getSubmarinePipelineStatus({
       summaryText: runtimeSummary ?? runtimeTaskSummary ?? DEFAULT_SUMMARY,
       errorBanner: null,
     };
+  }
+
+  const precomputeApprovalStatus = buildPrecomputeApprovalStatus({
+    designBriefSummary,
+    runtimeTaskSummary,
+    runtimeSummary,
+    reviewStatus,
+    nextRecommendedStage,
+    requiresImmediateConfirmation,
+    pendingCalculationPlanCount,
+  });
+  if (precomputeApprovalStatus) {
+    return precomputeApprovalStatus;
   }
 
   return {

@@ -170,6 +170,31 @@ void test("builds a design brief summary from the structured brief payload", () 
     ],
     user_constraints: ["先做单工况基线"],
     open_questions: ["是否补一个 5 m/s 对比工况"],
+    calculation_plan: [
+      {
+        item_id: "geometry-length",
+        category: "geometry",
+        label: "Reference length",
+        proposed_value: 4.356,
+        unit: "m",
+        source_label: "Geometry preflight",
+        confidence: "medium",
+        origin: "ai_suggestion",
+        approval_state: "pending_researcher_confirmation",
+        requires_immediate_confirmation: true,
+        applicability_conditions: ["Assumes the uploaded STL is already meter-scaled."],
+      },
+      {
+        item_id: "selected-case",
+        category: "case",
+        label: "Selected baseline case",
+        proposed_value: "darpa_suboff_bare_hull_resistance",
+        source_label: "Case library",
+        confidence: "high",
+        origin: "ai_suggestion",
+        approval_state: "researcher_confirmed",
+      },
+    ],
     execution_outline: [
       {
         role_id: "claude-code-supervisor",
@@ -200,6 +225,12 @@ void test("builds a design brief summary from the structured brief payload", () 
   assert.deepEqual(summary?.expectedOutputs, ["阻力系数 Cd", "中文结果报告"]);
   assert.deepEqual(summary?.userConstraints, ["先做单工况基线"]);
   assert.deepEqual(summary?.openQuestions, ["是否补一个 5 m/s 对比工况"]);
+  assert.equal(summary?.precomputeApprovalLabel, "Immediate Clarification Required");
+  assert.equal(summary?.pendingCalculationPlanCount, 1);
+  assert.equal(summary?.immediateClarificationCount, 1);
+  assert.equal(summary?.calculationPlan.length, 2);
+  assert.equal(summary?.calculationPlan[0]?.approvalStateLabel, "Pending Researcher Confirmation");
+  assert.equal(summary?.calculationPlan[0]?.originLabel, "AI Suggestion");
   assert.equal(summary?.executionOutline.length, 2);
   assert.equal(summary?.executionOutline[0]?.status, "in_progress");
   assert.deepEqual(summary?.executionOutline[0]?.targetSkills, [
@@ -343,6 +374,27 @@ void test("falls back to the legacy stage track when no runtime plan exists", ()
   );
   assert.equal(track[2]?.status, "in_progress");
   assert.equal(track[3]?.status, "pending");
+});
+
+void test("adds an explicit user-confirmation step to the legacy stage track when pre-compute approval is pending", () => {
+  const track = buildSubmarineStageTrack({
+    currentStage: "geometry-preflight",
+    nextRecommendedStage: "user-confirmation",
+  });
+
+  assert.deepEqual(
+    track.map((item) => item.stageId),
+    [
+      "task-intelligence",
+      "geometry-preflight",
+      "user-confirmation",
+      "solver-dispatch",
+      "result-reporting",
+      "supervisor-review",
+    ],
+  );
+  assert.equal(track[2]?.label, "Researcher Confirmation");
+  assert.equal(track[2]?.status, "ready");
 });
 
 void test("returns delivery-readiness labels for acceptance artifacts", () => {

@@ -80,3 +80,39 @@ void test("displayed stage still respects user-confirmation handoff", () => {
   assert.equal(displayedStage, "task-intelligence");
   assert.equal(displayedNextStage, "user-confirmation");
 });
+
+void test("pending calculation-plan approval also routes the UI to user confirmation", () => {
+  const displayedStage = getSubmarineDisplayedStage(
+    {
+      current_stage: "geometry-preflight",
+      next_recommended_stage: "solver-dispatch",
+      calculation_plan: [
+        {
+          approval_state: "pending_researcher_confirmation",
+        },
+      ],
+    },
+    {
+      confirmation_status: "confirmed",
+      open_questions: [],
+    },
+  );
+  const displayedNextStage = getSubmarineDisplayedNextStage(
+    {
+      current_stage: "geometry-preflight",
+      next_recommended_stage: "solver-dispatch",
+      calculation_plan: [
+        {
+          approval_state: "pending_researcher_confirmation",
+        },
+      ],
+    },
+    {
+      confirmation_status: "confirmed",
+      open_questions: [],
+    },
+  );
+
+  assert.equal(displayedStage, "task-intelligence");
+  assert.equal(displayedNextStage, "user-confirmation");
+});

@@ -40,6 +40,18 @@ def test_submarine_case_library_exposes_case_acceptance_profiles():
     assert profile.benchmark_targets[0].reference_value == 0.00314
 
 
+def test_submarine_case_library_exposes_provenance_disclosure_fields():
+    library = load_case_library()
+    advisory_case = library.case_index["type209_engineering_drag"]
+    primary_source = advisory_case.reference_sources[0]
+
+    assert primary_source.source_label == "Type 209 engineering placeholder"
+    assert primary_source.source_type == "placeholder_reference"
+    assert primary_source.applicability_conditions
+    assert primary_source.is_placeholder is True
+    assert primary_source.evidence_gap_note
+
+
 def test_submarine_case_library_exposes_effective_scientific_verification_requirements():
     library = load_case_library()
     case = library.case_index["darpa_suboff_bare_hull_resistance"]
@@ -491,7 +503,7 @@ def test_submarine_domain_builds_scientific_supervisor_gate_semantics():
     assert verified_only_gate["recommended_stage"] == "supervisor-review"
     assert verified_only_gate["remediation_stage"] == "solver-dispatch"
     assert verified_only_gate["advisory_notes"] == [
-        "External validation evidence is still missing for this run."
+        "No applicable benchmark target was available for this run."
     ]
 
     validated_with_gaps_gate = supervision_module.build_scientific_supervisor_gate(

@@ -20,11 +20,15 @@ import {
   formatSubmarineBenchmarkComparisonSummaryLine,
 } from "./submarine-runtime-panel.utils";
 import type {
+  SubmarineCalculationPlanItem,
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
-  SubmarineSolverMetrics,
   SubmarineGeometryPayload,
+  SubmarineGeometryFinding,
+  SubmarineGeometryReferenceValueSuggestion,
+  SubmarineGeometryScaleAssessment,
   SubmarineSimulationRequirements,
+  SubmarineSolverMetrics,
 } from "./submarine-runtime-panel.contract";
 import { type StageCardState, StageCard } from "./submarine-stage-card";
 import { buildTaskIntelligenceViewModel } from "./submarine-task-intelligence-view";
@@ -35,6 +39,12 @@ export type StageRuntimeSnapshot = {
   next_recommended_stage?: string | null;
   task_summary?: string | null;
   simulation_requirements?: SubmarineSimulationRequirements | null;
+  geometry_findings?: SubmarineGeometryFinding[] | null;
+  scale_assessment?: SubmarineGeometryScaleAssessment | null;
+  reference_value_suggestions?: SubmarineGeometryReferenceValueSuggestion[] | null;
+  clarification_required?: boolean | null;
+  calculation_plan?: SubmarineCalculationPlanItem[] | null;
+  requires_immediate_confirmation?: boolean | null;
   stage_status?: string | null;
   runtime_status?: string | null;
   runtime_summary?: string | null;
@@ -95,6 +105,23 @@ function normalizeRuntimeStatus(value?: string | null): RuntimeStatus | null {
     default:
       return null;
   }
+}
+
+function getPendingCalculationPlanItems(
+  items?: SubmarineCalculationPlanItem[] | null,
+) {
+  return (items ?? []).filter(
+    (item): item is SubmarineCalculationPlanItem =>
+      Boolean(item) && item.approval_state !== "researcher_confirmed",
+  );
+}
+
+function getImmediateClarificationItems(
+  items?: SubmarineCalculationPlanItem[] | null,
+) {
+  return getPendingCalculationPlanItems(items).filter((item) =>
+    Boolean(item.requires_immediate_confirmation),
+  );
 }
 
 function resolveStageState(
@@ -449,6 +476,28 @@ export function TaskIntelligenceCard({
         </div>
       )}
 
+      {(viewModel.pendingApprovalCount > 0 ||
+        viewModel.immediateClarificationCount > 0) && (
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700">
+              Pending Review
+            </div>
+            <div className="mt-1 text-sm font-medium text-sky-900">
+              {viewModel.pendingApprovalCount} calculation-plan item(s)
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+              Immediate Clarification
+            </div>
+            <div className="mt-1 text-sm font-medium text-amber-900">
+              {viewModel.immediateClarificationCount} item(s)
+            </div>
+          </div>
+        </div>
+      )}
+
       {viewModel.planItems.length > 0 && (
         <div className="mb-4">
           <SectionLabel color="amber">计算方案</SectionLabel>
@@ -626,6 +675,30 @@ export function GeometryPreflightCard({
   geometry,
 }: GeometryPreflightCardProps) {
   const state = resolveStageState("geometry-preflight", snapshot);
+  const geometryFindings =
+    geometry?.geometry_findings ?? snapshot?.geometry_findings ?? [];
+  const scaleAssessment =
+    geometry?.scale_assessment ?? snapshot?.scale_assessment ?? null;
+  const referenceValueSuggestions =
+    geometry?.reference_value_suggestions ??
+    snapshot?.reference_value_suggestions ??
+    [];
+  const calculationPlan = snapshot?.calculation_plan ?? geometry?.calculation_plan;
+  const pendingPlanItems = getPendingCalculationPlanItems(calculationPlan);
+  const immediateClarificationItems =
+    getImmediateClarificationItems(calculationPlan);
+  const needsImmediateClarification =
+    Boolean(
+      snapshot?.requires_immediate_confirmation ??
+        geometry?.requires_immediate_confirmation ??
+        geometry?.clarification_required ??
+        snapshot?.clarification_required,
+    ) || immediateClarificationItems.length > 0;
+  const requiresResearcherConfirmation =
+    needsImmediateClarification ||
+    pendingPlanItems.length > 0 ||
+    snapshot?.review_status === "needs_user_confirmation" ||
+    snapshot?.next_recommended_stage === "user-confirmation";
 
   // SubmarineGeometryPayload has: summary_zh, candidate_cases (no geometry_family_hint)
   const description =
@@ -633,7 +706,11 @@ export function GeometryPreflightCard({
       ? geometry?.summary_zh?.slice(0, 60) ?? "几何预检通过"
       : state === "active"
         ? "正在检查几何…"
-        : "等待任务理解完成";
+        : requiresResearcherConfirmation
+          ? needsImmediateClarification
+            ? "Waiting for researcher clarification"
+            : "Waiting for researcher confirmation"
+          : "等待任务理解完成";
 
   const resolvedDescription =
     state === "blocked"
@@ -651,8 +728,113 @@ export function GeometryPreflightCard({
       defaultExpanded={state !== "done"}
     >
       <RuntimeStateNotice snapshot={snapshot} state={state} />
+      {requiresResearcherConfirmation && state !== "done" && (
+        <div
+          className={cn(
+            "mb-4 rounded-xl border px-3.5 py-3 text-[11px] leading-5 shadow-sm",
+            needsImmediateClarification
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-sky-200 bg-sky-50 text-sky-900",
+          )}
+        >
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+            {needsImmediateClarification
+              ? "Needs Immediate Clarification"
+              : "Pending Researcher Confirmation"}
+          </div>
+          <div className="mt-1">
+            {needsImmediateClarification
+              ? "Geometry trust is still ambiguous. The researcher needs to clarify the flagged assumptions before pre-compute approval can continue."
+              : "Geometry preflight is complete, but solver execution is still waiting for the researcher to confirm the calculation plan."}
+          </div>
+          {pendingPlanItems.length > 0 && (
+            <div className="mt-2 text-[10px] font-medium">
+              {pendingPlanItems.length} calculation-plan item(s) still need review.
+            </div>
+          )}
+        </div>
+      )}
       {geometry?.summary_zh && (
         <div className="text-[11px] text-stone-600">{geometry.summary_zh}</div>
+      )}
+      {(geometryFindings.length > 0 ||
+        scaleAssessment ||
+        referenceValueSuggestions.length > 0 ||
+        pendingPlanItems.length > 0) && (
+        <div className="mt-4 grid gap-3 xl:grid-cols-2">
+          {scaleAssessment ? (
+            <div className="rounded-xl border border-stone-200 bg-white px-3.5 py-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                Scale Assessment
+              </div>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <StageInfoPair
+                  label="Severity"
+                  value={scaleAssessment.severity ?? "--"}
+                />
+                <StageInfoPair
+                  label="Applied Scale"
+                  value={
+                    scaleAssessment.applied_scale_factor != null
+                      ? `${scaleAssessment.applied_scale_factor}`
+                      : "--"
+                  }
+                />
+                <StageInfoPair
+                  label="Normalized Length"
+                  value={
+                    scaleAssessment.normalized_length_m != null
+                      ? `${scaleAssessment.normalized_length_m} m`
+                      : "--"
+                  }
+                />
+                <StageInfoPair
+                  label="Family Default"
+                  value={
+                    scaleAssessment.family_default_length_m != null
+                      ? `${scaleAssessment.family_default_length_m} m`
+                      : "--"
+                  }
+                />
+              </div>
+              {scaleAssessment.summary_zh && (
+                <div className="mt-3 text-[11px] text-stone-600">
+                  {scaleAssessment.summary_zh}
+                </div>
+              )}
+            </div>
+          ) : null}
+          {pendingPlanItems.length > 0 ? (
+            <StageListCard
+              title="Calculation Plan Review"
+              items={pendingPlanItems.map((item) =>
+                `${item.label ?? item.category ?? "Calculation plan item"} | ${item.approval_state ?? "pending"}${item.requires_immediate_confirmation ? " | immediate clarification" : ""}`,
+              )}
+              emptyText="No calculation-plan review items are pending."
+            />
+          ) : null}
+          <StageListCard
+            title="Geometry Findings"
+            items={geometryFindings.map((item) =>
+              `${item.severity ?? "info"} | ${item.summary_zh ?? item.finding_id ?? "Pending geometry finding"}`,
+            )}
+            emptyText="No structured geometry findings are recorded."
+          />
+          <StageListCard
+            title="Reference Suggestions"
+            items={referenceValueSuggestions.map((item) =>
+              [
+                item.quantity ?? "reference",
+                item.value != null
+                  ? `${item.value}${item.unit ? ` ${item.unit}` : ""}`
+                  : "--",
+                item.confidence ?? "--",
+                item.source ?? item.summary_zh ?? "--",
+              ].join(" | "),
+            )}
+            emptyText="No structured reference suggestions are recorded."
+          />
+        </div>
       )}
       {!geometry && state === "active" && (
         <div className="text-[11px] text-stone-400">几何检查运行中…</div>
@@ -685,6 +867,18 @@ export function SolverDispatchCard({
   trendValues,
 }: SolverDispatchCardProps) {
   const state = resolveStageState("solver-dispatch", snapshot);
+  const pendingPlanItems = getPendingCalculationPlanItems(snapshot?.calculation_plan);
+  const immediateClarificationItems = getImmediateClarificationItems(
+    snapshot?.calculation_plan,
+  );
+  const needsImmediateClarification =
+    Boolean(snapshot?.requires_immediate_confirmation) ||
+    immediateClarificationItems.length > 0;
+  const isWaitingForResearcherApproval =
+    needsImmediateClarification ||
+    pendingPlanItems.length > 0 ||
+    snapshot?.review_status === "needs_user_confirmation" ||
+    snapshot?.next_recommended_stage === "user-confirmation";
 
   // Compute progress from execution_plan
   const plan = snapshot?.execution_plan ?? [];
@@ -710,7 +904,11 @@ export function SolverDispatchCard({
       ? cd != null ? `Cd=${cd.toFixed(5)} · 求解完成` : "求解完成"
       : state === "active"
         ? "simpleFoam 运行中"
-        : "等待几何预检完成";
+        : isWaitingForResearcherApproval
+          ? needsImmediateClarification
+            ? "Waiting for researcher clarification"
+            : "Waiting for researcher approval"
+          : "等待几何预检完成";
 
   return (
     <StageCard
@@ -726,6 +924,32 @@ export function SolverDispatchCard({
       defaultExpanded={state !== "done"}
     >
       <RuntimeStateNotice snapshot={snapshot} state={state} />
+      {isWaitingForResearcherApproval && state !== "done" && (
+        <div
+          className={cn(
+            "mb-3 rounded-xl border px-3.5 py-3 text-[11px] leading-5 shadow-sm",
+            needsImmediateClarification
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-sky-200 bg-sky-50 text-sky-900",
+          )}
+        >
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+            {needsImmediateClarification
+              ? "Needs Immediate Clarification"
+              : "Pending Researcher Approval"}
+          </div>
+          <div className="mt-1">
+            Solver dispatch is paused until the researcher reviews the
+            calculation plan. This gate authorizes execution only and does not
+            change any post-compute scientific claim labels.
+          </div>
+          {pendingPlanItems.length > 0 && (
+            <div className="mt-2 text-[10px] font-medium">
+              {pendingPlanItems.length} item(s) remain pending before execution.
+            </div>
+          )}
+        </div>
+      )}
       {/* Progress */}
       {totalSteps > 0 && (
         <div className="mb-2.5 flex items-center gap-2.5">
@@ -1523,6 +1747,46 @@ function StageHintList({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function StageInfoPair({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+        {label}
+      </div>
+      <div className="mt-1 text-[12px] font-medium text-stone-800">{value}</div>
+    </div>
+  );
+}
+
+function StageListCard({
+  title,
+  items,
+  emptyText,
+}: {
+  title: string;
+  items: string[];
+  emptyText: string;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-200 bg-white px-3.5 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+        {title}
+      </div>
+      {items.length > 0 ? (
+        <ul className="mt-2 space-y-1.5">
+          {items.map((item) => (
+            <li key={`${title}-${item}`} className="text-[11px] leading-5 text-stone-600">
+              {item}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-2 text-[11px] leading-5 text-stone-400">{emptyText}</div>
+      )}
     </div>
   );
 }

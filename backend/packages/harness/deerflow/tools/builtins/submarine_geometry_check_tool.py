@@ -12,6 +12,10 @@ from langgraph.typing import ContextT
 
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
+from deerflow.domain.submarine.calculation_plan import (
+    build_geometry_calculation_plan,
+    calculation_plan_requires_immediate_confirmation,
+)
 from deerflow.domain.submarine.contracts import (
     build_execution_plan,
     build_runtime_event,
@@ -156,13 +160,19 @@ def submarine_geometry_check_tool(
             ),
         )
         task_description = resolved_task_summary
+        resolved_geometry_family_hint = (
+            geometry_family_hint
+            if geometry_family_hint is not None
+            else (existing_runtime or {}).get("geometry_family")
+            or existing_brief.get("geometry_family_hint")
+        )
         resolved_geometry_path = _resolve_geometry_path(runtime, geometry_path)
         result, artifacts = run_geometry_check(
             geometry_path=resolved_geometry_path,
             outputs_dir=outputs_dir,
             task_description=task_description or "执行潜艇几何检查",
             task_type=task_type or "resistance",
-            geometry_family_hint=geometry_family_hint,
+            geometry_family_hint=resolved_geometry_family_hint,
         )
     except ValueError as exc:
         return Command(
@@ -175,6 +185,42 @@ def submarine_geometry_check_tool(
         existing_runtime=existing_runtime,
         existing_brief=existing_brief,
     )
+    resolved_selected_case_id = (
+        (existing_runtime or {}).get("selected_case_id")
+        or existing_brief.get("selected_case_id")
+    )
+    selected_case = next(
+        (
+            case
+            for case in result.candidate_cases
+            if case.case_id
+            == resolved_selected_case_id
+        ),
+        None,
+    )
+    calculation_plan = build_geometry_calculation_plan(
+        existing=(
+            (existing_runtime or {}).get("calculation_plan")
+            or existing_brief.get("calculation_plan")
+        ),
+        reference_value_suggestions=result.reference_value_suggestions,
+        selected_case=selected_case,
+    )
+    requires_immediate_confirmation = calculation_plan_requires_immediate_confirmation(
+        calculation_plan
+    )
+    execution_stage_updates = {
+        "claude-code-supervisor": "completed",
+        "task-intelligence": "completed",
+        "geometry-preflight": "completed",
+        "solver-dispatch": (
+            "blocked"
+            if result.review_status == "blocked"
+            else "pending"
+            if result.review_status == "needs_user_confirmation"
+            else "ready"
+        ),
+    }
     runtime_snapshot = build_runtime_snapshot(
         current_stage="geometry-preflight",
         task_summary=task_description,
@@ -194,14 +240,20 @@ def submarine_geometry_check_tool(
         geometry_family=result.geometry.geometry_family,
         execution_readiness=STL_READY_EXECUTION,
         selected_case_id=(
-            (existing_runtime or {}).get("selected_case_id")
-            or existing_brief.get("selected_case_id")
+            resolved_selected_case_id
+            or (selected_case.case_id if selected_case is not None else None)
             or (result.candidate_cases[0].case_id if result.candidate_cases else None)
         ),
         simulation_requirements=(
             (existing_runtime or {}).get("simulation_requirements")
             or existing_brief.get("simulation_requirements")
         ),
+        geometry_findings=result.geometry_findings,
+        scale_assessment=result.scale_assessment,
+        reference_value_suggestions=result.reference_value_suggestions,
+        clarification_required=result.clarification_required,
+        calculation_plan=calculation_plan,
+        requires_immediate_confirmation=requires_immediate_confirmation,
         requested_outputs=(
             (existing_runtime or {}).get("requested_outputs")
             or existing_brief.get("requested_outputs")
@@ -221,12 +273,7 @@ def submarine_geometry_check_tool(
         execution_plan=build_execution_plan(
             confirmation_status=resolved_confirmation_status,
             existing_plan=(existing_runtime or {}).get("execution_plan"),
-            stage_updates={
-                "claude-code-supervisor": "completed",
-                "task-intelligence": "completed",
-                "geometry-preflight": "completed",
-                "solver-dispatch": "ready",
-            },
+            stage_updates=execution_stage_updates,
         ),
         review_status=result.review_status,
         activity_timeline=extend_runtime_timeline(

@@ -25,9 +25,9 @@
 
 ### Geometry and Case Intelligence
 
-- [ ] **GEO-01**: Geometry preflight detects STL integrity, unit/scale anomalies, and reference-length or reference-area assumptions before solve
-- [ ] **GEO-02**: Case-library entries use real references and explicit acceptance profiles rather than placeholder sources
-- [ ] **GEO-03**: Non-research-ready geometries or ambiguous setups are downgraded or blocked with clear justification
+- [x] **GEO-01**: Geometry preflight detects STL integrity, unit/scale anomalies, and reference-length or reference-area assumptions before solve
+- [x] **GEO-02**: Case-library entries use real references and explicit acceptance profiles rather than placeholder sources
+- [x] **GEO-03**: Non-research-ready geometries or ambiguous setups are downgraded or blocked with clear justification
 
 ### Reproducibility and Operations
 
@@ -79,9 +79,9 @@
 | SCI-01 | Phase 3 | Pending |
 | SCI-02 | Phase 3 | Pending |
 | SCI-03 | Phase 3 | Pending |
-| GEO-01 | Phase 4 | Pending |
-| GEO-02 | Phase 4 | Pending |
-| GEO-03 | Phase 4 | Pending |
+| GEO-01 | Phase 4 | Completed |
+| GEO-02 | Phase 4 | Completed |
+| GEO-03 | Phase 4 | Completed |
 | OPS-01 | Phase 5 | Pending |
 | OPS-02 | Phase 5 | Pending |
 | OPS-03 | Phase 5 | Pending |
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-04-01*
-*Last updated: 2026-04-01 after brownfield initialization*
+*Last updated: 2026-04-02 after Phase 4 completion*

@@ -1,4 +1,5 @@
 import type {
+  SubmarineCalculationPlanItem,
   SubmarineDesignBriefPayload,
   SubmarineExecutionOutlineItem,
   SubmarineRequestedOutputPayload,
@@ -10,6 +11,8 @@ type TaskIntelligenceSnapshot = {
   review_status?: string | null;
   stage_status?: string | null;
   simulation_requirements?: SubmarineSimulationRequirements | null;
+  calculation_plan?: SubmarineCalculationPlanItem[] | null;
+  requires_immediate_confirmation?: boolean | null;
 };
 
 export type TaskIntelligencePlanItem = {
@@ -53,6 +56,8 @@ export type TaskIntelligenceViewModel = {
   userConstraints: string[];
   openQuestions: string[];
   executionSteps: TaskIntelligenceExecutionStepView[];
+  pendingApprovalCount: number;
+  immediateClarificationCount: number;
 };
 
 function formatNumber(value: number, digits = 2): string {
@@ -93,8 +98,29 @@ function summarizeSelector(
 }
 
 function buildPlanItems(
+  calculationPlan: SubmarineCalculationPlanItem[] | null | undefined,
   requirements: SubmarineSimulationRequirements | null | undefined,
 ): TaskIntelligencePlanItem[] {
+  const structuredItems = (calculationPlan ?? []).map((item) => {
+    const value = formatCalculationPlanValue(item);
+    const status =
+      item.requires_immediate_confirmation
+        ? "Immediate clarification"
+        : item.approval_state === "researcher_confirmed"
+          ? "Researcher confirmed"
+          : "Pending researcher confirmation";
+    const source = item.source_label ?? item.origin ?? "source pending";
+
+    return {
+      label: item.label ?? item.category ?? "Calculation plan item",
+      value: [value, status, source].filter(Boolean).join(" | "),
+    };
+  });
+
+  if (structuredItems.length > 0) {
+    return structuredItems;
+  }
+
   if (!requirements) {
     return [];
   }
@@ -189,6 +215,54 @@ function normalizeStringList(values: string[] | null | undefined): string[] {
   );
 }
 
+function formatCalculationPlanValue(item: SubmarineCalculationPlanItem): string {
+  if (item.proposed_value != null) {
+    return formatPlanScalarValue(item.proposed_value, item.unit);
+  }
+
+  if (Array.isArray(item.proposed_range)) {
+    const rangeValues = item.proposed_range
+      .map((value) => formatPlanScalarValue(value, null))
+      .filter((value) => value !== "--");
+    if (rangeValues.length > 0) {
+      return `${rangeValues.join(" to ")}${item.unit ? ` ${item.unit}` : ""}`;
+    }
+  }
+
+  if (item.proposed_range && typeof item.proposed_range === "object") {
+    const minValue = formatPlanScalarValue(
+      (item.proposed_range as Record<string, unknown>).min,
+      null,
+    );
+    const maxValue = formatPlanScalarValue(
+      (item.proposed_range as Record<string, unknown>).max,
+      null,
+    );
+    if (minValue !== "--" || maxValue !== "--") {
+      return `${minValue} to ${maxValue}${item.unit ? ` ${item.unit}` : ""}`;
+    }
+  }
+
+  return "--";
+}
+
+function formatPlanScalarValue(value: unknown, unit: string | null | undefined): string {
+  let base = "--";
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    base = formatNumber(value, Math.abs(value) >= 1 ? 3 : 6);
+  } else if (typeof value === "string" && value.trim().length > 0) {
+    base = value;
+  } else if (typeof value === "boolean") {
+    base = value ? "true" : "false";
+  }
+
+  if (base === "--") {
+    return base;
+  }
+  return unit ? `${base} ${unit}` : base;
+}
+
 export function buildTaskIntelligenceViewModel({
   designBrief,
   snapshot,
@@ -196,16 +270,46 @@ export function buildTaskIntelligenceViewModel({
   designBrief: SubmarineDesignBriefPayload | null;
   snapshot: TaskIntelligenceSnapshot | null;
 }): TaskIntelligenceViewModel {
+  const calculationPlan =
+    designBrief?.calculation_plan ?? snapshot?.calculation_plan ?? null;
   const simulationRequirements =
     designBrief?.simulation_requirements ?? snapshot?.simulation_requirements ?? null;
   const openQuestions = normalizeStringList(designBrief?.open_questions);
+  const pendingCalculationPlanItems = (calculationPlan ?? []).filter(
+    (item) => item.approval_state !== "researcher_confirmed",
+  );
+  const immediateClarificationItems = pendingCalculationPlanItems.filter(
+    (item) => item.requires_immediate_confirmation,
+  );
+  const calculationPlanQuestions = immediateClarificationItems
+    .map((item) => {
+      const label = item.label ?? item.category ?? "Calculation plan item";
+      const detail = item.evidence_gap_note ?? item.researcher_note ?? null;
+      return detail ? `${label}: ${detail}` : label;
+    })
+    .filter(
+      (value): value is string => typeof value === "string" && value.trim().length > 0,
+    );
+  const combinedOpenQuestions = [
+    ...openQuestions,
+    ...calculationPlanQuestions.filter((value) => !openQuestions.includes(value)),
+  ];
   const hasBrief = Boolean(designBrief);
-  const isConfirmed = designBrief?.confirmation_status === "confirmed";
+  const isConfirmed =
+    designBrief?.confirmation_status === "confirmed" &&
+    pendingCalculationPlanItems.length === 0;
 
   let confirmationState: TaskIntelligenceConfirmationState = "idle";
-  if (isConfirmed) {
+  if (
+    immediateClarificationItems.length > 0 ||
+    snapshot?.requires_immediate_confirmation
+  ) {
+    confirmationState = "needs_clarification";
+  } else if (pendingCalculationPlanItems.length > 0) {
+    confirmationState = "ready_to_confirm";
+  } else if (isConfirmed) {
     confirmationState = "confirmed";
-  } else if (openQuestions.length > 0) {
+  } else if (combinedOpenQuestions.length > 0) {
     confirmationState = "needs_clarification";
   } else if (
     hasBrief ||
@@ -218,14 +322,19 @@ export function buildTaskIntelligenceViewModel({
   return {
     confirmationState,
     canConfirmExecution:
-      hasBrief && !isConfirmed && openQuestions.length === 0,
-    planItems: buildPlanItems(simulationRequirements),
+      hasBrief &&
+      !isConfirmed &&
+      combinedOpenQuestions.length === 0 &&
+      immediateClarificationItems.length === 0,
+    planItems: buildPlanItems(calculationPlan, simulationRequirements),
     requestedOutputs: buildRequestedOutputs(designBrief?.requested_outputs),
     verificationRequirements: buildVerificationRequirements(
       designBrief?.scientific_verification_requirements,
     ),
     userConstraints: normalizeStringList(designBrief?.user_constraints),
-    openQuestions,
+    openQuestions: combinedOpenQuestions,
     executionSteps: buildExecutionSteps(designBrief?.execution_outline),
+    pendingApprovalCount: pendingCalculationPlanItems.length,
+    immediateClarificationCount: immediateClarificationItems.length,
   };
 }

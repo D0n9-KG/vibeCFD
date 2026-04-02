@@ -6,6 +6,13 @@ type SubmarineRuntimeLike = {
   current_stage?: string | null;
   next_recommended_stage?: string | null;
   review_status?: string | null;
+  calculation_plan?:
+    | Array<{
+        approval_state?: string | null;
+        requires_immediate_confirmation?: boolean | null;
+      }>
+    | null;
+  requires_immediate_confirmation?: boolean | null;
   stage_status?: string | null;
   runtime_status?: string | null;
 };
@@ -13,6 +20,13 @@ type SubmarineRuntimeLike = {
 type SubmarineDesignBriefLike = {
   confirmation_status?: string | null;
   open_questions?: string[] | null;
+  calculation_plan?:
+    | Array<{
+        approval_state?: string | null;
+        requires_immediate_confirmation?: boolean | null;
+      }>
+    | null;
+  requires_immediate_confirmation?: boolean | null;
 };
 
 type ThreadValuesLike = {
@@ -96,9 +110,26 @@ function needsUserConfirmation(
   runtime: SubmarineRuntimeLike | null | undefined,
   designBrief?: SubmarineDesignBriefLike | null,
 ): boolean {
+  const calculationPlan = runtime?.calculation_plan ?? designBrief?.calculation_plan ?? [];
+  const hasImmediateCalculationPlanClarification =
+    Boolean(
+      runtime?.requires_immediate_confirmation ??
+        designBrief?.requires_immediate_confirmation,
+    ) ||
+    calculationPlan.some(
+      (item) =>
+        Boolean(item?.requires_immediate_confirmation) &&
+        item?.approval_state !== "researcher_confirmed",
+    );
+  const hasPendingCalculationPlanApproval = calculationPlan.some(
+    (item) => item?.approval_state !== "researcher_confirmed",
+  );
+
   if (
     runtime?.review_status === "needs_user_confirmation" ||
-    runtime?.next_recommended_stage === "user-confirmation"
+    runtime?.next_recommended_stage === "user-confirmation" ||
+    hasImmediateCalculationPlanClarification ||
+    hasPendingCalculationPlanApproval
   ) {
     return true;
   }

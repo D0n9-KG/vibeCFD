@@ -18,22 +18,40 @@
         {
           "title": "Geometric Characteristics of DARPA SUBOFF Models (DTRC Model Nos. 5470 and 5471)",
           "source": "NTIS",
-          "url": "https://ntrl.ntis.gov/NTRL/dashboard/searchResults/titleDetail/ADA210642.xhtml"
+          "url": "https://ntrl.ntis.gov/NTRL/dashboard/searchResults/titleDetail/ADA210642.xhtml",
+          "source_label": "DARPA SUBOFF geometry report",
+          "source_type": "geometry_report",
+          "applicability_conditions": ["axisymmetric bare hull", "deeply submerged"],
+          "confidence_note": "Canonical geometry source for the SUBOFF bare-hull family.",
+          "is_placeholder": false,
+          "evidence_gap_note": null
         },
         {
           "title": "Summary of DARPA SUBOFF Experimental Program Data",
           "source": "NTIS",
-          "url": "https://ntrl.ntis.gov/NTRL/dashboard/searchResults/titleDetail/ADA359226.xhtml"
+          "url": "https://ntrl.ntis.gov/NTRL/dashboard/searchResults/titleDetail/ADA359226.xhtml",
+          "source_label": "DARPA SUBOFF experimental program summary",
+          "source_type": "benchmark_report",
+          "applicability_conditions": ["bare hull resistance baseline", "steady towing-tank validation"],
+          "confidence_note": "Primary experimental benchmark anchor for baseline drag studies.",
+          "is_placeholder": false,
+          "evidence_gap_note": null
         },
         {
           "title": "Hydrodynamic parameter estimation of DARPA SUBOFF using dynamic pitch maneuver",
           "source": "Journal article",
-          "url": "https://pure.port.ac.uk/ws/portalfiles/portal/110702250/Hydrodynamic_parameter_estimation_of_DARPA_SUBOFF.pdf"
+          "url": "https://pure.port.ac.uk/ws/portalfiles/portal/110702250/Hydrodynamic_parameter_estimation_of_DARPA_SUBOFF.pdf",
+          "source_label": "Mushtaque et al. (2025)",
+          "source_type": "journal_article",
+          "applicability_conditions": ["bare hull drag coefficient", "3.05 m/s reference condition"],
+          "confidence_note": "Contains a directly reusable Cd reference used by the acceptance profile.",
+          "is_placeholder": false,
+          "evidence_gap_note": null
         }
       ],
       "acceptance_profile": {
         "profile_id": "darpa-suboff-resistance-baseline",
-        "summary_zh": "面向 DARPA SUBOFF 裸艇阻力基线工况的第一版案例级科研验收 profile。",
+        "summary_zh": "面向 DARPA SUBOFF 裸艇阻力基线工况的第一版科研验收画像。",
         "require_solver_completed": true,
         "require_mesh_ok": true,
         "require_force_coefficients": true,
@@ -76,12 +94,18 @@
         {
           "title": "SUBOFF pressure benchmark notes",
           "source": "Open literature",
-          "url": "https://example.com/suboff-pressure"
+          "url": "https://example.com/suboff-pressure",
+          "source_label": "Pressure benchmark placeholder",
+          "source_type": "placeholder_reference",
+          "applicability_conditions": ["surface pressure map", "deeply submerged SUBOFF"],
+          "confidence_note": "Useful as a workflow hint, but not yet curated into a defensible benchmark citation.",
+          "is_placeholder": true,
+          "evidence_gap_note": "Pressure-distribution workflow has no curated open benchmark reference yet; keep recommendations advisory."
         }
       ],
       "acceptance_profile": {
         "profile_id": "darpa-suboff-pressure-distribution",
-        "summary_zh": "面向 DARPA SUBOFF 压力分布任务的第一版案例级科研验收 profile。",
+        "summary_zh": "面向 DARPA SUBOFF 压力分布任务的第一版科研验收画像。",
         "require_solver_completed": true,
         "require_mesh_ok": true,
         "require_force_coefficients": true,
@@ -110,12 +134,18 @@
         {
           "title": "Joubert BB2 wake analysis",
           "source": "Research paper",
-          "url": "https://example.com/joubert-wake"
+          "url": "https://example.com/joubert-wake",
+          "source_label": "Joubert BB2 wake placeholder",
+          "source_type": "placeholder_reference",
+          "applicability_conditions": ["wake-field visualization", "stern-flow comparison"],
+          "confidence_note": "Use as an advisory wake template until a citable wake benchmark is curated.",
+          "is_placeholder": true,
+          "evidence_gap_note": "Wake-field recommendation lacks a curated public benchmark target; treat results as advisory unless the researcher adds a validation source."
         }
       ],
       "acceptance_profile": {
         "profile_id": "joubert-bb2-wake-baseline",
-        "summary_zh": "面向 Joubert BB2 尾流基线任务的第一版案例级科研验收 profile。",
+        "summary_zh": "面向 Joubert BB2 尾流基线任务的第一版科研验收画像。",
         "require_solver_completed": true,
         "require_mesh_ok": true,
         "require_force_coefficients": true,
@@ -144,9 +174,25 @@
         {
           "title": "Joubert BB2 CFD template",
           "source": "Software tutorial",
-          "url": "https://example.com/joubert-template"
+          "url": "https://example.com/joubert-template",
+          "source_label": "Joubert BB2 pressure/wake placeholder",
+          "source_type": "placeholder_reference",
+          "applicability_conditions": ["combined pressure and wake review", "engineering-style comparison"],
+          "confidence_note": "Provides a workflow starting point but not a curated validation target.",
+          "is_placeholder": true,
+          "evidence_gap_note": "No defensible benchmark pressure reference is attached yet; keep this template advisory."
         }
       ],
+      "acceptance_profile": {
+        "profile_id": "joubert-bb2-pressure-velocity",
+        "summary_zh": "面向 Joubert BB2 压力与速度联合任务的第一版科研验收画像。",
+        "require_solver_completed": true,
+        "require_mesh_ok": true,
+        "require_force_coefficients": true,
+        "minimum_completed_fraction_of_planned_time": 0.9,
+        "max_final_residual": 0.002,
+        "required_artifacts": ["solver-results.json"]
+      },
       "reuse_role": "secondary pressure template",
       "linked_skills": ["case-search", "geometry-check", "mesh-prep", "solver-openfoam", "postprocess", "report"]
     },
@@ -168,12 +214,18 @@
         {
           "title": "Type 209 public geometry studies",
           "source": "Engineering reference",
-          "url": "https://example.com/type209"
+          "url": "https://example.com/type209",
+          "source_label": "Type 209 engineering placeholder",
+          "source_type": "placeholder_reference",
+          "applicability_conditions": ["engineering drag sanity check", "template-mapped geometry"],
+          "confidence_note": "Suitable for engineering screening, but not yet benchmark-backed.",
+          "is_placeholder": true,
+          "evidence_gap_note": "Type 209 drag workflow currently lacks a curated public benchmark target; use for engineering review, not strong claims."
         }
       ],
       "acceptance_profile": {
         "profile_id": "type209-engineering-drag",
-        "summary_zh": "面向 Type 209 工程阻力评估的第一版案例级科研验收 profile。",
+        "summary_zh": "面向 Type 209 工程阻力评估的第一版科研验收画像。",
         "require_solver_completed": true,
         "require_mesh_ok": true,
         "require_force_coefficients": true,
@@ -202,9 +254,25 @@
         {
           "title": "Type 209 OpenFOAM tutorial notes",
           "source": "Tutorial adaptation",
-          "url": "https://example.com/type209-openfoam"
+          "url": "https://example.com/type209-openfoam",
+          "source_label": "Type 209 pressure placeholder",
+          "source_type": "placeholder_reference",
+          "applicability_conditions": ["pressure-map review", "engineering-style OpenFOAM setup"],
+          "confidence_note": "Good for templated pressure/postprocess setup but still missing benchmark evidence.",
+          "is_placeholder": true,
+          "evidence_gap_note": "Pressure-distribution recommendation is advisory until a defensible Type 209 pressure reference is linked."
         }
       ],
+      "acceptance_profile": {
+        "profile_id": "type209-pressure-velocity-openfoam",
+        "summary_zh": "面向 Type 209 压力与速度 OpenFOAM 模板的第一版科研验收画像。",
+        "require_solver_completed": true,
+        "require_mesh_ok": true,
+        "require_force_coefficients": true,
+        "minimum_completed_fraction_of_planned_time": 0.9,
+        "max_final_residual": 0.002,
+        "required_artifacts": ["solver-results.json"]
+      },
       "reuse_role": "engineering pressure template",
       "linked_skills": ["case-search", "geometry-check", "mesh-prep", "solver-openfoam", "postprocess", "report"]
     },
@@ -226,7 +294,13 @@
         {
           "title": "Near-free-surface submarine studies",
           "source": "Research paper",
-          "url": "https://example.com/free-surface"
+          "url": "https://example.com/free-surface",
+          "source_label": "Near-free-surface placeholder",
+          "source_type": "placeholder_reference",
+          "applicability_conditions": ["future free-surface expansion"],
+          "confidence_note": "Retained for roadmap contrast, not for the active v1 STL workflow.",
+          "is_placeholder": true,
+          "evidence_gap_note": "Near-free-surface capability is deferred; this entry should not be ranked as an active v1 recommendation."
         }
       ],
       "reuse_role": "future expansion placeholder",
@@ -250,9 +324,25 @@
         {
           "title": "Joubert BB2 drag-pressure workflow",
           "source": "Software case note",
-          "url": "https://example.com/joubert-drag-pressure"
+          "url": "https://example.com/joubert-drag-pressure",
+          "source_label": "Joubert BB2 drag/pressure placeholder",
+          "source_type": "placeholder_reference",
+          "applicability_conditions": ["combined drag and pressure screening", "benchmark-like hull"],
+          "confidence_note": "Provides a useful combined workflow but still lacks curated public benchmark evidence.",
+          "is_placeholder": true,
+          "evidence_gap_note": "Drag and pressure workflow is advisory until Joubert BB2 validation data is curated into the library."
         }
       ],
+      "acceptance_profile": {
+        "profile_id": "joubert-bb2-drag-pressure-combo",
+        "summary_zh": "面向 Joubert BB2 阻力与压力联合任务的第一版科研验收画像。",
+        "require_solver_completed": true,
+        "require_mesh_ok": true,
+        "require_force_coefficients": true,
+        "minimum_completed_fraction_of_planned_time": 0.9,
+        "max_final_residual": 0.002,
+        "required_artifacts": ["solver-results.json"]
+      },
       "reuse_role": "alternative template",
       "linked_skills": ["case-search", "geometry-check", "solver-openfoam", "postprocess", "report"]
     }

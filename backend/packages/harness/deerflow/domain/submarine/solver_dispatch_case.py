@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Mapping
 from pathlib import Path
 
 from .models import GeometryInspection, SubmarineCaseMatch
@@ -59,7 +60,12 @@ def _resolve_solver_application(selected_case: SubmarineCaseMatch | None) -> str
     return tokens[-1]
 
 
-def _reference_length_m(geometry: GeometryInspection) -> float:
+def _reference_length_m(
+    geometry: GeometryInspection,
+    reference_inputs: Mapping[str, object] | None = None,
+) -> float:
+    if reference_inputs and reference_inputs.get("reference_length_m") is not None:
+        return round(max(float(reference_inputs["reference_length_m"]), 0.1), 6)
     return round(max(geometry.estimated_length_m or 4.0, 0.1), 6)
 
 
@@ -79,14 +85,19 @@ def _geometry_length_scale(geometry: GeometryInspection) -> float:
     return normalized_length / raw_length
 
 
-def _reference_area_m2(geometry: GeometryInspection) -> float:
+def _reference_area_m2(
+    geometry: GeometryInspection,
+    reference_inputs: Mapping[str, object] | None = None,
+) -> float:
+    if reference_inputs and reference_inputs.get("reference_area_m2") is not None:
+        return round(max(float(reference_inputs["reference_area_m2"]), 1e-4), 6)
     if geometry.bounding_box is not None:
         scale = _geometry_length_scale(geometry)
         beam = max(geometry.bounding_box.max_y - geometry.bounding_box.min_y, 0.0) * scale
         draft = max(geometry.bounding_box.max_z - geometry.bounding_box.min_z, 0.0) * scale
         if beam > 0 and draft > 0:
             return round(max(beam * draft, 1e-4), 6)
-    reference_length = _reference_length_m(geometry)
+    reference_length = _reference_length_m(geometry, reference_inputs)
     return round(max(reference_length * reference_length * 0.01, 0.1), 6)
 
 
@@ -760,6 +771,7 @@ def write_openfoam_case_scaffold(
     case_relative_dir: str = "",
     mesh_scale_factor: float = 1.0,
     domain_extent_multiplier: float = 1.0,
+    reference_inputs: Mapping[str, object] | None = None,
 ) -> dict[str, str | bool]:
     case_root_dir = workspace_dir / "submarine" / "solver-dispatch" / run_dir_name
     if case_relative_dir:
@@ -774,8 +786,8 @@ def write_openfoam_case_scaffold(
     application = _resolve_solver_application(selected_case)
     base_domain_length = max((geometry.estimated_length_m or 10.0) * 2.0, 20.0)
     domain_length = max(base_domain_length * domain_extent_multiplier, 1.0)
-    reference_length_m = _reference_length_m(geometry)
-    reference_area_m2 = _reference_area_m2(geometry)
+    reference_length_m = _reference_length_m(geometry, reference_inputs)
+    reference_area_m2 = _reference_area_m2(geometry, reference_inputs)
     requires_conversion = geometry_path.suffix.lower() != ".stl"
     execution_readiness = (
         GEOMETRY_CONVERSION_REQUIRED if requires_conversion else STL_READY_EXECUTION
@@ -858,6 +870,16 @@ def write_openfoam_case_scaffold(
         "solver_application": application,
         "reference_length_m": reference_length_m,
         "reference_area_m2": reference_area_m2,
+        "reference_value_approval_state": (
+            str(reference_inputs.get("approval_state"))
+            if reference_inputs and reference_inputs.get("approval_state") is not None
+            else None
+        ),
+        "reference_value_justification": (
+            str(reference_inputs.get("justification"))
+            if reference_inputs and reference_inputs.get("justification") is not None
+            else None
+        ),
         "inlet_velocity_mps": float(simulation_requirements["inlet_velocity_mps"]),
         "fluid_density_kg_m3": float(simulation_requirements["fluid_density_kg_m3"]),
         "kinematic_viscosity_m2ps": float(simulation_requirements["kinematic_viscosity_m2ps"]),

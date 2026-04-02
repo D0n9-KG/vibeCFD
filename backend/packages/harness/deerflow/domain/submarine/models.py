@@ -42,6 +42,12 @@ class ReferenceSource(BaseModel):
     title: str
     source: str
     url: str
+    source_label: str | None = None
+    source_type: str | None = None
+    applicability_conditions: list[str] = Field(default_factory=list)
+    confidence_note: str | None = None
+    is_placeholder: bool = False
+    evidence_gap_note: str | None = None
 
 
 class SubmarineBenchmarkTarget(BaseModel):
@@ -241,6 +247,61 @@ class SubmarineCase(BaseModel):
     acceptance_profile: SubmarineCaseAcceptanceProfile | None = None
 
 
+class GeometryFinding(BaseModel):
+    finding_id: str
+    category: str
+    severity: Literal["info", "warning", "severe", "blocked"] = "info"
+    summary_zh: str
+    evidence: dict[str, object] = Field(default_factory=dict)
+
+
+class GeometryScaleAssessment(BaseModel):
+    raw_length_value: float | None = None
+    normalized_length_m: float | None = None
+    applied_scale_factor: float | None = None
+    heuristic: str | None = None
+    severity: Literal["info", "warning", "severe", "blocked"] = "info"
+    summary_zh: str
+    family_default_length_m: float | None = None
+    relative_difference: float | None = None
+    evidence: dict[str, object] = Field(default_factory=dict)
+
+
+class GeometryReferenceValueSuggestion(BaseModel):
+    suggestion_id: str
+    quantity: Literal["reference_length_m", "reference_area_m2"]
+    value: float | None = None
+    unit: str
+    confidence: Literal["high", "medium", "low"] = "medium"
+    source: str
+    justification: str
+    summary_zh: str
+    is_low_risk: bool = False
+    requires_confirmation: bool = False
+    evidence: dict[str, object] = Field(default_factory=dict)
+
+
+class CalculationPlanItem(BaseModel):
+    item_id: str
+    category: str
+    label: str
+    proposed_value: object | None = None
+    proposed_range: list[object] | dict[str, object] | None = None
+    unit: str | None = None
+    source_label: str | None = None
+    source_url: str | None = None
+    confidence: Literal["high", "medium", "low"] = "medium"
+    applicability_conditions: list[str] = Field(default_factory=list)
+    evidence_gap_note: str | None = None
+    origin: Literal["user_input", "ai_suggestion", "researcher_edit"] = "ai_suggestion"
+    approval_state: Literal[
+        "pending_researcher_confirmation",
+        "researcher_confirmed",
+    ] = "pending_researcher_confirmation"
+    requires_immediate_confirmation: bool = False
+    researcher_note: str | None = None
+
+
 class SubmarineSkillDefinition(BaseModel):
     skill_id: str
     name: str
@@ -281,6 +342,16 @@ class SubmarineCaseMatch(BaseModel):
     recommended_solver: str | None = None
     expected_outputs: list[str] = Field(default_factory=list)
     linked_skills: list[str] = Field(default_factory=list)
+    reference_sources: list[ReferenceSource] = Field(default_factory=list)
+    source_label: str | None = None
+    source_url: str | None = None
+    source_type: str | None = None
+    applicability_conditions: list[str] = Field(default_factory=list)
+    confidence_note: str | None = None
+    is_placeholder: bool = False
+    evidence_gap_note: str | None = None
+    acceptance_profile_summary_zh: str | None = None
+    benchmark_metric_ids: list[str] = Field(default_factory=list)
 
 
 class GeometryBoundingBox(BaseModel):
@@ -317,6 +388,10 @@ class SubmarineRoleBoundary(BaseModel):
 class SubmarineGeometryCheckResult(BaseModel):
     geometry: GeometryInspection
     candidate_cases: list[SubmarineCaseMatch] = Field(default_factory=list)
+    geometry_findings: list[GeometryFinding] = Field(default_factory=list)
+    scale_assessment: GeometryScaleAssessment | None = None
+    reference_value_suggestions: list[GeometryReferenceValueSuggestion] = Field(default_factory=list)
+    clarification_required: bool = False
     summary_zh: str
     suggested_roles: list[SubmarineRoleBoundary] = Field(default_factory=list)
     review_status: Literal["ready_for_supervisor", "needs_user_confirmation", "blocked"] = "ready_for_supervisor"

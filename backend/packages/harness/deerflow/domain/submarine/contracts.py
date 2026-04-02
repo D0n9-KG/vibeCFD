@@ -7,6 +7,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from .models import (
+    CalculationPlanItem,
+    GeometryFinding,
+    GeometryReferenceValueSuggestion,
+    GeometryScaleAssessment,
+)
+
 
 class SubmarineRuntimeRequest(BaseModel):
     """Structured request passed from the Supervisor into the DeerFlow runtime."""
@@ -25,6 +32,7 @@ class SubmarineRuntimeRequest(BaseModel):
     simulation_requirements: dict[str, float | int] | None = None
     requested_outputs: list[dict] = Field(default_factory=list)
     supervisor_notes: list[str] = Field(default_factory=list)
+    calculation_plan: list[CalculationPlanItem] = Field(default_factory=list)
 
 
 class SupervisorReviewContract(BaseModel):
@@ -263,6 +271,14 @@ class SubmarineRuntimeSnapshot(BaseModel):
     geometry_virtual_path: str
     geometry_family: str | None = None
     execution_readiness: Literal["stl_ready", "geometry_conversion_required"] | None = None
+    geometry_findings: list[GeometryFinding] = Field(default_factory=list)
+    scale_assessment: GeometryScaleAssessment | None = None
+    reference_value_suggestions: list[GeometryReferenceValueSuggestion] = Field(
+        default_factory=list
+    )
+    clarification_required: bool = False
+    calculation_plan: list[CalculationPlanItem] = Field(default_factory=list)
+    requires_immediate_confirmation: bool = False
     selected_case_id: str | None = None
     simulation_requirements: dict[str, float | int] | None = None
     requested_outputs: list[SubmarineRequestedOutput] = Field(default_factory=list)
@@ -333,6 +349,12 @@ def build_runtime_snapshot(
     geometry_virtual_path: str,
     geometry_family: str | None,
     execution_readiness: Literal["stl_ready", "geometry_conversion_required"] | None = None,
+    geometry_findings: list[GeometryFinding | dict] | None = None,
+    scale_assessment: GeometryScaleAssessment | dict | None = None,
+    reference_value_suggestions: list[GeometryReferenceValueSuggestion | dict] | None = None,
+    clarification_required: bool = False,
+    calculation_plan: list[CalculationPlanItem | dict] | None = None,
+    requires_immediate_confirmation: bool = False,
     next_recommended_stage: str,
     report_virtual_path: str,
     artifact_virtual_paths: list[str] | None = None,
@@ -390,6 +412,12 @@ def build_runtime_snapshot(
         geometry_virtual_path=geometry_virtual_path,
         geometry_family=geometry_family,
         execution_readiness=execution_readiness,
+        geometry_findings=geometry_findings or [],
+        scale_assessment=scale_assessment,
+        reference_value_suggestions=reference_value_suggestions or [],
+        clarification_required=clarification_required,
+        calculation_plan=calculation_plan or [],
+        requires_immediate_confirmation=requires_immediate_confirmation,
         selected_case_id=selected_case_id,
         simulation_requirements=simulation_requirements,
         requested_outputs=requested_outputs or [],

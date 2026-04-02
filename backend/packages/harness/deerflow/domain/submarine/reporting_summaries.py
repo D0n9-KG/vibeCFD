@@ -32,6 +32,75 @@ def resolve_selected_case(selected_case_id: str | None) -> SubmarineCase | None:
     return load_case_library().case_index.get(selected_case_id)
 
 
+def _pick_primary_reference(selected_case: SubmarineCase):
+    if not selected_case.reference_sources:
+        return None
+    for source in selected_case.reference_sources:
+        if not source.is_placeholder:
+            return source
+    return selected_case.reference_sources[0]
+
+
+def _collect_case_applicability_conditions(selected_case: SubmarineCase) -> list[str]:
+    primary_source = _pick_primary_reference(selected_case)
+    values = [
+        *selected_case.condition_tags,
+        *(primary_source.applicability_conditions if primary_source else []),
+    ]
+    deduped: list[str] = []
+    for value in values:
+        normalized = value.strip()
+        if normalized and normalized not in deduped:
+            deduped.append(normalized)
+    return deduped
+
+
+def build_selected_case_provenance_summary(
+    selected_case: SubmarineCase | None,
+) -> dict | None:
+    if selected_case is None:
+        return None
+
+    primary_source = _pick_primary_reference(selected_case)
+    return {
+        "case_id": selected_case.case_id,
+        "title": selected_case.title,
+        "source_label": (
+            primary_source.source_label or primary_source.title
+            if primary_source is not None
+            else None
+        ),
+        "source_url": primary_source.url if primary_source is not None else None,
+        "source_type": primary_source.source_type if primary_source is not None else None,
+        "applicability_conditions": _collect_case_applicability_conditions(selected_case),
+        "confidence_note": (
+            primary_source.confidence_note if primary_source is not None else None
+        ),
+        "is_placeholder": (
+            primary_source.is_placeholder if primary_source is not None else False
+        ),
+        "evidence_gap_note": (
+            primary_source.evidence_gap_note if primary_source is not None else None
+        ),
+        "acceptance_profile_summary_zh": (
+            selected_case.acceptance_profile.summary_zh
+            if selected_case.acceptance_profile is not None
+            else None
+        ),
+        "benchmark_metric_ids": (
+            [
+                target.metric_id
+                for target in selected_case.acceptance_profile.benchmark_targets
+            ]
+            if selected_case.acceptance_profile is not None
+            else []
+        ),
+        "reference_sources": [
+            source.model_dump(mode="json") for source in selected_case.reference_sources
+        ],
+    }
+
+
 def _study_type_to_requirement_id(study_type: str) -> str:
     return f"{study_type}_study"
 
@@ -492,6 +561,7 @@ __all__ = [
     "build_experiment_compare_summary",
     "build_experiment_summary",
     "build_figure_delivery_summary",
+    "build_selected_case_provenance_summary",
     "build_scientific_study_summary",
     "resolve_outputs_artifact",
     "resolve_selected_case",

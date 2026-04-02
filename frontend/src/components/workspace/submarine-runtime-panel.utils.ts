@@ -42,6 +42,9 @@ export type SubmarineArtifactMeta = {
 
 export type SubmarineDesignBriefSummary = {
   confirmationStatusLabel: string;
+  precomputeApprovalLabel: string;
+  pendingCalculationPlanCount: number;
+  immediateClarificationCount: number;
   expectedOutputs: string[];
   scientificVerificationRequirements: Array<{
     requirementId: string;
@@ -66,6 +69,22 @@ export type SubmarineDesignBriefSummary = {
     goal: string;
     status: string;
     targetSkills: string[];
+  }>;
+  calculationPlan: Array<{
+    itemId: string;
+    category: string;
+    label: string;
+    proposedValue: string;
+    sourceLabel: string;
+    sourceUrl: string;
+    confidenceLabel: string;
+    applicabilityConditions: string[];
+    evidenceGapNote: string;
+    originLabel: string;
+    approvalState: string;
+    approvalStateLabel: string;
+    requiresImmediateConfirmation: boolean;
+    researcherNote: string;
   }>;
   requirementPairs: Array<{
     label: string;
@@ -384,6 +403,23 @@ const ACCEPTANCE_CONFIDENCE_LABELS: Record<string, string> = {
   low: "低",
 };
 
+const CALCULATION_PLAN_APPROVAL_LABELS: Record<string, string> = {
+  pending_researcher_confirmation: "Pending Researcher Confirmation",
+  researcher_confirmed: "Researcher Confirmed",
+};
+
+const CALCULATION_PLAN_ORIGIN_LABELS: Record<string, string> = {
+  user_input: "User Input",
+  ai_suggestion: "AI Suggestion",
+  researcher_edit: "Researcher Edit",
+};
+
+const CALCULATION_PLAN_CONFIDENCE_LABELS: Record<string, string> = {
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
 const SCIENTIFIC_VERIFICATION_STATUS_LABELS: Record<string, string> = {
   research_ready: "Research Ready",
   needs_more_verification: "Needs More Verification",
@@ -476,6 +512,7 @@ const SCIENTIFIC_CLAIM_LEVEL_LABELS: Record<string, string> = {
 const SCIENTIFIC_GATE_STAGE_LABELS: Record<string, string> = {
   "task-intelligence": "Task Intelligence",
   "geometry-preflight": "Geometry Preflight",
+  "user-confirmation": "Researcher Confirmation",
   "solver-dispatch": "Solver Dispatch",
   "scientific-study": "Scientific Study",
   "experiment-compare": "Experiment Compare",
@@ -1215,6 +1252,53 @@ function formatRequirementNumber(
   return `${value.toFixed(digits)}${suffix}`;
 }
 
+function formatCalculationPlanScalarValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Number(value.toFixed(Math.abs(value) >= 1 ? 4 : 6)).toString();
+  }
+  if (typeof value === "string") {
+    return value.trim().length > 0 ? value : "--";
+  }
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  return formatSummaryValue(value);
+}
+
+function formatCalculationPlanValue(payload: {
+  proposed_value?: unknown;
+  proposed_range?: unknown[] | Record<string, unknown> | null;
+  unit?: string | null;
+}) {
+  if (payload.proposed_value != null) {
+    const base = formatCalculationPlanScalarValue(payload.proposed_value);
+    return base === "--" || !payload.unit ? base : `${base} ${payload.unit}`;
+  }
+
+  if (Array.isArray(payload.proposed_range)) {
+    const values = payload.proposed_range
+      .map((item) => formatCalculationPlanScalarValue(item))
+      .filter((item) => item !== "--");
+    if (values.length > 0) {
+      return `${values.join(" to ")}${payload.unit ? ` ${payload.unit}` : ""}`;
+    }
+  }
+
+  if (payload.proposed_range && typeof payload.proposed_range === "object") {
+    const rangePayload = payload.proposed_range as Record<string, unknown>;
+    const minValue = formatCalculationPlanScalarValue(rangePayload.min);
+    const maxValue = formatCalculationPlanScalarValue(rangePayload.max);
+    if (minValue !== "--" || maxValue !== "--") {
+      return `${minValue} to ${maxValue}${payload.unit ? ` ${payload.unit}` : ""}`;
+    }
+  }
+
+  return "--";
+}
+
 export function formatSubmarineRuntimeStageLabel(stage?: string | null) {
   if (!stage) {
     return "--";
@@ -1236,9 +1320,11 @@ export function formatSubmarineExecutionRoleLabel(roleId?: string | null) {
 export function buildSubmarineStageTrack({
   runtimePlan,
   currentStage,
+  nextRecommendedStage,
 }: {
   runtimePlan?: SubmarineExecutionOutlineItem[] | null;
   currentStage?: string | null;
+  nextRecommendedStage?: string | null;
 }): SubmarineStageTrackItem[] {
   const trackFromPlan =
     runtimePlan?.map((item) => ({
@@ -1251,11 +1337,27 @@ export function buildSubmarineStageTrack({
     return trackFromPlan;
   }
 
-  const currentIndex = LEGACY_STAGE_TRACK_ORDER.findIndex(
+  const legacyTrackOrder =
+    currentStage === "user-confirmation" ||
+    nextRecommendedStage === "user-confirmation"
+      ? ([
+          "task-intelligence",
+          "geometry-preflight",
+          "user-confirmation",
+          "solver-dispatch",
+          "result-reporting",
+          "supervisor-review",
+        ] as const)
+      : LEGACY_STAGE_TRACK_ORDER;
+
+  const currentIndex = legacyTrackOrder.findIndex(
     (stageId) => stageId === currentStage,
   );
+  const nextIndex = legacyTrackOrder.findIndex(
+    (stageId) => stageId === nextRecommendedStage,
+  );
 
-  return LEGACY_STAGE_TRACK_ORDER.map((stageId, index) => ({
+  return legacyTrackOrder.map((stageId, index) => ({
     stageId,
     label: formatSubmarineRuntimeStageLabel(stageId),
     status:
@@ -1263,6 +1365,8 @@ export function buildSubmarineStageTrack({
         ? "completed"
         : currentIndex === index
           ? "in_progress"
+          : nextIndex === index
+            ? "ready"
           : "pending",
   }));
 }
@@ -1344,7 +1448,56 @@ export function buildSubmarineDesignBriefSummary(
     },
   ].filter((item) => item.value !== "--");
 
+  const calculationPlan = (payload.calculation_plan ?? [])
+    .filter(Boolean)
+    .map((item) => ({
+      itemId: item.item_id ?? "unknown",
+      category: item.category ?? "--",
+      label: item.label ?? item.category ?? "Calculation plan item",
+      proposedValue: formatCalculationPlanValue(item),
+      sourceLabel: item.source_label ?? item.origin ?? "--",
+      sourceUrl: item.source_url ?? "--",
+      confidenceLabel:
+        CALCULATION_PLAN_CONFIDENCE_LABELS[item.confidence ?? ""] ??
+        item.confidence ??
+        "--",
+      applicabilityConditions: item.applicability_conditions?.filter(Boolean) ?? [],
+      evidenceGapNote: item.evidence_gap_note ?? "--",
+      originLabel:
+        CALCULATION_PLAN_ORIGIN_LABELS[item.origin ?? ""] ??
+        item.origin ??
+        "--",
+      approvalState: item.approval_state ?? "--",
+      approvalStateLabel:
+        CALCULATION_PLAN_APPROVAL_LABELS[item.approval_state ?? ""] ??
+        item.approval_state ??
+        "--",
+      requiresImmediateConfirmation: Boolean(item.requires_immediate_confirmation),
+      researcherNote: item.researcher_note ?? "--",
+    }));
+  const pendingCalculationPlanCount = calculationPlan.filter(
+    (item) => item.approvalState !== "researcher_confirmed",
+  ).length;
+  const immediateClarificationCount = calculationPlan.filter(
+    (item) =>
+      item.requiresImmediateConfirmation &&
+      item.approvalState !== "researcher_confirmed",
+  ).length;
+  const precomputeApprovalLabel =
+    immediateClarificationCount > 0
+      ? "Immediate Clarification Required"
+      : pendingCalculationPlanCount > 0
+        ? "Pending Researcher Confirmation"
+        : calculationPlan.length > 0
+          ? "Researcher Confirmed"
+          : payload.confirmation_status === "confirmed"
+            ? "Brief Confirmed"
+            : "Brief Draft";
+
   return {
+    precomputeApprovalLabel,
+    pendingCalculationPlanCount,
+    immediateClarificationCount,
     confirmationStatusLabel:
       payload.confirmation_status === "confirmed" ? "已确认" : "待确认",
     expectedOutputs: payload.expected_outputs?.filter(Boolean) ?? [],
@@ -1374,6 +1527,7 @@ export function buildSubmarineDesignBriefSummary(
       designBrief: payload,
       runtimePlan: null,
     }),
+    calculationPlan,
     requirementPairs,
   };
 }

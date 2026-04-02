@@ -11,6 +11,10 @@ from deerflow.domain.submarine.geometry_check import SUPPORTED_GEOMETRY_SUFFIXES
 from deerflow.domain.submarine.artifact_store import (
     load_first_json_payload_from_artifacts,
 )
+from deerflow.domain.submarine.calculation_plan import (
+    calculation_plan_requires_confirmation,
+    calculation_plan_requires_immediate_confirmation,
+)
 
 
 SubmarineExecutionPreference = Literal[
@@ -154,6 +158,13 @@ def requires_user_confirmation(
     existing_runtime: Mapping[str, Any] | None,
     existing_brief: Mapping[str, Any] | None,
 ) -> bool:
+    calculation_plan = (
+        (existing_runtime or {}).get("calculation_plan")
+        or (existing_brief or {}).get("calculation_plan")
+    )
+    if calculation_plan_requires_confirmation(calculation_plan):
+        return True
+
     if (
         resolve_confirmation_status(
             existing_runtime=existing_runtime,
@@ -189,6 +200,21 @@ def build_user_confirmation_block_message(
         or (existing_runtime or {}).get("task_summary")
         or "the current submarine CFD brief"
     )
+    calculation_plan = (
+        (existing_runtime or {}).get("calculation_plan")
+        or (existing_brief or {}).get("calculation_plan")
+    )
+    if calculation_plan_requires_confirmation(calculation_plan):
+        if calculation_plan_requires_immediate_confirmation(calculation_plan):
+            return (
+                f"{blocked_stage_label} is blocked until the researcher resolves the calculation-plan items "
+                f"that require immediate confirmation for {task_summary}. "
+                f"Please clarify or revise those assumptions in chat, update the design brief, and then retry {retry_tool_name}."
+            )
+        return (
+            f"{blocked_stage_label} is blocked until the researcher confirms the current calculation plan for {task_summary}. "
+            f"Please review or revise the pending geometry and case assumptions in chat, update the design brief, and then retry {retry_tool_name}."
+        )
     return (
         f"{blocked_stage_label} is blocked until user confirmation is complete for the current design brief. "
         f"Please resolve the missing operating-condition questions for {task_summary} in chat, "

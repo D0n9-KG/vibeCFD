@@ -13,6 +13,9 @@ from langgraph.typing import ContextT
 
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
+from deerflow.domain.submarine.calculation_plan import (
+    calculation_plan_requires_immediate_confirmation,
+)
 from deerflow.domain.submarine.contracts import (
     build_execution_plan,
     build_runtime_event,
@@ -241,6 +244,16 @@ def submarine_design_brief_tool(
                 if open_questions is not None
                 else existing_payload.get("open_questions")
             ),
+            existing_calculation_plan=(
+                existing_runtime.get("calculation_plan")
+                or existing_payload.get("calculation_plan")
+            ),
+            ready_stage_when_confirmed=(
+                "solver-dispatch"
+                if (existing_runtime or {}).get("current_stage")
+                in {"geometry-preflight", "solver-dispatch", "result-reporting"}
+                else None
+            ),
         )
     except ValueError as exc:
         return Command(update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id)]})
@@ -263,6 +276,21 @@ def submarine_design_brief_tool(
         task_type=payload["task_type"],
         geometry_virtual_path=payload.get("geometry_virtual_path") or "",
         geometry_family=payload.get("geometry_family_hint"),
+        geometry_findings=(existing_runtime or {}).get("geometry_findings"),
+        scale_assessment=(existing_runtime or {}).get("scale_assessment"),
+        reference_value_suggestions=(
+            (existing_runtime or {}).get("reference_value_suggestions")
+        ),
+        clarification_required=bool(
+            (existing_runtime or {}).get("clarification_required")
+        ),
+        calculation_plan=payload.get("calculation_plan"),
+        requires_immediate_confirmation=(
+            calculation_plan_requires_immediate_confirmation(
+                payload.get("calculation_plan")
+            )
+            or bool((existing_runtime or {}).get("requires_immediate_confirmation"))
+        ),
         selected_case_id=payload.get("selected_case_id"),
         simulation_requirements=payload.get("simulation_requirements"),
         requested_outputs=payload.get("requested_outputs"),

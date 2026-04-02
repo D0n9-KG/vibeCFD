@@ -7,6 +7,9 @@ import re
 from html import escape
 from pathlib import Path
 
+from deerflow.domain.submarine.calculation_plan import (
+    build_design_brief_calculation_plan,
+)
 from deerflow.domain.submarine.contracts import build_execution_plan
 from deerflow.domain.submarine.library import load_case_library
 from deerflow.domain.submarine.output_contract import resolve_requested_outputs
@@ -553,6 +556,8 @@ def run_design_brief(
     expected_outputs: list[str] | None,
     user_constraints: list[str] | None,
     open_questions: list[str] | None,
+    existing_calculation_plan: list[dict] | None = None,
+    ready_stage_when_confirmed: str | None = None,
 ) -> tuple[dict, list[str]]:
     if confirmation_status not in {"draft", "confirmed"}:
         raise ValueError("confirmation_status must be either 'draft' or 'confirmed'")
@@ -602,6 +607,12 @@ def run_design_brief(
             task_type=task_type,
         )
     ]
+    calculation_plan = build_design_brief_calculation_plan(
+        existing=existing_calculation_plan,
+        confirmation_status=confirmation_status,
+        selected_case_id=selected_case_id,
+        simulation_requirements=simulation_requirements,
+    )
     summary_zh = _compose_summary(
         task_description=task_description,
         geometry_virtual_path=geometry_virtual_path,
@@ -627,9 +638,14 @@ def run_design_brief(
         "requested_outputs": requested_outputs,
         "user_constraints": user_constraints,
         "open_questions": open_questions,
+        "calculation_plan": calculation_plan,
         "execution_outline": execution_outline,
         "review_status": review_status,
-        "next_recommended_stage": next_recommended_stage,
+        "next_recommended_stage": (
+            ready_stage_when_confirmed or next_recommended_stage
+            if review_status == "ready_for_supervisor"
+            else next_recommended_stage
+        ),
         "report_virtual_path": report_virtual_path,
         "artifact_virtual_paths": artifact_virtual_paths,
     }

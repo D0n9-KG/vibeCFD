@@ -13,7 +13,7 @@ This roadmap turns the current DeerFlow-based submarine CFD prototype into a res
 - [x] **Phase 1: End-to-End Workbench Bootstrap** - Restore real user bootstrap from new submarine workbench to live DeerFlow thread
 - [x] **Phase 2: Runtime Solver Productization** - Turn solver dispatch into a controllable DeerFlow runtime flow with captured outputs
 - [x] **Phase 3: Scientific Verification Gates** - Gate claim level on residual, stability, benchmark, and sensitivity evidence
-- [ ] **Phase 4: Geometry and Case Intelligence Hardening** - Improve geometry preflight, scale assumptions, and case-library trustworthiness
+- [x] **Phase 4: Geometry and Case Intelligence Hardening** - Improve geometry preflight, scale assumptions, and case-library trustworthiness (completed 2026-04-02)
 - [ ] **Phase 5: Experiment Ops and Reproducibility** - Add study provenance, baseline-vs-variant tracking, and environment consistency
 - [ ] **Phase 6: Research Delivery Workbench** - Finish the supervisor/report loop for researcher-facing delivery and follow-up
 
@@ -75,9 +75,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: Harden geometry inspection with unit, scale, and reference-value sanity checks
-- [ ] 04-02: Replace placeholder case references and acceptance profiles with real benchmark-backed entries
-- [ ] 04-03: Add blocking or downgrade rules for geometry ambiguity and unsupported setups
+- [x] 04-01: Harden geometry inspection with unit, scale, and reference-value sanity checks
+- [x] 04-02: Replace placeholder case references and acceptance profiles with real benchmark-backed entries
+- [x] 04-03: Add blocking or downgrade rules for geometry ambiguity and unsupported setups
 
 ### Phase 5: Experiment Ops and Reproducibility
 **Goal**: Give researchers a reproducible study system with provenance, comparison structure, and consistent environments.
@@ -116,6 +116,6 @@ Plans:
 | 1. End-to-End Workbench Bootstrap | 3/3 | Complete | 2026-04-01 |
 | 2. Runtime Solver Productization | 3/3 | Complete | 2026-04-01 |
 | 3. Scientific Verification Gates | 3/3 | Complete | 2026-04-02 |
-| 4. Geometry and Case Intelligence Hardening | 0/3 | Not started | - |
+| 4. Geometry and Case Intelligence Hardening | 3/3 | Complete    | 2026-04-02 |
 | 5. Experiment Ops and Reproducibility | 0/3 | Not started | - |
 | 6. Research Delivery Workbench | 0/3 | Not started | - |

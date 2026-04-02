@@ -1,0 +1,126 @@
+{
+  "report_title": "Phase 4 几何与案例确认草案",
+  "summary_zh": "已基于上传 STL 完成第一轮几何可信度分析，并形成待研究者确认的 calculation plan 草案。",
+  "task_description": "在真正开始 OpenFOAM 求解之前，先确认几何尺度、参考长度与基线案例是否适用。",
+  "task_type": "resistance",
+  "confirmation_status": "draft",
+  "geometry_virtual_path": "/mnt/user-data/uploads/ambiguous-submarine.stl",
+  "geometry_family_hint": "DARPA SUBOFF-like hull",
+  "selected_case_id": "darpa_suboff_bare_hull_resistance",
+  "simulation_requirements": {
+    "inlet_velocity_mps": 5.0,
+    "fluid_density_kg_m3": 1000.0,
+    "kinematic_viscosity_m2ps": 1e-6,
+    "end_time_seconds": 200.0,
+    "delta_t_seconds": 1.0,
+    "write_interval_steps": 50
+  },
+  "expected_outputs": [
+    "阻力系数 Cd",
+    "表面压力云图",
+    "几何可信度说明"
+  ],
+  "scientific_verification_requirements": [
+    {
+      "requirement_id": "baseline_verification",
+      "label": "Baseline force-history verification",
+      "check_type": "study_required"
+    }
+  ],
+  "requested_outputs": [
+    {
+      "output_id": "drag_coefficient",
+      "label": "阻力系数 Cd",
+      "requested_label": "阻力系数 Cd",
+      "status": "requested",
+      "support_level": "supported"
+    },
+    {
+      "output_id": "surface_pressure_contour",
+      "label": "表面压力云图",
+      "requested_label": "表面压力云图",
+      "status": "requested",
+      "support_level": "supported"
+    }
+  ],
+  "user_constraints": [
+    "先完成单工况基线，不要直接扩展参数扫描。",
+    "求解前必须由研究者确认几何尺度和参考长度。"
+  ],
+  "open_questions": [
+    "上传的 STL 是否确认以毫米导出？"
+  ],
+  "execution_outline": [
+    {
+      "role_id": "claude-code-supervisor",
+      "owner": "Claude Code",
+      "goal": "与研究者确认 calculation plan。",
+      "status": "in_progress"
+    },
+    {
+      "role_id": "geometry-preflight",
+      "owner": "DeerFlow geometry-preflight",
+      "goal": "完成几何可信度与尺度分析。",
+      "status": "completed"
+    },
+    {
+      "role_id": "solver-dispatch",
+      "owner": "DeerFlow solver-dispatch",
+      "goal": "待研究者批准后再启动真实求解。",
+      "status": "pending"
+    }
+  ],
+  "calculation_plan": [
+    {
+      "item_id": "geometry-reference-length",
+      "category": "geometry",
+      "label": "Reference length",
+      "proposed_value": 4.356,
+      "unit": "m",
+      "source_label": "Geometry preflight",
+      "confidence": "medium",
+      "applicability_conditions": [
+        "Only valid if the uploaded STL was exported in millimetres.",
+        "Assumes the hull should follow the SUBOFF bare-hull family."
+      ],
+      "evidence_gap_note": "STL 单位尚未由研究者明确确认。",
+      "origin": "ai_suggestion",
+      "approval_state": "pending_researcher_confirmation",
+      "requires_immediate_confirmation": true
+    },
+    {
+      "item_id": "selected-case",
+      "category": "case",
+      "label": "Selected baseline case",
+      "proposed_value": "darpa_suboff_bare_hull_resistance",
+      "source_label": "Case library",
+      "source_url": "https://pure.port.ac.uk/en/publications/a-comprehensive-validation-study-on-the-darpa-suboff-bare-hull-mo",
+      "confidence": "high",
+      "applicability_conditions": [
+        "Use only for straight-ahead, fully submerged, bare-hull resistance."
+      ],
+      "origin": "ai_suggestion",
+      "approval_state": "pending_researcher_confirmation",
+      "requires_immediate_confirmation": false
+    },
+    {
+      "item_id": "inlet-velocity",
+      "category": "operating_condition",
+      "label": "Inlet velocity",
+      "proposed_value": 5.0,
+      "unit": "m/s",
+      "source_label": "User input",
+      "confidence": "high",
+      "applicability_conditions": [
+        "Single-condition baseline run."
+      ],
+      "origin": "user_input",
+      "approval_state": "researcher_confirmed",
+      "requires_immediate_confirmation": false,
+      "researcher_note": "先跑 5 m/s 基线。"
+    }
+  ],
+  "requires_immediate_confirmation": true,
+  "review_status": "needs_user_confirmation",
+  "next_recommended_stage": "user-confirmation"
+}

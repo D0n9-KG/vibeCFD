@@ -450,8 +450,8 @@ def collect_solver_results(
     }
 
 
-def solver_reference_values(case_scaffold: dict[str, str | bool]) -> dict[str, float]:
-    return {
+def solver_reference_values(case_scaffold: dict[str, str | bool | float | None]) -> dict[str, float | str]:
+    values: dict[str, float | str] = {
         "reference_length_m": float(case_scaffold.get("reference_length_m", 0.0)),
         "reference_area_m2": float(case_scaffold.get("reference_area_m2", 0.0)),
         "inlet_velocity_mps": float(
@@ -461,8 +461,11 @@ def solver_reference_values(case_scaffold: dict[str, str | bool]) -> dict[str, f
             case_scaffold.get("fluid_density_kg_m3", DEFAULT_FLUID_DENSITY_KG_M3)
         ),
     }
-
-
+    if case_scaffold.get("reference_value_approval_state"):
+        values["approval_state"] = str(case_scaffold["reference_value_approval_state"])
+    if case_scaffold.get("reference_value_justification"):
+        values["justification"] = str(case_scaffold["reference_value_justification"])
+    return values
 def looks_like_solver_failure(output: str) -> bool:
     markers = [
         "FOAM FATAL",

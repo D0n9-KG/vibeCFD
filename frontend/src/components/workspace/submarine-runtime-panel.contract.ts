@@ -37,6 +37,72 @@ export type SubmarineRequestedOutputPayload = {
   notes?: string | null;
 };
 
+export type SubmarineGeometryFinding = {
+  finding_id?: string | null;
+  category?: string | null;
+  severity?: string | null;
+  summary_zh?: string | null;
+  evidence?: Record<string, unknown> | null;
+};
+
+export type SubmarineGeometryScaleAssessment = {
+  raw_length_value?: number | null;
+  normalized_length_m?: number | null;
+  applied_scale_factor?: number | null;
+  heuristic?: string | null;
+  severity?: string | null;
+  summary_zh?: string | null;
+  family_default_length_m?: number | null;
+  relative_difference?: number | null;
+  evidence?: Record<string, unknown> | null;
+};
+
+export type SubmarineGeometryReferenceValueSuggestion = {
+  suggestion_id?: string | null;
+  quantity?: string | null;
+  value?: number | null;
+  unit?: string | null;
+  confidence?: string | null;
+  source?: string | null;
+  justification?: string | null;
+  summary_zh?: string | null;
+  is_low_risk?: boolean | null;
+  requires_confirmation?: boolean | null;
+  evidence?: Record<string, unknown> | null;
+};
+
+export type SubmarineCalculationPlanItem = {
+  item_id?: string | null;
+  category?: string | null;
+  label?: string | null;
+  proposed_value?: unknown;
+  proposed_range?: unknown[] | Record<string, unknown> | null;
+  unit?: string | null;
+  source_label?: string | null;
+  source_url?: string | null;
+  confidence?: string | null;
+  applicability_conditions?: string[] | null;
+  evidence_gap_note?: string | null;
+  origin?: string | null;
+  approval_state?: string | null;
+  requires_immediate_confirmation?: boolean | null;
+  researcher_note?: string | null;
+};
+
+export type SubmarineSelectedCaseProvenanceSummary = {
+  case_id?: string | null;
+  title?: string | null;
+  source_label?: string | null;
+  source_url?: string | null;
+  source_type?: string | null;
+  applicability_conditions?: string[] | null;
+  confidence_note?: string | null;
+  is_placeholder?: boolean | null;
+  evidence_gap_note?: string | null;
+  acceptance_profile_summary_zh?: string | null;
+  benchmark_metric_ids?: string[] | null;
+};
+
 export type SubmarineDesignBriefPayload = {
   report_title?: string;
   summary_zh?: string;
@@ -55,6 +121,8 @@ export type SubmarineDesignBriefPayload = {
   user_constraints?: string[] | null;
   open_questions?: string[] | null;
   execution_outline?: SubmarineExecutionOutlineItem[] | null;
+  calculation_plan?: SubmarineCalculationPlanItem[] | null;
+  requires_immediate_confirmation?: boolean | null;
   review_status?: string | null;
   next_recommended_stage?: string | null;
 };
@@ -155,6 +223,15 @@ export type SubmarineCandidateCase = {
   rationale?: string;
   geometry_family?: string;
   task_type?: string;
+  source_label?: string | null;
+  source_url?: string | null;
+  source_type?: string | null;
+  applicability_conditions?: string[] | null;
+  confidence_note?: string | null;
+  is_placeholder?: boolean | null;
+  evidence_gap_note?: string | null;
+  acceptance_profile_summary_zh?: string | null;
+  benchmark_metric_ids?: string[] | null;
 };
 
 export type SubmarineLatestForcesPayload = {
@@ -190,6 +267,18 @@ export type SubmarineDispatchPayload = {
   summary_zh?: string;
   candidate_cases?: SubmarineCandidateCase[];
   selected_case?: SubmarineCandidateCase | null;
+  selected_case_provenance_summary?:
+    | SubmarineSelectedCaseProvenanceSummary
+    | null;
+  geometry_findings?: SubmarineGeometryFinding[] | null;
+  scale_assessment?: SubmarineGeometryScaleAssessment | null;
+  reference_value_suggestions?:
+    | SubmarineGeometryReferenceValueSuggestion[]
+    | null;
+  clarification_required?: boolean | null;
+  calculation_plan?: SubmarineCalculationPlanItem[] | null;
+  requires_immediate_confirmation?: boolean | null;
+  selected_reference_inputs?: Record<string, unknown> | null;
   solver_results?: SubmarineSolverMetrics | null;
   stability_evidence_virtual_path?: string | null;
   stability_evidence?: SubmarineStabilityEvidencePayload | null;
@@ -210,6 +299,14 @@ export type SubmarineDispatchPayload = {
 export type SubmarineGeometryPayload = {
   summary_zh?: string;
   candidate_cases?: SubmarineCandidateCase[];
+  geometry_findings?: SubmarineGeometryFinding[] | null;
+  scale_assessment?: SubmarineGeometryScaleAssessment | null;
+  reference_value_suggestions?:
+    | SubmarineGeometryReferenceValueSuggestion[]
+    | null;
+  clarification_required?: boolean | null;
+  calculation_plan?: SubmarineCalculationPlanItem[] | null;
+  requires_immediate_confirmation?: boolean | null;
 };
 
 export type SubmarineOutputDeliveryPlanItem = {
@@ -240,6 +337,14 @@ export type SubmarineRuntimeSnapshotPayload = {
   geometry_virtual_path?: string | null;
   geometry_family?: string | null;
   execution_readiness?: string | null;
+  geometry_findings?: SubmarineGeometryFinding[] | null;
+  scale_assessment?: SubmarineGeometryScaleAssessment | null;
+  reference_value_suggestions?:
+    | SubmarineGeometryReferenceValueSuggestion[]
+    | null;
+  clarification_required?: boolean | null;
+  calculation_plan?: SubmarineCalculationPlanItem[] | null;
+  requires_immediate_confirmation?: boolean | null;
   selected_case_id?: string | null;
   simulation_requirements?: SubmarineSimulationRequirements | null;
   requested_outputs?: SubmarineRequestedOutputPayload[] | null;
@@ -468,6 +573,10 @@ export type SubmarineScientificStudySummaryPayload = {
 export type SubmarineFinalReportPayload = {
   summary_zh?: string;
   solver_metrics?: SubmarineSolverMetrics | null;
+  selected_case_acceptance_profile?: Record<string, unknown> | null;
+  selected_case_provenance_summary?:
+    | SubmarineSelectedCaseProvenanceSummary
+    | null;
   stability_evidence_virtual_path?: string | null;
   stability_evidence?: SubmarineStabilityEvidencePayload | null;
   acceptance_assessment?: SubmarineAcceptanceAssessment | null;

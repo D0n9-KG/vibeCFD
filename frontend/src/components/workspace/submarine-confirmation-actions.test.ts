@@ -56,6 +56,20 @@ function makeBrief(
         check_type: "study_required",
       },
     ],
+    calculation_plan: [
+      {
+        item_id: "reference-length",
+        category: "geometry",
+        label: "Reference length",
+        proposed_value: 4.356,
+        unit: "m",
+        source_label: "Geometry preflight",
+        confidence: "medium",
+        origin: "ai_suggestion",
+        approval_state: "pending_researcher_confirmation",
+        requires_immediate_confirmation: true,
+      },
+    ],
     user_constraints: ["Keep the first run to a single baseline condition."],
     open_questions: ["Should we add a 7 m/s comparison case?"],
     ...overrides,
@@ -73,7 +87,10 @@ void test("buildConfirmExecutionMessage emits an explicit brief-locking contract
   assert.match(message, /confirmation_status="confirmed"/);
   assert.match(message, /execution_preference="preflight_then_execute"/);
   assert.match(message, /submarine_solver_dispatch_tool/);
+  assert.match(message, /brief_snapshot=/);
+  assert.match(message, /calculation_plan_snapshot=/);
   assert.match(message, /selected_case_id":"darpa_suboff_bare_hull_resistance"/);
+  assert.match(message, /"item_id":"reference-length"/);
   assert.match(message, /"requested_outputs":\["drag_coefficient","surface_pressure_contour"\]/);
   assert.match(message, /"scientific_verification_requirements":\["mesh_independence_study"\]/);
   assert.match(message, /do not silently change the plan/i);
@@ -84,6 +101,7 @@ void test("buildClarificationRequestMessage keeps the brief in draft and lists o
 
   assert.match(message, /submarine_design_brief_tool/);
   assert.match(message, /confirmation_status="draft"/);
+  assert.match(message, /calculation_plan_snapshot=/);
   assert.doesNotMatch(message, /execution_preference="preflight_then_execute"/);
   assert.match(message, /Do not call `submarine_solver_dispatch_tool`/);
   assert.match(message, /Should we add a 7 m\/s comparison case\?/);

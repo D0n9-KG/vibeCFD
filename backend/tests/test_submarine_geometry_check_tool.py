@@ -202,9 +202,12 @@ def test_submarine_geometry_check_includes_review_fields(tmp_path, monkeypatch):
     json_path = outputs_dir / "submarine" / "geometry-check" / "review-demo" / "geometry-check.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
 
-    assert payload["review_status"] == "ready_for_supervisor"
-    assert payload["next_recommended_stage"] == "solver-dispatch"
+    assert payload["review_status"] == "needs_user_confirmation"
+    assert payload["next_recommended_stage"] == "user-confirmation"
     assert payload["report_virtual_path"].endswith("/geometry-check.md")
+    assert payload["geometry_findings"]
+    assert payload["reference_value_suggestions"]
+    assert payload["clarification_required"] is True
 
 
 def test_submarine_geometry_check_updates_runtime_state(tmp_path, monkeypatch):
@@ -234,11 +237,15 @@ def test_submarine_geometry_check_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["current_stage"] == "geometry-preflight"
     assert runtime_state["task_type"] == "resistance"
     assert runtime_state["geometry_virtual_path"] == "/mnt/user-data/uploads/runtime-demo.stl"
-    assert runtime_state["next_recommended_stage"] == "solver-dispatch"
+    assert runtime_state["next_recommended_stage"] == "user-confirmation"
     assert runtime_state["report_virtual_path"].endswith("/geometry-check.md")
     assert runtime_state["artifact_virtual_paths"]
+    assert runtime_state["geometry_findings"]
+    assert runtime_state["reference_value_suggestions"]
+    assert runtime_state["calculation_plan"]
+    assert runtime_state["requires_immediate_confirmation"] is True
     assert runtime_state["execution_plan"][2]["status"] == "completed"
-    assert runtime_state["execution_plan"][3]["status"] == "ready"
+    assert runtime_state["execution_plan"][3]["status"] == "pending"
     assert len(runtime_state["activity_timeline"]) == 1
     assert runtime_state["activity_timeline"][0]["stage"] == "geometry-preflight"
     assert runtime_state["activity_timeline"][0]["actor"] == "geometry-preflight"
@@ -367,5 +374,7 @@ def test_submarine_geometry_check_preserves_confirmed_brief_context(
     assert runtime_state["task_summary"] == design_brief_payload["task_description"]
     assert runtime_state["selected_case_id"] == "user-confirmed-case"
     assert runtime_state["simulation_requirements"]["inlet_velocity_mps"] == 5.0
+    assert runtime_state["geometry_family"] == "DARPA SUBOFF"
+    assert runtime_state["next_recommended_stage"] == "user-confirmation"
     assert runtime_state["execution_plan"][2]["status"] == "completed"
-    assert runtime_state["execution_plan"][3]["status"] == "ready"
+    assert runtime_state["execution_plan"][3]["status"] == "pending"

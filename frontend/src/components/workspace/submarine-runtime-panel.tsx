@@ -461,8 +461,13 @@ export function SubmarineRuntimePanel({
       buildSubmarineStageTrack({
         runtimePlan: runtime?.execution_plan ?? null,
         currentStage: runtime?.current_stage,
+        nextRecommendedStage: runtime?.next_recommended_stage,
       }),
-    [runtime?.current_stage, runtime?.execution_plan],
+    [
+      runtime?.current_stage,
+      runtime?.execution_plan,
+      runtime?.next_recommended_stage,
+    ],
   );
   const timelineEvents = runtime?.activity_timeline ?? [];
 
@@ -474,6 +479,56 @@ export function SubmarineRuntimePanel({
     dispatchPayload?.selected_case ??
     candidateCases.find((item) => item.case_id === runtime?.selected_case_id) ??
     null;
+  const geometryFindings =
+    runtime?.geometry_findings ??
+    dispatchPayload?.geometry_findings ??
+    geometryPayload?.geometry_findings ??
+    [];
+  const scaleAssessment =
+    runtime?.scale_assessment ??
+    dispatchPayload?.scale_assessment ??
+    geometryPayload?.scale_assessment ??
+    null;
+  const referenceValueSuggestions =
+    runtime?.reference_value_suggestions ??
+    dispatchPayload?.reference_value_suggestions ??
+    geometryPayload?.reference_value_suggestions ??
+    [];
+  const calculationPlanDraft =
+    runtime?.calculation_plan ??
+    dispatchPayload?.calculation_plan ??
+    activeDesignBrief?.calculation_plan ??
+    geometryPayload?.calculation_plan ??
+    [];
+  const requiresImmediateConfirmation = Boolean(
+    runtime?.requires_immediate_confirmation ??
+      dispatchPayload?.requires_immediate_confirmation ??
+      geometryPayload?.requires_immediate_confirmation,
+  );
+  const geometryClarificationRequired = Boolean(
+    runtime?.clarification_required ??
+      dispatchPayload?.clarification_required ??
+      geometryPayload?.clarification_required,
+  );
+  const selectedCaseProvenance =
+    finalReport?.selected_case_provenance_summary ??
+    dispatchPayload?.selected_case_provenance_summary ??
+    (selectedCase
+      ? {
+          case_id: selectedCase.case_id,
+          title: selectedCase.title,
+          source_label: selectedCase.source_label ?? null,
+          source_url: selectedCase.source_url ?? null,
+          source_type: selectedCase.source_type ?? null,
+          applicability_conditions: selectedCase.applicability_conditions ?? [],
+          confidence_note: selectedCase.confidence_note ?? null,
+          is_placeholder: selectedCase.is_placeholder ?? false,
+          evidence_gap_note: selectedCase.evidence_gap_note ?? null,
+          acceptance_profile_summary_zh:
+            selectedCase.acceptance_profile_summary_zh ?? null,
+          benchmark_metric_ids: selectedCase.benchmark_metric_ids ?? [],
+        }
+      : null);
   const trendSeries = useMemo(
     () => buildSubmarineTrendSeries(solverMetrics),
     [solverMetrics],
@@ -566,6 +621,18 @@ export function SubmarineRuntimePanel({
               { label: "任务摘要", value: runtime?.task_summary ?? designBrief?.task_description ?? "待生成" },
               { label: "几何文件", value: runtime?.geometry_virtual_path ?? designBrief?.geometry_virtual_path ?? "待上传" },
               { label: "几何家族", value: runtime?.geometry_family ?? designBrief?.geometry_family_hint ?? "待识别" },
+              {
+                label: "Researcher approval",
+                value:
+                  designBriefSummary?.precomputeApprovalLabel ??
+                  (runtime?.review_status === "needs_user_confirmation"
+                    ? "Pending Researcher Confirmation"
+                    : "Ready"),
+              },
+              {
+                label: "Calculation plan",
+                value: `${designBriefSummary?.calculationPlan.length ?? calculationPlanDraft.length} items`,
+              },
               { label: "当前报告", value: runtime?.report_virtual_path ?? designBriefJson ?? "待生成" },
               { label: "Workspace case", value: runtime?.workspace_case_dir_virtual_path ?? "待生成" },
               { label: "Run script / 后处理", value: runtime?.run_script_virtual_path ?? solverMetrics?.workspace_postprocess_virtual_path ?? "待生成" },
@@ -606,6 +673,39 @@ export function SubmarineRuntimePanel({
                 <KeyValue label="预期交付物" value={`${designBriefSummary.expectedOutputs.length} 项`} />
                 <KeyValue label="下一步" value={formatStage(runtime?.next_recommended_stage ?? designBrief?.next_recommended_stage)} />
               </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <KeyValue
+                  label="Researcher approval"
+                  value={designBriefSummary.precomputeApprovalLabel}
+                />
+                <KeyValue
+                  label="Calculation plan"
+                  value={`${designBriefSummary.calculationPlan.length} items`}
+                />
+                <KeyValue
+                  label="Pending plan items"
+                  value={`${designBriefSummary.pendingCalculationPlanCount} items`}
+                />
+                <KeyValue
+                  label="Immediate clarification"
+                  value={`${designBriefSummary.immediateClarificationCount} items`}
+                />
+                <StatusTile
+                  icon={BoxesIcon}
+                  label="Researcher approval"
+                  value={
+                    designBriefSummary?.precomputeApprovalLabel ??
+                    (runtime?.review_status === "needs_user_confirmation"
+                      ? "Pending Researcher Confirmation"
+                      : "Ready")
+                  }
+                  note={
+                    runtime?.review_status === "needs_user_confirmation"
+                      ? "Pre-compute approval is still pending. This gate blocks solver execution and stays separate from post-compute scientific claim labels."
+                      : "No outstanding pre-compute approval blocker is recorded."
+                  }
+                />
+              </div>
               {designBriefSummary.requirementPairs.length > 0 && (
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {designBriefSummary.requirementPairs.map((item) => (
@@ -618,6 +718,89 @@ export function SubmarineRuntimePanel({
                 <LabeledList title="用户约束" items={designBriefSummary.userConstraints} emptyText="当前还没有明确的额外约束。" />
                 <LabeledList title="待确认项" items={designBriefSummary.openQuestions} emptyText="当前方案已经没有待确认项。" />
               </div>
+              {designBriefSummary.calculationPlan.length > 0 ? (
+                <div className="rounded-xl border bg-background/70 p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-foreground">
+                        Calculation Plan Review
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Pre-compute assumptions that still require researcher review.
+                        This approval gate is separate from post-compute claim levels.
+                      </div>
+                    </div>
+                    <Badge variant="outline">
+                      {designBriefSummary.calculationPlan.length} items
+                    </Badge>
+                  </div>
+                  <div className="grid gap-3 xl:grid-cols-2">
+                    {designBriefSummary.calculationPlan.map((item) => (
+                      <div
+                        key={item.itemId}
+                        className={cn(
+                          "rounded-xl border p-4",
+                          item.requiresImmediateConfirmation
+                            ? "border-amber-200 bg-amber-50/70"
+                            : item.approvalState === "researcher_confirmed"
+                              ? "border-emerald-200 bg-emerald-50/70"
+                              : "border-sky-200 bg-sky-50/70",
+                        )}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="text-sm font-medium text-foreground">
+                              {item.label}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {item.category} | {item.originLabel}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {item.requiresImmediateConfirmation ? (
+                              <Badge variant="secondary">
+                                Immediate Clarification
+                              </Badge>
+                            ) : null}
+                            <Badge variant="outline">{item.approvalStateLabel}</Badge>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                          <KeyValue label="Proposed value" value={item.proposedValue} />
+                          <KeyValue label="Confidence" value={item.confidenceLabel} />
+                          <KeyValue label="Source" value={item.sourceLabel} />
+                          <KeyValue label="Source URL" value={item.sourceUrl} />
+                        </div>
+                        <div className="mt-3 grid gap-3 xl:grid-cols-3">
+                          <LabeledList
+                            title="Applicability"
+                            items={item.applicabilityConditions}
+                            emptyText="No explicit applicability conditions are recorded."
+                          />
+                          <LabeledList
+                            title="Evidence Gap"
+                            items={
+                              item.evidenceGapNote !== "--"
+                                ? [item.evidenceGapNote]
+                                : []
+                            }
+                            emptyText="No evidence-gap disclosure is recorded."
+                          />
+                          <LabeledList
+                            title="Researcher Notes"
+                            items={
+                              item.researcherNote !== "--"
+                                ? [item.researcherNote]
+                                : []
+                            }
+                            emptyText="No researcher note is recorded yet."
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="rounded-xl border bg-background/70 p-4">
                 <div className="mb-2 text-sm font-medium text-foreground">
                   Requested Outputs
@@ -1531,6 +1714,108 @@ export function SubmarineRuntimePanel({
 
           <div className="grid gap-4">
             <InfoPanel id={sectionElementId("cases")} title="案例匹配" kicker="Case Match">
+              {geometryFindings.length > 0 ||
+              scaleAssessment ||
+              referenceValueSuggestions.length > 0 ||
+              calculationPlanDraft.length > 0 ? (
+                <div className="mb-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <KeyValue
+                      label="Geometry review"
+                      value={
+                        requiresImmediateConfirmation || geometryClarificationRequired
+                          ? "Immediate Clarification Required"
+                          : calculationPlanDraft.length > 0
+                            ? "Pending Researcher Confirmation"
+                            : "Ready"
+                      }
+                    />
+                    <KeyValue
+                      label="Scale assessment"
+                      value={scaleAssessment?.summary_zh ?? "--"}
+                    />
+                    <KeyValue
+                      label="Reference suggestions"
+                      value={`${referenceValueSuggestions.length} items`}
+                    />
+                    <KeyValue
+                      label="Calculation-plan linkage"
+                      value={`${calculationPlanDraft.length} items`}
+                    />
+                  </div>
+                  <div className="grid gap-4 xl:grid-cols-3">
+                    <LabeledList
+                      title="Geometry Findings"
+                      items={geometryFindings.map((item) =>
+                        `${item.severity ?? "info"} | ${item.summary_zh ?? item.finding_id ?? "Pending geometry finding"}`,
+                      )}
+                      emptyText="No structured geometry findings are recorded."
+                    />
+                    <LabeledList
+                      title="Reference Suggestions"
+                      items={referenceValueSuggestions.map((item) =>
+                        `${item.quantity ?? "reference"} | ${item.value ?? "--"}${item.unit ? ` ${item.unit}` : ""} | ${item.confidence ?? "--"} | ${item.source ?? "--"}`,
+                      )}
+                      emptyText="No structured reference suggestions are recorded."
+                    />
+                    <LabeledList
+                      title="Calculation Plan Carry-Over"
+                      items={calculationPlanDraft.map((item) =>
+                        `${item.label ?? item.category ?? "Calculation plan item"} | ${item.approval_state ?? "pending"}${item.requires_immediate_confirmation ? " | immediate clarification" : ""}`,
+                      )}
+                      emptyText="No calculation-plan linkage is recorded yet."
+                    />
+                  </div>
+                </div>
+              ) : null}
+              {selectedCaseProvenance ? (
+                <div className="mb-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <KeyValue
+                      label="Selected case"
+                      value={selectedCaseProvenance.title ?? selectedCaseProvenance.case_id ?? "--"}
+                    />
+                    <KeyValue
+                      label="Primary source"
+                      value={selectedCaseProvenance.source_label ?? "--"}
+                    />
+                    <KeyValue
+                      label="Source type"
+                      value={selectedCaseProvenance.source_type ?? "--"}
+                    />
+                    <KeyValue
+                      label="Benchmark coverage"
+                      value={`${selectedCaseProvenance.benchmark_metric_ids?.length ?? 0} metrics`}
+                    />
+                  </div>
+                  <div className="grid gap-4 xl:grid-cols-3">
+                    <LabeledList
+                      title="Applicability"
+                      items={selectedCaseProvenance.applicability_conditions ?? []}
+                      emptyText="No explicit applicability conditions are recorded."
+                    />
+                    <LabeledList
+                      title="Confidence / Evidence Gap"
+                      items={[
+                        selectedCaseProvenance.confidence_note,
+                        selectedCaseProvenance.evidence_gap_note,
+                        selectedCaseProvenance.source_url,
+                      ].filter((item): item is string => Boolean(item))}
+                      emptyText="No additional provenance note is recorded."
+                    />
+                    <LabeledList
+                      title="Acceptance Profile"
+                      items={[
+                        selectedCaseProvenance.acceptance_profile_summary_zh,
+                        ...(selectedCaseProvenance.benchmark_metric_ids ?? []).map(
+                          (item) => `benchmark | ${item}`,
+                        ),
+                      ].filter((item): item is string => Boolean(item))}
+                      emptyText="No acceptance-profile summary is recorded."
+                    />
+                  </div>
+                </div>
+              ) : null}
               {candidateCases.length > 0 ? (
                 <div className="space-y-3">
                   {candidateCases.slice(0, 3).map((candidate) => (
@@ -1543,6 +1828,39 @@ export function SubmarineRuntimePanel({
                         {typeof candidate.score === "number" && <Badge variant="outline">{candidate.score.toFixed(2)}</Badge>}
                       </div>
                       <div className="text-sm leading-6 text-muted-foreground">{candidate.rationale ?? "待补充说明"}</div>
+                      {candidate.source_label ||
+                      candidate.confidence_note ||
+                      candidate.evidence_gap_note ||
+                      (candidate.applicability_conditions?.length ?? 0) > 0 ? (
+                        <div className="mt-3 grid gap-3 xl:grid-cols-2">
+                          <LabeledList
+                            title="Provenance"
+                            items={[
+                              candidate.source_label
+                                ? `source | ${candidate.source_label}`
+                                : null,
+                              candidate.source_url
+                                ? `url | ${candidate.source_url}`
+                                : null,
+                              candidate.confidence_note
+                                ? `confidence | ${candidate.confidence_note}`
+                                : null,
+                              candidate.is_placeholder
+                                ? "placeholder-backed advisory case"
+                                : null,
+                              candidate.evidence_gap_note
+                                ? `gap | ${candidate.evidence_gap_note}`
+                                : null,
+                            ].filter((item): item is string => Boolean(item))}
+                            emptyText="No provenance note is recorded."
+                          />
+                          <LabeledList
+                            title="Applicability"
+                            items={candidate.applicability_conditions ?? []}
+                            emptyText="No applicability conditions are recorded."
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>

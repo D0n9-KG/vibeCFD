@@ -271,6 +271,13 @@ export function SubmarinePipeline({
       next_recommended_stage: runtime.next_recommended_stage ?? undefined,
       task_summary: runtime.task_summary ?? undefined,
       simulation_requirements: runtime.simulation_requirements,
+      geometry_findings: runtime.geometry_findings ?? null,
+      scale_assessment: runtime.scale_assessment ?? null,
+      reference_value_suggestions: runtime.reference_value_suggestions ?? null,
+      clarification_required: runtime.clarification_required ?? null,
+      calculation_plan: runtime.calculation_plan ?? null,
+      requires_immediate_confirmation:
+        runtime.requires_immediate_confirmation ?? null,
       stage_status: runtime.stage_status,
       runtime_status: runtime.runtime_status,
       runtime_summary: runtime.runtime_summary,
@@ -323,6 +330,17 @@ export function SubmarinePipeline({
         runtimeSummary: runtime?.runtime_summary,
         recoveryGuidance: runtime?.recovery_guidance,
         blockerDetail: runtime?.blocker_detail,
+        reviewStatus: runtime?.review_status ?? designBrief?.review_status,
+        nextRecommendedStage:
+          runtime?.next_recommended_stage ?? designBrief?.next_recommended_stage,
+        requiresImmediateConfirmation:
+          runtime?.requires_immediate_confirmation ??
+          designBrief?.requires_immediate_confirmation,
+        pendingCalculationPlanCount: (
+          runtime?.calculation_plan ??
+          designBrief?.calculation_plan ??
+          []
+        ).filter((item) => item?.approval_state !== "researcher_confirmed").length,
         scientificGateStatus: runtime?.scientific_gate_status,
         allowedClaimLevel: runtime?.allowed_claim_level,
         scientificVerificationStatus:
@@ -332,9 +350,17 @@ export function SubmarinePipeline({
       designBrief,
       finalReport,
       isNewThread,
+      runtime?.calculation_plan,
       runtime?.allowed_claim_level,
       runtime?.blocker_detail,
+      runtime?.clarification_required,
+      runtime?.geometry_findings,
       runtime?.recovery_guidance,
+      runtime?.reference_value_suggestions,
+      runtime?.requires_immediate_confirmation,
+      runtime?.review_status,
+      runtime?.next_recommended_stage,
+      runtime?.scale_assessment,
       runtime?.scientific_gate_status,
       runtime?.scientific_verification_assessment,
       runtime?.runtime_status,
@@ -620,10 +646,29 @@ function PipelineCenterPane({
   const currentStageLabel = displayedCurrentStage
     ? (STAGE_LABELS[displayedCurrentStage] ?? displayedCurrentStage)
     : "等待建立研究 brief";
+  const calculationPlanDraft =
+    runtime?.calculation_plan ?? designBrief?.calculation_plan ?? [];
+  const pendingCalculationPlanCount = calculationPlanDraft.filter(
+    (item) => item?.approval_state !== "researcher_confirmed",
+  ).length;
+  const hasImmediateCalculationPlanClarification =
+    Boolean(
+      runtime?.requires_immediate_confirmation ??
+        designBrief?.requires_immediate_confirmation,
+    ) ||
+    calculationPlanDraft.some(
+      (item) =>
+        Boolean(item?.requires_immediate_confirmation) &&
+        item?.approval_state !== "researcher_confirmed",
+    );
   const hasPendingBriefConfirmation = Boolean(
-    designBrief &&
-      (designBrief.confirmation_status !== "confirmed" ||
-        (designBrief.open_questions?.filter(Boolean).length ?? 0) > 0),
+    pendingCalculationPlanCount > 0 ||
+      hasImmediateCalculationPlanClarification ||
+      runtime?.review_status === "needs_user_confirmation" ||
+      runtime?.next_recommended_stage === "user-confirmation" ||
+      (designBrief &&
+        (designBrief.confirmation_status !== "confirmed" ||
+          (designBrief.open_questions?.filter(Boolean).length ?? 0) > 0)),
   );
   const submarineArtifactCount = Array.isArray(thread.values.artifacts)
     ? thread.values.artifacts.filter((path) => path.includes("/submarine/")).length
@@ -711,7 +756,11 @@ function PipelineCenterPane({
                     finalReport
                       ? "已有报告与评估结论"
                       : hasPendingBriefConfirmation
-                        ? "Brief awaiting user confirmation before solver dispatch"
+                        ? hasImmediateCalculationPlanClarification
+                          ? "Calculation plan needs immediate researcher clarification"
+                          : pendingCalculationPlanCount > 0
+                            ? `Calculation plan awaiting researcher confirmation (${pendingCalculationPlanCount} items)`
+                            : "Brief awaiting user confirmation before solver dispatch"
                         : designBrief
                         ? "brief 已确认，待生成数值证据"
                         : "等待建立可确认的 study brief"

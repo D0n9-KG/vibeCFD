@@ -296,6 +296,30 @@ def submarine_solver_dispatch_tool(
                 existing_runtime.get("requested_outputs")
                 or existing_brief.get("requested_outputs")
             ),
+            geometry_findings=(
+                existing_runtime.get("geometry_findings")
+                or existing_brief.get("geometry_findings")
+            ),
+            scale_assessment=(
+                existing_runtime.get("scale_assessment")
+                or existing_brief.get("scale_assessment")
+            ),
+            reference_value_suggestions=(
+                existing_runtime.get("reference_value_suggestions")
+                or existing_brief.get("reference_value_suggestions")
+            ),
+            clarification_required=bool(
+                existing_runtime.get("clarification_required")
+                or existing_brief.get("clarification_required")
+            ),
+            calculation_plan=(
+                existing_runtime.get("calculation_plan")
+                or existing_brief.get("calculation_plan")
+            ),
+            requires_immediate_confirmation=bool(
+                existing_runtime.get("requires_immediate_confirmation")
+                or existing_brief.get("requires_immediate_confirmation")
+            ),
             solver_command=solver_command,
             execute_now=resolved_execute_now,
             execute_scientific_studies=execute_scientific_studies,
@@ -318,6 +342,9 @@ def submarine_solver_dispatch_tool(
         execution_updates["result-reporting"] = "ready"
     elif dispatch_status == "failed":
         execution_updates["solver-dispatch"] = "blocked"
+        execution_updates["result-reporting"] = "pending"
+    elif payload.get("review_status") == "needs_user_confirmation":
+        execution_updates["solver-dispatch"] = "pending"
         execution_updates["result-reporting"] = "pending"
     else:
         execution_updates["solver-dispatch"] = "in_progress"
@@ -346,6 +373,14 @@ def submarine_solver_dispatch_tool(
         geometry_virtual_path=geometry_virtual_path,
         geometry_family=(payload.get("geometry") or {}).get("geometry_family"),
         execution_readiness=payload.get("execution_readiness"),
+        geometry_findings=payload.get("geometry_findings"),
+        scale_assessment=payload.get("scale_assessment"),
+        reference_value_suggestions=payload.get("reference_value_suggestions"),
+        clarification_required=bool(payload.get("clarification_required")),
+        calculation_plan=payload.get("calculation_plan"),
+        requires_immediate_confirmation=bool(
+            payload.get("requires_immediate_confirmation")
+        ),
         selected_case_id=selected_case.get("case_id"),
         simulation_requirements=payload.get("simulation_requirements"),
         requested_outputs=payload.get("requested_outputs"),
