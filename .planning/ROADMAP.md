@@ -33,7 +33,7 @@ Goal: turn the shipped submarine CFD loop into a cleaner, safer, and more extens
 **Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: Audit workspace IA and extract shared layout, navigation, and design-token primitives
+- [x] 07-01: Audit workspace IA and extract shared layout, navigation, and design-token primitives
 - [ ] 07-02: Rebuild submarine and skill-studio shells around the shared workspace system
 - [ ] 07-03: Polish accessibility, responsive behavior, and key task flows on redesigned pages
 
@@ -110,11 +110,11 @@ Plans:
 | 4. Geometry and Case Intelligence Hardening | v1.0 | 3/3 | Complete | 2026-04-02 |
 | 5. Experiment Ops and Reproducibility | v1.0 | 3/3 | Complete | 2026-04-02 |
 | 6. Research Delivery Workbench | v1.0 | 3/3 | Complete | 2026-04-03 |
-| 7. Workspace UX and Navigation System | v1.1 | 0/3 | Not started | - |
+| 7. Workspace UX and Navigation System | v1.1 | 1/3 | In Progress | - |
 | 8. Skill Studio Lifecycle and Governance | v1.1 | 0/3 | Not started | - |
 | 9. Runtime Isolation and Deployment Hardening | v1.1 | 0/3 | Not started | - |
 | 10. Architecture Simplification and Contract Boundaries | v1.1 | 0/3 | Not started | - |
 | 11. Live Validation and Release Readiness | v1.1 | 0/3 | Not started | - |
 
 ---
-*Last updated: 2026-04-03 after v1.1 roadmap creation*
+*Last updated: 2026-04-03 after Phase 07 Plan 01 execution*
