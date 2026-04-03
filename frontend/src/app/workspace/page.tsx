@@ -4,6 +4,7 @@ import path from "path";
 import { redirect } from "next/navigation";
 
 import { env } from "@/env";
+import { getWorkspaceSurfaceHref } from "@/components/workspace/workspace-surface-config";
 
 export default function WorkspacePage() {
   if (env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true") {
@@ -16,5 +17,5 @@ export default function WorkspacePage() {
       return redirect(`/workspace/chats/${firstThread.name}`);
     }
   }
-  return redirect("/workspace/submarine/new");
+  return redirect(getWorkspaceSurfaceHref("submarine"));
 }
