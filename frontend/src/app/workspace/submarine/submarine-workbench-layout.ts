@@ -20,8 +20,8 @@ export function getSubmarineWorkbenchLayout({
       "grid-cols-1",
       "gap-4",
       "xl:h-[calc(100vh-5.5rem)]",
+      "xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]",
       "xl:overflow-hidden",
-      chatOpen && "xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]",
     ]
       .filter(Boolean)
       .join(" "),

@@ -29,13 +29,14 @@ void test("uses a persistent desktop split layout when the chat rail is open", (
   assert.doesNotMatch(layout.chatRailInnerClassName, /shadow-2xl/);
 });
 
-void test("collapses back to a single-column layout when the chat rail is hidden", () => {
+void test("keeps the desktop split layout even when the mobile chat rail is hidden", () => {
   const layout = getSubmarineWorkbenchLayout({ chatOpen: false });
 
   assert.match(layout.shellClassName, /grid-cols-1/);
-  assert.doesNotMatch(
+  assert.match(
     layout.shellClassName,
     /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(320px,420px\)\]/,
   );
   assert.match(layout.chatRailClassName, /hidden/);
+  assert.match(layout.chatRailClassName, /xl:block/);
 });
