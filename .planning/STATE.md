@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: MVP
-current_phase: 06
-current_phase_name: research-delivery-workbench
-current_plan: 3
-status: completed
-stopped_at: v1.0 milestone archived and ready for next milestone planning
+milestone: v1.1
+milestone_name: Experience & Platform
+current_phase: 07
+current_phase_name: workspace-ux-and-navigation-system
+current_plan: 0
+status: planning
+stopped_at: v1.1 requirements and roadmap defined; phase 07 not started
 last_updated: "2026-04-03T02:04:52+08:00"
 last_activity: 2026-04-03
 progress:
-  total_phases: 6
+  total_phases: 11
   completed_phases: 6
-  total_plans: 18
+  total_plans: 33
   completed_plans: 18
-  percent: 100
+  percent: 55
 ---
 
 # Project State
@@ -24,36 +24,34 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-03)
 
 **Core value:** A researcher can go from natural-language CFD intent to reproducible, evidence-backed submarine results without manually building and operating OpenFOAM cases.
-**Current focus:** Plan the next milestone while closing the remaining `v1.0` follow-up debt.
+**Current focus:** Start `v1.1 Experience & Platform` with Phase 07 workspace UX and navigation redesign.
 
 ## Current Position
 
-**Current Milestone:** `v1.0 MVP`
-**Last Completed Phase:** 06
-**Last Completed Phase Name:** research-delivery-workbench
-**Status:** Milestone archived and shipped
-**Progress:** [######] 100%
+**Current Milestone:** `v1.1 Experience & Platform`
+**Current Phase:** 07
+**Current Phase Name:** workspace-ux-and-navigation-system
+**Status:** Requirements and roadmap defined
+**Progress:** [###---] 55%
 **Last Activity:** 2026-04-03
-**Last Activity Description:** `v1.0` milestone archived; repository is ready for next milestone definition.
+**Last Activity Description:** `v1.1` milestone initialized with requirements, roadmap, and DeerFlow alignment notes.
 
 ## Milestone Snapshot
 
-- 6 phases complete
-- 18 plans complete
-- 52 tasks completed across the archived milestone
-- Audit verdict: `tech_debt` (non-blocking)
-- Archive path: `.planning/milestones/`
+- `v1.0` remains archived and shipped
+- `v1.1` now spans phases 07 through 11
+- 19 new milestone requirements are mapped across UX, skill lifecycle, deployment, architecture, and validation
+- Phase 07 is the next execution target
 
-## Completed Scope
+## Ready Scope
 
-- Phase 1 restored real workbench bootstrap and thread plus attachment continuity.
-- Phase 2 productized runtime execution with canonical artifacts and refresh-safe recovery.
-- Phase 3 made scientific claim levels depend on explicit stability, study, and benchmark evidence.
-- Phase 4 turned geometry trust and case recommendations into explicit pre-compute gates.
-- Phase 5 established provenance, experiment linkage, and runtime parity honesty for reproducibility.
-- Phase 6 shipped Chinese report delivery, supervisor decision summaries, and bounded follow-up lineage.
+- Phase 07 will establish the shared workspace IA, layout system, and responsive UX baseline.
+- Phase 08 will productize full-chain Vibe CFD skill creation, publish, and governance flows.
+- Phase 09 will harden Docker and sandbox isolation for safer server deployment.
+- Phase 10 will simplify oversized modules and stabilize shared contracts.
+- Phase 11 will close live validation debt and release-hardening gaps.
 
-## Follow-Up Debt
+## Carry-Forward Debt
 
 - Capture a fresh live non-mock SCI-03 benchmark validation thread.
 - Capture or generate a live non-mock research-delivery validation thread.
@@ -61,10 +59,10 @@ See: `.planning/PROJECT.md` (updated 2026-04-03)
 
 ## Blockers
 
-- No blocking issues are open for the shipped milestone. Remaining work is follow-up debt for the next planning cycle.
+- No blocking issues are currently open. The main execution risk is scope breadth, so the roadmap intentionally separates UX, skill lifecycle, deployment, architecture, and live validation into distinct phases.
 
 ## Session
 
 **Last Date:** 2026-04-03T02:04:52+08:00
-**Stopped At:** `v1.0` milestone archived and ready for next milestone planning
-**Resume File:** `.planning/MILESTONES.md`
+**Stopped At:** `v1.1` requirements and roadmap defined; Phase 07 is ready for discussion or planning
+**Resume File:** `.planning/ROADMAP.md`
