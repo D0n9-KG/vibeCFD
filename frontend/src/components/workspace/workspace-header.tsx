@@ -27,7 +27,7 @@ const SURFACE_ACTIONS: Record<
   },
   "skill-studio": {
     href: "/workspace/skill-studio",
-    label: "打开 Skill Studio",
+    label: "进入 Skill Studio",
     icon: SparklesIcon,
   },
   chats: {
@@ -56,7 +56,7 @@ export function WorkspaceHeader({ className }: { className?: string }) {
       <WorkspaceActivityBar orientation="horizontal" className="md:hidden" />
       <div className={cn("flex items-center gap-3", chrome.headerPanelClassName)}>
         <div className="min-w-0 flex-1 leading-none">
-          <span className={chrome.brandEyebrowClassName}>Unified Workspace</span>
+          <span className={chrome.brandEyebrowClassName}>统一工作区</span>
           <span className="text-primary mt-1 block truncate font-serif text-base font-semibold">
             VibeCFD
           </span>

@@ -42,16 +42,16 @@ export type SkillStudioAssistantIdentity = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  ready_for_review: "Ready for review",
-  needs_revision: "Needs revision",
-  draft_only: "Draft only",
-  ready_for_dry_run: "Ready for dry-run",
-  blocked: "Blocked",
+  ready_for_review: "待审阅",
+  needs_revision: "需修订",
+  draft_only: "仅有草稿",
+  ready_for_dry_run: "可试运行",
+  blocked: "已阻塞",
 };
 
 export function formatSkillStudioStatus(value?: string | null) {
   if (!value) {
-    return "Unknown";
+    return "未知";
   }
   if (STATUS_LABELS[value]) {
     return STATUS_LABELS[value];
@@ -86,11 +86,11 @@ function getArtifactGroupId(path: string): SkillStudioArtifactGroup["id"] {
 }
 
 const GROUP_LABELS: Record<SkillStudioArtifactGroup["id"], string> = {
-  package: "Skill package",
-  validation: "Validation",
-  testing: "Testing",
-  publish: "Publish",
-  other: "Other",
+  package: "技能包",
+  validation: "校验",
+  testing: "测试",
+  publish: "发布",
+  other: "其他",
 };
 
 export function groupSkillStudioArtifacts(

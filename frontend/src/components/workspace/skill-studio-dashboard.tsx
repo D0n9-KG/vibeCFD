@@ -33,7 +33,7 @@ function withMock(path: string, isMock: boolean) {
 }
 
 function formatUpdatedAt(value: string | null) {
-  if (!value) return "Unknown";
+  if (!value) return "未知";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("zh-CN", {
@@ -99,20 +99,20 @@ export function SkillStudioDashboard() {
             <div className="rounded-2xl border bg-muted/20 p-5">
               <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
                 <SparklesIcon className="size-4" />
-                Studio workflow
+                工作流程
               </div>
               <div className="grid gap-4 lg:grid-cols-3">
                 <WorkflowCard
                   title="专家输入规则"
-                  description="领域专家只需要把触发条件、workflow、阈值、反例和验收要求告诉右侧的 Skill Creator 代理。"
+                  description="领域专家只需要把触发条件、工作流程、阈值、反例和验收要求告诉右侧的 Skill Creator 代理。"
                 />
                 <WorkflowCard
                   title="Claude 整理技能包"
-                  description="系统沉淀 SKILL.md、UI metadata、领域规则、测试矩阵和发布就绪信息，而不是只给一段聊天回复。"
+                  description="系统会沉淀 SKILL.md、界面元数据、领域规则、测试矩阵和发布就绪信息，而不是只返回一段聊天回复。"
                 />
                 <WorkflowCard
                   title="直接验证与测试"
-                  description="同一工作台内查看结构校验、场景测试准备度和发布门槛，不再跳回 vibe CFD 工作台。"
+                  description="同一工作台内查看结构校验、场景测试准备度和发布门槛，不再跳回 VibeCFD 工作台。"
                 />
               </div>
             </div>
@@ -120,14 +120,14 @@ export function SkillStudioDashboard() {
             <div className="rounded-2xl border bg-muted/20 p-5">
               <div className="mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
                 <WandSparklesIcon className="size-4" />
-                Recent workbenches
+                最近工作台
               </div>
               {isLoading ? (
                 <div className="text-sm text-muted-foreground">加载中...</div>
               ) : entries.length === 0 ? (
                 <div className="rounded-xl border border-dashed bg-background/50 p-4">
                   <div className="text-sm text-muted-foreground">
-                    当前还没有 Skill Studio 线程。你可以先开一个新线程，让专属 Skill Creator 代理与领域专家一起起草第一份专业 skill。
+                    当前还没有 Skill Studio 线程。你可以先开一个新线程，让专属 Skill Creator 代理与领域专家一起起草第一份专业技能。
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button asChild size="sm">
@@ -165,7 +165,7 @@ export function SkillStudioDashboard() {
             <div className="rounded-2xl border bg-muted/20 p-5">
               <div className="mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
                 <ClipboardCheckIcon className="size-4" />
-                Featured workbench
+                焦点工作台
               </div>
               {featured ? (
                 <div className="space-y-4">
@@ -190,16 +190,16 @@ export function SkillStudioDashboard() {
                     </Badge>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <MiniStat label="Errors" value={String(featured.errorCount)} />
-                    <MiniStat label="Warnings" value={String(featured.warningCount)} />
+                    <MiniStat label="错误" value={String(featured.errorCount)} />
+                    <MiniStat label="警告" value={String(featured.warningCount)} />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <MiniStat
-                      label="Artifacts"
+                      label="产物"
                       value={String(featured.artifactCount)}
                     />
                     <MiniStat
-                      label="Updated"
+                      label="最近更新"
                       value={formatUpdatedAt(featured.updatedAt)}
                     />
                   </div>
@@ -233,23 +233,23 @@ export function SkillStudioDashboard() {
             <div className="rounded-2xl border bg-muted/20 p-5">
               <div className="mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
                 <SparklesIcon className="size-4" />
-                Skill graph governance
+                技能图谱治理
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <MiniStat label="Skills" value={String(graphOverview.skillCount)} />
-                <MiniStat label="Edges" value={String(graphOverview.edgeCount)} />
+                <MiniStat label="技能" value={String(graphOverview.skillCount)} />
+                <MiniStat label="边" value={String(graphOverview.edgeCount)} />
                 <MiniStat
-                  label="Enabled"
+                  label="已启用"
                   value={String(graphOverview.enabledCount)}
                 />
                 <MiniStat
-                  label="Custom"
+                  label="自定义"
                   value={String(graphOverview.customCount)}
                 />
               </div>
               <div className="mt-4 space-y-3">
                 <div className="text-sm font-medium text-foreground">
-                  Top relationships
+                  关键关系
                 </div>
                 {graphOverview.topRelationships.length > 0 ? (
                   graphOverview.topRelationships.map((item) => (
@@ -263,14 +263,14 @@ export function SkillStudioDashboard() {
                   ))
                 ) : (
                   <div className="text-sm text-muted-foreground">
-                    Relationship analysis appears after skills are available.
+                    有可用技能后，这里会展示关系分析。
                   </div>
                 )}
               </div>
               {featuredRelatedSkills.length > 0 ? (
                 <div className="mt-4 space-y-3">
                   <div className="text-sm font-medium text-foreground">
-                    Related to featured skill
+                    与焦点技能相关
                   </div>
                   {featuredRelatedSkills.map((item) => (
                     <div
@@ -300,12 +300,12 @@ export function SkillStudioDashboard() {
 
             <div className="rounded-2xl border bg-muted/20 p-5">
               <div className="mb-4 text-sm font-medium text-foreground">
-                这块和 vibe CFD 的区别
+                这块和 VibeCFD 的区别
               </div>
               <ul className="space-y-2 text-sm leading-6 text-muted-foreground">
                 <li>中间工作台只看技能包、校验、测试和发布，不混入 CFD run 结果。</li>
                 <li>右侧聊天只服务专属 Skill Creator 代理，而不是主工作区的通用协作聊天。</li>
-                <li>目标是让领域专家持续生产专业 skill，而不是临时生成一段 prompt。</li>
+                <li>目标是让领域专家持续生产专业技能，而不是临时生成一段提示词。</li>
               </ul>
             </div>
           </aside>
@@ -358,7 +358,7 @@ function SkillStudioEntryCard({
             <Badge variant="outline">
               {formatSkillStudioStatus(entry.publishStatus)}
             </Badge>
-            <Badge variant="outline">Artifacts {entry.artifactCount}</Badge>
+            <Badge variant="outline">产物 {entry.artifactCount}</Badge>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

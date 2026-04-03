@@ -40,7 +40,7 @@ export function AgentGallery({
       className="workspace-agent-gallery"
       data-surface-label={surfaceLabel}
     >
-      <WorkspaceSurfaceMain>
+      <WorkspaceSurfaceMain className="max-w-[1840px]">
         <WorkspaceSurfaceCard className="overflow-hidden">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0 flex-1">

@@ -40,14 +40,14 @@ void test("builds a readiness summary from validation, testing, and publish stat
   assert.equal(readiness.progress, 92);
   assert.equal(readiness.blockingCount, 0);
   assert.equal(readiness.warningCount, 1);
-  assert.equal(readiness.validationLabel, "Ready for review");
-  assert.equal(readiness.testLabel, "Ready for dry-run");
-  assert.equal(readiness.publishLabel, "Ready for review");
+  assert.equal(readiness.validationLabel, "待审阅");
+  assert.equal(readiness.testLabel, "可试运行");
+  assert.equal(readiness.publishLabel, "待审阅");
 });
 
 void test("formats statuses into stable labels", () => {
-  assert.equal(formatSkillStudioStatus("needs_revision"), "Needs revision");
-  assert.equal(formatSkillStudioStatus("draft_only"), "Draft only");
+  assert.equal(formatSkillStudioStatus("needs_revision"), "需修订");
+  assert.equal(formatSkillStudioStatus("draft_only"), "仅有草稿");
   assert.equal(formatSkillStudioStatus("custom_status"), "Custom Status");
 });
 

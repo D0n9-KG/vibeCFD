@@ -169,15 +169,15 @@ function pickArtifact(artifacts: string[], predicate: (artifact: string) => bool
 }
 
 function getArtifactLabel(path: string) {
-  if (path.endsWith("/skill-draft.json")) return "Skill draft JSON";
-  if (path.endsWith("/skill-package.json")) return "Skill package";
+  if (path.endsWith("/skill-draft.json")) return "技能草稿 JSON";
+  if (path.endsWith("/skill-package.json")) return "技能包";
   if (path.endsWith("/SKILL.md")) return "SKILL.md";
-  if (path.endsWith("/agents/openai.yaml")) return "UI metadata";
-  if (path.endsWith("/references/domain-rules.md")) return "Domain rules";
-  if (path.endsWith("/test-matrix.json")) return "Test matrix";
-  if (path.endsWith("/validation-report.json")) return "Validation JSON";
-  if (path.endsWith("/publish-readiness.json")) return "Publish readiness";
-  if (path.endsWith(".skill")) return "Installable .skill package";
+  if (path.endsWith("/agents/openai.yaml")) return "界面元数据";
+  if (path.endsWith("/references/domain-rules.md")) return "领域规则";
+  if (path.endsWith("/test-matrix.json")) return "测试矩阵";
+  if (path.endsWith("/validation-report.json")) return "校验报告 JSON";
+  if (path.endsWith("/publish-readiness.json")) return "发布就绪报告";
+  if (path.endsWith(".skill")) return "可安装 .skill 包";
   return path.split("/").at(-1) ?? path;
 }
 
@@ -204,9 +204,9 @@ function deriveNextActionLines(args: {
   if (args.validationErrors.length > 0) return args.validationErrors.slice(0, 3);
   if (args.validationWarnings.length > 0) return args.validationWarnings.slice(0, 3);
   if (args.blockingCount > 0) {
-    return ["Resolve blocking validation, testing, or publish gates before release."];
+    return ["发布前先处理阻塞中的校验、测试或发布门槛。"];
   }
-  return ["The package is ready for a dry-run or final publish review."];
+  return ["当前技能包已经可以进入试运行或最终发布审阅。"];
 }
 
 export function SkillStudioWorkbenchPanel({
@@ -377,9 +377,8 @@ export function SkillStudioWorkbenchPanel({
     if (!archiveVirtualPath) {
       setPublishFeedback({
         variant: "destructive",
-        title: "No installable package yet",
-        message:
-          "Generate and validate the skill package before publishing it to the project.",
+        title: "还没有可安装的技能包",
+        message: "请先生成并校验技能包，再发布到项目中。",
       });
       return;
     }
@@ -393,16 +392,16 @@ export function SkillStudioWorkbenchPanel({
       });
       setPublishFeedback({
         variant: "default",
-        title: overwrite ? "Skill updated" : "Skill published",
-        message: `${result.message}. Enabled: ${result.enabled ? "yes" : "no"}.`,
+        title: overwrite ? "技能已更新" : "技能已发布",
+        message: `${result.message}。启用状态：${result.enabled ? "已启用" : "未启用"}。`,
       });
-      toast.success(overwrite ? "Skill updated in project" : "Skill published to project");
+      toast.success(overwrite ? "项目中的技能已更新" : "技能已发布到项目");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to publish the skill package.";
+        error instanceof Error ? error.message : "发布技能包失败。";
       setPublishFeedback({
         variant: "destructive",
-        title: "Publish failed",
+        title: "发布失败",
         message,
       });
       toast.error(message);
@@ -438,14 +437,12 @@ export function SkillStudioWorkbenchPanel({
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
                 <WandSparklesIcon className="size-4" />
-                Dedicated Skill Studio
+                专属 Skill Studio
               </div>
               <div className="space-y-2">
                 <CardTitle className="text-2xl">{skillTitle}</CardTitle>
                 <CardDescription className="max-w-3xl text-sm leading-6">
-                  {assistantLabel} keeps package review, validation, testing,
-                  publish readiness, and graph review visible as separate
-                  lifecycle surfaces.
+                  {assistantLabel} 会把技能包审阅、校验、测试、发布就绪和图谱审阅分成独立的生命周期界面来处理。
                 </CardDescription>
               </div>
             </div>
@@ -471,7 +468,7 @@ export function SkillStudioWorkbenchPanel({
               uiMetadataPath={
                 skillPackage?.ui_metadata_virtual_path ??
                 studioState?.ui_metadata_virtual_path ??
-                "Pending openai.yaml"
+                 "等待生成 openai.yaml"
               }
               isMock={Boolean(isMock)}
               onOpenArtifact={(artifactPath) => {
@@ -516,27 +513,27 @@ function OverviewSection({ data }: { data: WorkbenchData }) {
       <div className="grid gap-3 xl:grid-cols-4">
         <StudioStat
           icon={SparklesIcon}
-          label="Current Skill"
+          label="当前技能"
           value={data.skillName}
-          note="Current package identity for this lifecycle review."
+          note="当前生命周期审阅所对应的技能包标识。"
         />
         <StudioStat
           icon={ShieldCheckIcon}
-          label="Validation"
+          label="校验"
           value={data.readiness.validationLabel}
-          note={`${data.validation?.error_count ?? 0} error(s), ${data.validation?.warning_count ?? 0} warning(s)`}
+          note={`${data.validation?.error_count ?? 0} 个错误，${data.validation?.warning_count ?? 0} 个警告`}
         />
         <StudioStat
           icon={TestTubeDiagonalIcon}
-          label="Scenario Tests"
+          label="场景测试"
           value={data.readiness.testLabel}
-          note={`${data.testMatrix?.scenario_test_count ?? 0} prepared scenario(s)`}
+          note={`已准备 ${data.testMatrix?.scenario_test_count ?? 0} 个场景`}
         />
         <StudioStat
           icon={BadgeCheckIcon}
-          label="Publish"
+          label="发布"
           value={data.readiness.publishLabel}
-          note={`${data.publishReadiness?.blocking_count ?? data.readiness.blockingCount} blocking gate(s)`}
+          note={`阻塞门槛 ${data.publishReadiness?.blocking_count ?? data.readiness.blockingCount} 个`}
         />
       </div>
 
@@ -544,44 +541,41 @@ function OverviewSection({ data }: { data: WorkbenchData }) {
         <CardContent className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_280px] xl:items-center">
           <div className="space-y-3">
             <div>
-              <div className="text-sm font-medium text-foreground">Readiness summary</div>
-              <div className="text-sm leading-6 text-muted-foreground">
-                The workbench keeps structure, dry-run preparation, publish
-                gates, and graph positioning visible before the package is
-                enabled in the project.
-              </div>
+                <div className="text-sm font-medium text-foreground">就绪度概览</div>
+                <div className="text-sm leading-6 text-muted-foreground">
+                  在技能正式启用到项目里之前，这个工作台会持续展示结构状态、试运行准备、发布门槛和图谱定位。
+                </div>
             </div>
             <Progress value={data.readiness.progress} />
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <MiniMetric label="Progress" value={`${data.readiness.progress}%`} />
-            <MiniMetric label="Blocking" value={String(data.readiness.blockingCount)} />
+            <MiniMetric label="进度" value={`${data.readiness.progress}%`} />
+            <MiniMetric label="阻塞" value={String(data.readiness.blockingCount)} />
           </div>
         </CardContent>
       </Card>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
         <StudioListCard
-          title="Next action guidance"
+          title="下一步建议"
           items={data.nextActionLines}
-          emptyText="No next actions are available yet."
+          emptyText="当前还没有下一步动作。"
         />
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Package identity</CardTitle>
+            <CardTitle className="text-base">技能包标识</CardTitle>
             <CardDescription>
-              The current draft stays tied to one package name and one dedicated
-              assistant identity.
+              当前草稿会绑定到唯一的技能包名称和专属代理身份上。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <KeyValueRow label="Skill name" value={data.skillName} />
+            <KeyValueRow label="技能名称" value={data.skillName} />
             <KeyValueRow
-              label="Purpose"
-              value={data.draft?.skill_purpose ?? "Pending expert purpose"}
+              label="用途"
+              value={data.draft?.skill_purpose ?? "等待补充专家用途说明"}
             />
-            <KeyValueRow label="Agent mode" value={data.assistantMode} />
-            <KeyValueRow label="Artifacts" value={`${data.studioArtifacts.length} total artifact(s)`} />
+            <KeyValueRow label="代理模式" value={data.assistantMode} />
+            <KeyValueRow label="产物" value={`共 ${data.studioArtifacts.length} 份`} />
           </CardContent>
         </Card>
       </div>
@@ -605,17 +599,16 @@ function BuildSection({
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Dedicated Skill Creator agent</CardTitle>
+            <CardTitle className="text-base">专属 Skill Creator 代理</CardTitle>
             <CardDescription>
-              This thread keeps one dedicated creator identity so the package
-              remains consistent across revisions.
+              这个线程会固定一个创建代理身份，确保技能包在多轮修订中保持一致。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
               <div className="text-sm font-medium">{data.assistantLabel}</div>
               <div className="text-sm text-muted-foreground">
-                Agent mode: {data.assistantMode}
+                代理模式：{data.assistantMode}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -628,9 +621,9 @@ function BuildSection({
             <Separator />
             <BulletList
               items={[
-                "Experts provide domain rules, thresholds, and exceptions.",
-                `${data.assistantLabel} turns those decisions into a reviewable skill package.`,
-                "Validation, scenario testing, and publish gates stay visible in the workbench.",
+                "领域专家提供规则、阈值和例外条件。",
+                `${data.assistantLabel} 会把这些判断整理成可审阅的技能包。`,
+                "校验、场景测试和发布门槛都会持续显示在工作台里。",
               ]}
             />
           </CardContent>
@@ -638,56 +631,55 @@ function BuildSection({
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Skill package summary</CardTitle>
+            <CardTitle className="text-base">技能包摘要</CardTitle>
             <CardDescription>
-              The package contract stays alongside UI metadata and review
-              artifacts for this skill.
+              这里会把技能包合同、界面元数据和审阅产物放在一起查看。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <KeyValueRow label="Skill name" value={data.skillName} />
+            <KeyValueRow label="技能名称" value={data.skillName} />
             <KeyValueRow
-              label="Purpose"
-              value={data.draft?.skill_purpose ?? "Pending expert purpose"}
+              label="用途"
+              value={data.draft?.skill_purpose ?? "等待补充专家用途说明"}
             />
             <KeyValueRow
-              label="Frontmatter description"
-              value={data.draft?.description ?? "Pending trigger description"}
+              label="描述"
+              value={data.draft?.description ?? "等待补充触发描述"}
             />
-            <KeyValueRow label="UI metadata" value={uiMetadataPath} />
+            <KeyValueRow label="界面元数据" value={uiMetadataPath} />
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <StudioListCard
-          title="Trigger conditions"
+          title="触发条件"
           items={data.draft?.trigger_conditions ?? []}
-          emptyText="No trigger conditions have been captured yet."
+          emptyText="当前还没有整理出触发条件。"
         />
         <StudioListCard
-          title="Acceptance criteria"
+          title="验收标准"
           items={data.draft?.acceptance_criteria ?? []}
-          emptyText="No acceptance criteria have been captured yet."
+          emptyText="当前还没有整理出验收标准。"
         />
       </div>
 
       <StudioListCard
-        title="Workflow steps"
+        title="工作流步骤"
         items={data.draft?.workflow_steps ?? []}
-        emptyText="No workflow has been captured yet."
+        emptyText="当前还没有整理出工作流步骤。"
       />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <StudioListCard
-          title="Expert rules"
+          title="专家规则"
           items={data.draft?.expert_rules ?? []}
-          emptyText="No expert rules have been captured yet."
+          emptyText="当前还没有整理出专家规则。"
         />
         <StudioListCard
-          title="Draft scenario tests"
+          title="草稿测试场景"
           items={data.draft?.test_scenarios ?? []}
-          emptyText="No scenario tests have been captured yet."
+          emptyText="当前还没有整理出测试场景。"
         />
       </div>
 
@@ -706,22 +698,21 @@ function ValidationSection({ validation }: { validation: ValidationPayload | nul
     <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Validation checks</CardTitle>
+          <CardTitle className="text-base">校验检查</CardTitle>
           <CardDescription>
-            Structural validation stays strict so the expert can see what blocks
-            review before any publish step.
+            结构校验会保持严格，让专家在发布前就能看清楚真正阻塞审阅的地方。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            <MiniMetric label="Passed" value={String(validation?.passed_checks?.length ?? 0)} />
-            <MiniMetric label="Errors" value={String(validation?.error_count ?? 0)} />
-            <MiniMetric label="Warnings" value={String(validation?.warning_count ?? 0)} />
+            <MiniMetric label="通过项" value={String(validation?.passed_checks?.length ?? 0)} />
+            <MiniMetric label="错误" value={String(validation?.error_count ?? 0)} />
+            <MiniMetric label="警告" value={String(validation?.warning_count ?? 0)} />
           </div>
           <StudioListCard
-            title="Passed checks"
+            title="已通过检查"
             items={validation?.passed_checks ?? []}
-            emptyText="No passed checks yet."
+            emptyText="当前还没有通过项。"
             compact
           />
         </CardContent>
@@ -729,14 +720,14 @@ function ValidationSection({ validation }: { validation: ValidationPayload | nul
 
       <div className="grid gap-4">
         <StudioListCard
-          title="Errors"
+          title="错误"
           items={validation?.errors ?? []}
-          emptyText="No validation errors."
+          emptyText="当前没有校验错误。"
         />
         <StudioListCard
-          title="Warnings"
+          title="警告"
           items={validation?.warnings ?? []}
-          emptyText="No validation warnings."
+          emptyText="当前没有校验警告。"
         />
       </div>
     </div>
@@ -754,10 +745,9 @@ function TestSection({
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Scenario test matrix</CardTitle>
+          <CardTitle className="text-base">场景测试矩阵</CardTitle>
           <CardDescription>
-            These scenarios are the immediate handoff for expert dry-runs and
-            future automated skill checks.
+            这些场景就是专家试运行和后续自动化技能检查的直接交付面。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -775,15 +765,14 @@ function TestSection({
                 </div>
                 {(scenario.blocking_reasons ?? []).length > 0 ? (
                   <div className="mt-2 text-xs text-muted-foreground">
-                    Blocking: {(scenario.blocking_reasons ?? []).join(", ")}
+                    阻塞原因：{(scenario.blocking_reasons ?? []).join(", ")}
                   </div>
                 ) : null}
               </div>
             ))
           ) : (
             <div className="rounded-xl border border-dashed bg-background/60 p-4 text-sm text-muted-foreground">
-              Scenario tests will appear here after the expert and Skill Creator
-              define dry-run cases.
+              专家和 Skill Creator 整理出试运行场景后，这里会显示对应测试矩阵。
             </div>
           )}
         </CardContent>
@@ -792,20 +781,20 @@ function TestSection({
       <div className="grid gap-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Dry-run readiness</CardTitle>
+            <CardTitle className="text-base">试运行准备度</CardTitle>
             <CardDescription>
-              Keep blocking counts and test preparation visible before publish.
+              在发布前持续显示阻塞数量和测试准备状态。
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
-            <MiniMetric label="Scenario count" value={String(testMatrix?.scenario_test_count ?? 0)} />
-            <MiniMetric label="Blocking" value={String(testMatrix?.blocking_count ?? 0)} />
+            <MiniMetric label="场景数量" value={String(testMatrix?.scenario_test_count ?? 0)} />
+            <MiniMetric label="阻塞" value={String(testMatrix?.blocking_count ?? 0)} />
           </CardContent>
         </Card>
         <StudioListCard
-          title="Draft test scenarios"
+          title="草稿测试场景"
           items={draft?.test_scenarios ?? []}
-          emptyText="No draft test scenarios have been captured yet."
+          emptyText="当前还没有整理出草稿测试场景。"
         />
       </div>
     </div>
@@ -846,10 +835,9 @@ function PublishSection({
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Publish gates</CardTitle>
+            <CardTitle className="text-base">发布门槛</CardTitle>
             <CardDescription>
-              These gates must pass before publish so a draft skill does not get
-              pushed into the live project by accident.
+              这些门槛必须先通过，才能避免草稿技能被误推入正式项目。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -867,8 +855,7 @@ function PublishSection({
               ))
             ) : (
               <div className="rounded-xl border border-dashed bg-background/60 p-4 text-sm text-muted-foreground">
-                Publish gates will appear here once the readiness bundle is
-                available.
+                发布就绪包生成后，这里会展示对应的发布门槛。
               </div>
             )}
           </CardContent>
@@ -876,36 +863,36 @@ function PublishSection({
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Next actions</CardTitle>
+            <CardTitle className="text-base">下一步动作</CardTitle>
             <CardDescription>
-              Keep the final review queue explicit before release.
+              在真正发布前，把最终审阅队列保持清晰可见。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <StudioListCard
-              title="Action queue"
+              title="动作队列"
               items={nextActionLines}
-              emptyText="No next actions are available yet."
+              emptyText="当前还没有下一步动作。"
               compact
             />
             <Separator />
             <div className="flex flex-wrap gap-2">
               <Button disabled={publishDisabled} onClick={() => void onPublish(false)}>
-                {publishPending ? "Publishing..." : "Publish and enable"}
+                {publishPending ? "发布中..." : "发布并启用"}
               </Button>
               <Button
                 disabled={overwriteDisabled}
                 onClick={() => void onPublish(true)}
                 variant="outline"
               >
-                {publishPending ? "Publishing..." : "Overwrite publish"}
+                {publishPending ? "发布中..." : "覆盖发布"}
               </Button>
             </div>
             <div className="space-y-2 text-sm text-muted-foreground">
-              <div>Validation: {readiness.validationLabel}</div>
-              <div>Scenario tests: {readiness.testLabel}</div>
-              <div>Publish: {readiness.publishLabel}</div>
-              <div>Package: {archiveVirtualPath ?? "Not generated yet"}</div>
+              <div>校验：{readiness.validationLabel}</div>
+              <div>场景测试：{readiness.testLabel}</div>
+              <div>发布：{readiness.publishLabel}</div>
+              <div>技能包：{archiveVirtualPath ?? "尚未生成"}</div>
             </div>
           </CardContent>
         </Card>
@@ -931,18 +918,17 @@ function GraphSection({
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Skill graph workbench</CardTitle>
+          <CardTitle className="text-base">技能图谱工作台</CardTitle>
           <CardDescription>
-            The graph page keeps focused relationship review separate from build,
-            validation, and publish tasks.
+            图谱页会把关系审阅与构建、校验、发布任务分开处理。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-4">
-            <MiniMetric label="Skills" value={String(data.graphOverview.skillCount)} />
-            <MiniMetric label="Edges" value={String(data.graphOverview.edgeCount)} />
-            <MiniMetric label="Focused" value={String(data.graphModel.nodes.length)} />
-            <MiniMetric label="Filter" value={graphFilter.replaceAll("-", " ")} />
+            <MiniMetric label="技能" value={String(data.graphOverview.skillCount)} />
+            <MiniMetric label="边" value={String(data.graphOverview.edgeCount)} />
+            <MiniMetric label="聚焦节点" value={String(data.graphModel.nodes.length)} />
+            <MiniMetric label="筛选" value={graphFilter.replaceAll("-", " ")} />
           </div>
 
           {data.graphModel.nodes.length > 0 ? (
@@ -982,7 +968,7 @@ function GraphSection({
                   onClick={() => onSelectNode(node.id)}
                 >
                   <div className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-300">
-                    {node.isFocus ? "Focus" : node.category}
+                      {node.isFocus ? "焦点" : node.category}
                   </div>
                   <div className="mt-1 text-sm font-semibold">{node.skillName}</div>
                   <div className="mt-1 text-[11px] text-stone-300">{node.strongestScore.toFixed(2)}</div>
@@ -991,8 +977,7 @@ function GraphSection({
             </div>
           ) : (
             <div className="rounded-[28px] border border-dashed bg-background/60 p-5 text-sm text-muted-foreground">
-              The focused graph will appear here after relationship data is
-              available for the current skill.
+              当前技能有关系数据后，这里会显示聚焦图谱。
             </div>
           )}
         </CardContent>
@@ -1000,10 +985,9 @@ function GraphSection({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Node inspector</CardTitle>
+          <CardTitle className="text-base">节点检查器</CardTitle>
           <CardDescription>
-            Inspect one focused node at a time while keeping filter context on
-            the graph canvas.
+            在保留图谱筛选上下文的同时，逐个检查聚焦节点。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1016,10 +1000,10 @@ function GraphSection({
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <MiniMetric label="Category" value={selectedNode.category} />
-                <MiniMetric label="Enabled" value={selectedNode.enabled ? "yes" : "no"} />
+                <MiniMetric label="分类" value={selectedNode.category} />
+                <MiniMetric label="启用状态" value={selectedNode.enabled ? "是" : "否"} />
               </div>
-              <MiniMetric label="Strongest score" value={selectedNode.strongestScore.toFixed(2)} />
+              <MiniMetric label="最高分值" value={selectedNode.strongestScore.toFixed(2)} />
               <div className="flex flex-wrap gap-2">
                 {selectedNode.relationshipLabels.map((label) => (
                   <Badge key={label} variant="outline">
@@ -1028,15 +1012,15 @@ function GraphSection({
                 ))}
               </div>
               <StudioListCard
-                title="Reasons"
+                title="关联原因"
                 items={selectedNode.reasons}
-                emptyText="No graph rationale is available yet."
+                emptyText="当前还没有图谱关系说明。"
                 compact
               />
             </>
           ) : (
             <div className="rounded-xl border border-dashed bg-background/60 p-4 text-sm text-muted-foreground">
-              Select a graph node to inspect its relationship context.
+              选择一个图谱节点后，这里会展示它的关系上下文。
             </div>
           )}
         </CardContent>
@@ -1062,7 +1046,7 @@ function ArtifactGroupsSection({
         <Card key={group.id}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">{group.label}</CardTitle>
-            <CardDescription>{group.count} artifact(s) in this stage.</CardDescription>
+            <CardDescription>当前阶段共 {group.count} 份产物。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {group.paths.map((artifactPath) => {
@@ -1077,7 +1061,7 @@ function ArtifactGroupsSection({
                   </div>
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="outline" onClick={() => onOpenArtifact(artifactPath)}>
-                      鏌ョ湅
+                      查看
                     </Button>
                     <Button asChild size="icon" variant="ghost">
                       <a href={externalHref} rel="noreferrer" target="_blank" aria-label={getArtifactLabel(artifactPath)}>

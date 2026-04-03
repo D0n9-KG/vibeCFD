@@ -61,16 +61,15 @@ export type SkillGraphWorkbenchModel = {
 function formatRelationshipLabel(value: string) {
   switch (value) {
     case "similar_to":
-      return "Similar to";
+      return "能力相似";
     case "compose_with":
-      return "Compose with";
+      return "组合使用";
     case "depend_on":
-      return "Depends on";
+      return "依赖于";
     default:
       return value
         .split("_")
-        .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-        .join(" ");
+        .join(" / ");
   }
 }
 
@@ -81,17 +80,17 @@ function filterFocusedItems(
   switch (filter) {
     case "upstream":
       return items.filter((item) =>
-        item.relationshipLabels.some((label) => label === "Depends on"),
+        item.relationshipLabels.some((label) => label === "依赖于"),
       );
     case "downstream":
       return items.filter(
         (item) =>
-          !item.relationshipLabels.some((label) => label === "Depends on") &&
-          !item.relationshipLabels.some((label) => label === "Similar to"),
+          !item.relationshipLabels.some((label) => label === "依赖于") &&
+          !item.relationshipLabels.some((label) => label === "能力相似"),
       );
     case "similar":
       return items.filter((item) =>
-        item.relationshipLabels.some((label) => label === "Similar to"),
+        item.relationshipLabels.some((label) => label === "能力相似"),
       );
     case "high-impact":
       return items.filter((item) => item.strongestScore >= 0.75);
@@ -198,12 +197,12 @@ export function buildSkillGraphWorkbenchModel(
   const focusNode: SkillGraphWorkbenchNode = {
     id: focusSkillName,
     skillName: focusSkillName,
-    category: "focus",
+    category: "焦点",
     enabled: true,
-    description: "Focused skill selected from the current Skill Studio thread.",
+    description: "来自当前 Skill Studio 线程的焦点技能。",
     relationshipLabels: [],
     strongestScore: 1,
-    reasons: ["Current workbench focus"],
+    reasons: ["当前工作台焦点"],
     isFocus: true,
     x: 50,
     y: 18,
@@ -233,7 +232,7 @@ export function buildSkillGraphWorkbenchModel(
     id: `${focusSkillName}-${node.skillName}`,
     source: focusSkillName,
     target: node.skillName,
-    label: node.relationshipLabels.join(" / ") || "Related",
+    label: node.relationshipLabels.join(" / ") || "相关",
     score: node.strongestScore,
   }));
 

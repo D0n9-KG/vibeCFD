@@ -26,7 +26,7 @@ void test("builds a readable overview from the skill graph summary", () => {
   assert.equal(overview.skillCount, 6);
   assert.equal(overview.enabledCount, 5);
   assert.equal(overview.edgeCount, 7);
-  assert.equal(overview.topRelationships[0]?.label, "Compose with");
+  assert.equal(overview.topRelationships[0]?.label, "组合使用");
   assert.equal(overview.topRelationships[0]?.count, 3);
 });
 
@@ -61,10 +61,10 @@ void test("focus helper sorts related skills by strongest score and label", () =
   assert.equal(related.length, 2);
   assert.equal(related[0]?.skillName, "submarine-report");
   assert.deepEqual(related[0]?.relationshipLabels, [
-    "Depends on",
-    "Similar to",
+    "能力相似",
+    "依赖于",
   ]);
-  assert.equal(related[1]?.relationshipLabels[0], "Compose with");
+  assert.equal(related[1]?.relationshipLabels[0], "组合使用");
 });
 
 void test("workbench model keeps the focus node and filters to similar relationships", () => {

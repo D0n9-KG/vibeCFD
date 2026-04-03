@@ -52,37 +52,55 @@ const SUBMARINE_WORKBENCH_VIEWS: Array<{
 }> = [
   {
     id: "overview",
-    label: "鎬昏",
+    label: "总览",
     icon: RadarIcon,
-    note: "Live monitor summary and next-action guidance.",
+    note: "集中查看当前运行概况和下一步建议。",
   },
   {
     id: "runtime",
-    label: "杩愯鏃禶",
+    label: "运行台",
     icon: GaugeIcon,
-    note: "Full stage cockpit, activity flow, and stop controls.",
+    note: "查看完整阶段状态、执行动态和中止控制。",
   },
   {
     id: "artifacts",
-    label: "浜х墿",
+    label: "产物",
     icon: BoxesIcon,
-    note: "Grouped research outputs and artifact access.",
+    note: "按阶段汇总研究产物并快速打开。",
   },
   {
     id: "report",
-    label: "鎶ュ憡",
+    label: "报告",
     icon: FileTextIcon,
-    note: "Outcome framing, conclusions, and evidence trail.",
+    note: "查看结论、交付判断和证据链。",
   },
 ];
 
 const STAGE_LABELS: Record<string, string> = {
-  "task-intelligence": "浠诲姟鐞嗚В",
-  "geometry-preflight": "鍑犱綍棰勬",
-  "solver-dispatch": "姹傝В鎵ц",
-  "result-reporting": "缁撴灉鏁寸悊",
-  "supervisor-review": "Supervisor 澶嶆牳",
-  "user-confirmation": "鐢ㄦ埛纭",
+  "task-intelligence": "任务理解",
+  "geometry-preflight": "几何预检",
+  "solver-dispatch": "求解执行",
+  "result-reporting": "结果整理",
+  "supervisor-review": "主管复核",
+  "user-confirmation": "用户确认",
+};
+
+const REVIEW_STATUS_LABELS: Record<string, string> = {
+  awaiting_research: "等待研究",
+  in_progress: "进行中",
+  ready_for_supervisor: "待主管复核",
+  needs_user_confirmation: "待用户确认",
+  completed: "已完成",
+  blocked: "已阻塞",
+};
+
+const CLAIM_LEVEL_LABELS: Record<string, string> = {
+  not_assessed: "未评估",
+  delivery_only: "仅交付",
+  verified_but_not_validated: "已验证未外部校核",
+  validated_with_gaps: "已校核但仍有缺口",
+  research_ready: "可用于科研结论",
+  pending: "待判定",
 };
 
 function safeJsonParse<T>(content?: string | null): T | null {
@@ -108,7 +126,17 @@ function summarizeReport(report: SubmarineFinalReportPayload | null) {
     summarySource?.summary_zh,
   ].filter((value): value is string => Boolean(value));
 
-  return candidateSummaries[0] ?? "No synthesized report summary yet.";
+  return candidateSummaries[0] ?? "尚未生成综合报告摘要。";
+}
+
+function formatReviewStatus(value?: string | null) {
+  if (!value) return "等待研究";
+  return REVIEW_STATUS_LABELS[value] ?? value;
+}
+
+function formatClaimLevel(value?: string | null) {
+  if (!value) return "未评估";
+  return CLAIM_LEVEL_LABELS[value] ?? value;
 }
 
 export function SubmarineWorkbenchShell({
@@ -190,10 +218,10 @@ export function SubmarineWorkbenchShell({
 
   const currentStageLabel = displayedStage
     ? STAGE_LABELS[displayedStage] ?? displayedStage
-    : "绛夊緟 mission brief";
+    : "等待任务简报";
   const nextStageLabel = displayedNextStage
     ? STAGE_LABELS[displayedNextStage] ?? displayedNextStage
-    : "Runtime update pending";
+    : "等待运行态更新";
   const artifactCount = submarineArtifacts.length;
   const reportSummary = summarizeReport(finalReport);
   const runSummary =
@@ -207,46 +235,50 @@ export function SubmarineWorkbenchShell({
       "task_summary" in runtime &&
       typeof runtime.task_summary === "string" &&
       runtime.task_summary) ||
-    "The cockpit will surface live solver and review signals here once the run advances.";
+    "运行推进后，这里会持续汇总实时求解信号、阶段状态和复核信息。";
 
   return (
     <div className={cn("min-h-0", className)}>
       <aside className="hidden min-h-0 flex-col overflow-hidden rounded-[28px] border border-stone-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,0.96))] p-4 shadow-[0_18px_44px_rgba(15,23,42,0.07)] xl:flex">
         <div className="rounded-2xl border border-sky-100/80 bg-white/92 p-4 shadow-[0_16px_32px_rgba(14,165,233,0.10)]">
           <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-sky-600">
-            Mission cockpit
+            任务驾驶舱
           </div>
           <div className="mt-2 text-lg font-semibold tracking-tight text-stone-900">
-            {thread.values.title ?? "Submarine workbench"}
+            {thread.values.title ?? "潜艇工作台"}
           </div>
           <p className="mt-2 text-sm leading-6 text-stone-600">{runSummary}</p>
         </div>
 
         <div className="mt-4 grid gap-3">
-          <WorkbenchMetricCard label="current_stage" value={currentStageLabel} />
+          <WorkbenchMetricCard label="当前阶段" value={currentStageLabel} />
           <WorkbenchMetricCard
-            label="review_status"
+            label="复核状态"
             value={
-              runtime &&
-              typeof runtime === "object" &&
-              "review_status" in runtime &&
-              typeof runtime.review_status === "string"
-                ? runtime.review_status
-                : "awaiting_research"
+              formatReviewStatus(
+                runtime &&
+                  typeof runtime === "object" &&
+                  "review_status" in runtime &&
+                  typeof runtime.review_status === "string"
+                  ? runtime.review_status
+                  : "awaiting_research",
+              )
             }
           />
           <WorkbenchMetricCard
-            label="allowed_claim_level"
+            label="结论级别"
             value={
-              runtime &&
-              typeof runtime === "object" &&
-              "allowed_claim_level" in runtime &&
-              typeof runtime.allowed_claim_level === "string"
-                ? runtime.allowed_claim_level
-                : "not_assessed"
+              formatClaimLevel(
+                runtime &&
+                  typeof runtime === "object" &&
+                  "allowed_claim_level" in runtime &&
+                  typeof runtime.allowed_claim_level === "string"
+                  ? runtime.allowed_claim_level
+                  : "not_assessed",
+              )
             }
           />
-          <WorkbenchMetricCard label="Artifacts" value={String(artifactCount)} />
+          <WorkbenchMetricCard label="产物数量" value={String(artifactCount)} />
         </div>
 
         <nav className="mt-4 flex-1 space-y-2">
@@ -300,13 +332,13 @@ export function SubmarineWorkbenchShell({
             onClick={() => setNavOpen((open) => !open)}
           >
             <LayoutPanelLeftIcon className="size-4" />
-            {navOpen ? "鏀惰捣鍒嗘爮" : "灞曞紑鍒嗘爮"}
+            {navOpen ? "收起分栏" : "展开分栏"}
           </Button>
           <div
             className="rounded-full border border-stone-200 bg-white px-3 py-2 text-xs text-stone-500"
             aria-label={t.workspace.toggleChatRail}
           >
-            {chatOpen ? "鑱婂ぉ闈㈡澘宸插睍寮€" : "鑱婂ぉ闈㈡澘宸叉敹璧?"}
+            {chatOpen ? "对话面板已展开" : "对话面板已收起"}
           </div>
         </div>
 
@@ -365,7 +397,7 @@ export function SubmarineWorkbenchShell({
               <div className="min-w-0 flex-1 space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">
-                    鎬昏
+                    总览
                   </span>
                   <span className="rounded-full bg-stone-900 px-2.5 py-1 text-[11px] font-semibold text-white">
                     {currentStageLabel}
@@ -373,51 +405,51 @@ export function SubmarineWorkbenchShell({
                 </div>
                 <div>
                   <h2 className="text-2xl font-semibold tracking-tight text-stone-900">
-                    Keep the operator cockpit visible without dropping the runtime truth.
+                    保持运行驾驶舱可见，同时不丢失真实的阶段上下文。
                   </h2>
                   <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">
                     {runSummary}
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <OverviewTile label="current_stage" value={currentStageLabel} />
-                  <OverviewTile label="next_stage" value={nextStageLabel} />
+                  <OverviewTile label="当前阶段" value={currentStageLabel} />
+                  <OverviewTile label="下一阶段" value={nextStageLabel} />
                   <OverviewTile
-                    label="review_status"
-                    value={
+                    label="复核状态"
+                    value={formatReviewStatus(
                       runtime &&
-                      typeof runtime === "object" &&
-                      "review_status" in runtime &&
-                      typeof runtime.review_status === "string"
+                        typeof runtime === "object" &&
+                        "review_status" in runtime &&
+                        typeof runtime.review_status === "string"
                         ? runtime.review_status
-                        : "in_progress"
-                    }
+                        : "in_progress",
+                    )}
                   />
                   <OverviewTile
-                    label="allowed_claim_level"
-                    value={
+                    label="结论级别"
+                    value={formatClaimLevel(
                       runtime &&
-                      typeof runtime === "object" &&
-                      "allowed_claim_level" in runtime &&
-                      typeof runtime.allowed_claim_level === "string"
+                        typeof runtime === "object" &&
+                        "allowed_claim_level" in runtime &&
+                        typeof runtime.allowed_claim_level === "string"
                         ? runtime.allowed_claim_level
-                        : "pending"
-                    }
+                        : "pending",
+                    )}
                   />
                 </div>
               </div>
 
               <div className="grid w-full gap-3 xl:w-[20rem]">
-                <OverviewTile label="Artifacts" value={String(artifactCount)} />
+                <OverviewTile label="产物数量" value={String(artifactCount)} />
                 <OverviewTile
-                  label="Messages"
+                  label="消息数量"
                   value={String(thread.messages.length)}
                 />
                 <Button
                   className="justify-between"
                   onClick={() => setActiveView("runtime")}
                 >
-                  杩涘叆杩愯鏃禶
+                  进入运行台
                   <ChevronRightIcon className="size-4" />
                 </Button>
               </div>
@@ -425,21 +457,21 @@ export function SubmarineWorkbenchShell({
 
             <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
               <SummaryPanel
-                eyebrow="Artifacts"
-                title="Keep grouped evidence within one jump"
+                eyebrow="产物"
+                title="把分组证据收敛在一次跳转内查看"
                 body={
                   artifactCount > 0
-                    ? `${artifactCount} submarine artifact(s) are already attached to this thread.`
-                    : "Artifacts will appear here after the first geometry, solver, or reporting stage completes."
+                    ? `当前线程已经挂载 ${artifactCount} 份潜艇领域产物，可直接进入分组查看。`
+                    : "几何预检、求解执行或结果整理完成后，这里会集中出现对应产物。"
                 }
-                actionLabel="鎵撳紑浜х墿"
+                actionLabel="打开产物"
                 onAction={() => setActiveView("artifacts")}
               />
               <SummaryPanel
-                eyebrow="Report"
-                title="Carry the decision story into its own review surface"
+                eyebrow="报告"
+                title="把交付判断和证据链放进独立审阅界面"
                 body={reportSummary}
-                actionLabel="鎵撳紑鎶ュ憡"
+                actionLabel="查看报告"
                 onAction={() => setActiveView("report")}
               />
             </div>
@@ -460,21 +492,21 @@ export function SubmarineWorkbenchShell({
         ) : null}
 
         {activeView === "artifacts" ? (
-          <FocusedWorkbenchPanel
-            eyebrow="浜х墿"
-            title="Grouped artifact access stays in the dedicated workbench surface."
-            body="Review exported JSON, markdown, figures, and solver payloads without collapsing back into the chat-first runtime view."
-          >
+            <FocusedWorkbenchPanel
+              eyebrow="产物"
+              title="在专用工作台里查看分组产物"
+              body="不用退回对话视图，也能直接审阅导出的 JSON、Markdown、图表和求解载荷。"
+            >
             <SubmarineRuntimePanel threadId={threadId} />
           </FocusedWorkbenchPanel>
         ) : null}
 
         {activeView === "report" ? (
-          <FocusedWorkbenchPanel
-            eyebrow="鎶ュ憡"
-            title="Report review stays separate from the live stage cockpit."
-            body="Use this surface to inspect delivery framing, evidence traces, and the final decision story while preserving the runtime cockpit as its own mode."
-          >
+            <FocusedWorkbenchPanel
+              eyebrow="报告"
+              title="报告审阅与实时运行驾驶舱保持分离"
+              body="在这个界面集中检查交付 framing、证据轨迹和最终判断，不打断实时运行视图。"
+            >
             <SubmarineRuntimePanel threadId={threadId} />
           </FocusedWorkbenchPanel>
         ) : null}

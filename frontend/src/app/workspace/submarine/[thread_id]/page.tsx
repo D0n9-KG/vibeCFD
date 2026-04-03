@@ -56,7 +56,7 @@ export default function SubmarineWorkbenchPage() {
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
-        let body = "Conversation finished";
+        let body = "对话已结束";
         const lastMessage = state.messages.at(-1);
         if (lastMessage) {
           const textContent = textOfMessage(lastMessage);
@@ -99,7 +99,7 @@ export default function SubmarineWorkbenchPage() {
                   <ThreadTitle threadId={threadId} thread={thread} />
                 </div>
                 <div className="text-muted-foreground text-xs">
-                  VibeCFD 路 浠跨湡宸ヤ綔鍙?
+                  VibeCFD · 仿真工作台
                 </div>
               </div>
             </div>
@@ -111,7 +111,7 @@ export default function SubmarineWorkbenchPage() {
                 onClick={() => setChatOpen((open) => !open)}
               >
                 <MessageSquareIcon className="size-4" />
-                {chatOpen ? "鏀惰捣鑱婂ぉ" : "灞曞紑鑱婂ぉ"}
+                {chatOpen ? "收起对话" : "展开对话"}
               </Button>
               <TokenUsageIndicator messages={thread.messages} />
               <ExportTrigger threadId={threadId} />
@@ -138,11 +138,11 @@ export default function SubmarineWorkbenchPage() {
                     <SubmarinePipelineChatRail
                       thread={thread}
                       pipelineStatus={{
-                        agentLabel: "Submarine research supervisor",
-                        outputStatus: "Live",
-                        runLabel: thread.isLoading ? "Running" : "Ready",
+                        agentLabel: "潜艇研究监督代理",
+                        outputStatus: "实时同步",
+                        runLabel: thread.isLoading ? "运行中" : "就绪",
                         summaryText:
-                          "Keep the thread conversation available while the runtime cockpit stays focused on the current view.",
+                          "右侧保留线程对话，中间工作台继续专注当前运行视图和交付判断。",
                         tone: chatRailErrorMessage
                           ? "error"
                           : thread.isLoading
@@ -150,9 +150,9 @@ export default function SubmarineWorkbenchPage() {
                             : "ready",
                         errorBanner: chatRailErrorMessage
                           ? {
-                              title: "Thread error",
+                              title: "线程出错",
                               guidance:
-                                "Review the latest message and retry from the runtime surface when ready.",
+                                "先查看最新消息，再在运行工作台里继续重试。",
                               message: chatRailErrorMessage,
                             }
                           : null,

@@ -55,7 +55,7 @@ export default function ChatPage() {
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
-        let body = "Conversation finished";
+        let body = "对话已结束";
         const lastMessage = state.messages.at(-1);
         if (lastMessage) {
           const textContent = textOfMessage(lastMessage);

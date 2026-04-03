@@ -127,7 +127,7 @@ export default function SkillStudioWorkbenchPage() {
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
-        let body = "Skill Studio thread finished";
+        let body = "Skill Studio 线程已结束";
         const lastMessage = state.messages.at(-1);
         if (lastMessage) {
           const textContent = textOfMessage(lastMessage);
@@ -230,11 +230,11 @@ export default function SkillStudioWorkbenchPage() {
 
   const dashboardHref = withMock("/workspace/skill-studio", isMock);
   const selectionHint = agentSelectionLocked
-    ? "The agent identity stays locked once the thread starts so package context remains stable."
-    : "Choose the Skill Creator identity before the first submission.";
+    ? "线程开始后会锁定代理身份，避免技能包上下文在中途漂移。"
+    : "请在第一次提交前确认 Skill Creator 身份。";
   const assistantDescription =
     activeAgentOption?.description ??
-    `${activeAssistantLabel} is dedicated to Skill Studio authoring, validation, testing, and publishing workflows.`;
+    `${activeAssistantLabel} 负责当前 Skill Studio 线程中的起草、校验、测试与发布收口。`;
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
@@ -245,7 +245,7 @@ export default function SkillStudioWorkbenchPage() {
               <Button asChild size="sm" variant="ghost">
                 <Link href={dashboardHref}>
                   <ArrowLeftIcon className="size-4" />
-                  Skill Studio
+                  返回 Skill Studio
                 </Link>
               </Button>
               <div className="min-w-0">
@@ -253,7 +253,7 @@ export default function SkillStudioWorkbenchPage() {
                   <ThreadTitle threadId={threadId} thread={thread} />
                 </div>
                 <div className="text-muted-foreground text-xs">
-                  棰嗗煙涓撳 路 Skill 鍒涘缓宸ヤ綔鍙?
+                  领域专家 · Skill 创建工作台
                 </div>
               </div>
             </div>
@@ -267,7 +267,7 @@ export default function SkillStudioWorkbenchPage() {
                 onClick={() => setChatOpen((open) => !open)}
               >
                 <MessageSquareIcon className="size-4" />
-                {chatOpen ? "鏀惰捣鑱婂ぉ" : "灞曞紑鑱婂ぉ"}
+                {chatOpen ? "收起对话" : "展开对话"}
               </Button>
               <TokenUsageIndicator messages={thread.messages} />
               <ExportTrigger threadId={threadId} />
@@ -295,14 +295,12 @@ export default function SkillStudioWorkbenchPage() {
                         {activeAssistantLabel}
                       </div>
                       <p className="text-muted-foreground mt-2 text-sm leading-6">
-                        This rail stays dedicated to the Skill Creator thread so
-                        the center surface can focus on package review, testing,
-                        publish gates, and graph analysis.
+                        右侧对话轨道只服务当前 Skill Creator 线程，让中间工作台专注技能包审阅、测试、发布门槛和图谱分析。
                       </p>
                       <div className="mt-3 space-y-3">
                         <div className="space-y-1">
                           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                            Skill Creator Agent
+                            Skill Creator 代理
                           </div>
                           <Select
                             value={agentSelectorEnabled ? activeAgentName : undefined}
@@ -310,7 +308,7 @@ export default function SkillStudioWorkbenchPage() {
                             disabled={!agentSelectorEnabled || agentSelectionLocked}
                           >
                             <SelectTrigger className="w-full bg-background/70">
-                              <SelectValue placeholder="Select a Skill Creator agent" />
+                              <SelectValue placeholder="选择 Skill Creator 代理" />
                             </SelectTrigger>
                             <SelectContent>
                               {agentOptions.map((option) => (
