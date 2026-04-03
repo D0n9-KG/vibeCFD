@@ -31,10 +31,21 @@ import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
 function NavMenuButtonContent({
   isSidebarOpen,
   t,
+  iconOnly = false,
 }: {
   isSidebarOpen: boolean;
   t: ReturnType<typeof useI18n>["t"];
+  iconOnly?: boolean;
 }) {
+  if (iconOnly) {
+    return (
+      <div className="flex size-full items-center justify-center">
+        <SettingsIcon className="size-4" />
+        <span className="sr-only">{t.workspace.settingsAndMore}</span>
+      </div>
+    );
+  }
+
   return isSidebarOpen ? (
     <div className="text-muted-foreground flex w-full items-center gap-2 text-left text-sm">
       <SettingsIcon className="size-4" />
@@ -48,7 +59,11 @@ function NavMenuButtonContent({
   );
 }
 
-export function WorkspaceNavMenu() {
+export function WorkspaceNavMenu({
+  mode = "sidebar",
+}: {
+  mode?: "sidebar" | "activity-bar";
+}) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsDefaultSection, setSettingsDefaultSection] = useState<
     "appearance" | "memory" | "tools" | "skills" | "notification" | "about"
@@ -57,6 +72,7 @@ export function WorkspaceNavMenu() {
   const { open: isSidebarOpen } = useSidebar();
   const { t } = useI18n();
   const chrome = getWorkspaceSidebarChrome();
+  const iconOnly = mode === "activity-bar";
 
   useEffect(() => {
     setMounted(true);
@@ -75,10 +91,18 @@ export function WorkspaceNavMenu() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
-                  size="lg"
-                  className={chrome.footerMenuButtonClassName}
+                  size={iconOnly ? "default" : "lg"}
+                  className={
+                    iconOnly
+                      ? chrome.activityBarSettingsButtonClassName
+                      : chrome.footerMenuButtonClassName
+                  }
                 >
-                  <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
+                  <NavMenuButtonContent
+                    isSidebarOpen={isSidebarOpen}
+                    t={t}
+                    iconOnly={iconOnly}
+                  />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -128,10 +152,14 @@ export function WorkspaceNavMenu() {
             </DropdownMenu>
           ) : (
             <SidebarMenuButton
-              size="lg"
-              className={`${chrome.footerMenuButtonClassName} pointer-events-none`}
+              size={iconOnly ? "default" : "lg"}
+              className={`${iconOnly ? chrome.activityBarSettingsButtonClassName : chrome.footerMenuButtonClassName} pointer-events-none`}
             >
-              <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
+              <NavMenuButtonContent
+                isSidebarOpen={isSidebarOpen}
+                t={t}
+                iconOnly={iconOnly}
+              />
             </SidebarMenuButton>
           )}
         </SidebarMenuItem>

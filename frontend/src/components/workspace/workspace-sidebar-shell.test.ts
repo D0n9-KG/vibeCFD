@@ -11,6 +11,10 @@ void test("workspace rail keeps a studio-navigation identity", () => {
 
   assert.ok(chrome.sidebarClassName.includes("border-amber-100/80"));
   assert.ok(chrome.sidebarClassName.includes("bg-[linear-gradient("));
+  assert.ok(chrome.activityBarClassName.includes("workspace-surfaces-activity-bar"));
+  assert.ok(chrome.activityBarClassName.includes("bg-stone-950"));
+  assert.ok(chrome.contextSidebarClassName.includes("workspace-context-sidebar"));
+  assert.ok(chrome.contextSidebarClassName.includes("group-data-[collapsible=icon]:hidden"));
   assert.ok(chrome.headerPanelClassName.includes("rounded-2xl"));
   assert.ok(chrome.headerPanelClassName.includes("bg-white/90"));
   assert.ok(chrome.primaryGroupClassName.includes("border-amber-100/80"));

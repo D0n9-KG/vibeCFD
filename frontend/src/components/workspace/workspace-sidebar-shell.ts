@@ -1,5 +1,12 @@
 export type WorkspaceSidebarChrome = {
   sidebarClassName: string;
+  activityBarClassName: string;
+  activityBarCompactClassName: string;
+  activityBarTriggerClassName: string;
+  activityBarButtonClassName: string;
+  activityBarButtonActiveClassName: string;
+  activityBarSettingsButtonClassName: string;
+  contextSidebarClassName: string;
   headerClassName: string;
   contentClassName: string;
   footerClassName: string;
@@ -46,9 +53,25 @@ export function getWorkspaceSidebarChrome(): WorkspaceSidebarChrome {
       "[&_[data-slot=sidebar-inner]]:bg-[linear-gradient(180deg,rgba(255,251,235,0.98),rgba(250,245,235,0.96))]",
       "[&_[data-slot=sidebar-inner]]:shadow-[inset_-1px_0_0_rgba(251,191,36,0.10)]",
     ].join(" "),
-    headerClassName: "gap-3 border-b border-amber-100/80 bg-transparent px-3 pb-3 pt-3",
+    activityBarClassName:
+      "workspace-surfaces-activity-bar flex h-full w-12 shrink-0 flex-col border-r border-stone-900/80 bg-stone-950 px-2 py-3 text-stone-100 shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)]",
+    activityBarCompactClassName:
+      "workspace-surfaces-activity-bar flex w-full items-center gap-2 rounded-2xl border border-stone-200/80 bg-white/88 px-2 py-2 shadow-[0_16px_32px_rgba(15,23,42,0.06)]",
+    activityBarTriggerClassName:
+      "size-8 rounded-xl border border-white/10 bg-white/10 text-white opacity-100 hover:bg-white/16 hover:text-white",
+    activityBarButtonClassName:
+      "flex size-9 items-center justify-center rounded-xl border border-transparent text-stone-300 transition-colors hover:border-white/10 hover:bg-white/8 hover:text-white focus-visible:border-sky-300 focus-visible:ring-2 focus-visible:ring-sky-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-950",
+    activityBarButtonActiveClassName:
+      "border-sky-300/40 bg-sky-500/18 text-sky-100 shadow-[0_10px_24px_rgba(14,138,207,0.28)]",
+    activityBarSettingsButtonClassName:
+      "size-9 rounded-xl border border-white/10 bg-white/8 text-stone-200 transition-colors hover:bg-white/14 hover:text-white focus-visible:ring-2 focus-visible:ring-sky-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-950",
+    contextSidebarClassName:
+      "workspace-context-sidebar flex min-w-0 flex-1 flex-col bg-[linear-gradient(180deg,rgba(255,251,235,0.92),rgba(250,245,235,0.82))] group-data-[collapsible=icon]:hidden",
+    headerClassName:
+      "gap-3 border-b border-amber-100/80 bg-transparent px-3 pb-3 pt-3",
     contentClassName: "gap-3 bg-transparent px-3 pb-3 pt-3",
-    footerClassName: "border-t border-amber-100/70 bg-white/60 px-3 pb-3 pt-3 backdrop-blur-sm",
+    footerClassName:
+      "border-t border-amber-100/70 bg-white/60 px-3 pb-3 pt-3 backdrop-blur-sm",
     headerPanelClassName:
       "rounded-2xl border border-amber-100/80 bg-white/90 px-3 py-3 shadow-[0_18px_40px_rgba(120,53,15,0.08)] backdrop-blur-sm",
     brandEyebrowClassName:
