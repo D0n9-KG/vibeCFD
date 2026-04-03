@@ -73,6 +73,7 @@ import { WORKSPACE_RESIZABLE_IDS } from "./workspace-resizable-ids";
 
 // ── Runtime snapshot type (mirrors SubmarineRuntimePanel) ────────────────────
 type SubmarineRuntimeSnapshot = SubmarineRuntimeSnapshotPayload;
+type SubmarineInputContext = ReturnType<typeof useLocalSettings>[0]["context"];
 
 function safeJsonParse<T>(content?: string | null): T | null {
   if (!content) return null;
@@ -99,6 +100,8 @@ interface SubmarinePipelineProps {
   isNewThread: boolean;
   isUploading: boolean;
   isMock?: boolean;
+  showChatRail?: boolean;
+  showSidebar?: boolean;
   /** Controlled from parent page header button; toggles mobile chat rail */
   chatOpen?: boolean;
   sendMessage: (
@@ -115,6 +118,8 @@ export function SubmarinePipeline({
   isNewThread,
   isUploading,
   isMock = false,
+  showChatRail = true,
+  showSidebar = true,
   chatOpen: chatOpenProp,
   sendMessage,
   onStop,
@@ -420,6 +425,32 @@ export function SubmarinePipeline({
     router.push("/workspace/submarine/new");
   }, [router]);
 
+  if (!showSidebar && !showChatRail) {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-stone-200/80 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.08)]">
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <PipelineCenterPane
+            thread={thread}
+            isNewThread={isNewThread}
+            runtime={runtime}
+            displayedCurrentStage={displayedCurrentStage}
+            displayedNextStage={displayedNextStage}
+            pipelineStatus={pipelineStatus}
+            centerRef={centerRef}
+            threadId={threadId}
+            stageSnapshot={stageSnapshot}
+            designBrief={designBrief}
+            geometry={geometry}
+            solverMetrics={solverMetrics}
+            trendValues={trendValues}
+            finalReport={finalReport}
+            handleSend={handleSend}
+          />
+        </div>
+      </div>
+    );
+  }
+
   const handleDeleteRun = useCallback(
     async (runThreadId: string) => {
       setIsCleaningRuns(true);
@@ -517,15 +548,15 @@ export function SubmarinePipeline({
             finalReport={finalReport}
             handleSend={handleSend}
           />
-          {chatOpen && (
-            <PipelineChatRail
+          {showChatRail && chatOpen && (
+            <SubmarinePipelineChatRail
               thread={thread}
               pipelineStatus={pipelineStatus}
               threadId={threadId}
               isNewThread={isNewThread}
               isUploading={isUploading}
-              settings={settings}
-              setSettings={setSettings}
+              context={settings.context}
+              onContextChange={(context) => setSettings("context", context)}
               handleSubmit={handleSubmit}
               onStop={onStop}
             />
@@ -542,32 +573,36 @@ export function SubmarinePipeline({
           groupRef={pipelineGroupRef}
           id={WORKSPACE_RESIZABLE_IDS.submarinePipelineGroup}
         >
-        {/* Sidebar */}
-          <ResizablePanel
-            id="submarine-pipeline-sidebar"
-            defaultSize={layoutConfig.sidebarDefaultSize}
-            minSize={layoutConfig.sidebarMinSize}
-            maxSize={layoutConfig.sidebarMaxSize}
-          >
-          <SubmarinePipelineSidebar
-            currentThreadId={threadId}
-            currentStage={displayedCurrentStage}
-            currentThreadRunLabel={pipelineStatus.runLabel}
-            currentThreadTone={pipelineStatus.tone}
-            runs={runs}
-            completedRunCount={completedRunIds.length}
-            isCleanupPending={isCleaningRuns}
-            onStageClick={handleStageClick}
-            onDeleteRun={handleDeleteRun}
-            onCleanupCompletedRuns={handleCleanupCompletedRuns}
-            onNewSimulation={handleNewSimulation}
-          />
-        </ResizablePanel>
+        {showSidebar ? (
+          <>
+            {/* Sidebar */}
+            <ResizablePanel
+              id="submarine-pipeline-sidebar"
+              defaultSize={layoutConfig.sidebarDefaultSize}
+              minSize={layoutConfig.sidebarMinSize}
+              maxSize={layoutConfig.sidebarMaxSize}
+            >
+              <SubmarinePipelineSidebar
+                currentThreadId={threadId}
+                currentStage={displayedCurrentStage}
+                currentThreadRunLabel={pipelineStatus.runLabel}
+                currentThreadTone={pipelineStatus.tone}
+                runs={runs}
+                completedRunCount={completedRunIds.length}
+                isCleanupPending={isCleaningRuns}
+                onStageClick={handleStageClick}
+                onDeleteRun={handleDeleteRun}
+                onCleanupCompletedRuns={handleCleanupCompletedRuns}
+                onNewSimulation={handleNewSimulation}
+              />
+            </ResizablePanel>
 
-        <ResizableHandle
-          id={WORKSPACE_RESIZABLE_IDS.submarinePipelineSidebarHandle}
-          withHandle
-        />
+            <ResizableHandle
+              id={WORKSPACE_RESIZABLE_IDS.submarinePipelineSidebarHandle}
+              withHandle
+            />
+          </>
+        ) : null}
 
         {/* Center — stage pipeline */}
         <ResizablePanel id="submarine-pipeline-center">
@@ -590,30 +625,34 @@ export function SubmarinePipeline({
           />
         </ResizablePanel>
 
-        <ResizableHandle
-          id={WORKSPACE_RESIZABLE_IDS.submarinePipelineChatHandle}
-          withHandle
-        />
+        {showChatRail ? (
+          <>
+            <ResizableHandle
+              id={WORKSPACE_RESIZABLE_IDS.submarinePipelineChatHandle}
+              withHandle
+            />
 
-        {/* Chat rail */}
-          <ResizablePanel
-            id="submarine-pipeline-chat"
-            defaultSize={layoutConfig.chatDefaultSize}
-            minSize={layoutConfig.chatMinSize}
-            maxSize={layoutConfig.chatMaxSize}
-          >
-          <PipelineChatRail
-            thread={thread}
-            pipelineStatus={pipelineStatus}
-            threadId={threadId}
-            isNewThread={isNewThread}
-            isUploading={isUploading}
-            settings={settings}
-            setSettings={setSettings}
-            handleSubmit={handleSubmit}
-            onStop={onStop}
-          />
-        </ResizablePanel>
+            {/* Chat rail */}
+            <ResizablePanel
+              id="submarine-pipeline-chat"
+              defaultSize={layoutConfig.chatDefaultSize}
+              minSize={layoutConfig.chatMinSize}
+              maxSize={layoutConfig.chatMaxSize}
+            >
+              <SubmarinePipelineChatRail
+                thread={thread}
+                pipelineStatus={pipelineStatus}
+                threadId={threadId}
+                isNewThread={isNewThread}
+                isUploading={isUploading}
+                context={settings.context}
+                onContextChange={(context) => setSettings("context", context)}
+                handleSubmit={handleSubmit}
+                onStop={onStop}
+              />
+            </ResizablePanel>
+          </>
+        ) : null}
         </ResizablePanelGroup>
       </div>
     </div>
@@ -918,29 +957,31 @@ function PipelineCenterPane({
 
 // ── PipelineChatRail ──────────────────────────────────────────────────────────
 
-function PipelineChatRail({
-  thread,
-  pipelineStatus,
-  threadId,
-  isNewThread,
-  isUploading,
-  settings,
-  setSettings,
-  className,
-  handleSubmit,
-  onStop,
-}: {
+type SubmarinePipelineChatRailProps = {
   thread: ReturnType<typeof useThread>["thread"];
   pipelineStatus: SubmarinePipelineStatus;
   threadId: string;
   isNewThread: boolean;
   isUploading: boolean;
-  settings: ReturnType<typeof useLocalSettings>[0];
-  setSettings: ReturnType<typeof useLocalSettings>[1];
+  context: SubmarineInputContext;
+  onContextChange: (context: SubmarineInputContext) => void;
   className?: string;
   handleSubmit: (message: PromptInputMessage) => Promise<void> | void;
   onStop: () => Promise<void>;
-}) {
+};
+
+export function SubmarinePipelineChatRail({
+  thread,
+  pipelineStatus,
+  threadId,
+  isNewThread,
+  isUploading,
+  context,
+  onContextChange,
+  className,
+  handleSubmit,
+  onStop,
+}: SubmarinePipelineChatRailProps) {
   return (
     <div className={cn(getSubmarinePipelineChatRailClassName(), className)}>
       {/* Chat header */}
@@ -990,11 +1031,11 @@ function PipelineChatRail({
                 ? "streaming"
                 : "ready"
           }
-          context={settings.context}
+          context={context}
           disabled={
             env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || isUploading
           }
-          onContextChange={(context) => setSettings("context", context)}
+          onContextChange={onContextChange}
           onSubmit={handleSubmit}
           onStop={onStop}
         />

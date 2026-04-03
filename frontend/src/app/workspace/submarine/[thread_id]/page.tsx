@@ -2,7 +2,7 @@
 
 import { MessageSquareIcon, WavesIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +16,8 @@ import {
 } from "@/components/workspace/chats";
 import { ExportTrigger } from "@/components/workspace/export-trigger";
 import { ThreadContext } from "@/components/workspace/messages/context";
-import { SubmarinePipeline } from "@/components/workspace/submarine-pipeline";
+import { SubmarinePipelineChatRail } from "@/components/workspace/submarine-pipeline";
+import { SubmarineWorkbenchShell } from "@/components/workspace/submarine-workbench-shell";
 import { ThreadTitle } from "@/components/workspace/thread-title";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { useNotification } from "@/core/notification/hooks";
@@ -24,9 +25,11 @@ import { useLocalSettings } from "@/core/settings";
 import { useThreadStream } from "@/core/threads/hooks";
 import { textOfMessage } from "@/core/threads/utils";
 
+import { getSubmarineWorkbenchLayout } from "../submarine-workbench-layout";
+
 export default function SubmarineWorkbenchPage() {
   const router = useRouter();
-  const [settings] = useLocalSettings();
+  const [settings, setSettings] = useLocalSettings();
   const { threadId, isNewThread, markThreadStarted, isMock } = useThreadChat();
   const { showNotification } = useNotification();
   const { setOpen: setArtifactsOpen } = useArtifacts();
@@ -73,6 +76,17 @@ export default function SubmarineWorkbenchPage() {
     await thread.stop();
   }, [thread]);
 
+  const layout = useMemo(
+    () => getSubmarineWorkbenchLayout({ chatOpen }),
+    [chatOpen],
+  );
+
+  const chatRailErrorMessage = thread.error
+    ? thread.error instanceof Error
+      ? thread.error.message
+      : String(thread.error)
+    : null;
+
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
       <ChatBox threadId={threadId}>
@@ -85,7 +99,7 @@ export default function SubmarineWorkbenchPage() {
                   <ThreadTitle threadId={threadId} thread={thread} />
                 </div>
                 <div className="text-muted-foreground text-xs">
-                  VibeCFD · 仿真工作台
+                  VibeCFD 路 浠跨湡宸ヤ綔鍙?
                 </div>
               </div>
             </div>
@@ -97,7 +111,7 @@ export default function SubmarineWorkbenchPage() {
                 onClick={() => setChatOpen((open) => !open)}
               >
                 <MessageSquareIcon className="size-4" />
-                {chatOpen ? "收起聊天" : "展开聊天"}
+                {chatOpen ? "鏀惰捣鑱婂ぉ" : "灞曞紑鑱婂ぉ"}
               </Button>
               <TokenUsageIndicator messages={thread.messages} />
               <ExportTrigger threadId={threadId} />
@@ -106,15 +120,55 @@ export default function SubmarineWorkbenchPage() {
           </header>
 
           <main className="min-h-0 flex-1 overflow-hidden pt-14">
-            <SubmarinePipeline
-              threadId={threadId}
-              isNewThread={isNewThread}
-              isUploading={isUploading}
-              isMock={isMock}
-              chatOpen={chatOpen}
-              sendMessage={sendMessage}
-              onStop={handleStop}
-            />
+            <div className="mx-auto flex h-full min-h-0 w-full max-w-none flex-col px-4 py-4">
+              <div className={layout.shellClassName}>
+                <SubmarineWorkbenchShell
+                  className={layout.workbenchPaneClassName}
+                  threadId={threadId}
+                  isNewThread={isNewThread}
+                  isUploading={isUploading}
+                  isMock={isMock}
+                  chatOpen={chatOpen}
+                  sendMessage={sendMessage}
+                  onStop={handleStop}
+                />
+
+                <aside className={layout.chatRailClassName}>
+                  <div className={layout.chatRailInnerClassName}>
+                    <SubmarinePipelineChatRail
+                      thread={thread}
+                      pipelineStatus={{
+                        agentLabel: "Submarine research supervisor",
+                        outputStatus: "Live",
+                        runLabel: thread.isLoading ? "Running" : "Ready",
+                        summaryText:
+                          "Keep the thread conversation available while the runtime cockpit stays focused on the current view.",
+                        tone: chatRailErrorMessage
+                          ? "error"
+                          : thread.isLoading
+                            ? "streaming"
+                            : "ready",
+                        errorBanner: chatRailErrorMessage
+                          ? {
+                              title: "Thread error",
+                              guidance:
+                                "Review the latest message and retry from the runtime surface when ready.",
+                              message: chatRailErrorMessage,
+                            }
+                          : null,
+                      }}
+                      threadId={threadId}
+                      isNewThread={isNewThread}
+                      isUploading={isUploading}
+                      context={settings.context}
+                      onContextChange={(context) => setSettings("context", context)}
+                      handleSubmit={(message) => sendMessage(threadId, message)}
+                      onStop={handleStop}
+                    />
+                  </div>
+                </aside>
+              </div>
+            </div>
           </main>
         </div>
       </ChatBox>

@@ -38,7 +38,7 @@ import {
   labelOfSkillStudioAgentName,
   resolveSkillStudioAgentSelection,
 } from "@/components/workspace/skill-studio-agent-options";
-import { SkillStudioWorkbenchPanel } from "@/components/workspace/skill-studio-workbench-panel";
+import { SkillStudioWorkbenchShell } from "@/components/workspace/skill-studio-workbench-shell";
 import { ThreadTitle } from "@/components/workspace/thread-title";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { useAgents } from "@/core/agents";
@@ -230,8 +230,8 @@ export default function SkillStudioWorkbenchPage() {
 
   const dashboardHref = withMock("/workspace/skill-studio", isMock);
   const selectionHint = agentSelectionLocked
-    ? "线程启动后会锁定 agent 身份，保持记忆、提示词和 Skill artifacts 一致。"
-    : "新线程提交前可以切换 Codex 或 Claude 的 Skill Creator 身份。";
+    ? "The agent identity stays locked once the thread starts so package context remains stable."
+    : "Choose the Skill Creator identity before the first submission.";
   const assistantDescription =
     activeAgentOption?.description ??
     `${activeAssistantLabel} is dedicated to Skill Studio authoring, validation, testing, and publishing workflows.`;
@@ -253,7 +253,7 @@ export default function SkillStudioWorkbenchPage() {
                   <ThreadTitle threadId={threadId} thread={thread} />
                 </div>
                 <div className="text-muted-foreground text-xs">
-                  领域专家 · Skill 创建工作台
+                  棰嗗煙涓撳 路 Skill 鍒涘缓宸ヤ綔鍙?
                 </div>
               </div>
             </div>
@@ -267,7 +267,7 @@ export default function SkillStudioWorkbenchPage() {
                 onClick={() => setChatOpen((open) => !open)}
               >
                 <MessageSquareIcon className="size-4" />
-                {chatOpen ? "收起聊天" : "展开聊天"}
+                {chatOpen ? "鏀惰捣鑱婂ぉ" : "灞曞紑鑱婂ぉ"}
               </Button>
               <TokenUsageIndicator messages={thread.messages} />
               <ExportTrigger threadId={threadId} />
@@ -278,26 +278,16 @@ export default function SkillStudioWorkbenchPage() {
           <main className="min-h-0 flex-1 overflow-hidden pt-14">
             <div className="mx-auto flex h-full min-h-0 w-full max-w-none flex-col px-4 py-4">
               <div className={layout.shellClassName}>
-                <div className={layout.workbenchPaneClassName}>
-                  <SkillStudioLaunchpad
-                    assistantLabel={activeAssistantLabel}
-                    hasWorkbenchSurface={hasWorkbenchSurface}
-                    isNewThread={isNewThread}
-                    onOpenChat={focusChatRail}
-                  />
-                  {hasWorkbenchSurface ? (
-                    <SkillStudioWorkbenchPanel threadId={threadId} />
-                  ) : (
-                    <SkillStudioPlaceholder
-                      assistantLabel={activeAssistantLabel}
-                    />
-                  )}
-                </div>
+                <SkillStudioWorkbenchShell
+                  className={layout.workbenchPaneClassName}
+                  threadId={threadId}
+                  assistantLabel={activeAssistantLabel}
+                  hasWorkbenchSurface={hasWorkbenchSurface}
+                  isNewThread={isNewThread}
+                  onOpenChat={focusChatRail}
+                />
 
-                <aside
-                  id="skill-studio-chat-rail"
-                  className={layout.chatRailClassName}
-                >
+                <aside id="skill-studio-chat-rail" className={layout.chatRailClassName}>
                   <div className={layout.chatRailInnerClassName}>
                     <div className="bg-muted/20 border-b px-4 py-4">
                       <div className="text-foreground flex items-center gap-2 text-sm font-medium">
@@ -305,10 +295,9 @@ export default function SkillStudioWorkbenchPage() {
                         {activeAssistantLabel}
                       </div>
                       <p className="text-muted-foreground mt-2 text-sm leading-6">
-                        这里的对话专门用于与领域专家共创 skill。当前会话使用{" "}
-                        {activeAssistantLabel}
-                        ，默认围绕 `skill-creator` 与 `writing-skills`
-                        方法论来整理触发条件、workflow、规则、测试场景和发布门槛。
+                        This rail stays dedicated to the Skill Creator thread so
+                        the center surface can focus on package review, testing,
+                        publish gates, and graph analysis.
                       </p>
                       <div className="mt-3 space-y-3">
                         <div className="space-y-1">
@@ -316,13 +305,9 @@ export default function SkillStudioWorkbenchPage() {
                             Skill Creator Agent
                           </div>
                           <Select
-                            value={
-                              agentSelectorEnabled ? activeAgentName : undefined
-                            }
+                            value={agentSelectorEnabled ? activeAgentName : undefined}
                             onValueChange={setSelectedAgentName}
-                            disabled={
-                              !agentSelectorEnabled || agentSelectionLocked
-                            }
+                            disabled={!agentSelectorEnabled || agentSelectionLocked}
                           >
                             <SelectTrigger className="w-full bg-background/70">
                               <SelectValue placeholder="Select a Skill Creator agent" />
@@ -379,9 +364,7 @@ export default function SkillStudioWorkbenchPage() {
                           env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
                           isUploading
                         }
-                        onContextChange={(context) =>
-                          setSettings("context", context)
-                        }
+                        onContextChange={(context) => setSettings("context", context)}
                         onSubmit={handleSubmit}
                         onStop={handleStop}
                       />
@@ -394,87 +377,5 @@ export default function SkillStudioWorkbenchPage() {
         </div>
       </ChatBox>
     </ThreadContext.Provider>
-  );
-}
-
-function SkillStudioLaunchpad({
-  assistantLabel,
-  hasWorkbenchSurface,
-  isNewThread,
-  onOpenChat,
-}: {
-  assistantLabel: string;
-  hasWorkbenchSurface: boolean;
-  isNewThread: boolean;
-  onOpenChat: () => void;
-}) {
-  return (
-    <section className="bg-muted/20 rounded-2xl border p-5">
-      <div className="text-muted-foreground mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.24em]">
-        <WandSparklesIcon className="size-4" />
-        Skill Studio Workspace
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <div className="space-y-3">
-          <h1 className="text-foreground text-2xl font-semibold">
-            让领域专家直接与专属 Skill Creator 代理共创技能
-          </h1>
-          <p className="text-muted-foreground max-w-4xl text-sm leading-7">
-            中间工作台专门展示 skill 包、校验、场景测试和发布门槛；右侧聊天只负责与
-            {assistantLabel} 协作，不再混入潜艇 CFD run 的执行信息。
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={onOpenChat}>
-              <MessageSquareIcon className="size-4" />
-              {isNewThread ? "开始起草 Skill" : "继续与 Skill Creator 协作"}
-            </Button>
-          </div>
-        </div>
-
-        <div className="bg-background/70 rounded-xl border p-4">
-          <div className="text-foreground mb-3 text-sm font-medium">
-            当前工作流
-          </div>
-          <div className="text-muted-foreground space-y-3 text-sm leading-6">
-            <div>
-              1. 专家通过右侧聊天告诉 {assistantLabel} 触发条件、workflow、规则和验收要求。
-            </div>
-            <div>
-              2. 工作台即时生成 SKILL.md、UI metadata、测试矩阵和发布就绪信息。
-            </div>
-            <div>
-              3. 专家在同一页面审阅、修订并决定何时进入发布流程。
-            </div>
-            {hasWorkbenchSurface ? (
-              <div>
-                当前线程已经生成了 Skill Studio 产物，可以直接继续审阅与测试。
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SkillStudioPlaceholder({
-  assistantLabel,
-}: {
-  assistantLabel: string;
-}) {
-  return (
-    <section className="bg-background/60 rounded-2xl border border-dashed p-8">
-      <div className="max-w-3xl">
-        <h2 className="text-foreground text-lg font-semibold">
-          等待第一份 Skill 包
-        </h2>
-        <p className="text-muted-foreground mt-3 text-sm leading-7">
-          先在右侧与 {assistantLabel} 讨论这个 skill 的目标、触发条件、workflow、
-          规则、测试场景和发布门槛。工作台会在第一轮草稿生成后，自动切换到完整的技能包、
-          校验和发布视图。
-        </p>
-      </div>
-    </section>
   );
 }
