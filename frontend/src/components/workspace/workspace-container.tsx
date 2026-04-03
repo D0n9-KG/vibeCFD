@@ -168,7 +168,7 @@ export function WorkspaceSurfaceCard({
   return (
     <section
       className={cn(
-        "rounded-[28px] border border-stone-200/80 bg-white/92 p-5 shadow-[0_18px_44px_rgba(15,23,42,0.06)]",
+        "shrink-0 rounded-[28px] border border-stone-200/80 bg-white/92 p-5 shadow-[0_18px_44px_rgba(15,23,42,0.06)]",
         className,
       )}
       {...props}
