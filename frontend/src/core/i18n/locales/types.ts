@@ -12,6 +12,7 @@ export interface Translations {
     settings: string;
     delete: string;
     rename: string;
+    open: string;
     share: string;
     openInNewWindow: string;
     close: string;
@@ -36,6 +37,22 @@ export interface Translations {
     exportAsMarkdown: string;
     exportAsJSON: string;
     exportSuccess: string;
+    messages: string;
+    todos: string;
+    status: string;
+    panel: string;
+    active: string;
+    waiting: string;
+    ready: string;
+    running: string;
+    interrupted: string;
+    done: string;
+    messageCount: (count: number) => string;
+    artifactCount: (count: number) => string;
+    todoCount: (count: number) => string;
+    threadCount: (count: number) => string;
+    agentCount: (count: number) => string;
+    toolGroupCount: (count: number) => string;
   };
 
   // Welcome
@@ -117,6 +134,8 @@ export interface Translations {
     title: string;
     description: string;
     newAgent: string;
+    listDescription: string;
+    catalogLabel: string;
     emptyTitle: string;
     emptyDescription: string;
     chat: string;
@@ -126,6 +145,8 @@ export interface Translations {
     newChat: string;
     createPageTitle: string;
     createPageSubtitle: string;
+    createPageDescription: string;
+    buildPathLabel: string;
     nameStepTitle: string;
     nameStepHint: string;
     nameStepPlaceholder: string;
@@ -134,9 +155,21 @@ export interface Translations {
     nameStepAlreadyExistsError: string;
     nameStepCheckError: string;
     nameStepBootstrapMessage: string;
+    chatStepNote: string;
+    plannedIdentityLabel: string;
+    waitingForConfirmedName: string;
+    bootstrapThreadLabel: string;
     agentCreated: string;
     startChatting: string;
     backToGallery: string;
+    collaborationDescription: string;
+    profileLabel: string;
+    profileFallbackDescription: string;
+    actionsLabel: string;
+    sessionSnapshotLabel: string;
+    toolGroupsLabel: string;
+    capabilitiesLabel: string;
+    agentProfileRefreshError: string;
   };
 
   // Breadcrumb
@@ -162,6 +195,8 @@ export interface Translations {
     backToOverview: string;
     retryUpdate: string;
     openRuntimeWorkbench: string;
+    noArtifactSelectedTitle: string;
+    noArtifactSelectedDescription: string;
   };
 
   workspaceStates: {
@@ -196,6 +231,20 @@ export interface Translations {
   // Chats
   chats: {
     searchChats: string;
+    overviewDescription: string;
+    emptySearchTitle: string;
+    emptySearchDescription: string;
+    listDescription: string;
+    recentlyUpdated: string;
+    threadMetaLabel: string;
+    threadSummaryDescription: string;
+    workspaceContextLabel: string;
+    workspaceContextDescription: string;
+    runtimeHandoffLabel: string;
+    runtimeHandoffDescription: string;
+    conversationFirstTitle: string;
+    conversationFirstDescription: string;
+    sessionSnapshotLabel: string;
   };
 
   // Page titles (document title)

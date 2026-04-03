@@ -51,8 +51,7 @@ export default function ChatsPage() {
                 {t.pages.chats}
               </h1>
               <p className="mt-2 max-w-3xl text-sm leading-7 text-stone-600">
-                Search, reopen, and continue active conversations without
-                leaving the shared workspace shell.
+                {t.chats.overviewDescription}
               </p>
             </div>
 
@@ -106,11 +105,10 @@ export default function ChatsPage() {
               </div>
               <div className="space-y-1">
                 <div className="text-base font-semibold text-stone-900">
-                  No matching conversations
+                  {t.chats.emptySearchTitle}
                 </div>
                 <p className="text-sm leading-6 text-stone-500">
-                  Try a different keyword or clear the filter to inspect the
-                  latest workspace threads.
+                  {t.chats.emptySearchDescription}
                 </p>
               </div>
             </div>
@@ -119,12 +117,10 @@ export default function ChatsPage() {
           <WorkspaceSurfaceCard className="min-h-0 overflow-hidden p-0">
             <div className="border-b border-stone-200/80 px-5 py-4">
               <div className="text-sm font-medium text-stone-900">
-                {filteredThreads.length} thread
-                {filteredThreads.length === 1 ? "" : "s"}
+                {t.common.threadCount(filteredThreads.length)}
               </div>
               <div className="mt-1 text-sm text-stone-500">
-                Resume a conversation or open a workbench-backed thread from the
-                same shared workspace shell.
+                {t.chats.listDescription}
               </div>
             </div>
 
@@ -142,11 +138,11 @@ export default function ChatsPage() {
                     <div className="mt-1 truncate text-sm text-stone-500">
                       {thread.updated_at
                         ? formatTimeAgo(thread.updated_at)
-                        : "Recently updated"}
+                        : t.chats.recentlyUpdated}
                     </div>
                   </div>
                   <div className="rounded-full border border-stone-200/80 px-3 py-1 text-xs font-medium text-stone-500 transition-colors group-hover:border-stone-300 group-hover:text-stone-700">
-                    Open
+                    {t.common.open}
                   </div>
                 </Link>
               ))}

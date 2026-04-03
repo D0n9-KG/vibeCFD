@@ -140,7 +140,7 @@ export default function ChatPage() {
                   {threadLabel}
                 </div>
                 <div className="text-xs text-stone-500">
-                  {CHAT_SURFACE_LABEL} workspace thread
+                  {t.chats.threadMetaLabel}
                 </div>
               </div>
             </div>
@@ -153,7 +153,7 @@ export default function ChatPage() {
                 onClick={() => setSupportPanelOpen((open) => !open)}
               >
                 <LayoutPanelLeftIcon className="size-4" />
-                Panel
+                {t.common.panel}
               </Button>
               {hasRuntimeWorkbench ? (
                 <Button asChild size="sm" variant="outline">
@@ -179,19 +179,17 @@ export default function ChatPage() {
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-500">
                       <span className="rounded-full border border-stone-200/80 bg-white px-2.5 py-1 font-medium text-stone-700">
-                        {thread.messages.length} messages
+                        {t.common.messageCount(thread.messages.length)}
                       </span>
                       <span className="rounded-full border border-stone-200/80 bg-white px-2.5 py-1 font-medium text-stone-700">
-                        {artifactCount} artifacts
+                        {t.common.artifactCount(artifactCount)}
                       </span>
                       <span className="rounded-full border border-stone-200/80 bg-white px-2.5 py-1 font-medium text-stone-700">
-                        {todoCount} todos
+                        {t.common.todoCount(todoCount)}
                       </span>
                     </div>
                     <p className="mt-3 text-sm leading-6 text-stone-600">
-                      Keep the message flow centered while workspace context and
-                      recovery actions stay reachable through the shared support
-                      panel.
+                      {t.chats.threadSummaryDescription}
                     </p>
                   </div>
 
@@ -275,27 +273,23 @@ export default function ChatPage() {
 
                       <div className="rounded-[24px] border border-stone-200/80 bg-stone-50/80 p-4">
                         <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
-                          Workspace context
+                          {t.chats.workspaceContextLabel}
                         </div>
                         <h2 className="mt-2 text-lg font-semibold tracking-tight text-stone-900">
                           {threadLabel}
                         </h2>
                         <p className="mt-2 text-sm leading-6 text-stone-600">
-                          Shared conversation controls, runtime handoffs, and
-                          quick recovery actions stay here instead of hiding in a
-                          separate mini-product shell.
+                          {t.chats.workspaceContextDescription}
                         </p>
                       </div>
 
                       {hasRuntimeWorkbench ? (
                         <div className="rounded-[24px] border border-sky-200/80 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(255,255,255,0.98))] p-4">
                           <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700">
-                            Runtime handoff
+                            {t.chats.runtimeHandoffLabel}
                           </div>
                           <p className="mt-2 text-sm leading-6 text-sky-950">
-                            This thread already carries submarine runtime data or
-                            artifacts. Jump straight into the dedicated workbench
-                            when you need the live cockpit view.
+                            {t.chats.runtimeHandoffDescription}
                           </p>
                           <Button asChild className="mt-4">
                             <Link href={runtimeHref}>
@@ -307,32 +301,36 @@ export default function ChatPage() {
                       ) : (
                         <div className="rounded-[24px] border border-dashed border-stone-300 bg-white/80 p-4">
                           <div className="text-sm font-semibold text-stone-900">
-                            Conversation-first surface
+                            {t.chats.conversationFirstTitle}
                           </div>
                           <p className="mt-2 text-sm leading-6 text-stone-600">
-                            When a thread grows into a runtime-backed workflow,
-                            the matching workbench entry will appear here instead
-                            of forcing the chat view to absorb those controls.
+                            {t.chats.conversationFirstDescription}
                           </p>
                         </div>
                       )}
 
                       <div className="rounded-[24px] border border-stone-200/80 bg-white/92 p-4">
                         <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">
-                          Session snapshot
+                          {t.chats.sessionSnapshotLabel}
                         </div>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          <SnapshotMetric label="Messages" value={String(thread.messages.length)} />
-                          <SnapshotMetric label="Artifacts" value={String(artifactCount)} />
-                          <SnapshotMetric label="Todos" value={String(todoCount)} />
                           <SnapshotMetric
-                            label="Status"
+                            label={t.common.messages}
+                            value={String(thread.messages.length)}
+                          />
+                          <SnapshotMetric
+                            label={t.common.artifacts}
+                            value={String(artifactCount)}
+                          />
+                          <SnapshotMetric label={t.common.todos} value={String(todoCount)} />
+                          <SnapshotMetric
+                            label={t.common.status}
                             value={
                               thread.error
-                                ? "Interrupted"
+                                ? t.common.interrupted
                                 : thread.isLoading
-                                  ? "Running"
-                                  : "Ready"
+                                  ? t.common.running
+                                  : t.common.ready
                             }
                           />
                         </div>

@@ -23,6 +23,7 @@ export const zhCN: Translations = {
     settings: "设置",
     delete: "删除",
     rename: "重命名",
+    open: "打开",
     share: "分享",
     openInNewWindow: "在新窗口打开",
     close: "关闭",
@@ -47,6 +48,22 @@ export const zhCN: Translations = {
     exportAsMarkdown: "导出为 Markdown",
     exportAsJSON: "导出为 JSON",
     exportSuccess: "对话已导出",
+    messages: "消息",
+    todos: "待办",
+    status: "状态",
+    panel: "面板",
+    active: "进行中",
+    waiting: "等待中",
+    ready: "就绪",
+    running: "运行中",
+    interrupted: "已中断",
+    done: "完成",
+    messageCount: (count: number) => `${count} 条消息`,
+    artifactCount: (count: number) => `${count} 个产物`,
+    todoCount: (count: number) => `${count} 条待办`,
+    threadCount: (count: number) => `${count} 条会话`,
+    agentCount: (count: number) => `${count} 个智能体`,
+    toolGroupCount: (count: number) => `${count} 组工具`,
   },
 
   // Welcome
@@ -166,6 +183,8 @@ export const zhCN: Translations = {
     title: "智能体",
     description: "创建和管理具有专属 Prompt 与能力的自定义智能体。",
     newAgent: "新建智能体",
+    listDescription: "打开专属智能体对话，或继续整理当前智能体目录。",
+    catalogLabel: "工作区目录",
     emptyTitle: "还没有自定义智能体",
     emptyDescription: "创建你的第一个自定义智能体，设置专属系统提示词。",
     chat: "对话",
@@ -174,6 +193,9 @@ export const zhCN: Translations = {
     deleteSuccess: "智能体已删除",
     newChat: "新对话",
     createPageTitle: "设计你的智能体",
+    createPageDescription:
+      "从命名到引导对话都保持在统一工作区节奏内，而不是掉进割裂的创建向导。",
+    buildPathLabel: "创建路径",
     createPageSubtitle: "描述你想要的智能体，我来帮你通过对话创建。",
     nameStepTitle: "给新智能体起个名字",
     nameStepHint:
@@ -185,9 +207,23 @@ export const zhCN: Translations = {
     nameStepCheckError: "无法验证名称可用性，请稍后重试",
     nameStepBootstrapMessage:
       "新智能体的名称是 {name}，现在开始为它生成 **SOUL**。",
+    chatStepNote: "在对话中引导创建智能体，然后检查生成结果。",
+    plannedIdentityLabel: "计划中的身份",
+    waitingForConfirmedName: "等待确认智能体名称。",
+    bootstrapThreadLabel: "引导线程",
     agentCreated: "智能体已创建！",
     startChatting: "开始对话",
-    backToGallery: "返回 Gallery",
+    backToGallery: "返回智能体总览",
+    collaborationDescription:
+      "将智能体专属协作保持在主线程中，同时让能力、状态和恢复操作通过共享支持面板可达。",
+    profileLabel: "智能体档案",
+    profileFallbackDescription:
+      "这个专属智能体对话会把协作界面聚焦在单一角色和能力边界上。",
+    actionsLabel: "工作区操作",
+    sessionSnapshotLabel: "会话快照",
+    toolGroupsLabel: "工具组",
+    capabilitiesLabel: "能力",
+    agentProfileRefreshError: "智能体档案刷新失败。",
   },
 
   // Breadcrumb
@@ -213,6 +249,8 @@ export const zhCN: Translations = {
     backToOverview: "返回总览",
     retryUpdate: "重试刷新",
     openRuntimeWorkbench: "打开运行工作台",
+    noArtifactSelectedTitle: "未选择产物",
+    noArtifactSelectedDescription: "选择一个产物以查看详情",
   },
 
   workspaceStates: {
@@ -251,6 +289,24 @@ export const zhCN: Translations = {
   // Chats
   chats: {
     searchChats: "搜索对话",
+    overviewDescription: "在统一工作区壳层中搜索、恢复并继续进行中的对话。",
+    emptySearchTitle: "没有匹配的对话",
+    emptySearchDescription: "换个关键词，或清空筛选后查看最近的工作区会话。",
+    listDescription: "从统一工作区中继续对话，或打开带工作台上下文的线程。",
+    recentlyUpdated: "最近更新",
+    threadMetaLabel: "工作区会话",
+    threadSummaryDescription:
+      "保持消息流为主视角，同时让上下文和恢复操作通过共享支持面板可达。",
+    workspaceContextLabel: "工作区上下文",
+    workspaceContextDescription:
+      "共享对话控制、运行时跳转和恢复动作集中放在这里，不再散落在另一个独立小壳层中。",
+    runtimeHandoffLabel: "运行时跳转",
+    runtimeHandoffDescription:
+      "当前线程已经带有 submarine 运行时数据或产物，需要实时驾驶舱视角时可直接跳转到专用工作台。",
+    conversationFirstTitle: "以对话为主的协作面",
+    conversationFirstDescription:
+      "当线程成长为带运行时的工作流时，对应工作台入口会出现在这里，而不是让聊天页硬塞下所有控制。",
+    sessionSnapshotLabel: "会话快照",
   },
 
   // Page titles (document title)

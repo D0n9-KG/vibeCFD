@@ -23,6 +23,7 @@ export const enUS: Translations = {
     settings: "Settings",
     delete: "Delete",
     rename: "Rename",
+    open: "Open",
     share: "Share",
     openInNewWindow: "Open in new window",
     close: "Close",
@@ -47,6 +48,22 @@ export const enUS: Translations = {
     exportAsMarkdown: "Export as Markdown",
     exportAsJSON: "Export as JSON",
     exportSuccess: "Conversation exported",
+    messages: "Messages",
+    todos: "Todos",
+    status: "Status",
+    panel: "Panel",
+    active: "Active",
+    waiting: "Waiting",
+    ready: "Ready",
+    running: "Running",
+    interrupted: "Interrupted",
+    done: "Done",
+    messageCount: (count: number) => `${count} message${count === 1 ? "" : "s"}`,
+    artifactCount: (count: number) => `${count} artifact${count === 1 ? "" : "s"}`,
+    todoCount: (count: number) => `${count} todo${count === 1 ? "" : "s"}`,
+    threadCount: (count: number) => `${count} thread${count === 1 ? "" : "s"}`,
+    agentCount: (count: number) => `${count} agent${count === 1 ? "" : "s"}`,
+    toolGroupCount: (count: number) => `${count} tool group${count === 1 ? "" : "s"}`,
   },
 
   // Welcome
@@ -171,8 +188,11 @@ export const enUS: Translations = {
   agents: {
     title: "Agents",
     description:
-      "Create and manage custom agents with specialized prompts and capabilities.",
+      "Keep custom agents inside the same workspace system as simulation, Skill Studio, and chat surfaces.",
     newAgent: "New Agent",
+    listDescription:
+      "Open a dedicated agent chat or continue refining your current catalog.",
+    catalogLabel: "Workspace catalog",
     emptyTitle: "No custom agents yet",
     emptyDescription:
       "Create your first custom agent with a specialized system prompt.",
@@ -183,6 +203,9 @@ export const enUS: Translations = {
     deleteSuccess: "Agent deleted",
     newChat: "New chat",
     createPageTitle: "Design your Agent",
+    createPageDescription:
+      "Move from naming to bootstrap chat inside the same workspace rhythm instead of dropping into a detached setup wizard.",
+    buildPathLabel: "Build path",
     createPageSubtitle:
       "Describe the agent you want — I'll help you create it through conversation.",
     nameStepTitle: "Name your new Agent",
@@ -196,9 +219,24 @@ export const enUS: Translations = {
     nameStepCheckError: "Could not verify name availability — please try again",
     nameStepBootstrapMessage:
       "The new custom agent name is {name}. Let's bootstrap it's **SOUL**.",
+    chatStepNote:
+      "Bootstrap the agent in chat, then review the generated result.",
+    plannedIdentityLabel: "Planned identity",
+    waitingForConfirmedName: "Waiting for a confirmed agent name.",
+    bootstrapThreadLabel: "Bootstrap thread",
     agentCreated: "Agent created!",
     startChatting: "Start chatting",
-    backToGallery: "Back to Gallery",
+    backToGallery: "Back to agents",
+    collaborationDescription:
+      "Agent-specific collaboration stays in the main thread while capabilities, status, and recovery actions stay reachable from the shared workspace support panel.",
+    profileLabel: "Agent profile",
+    profileFallbackDescription:
+      "This dedicated agent chat keeps the collaboration surface focused on a single persona and capability envelope.",
+    actionsLabel: "Workspace actions",
+    sessionSnapshotLabel: "Session snapshot",
+    toolGroupsLabel: "Tool groups",
+    capabilitiesLabel: "Capabilities",
+    agentProfileRefreshError: "The agent profile could not be refreshed.",
   },
 
   // Breadcrumb
@@ -224,6 +262,8 @@ export const enUS: Translations = {
     backToOverview: "Back to overview",
     retryUpdate: "Retry update",
     openRuntimeWorkbench: "Open runtime workbench",
+    noArtifactSelectedTitle: "No artifact selected",
+    noArtifactSelectedDescription: "Select an artifact to view its details",
   },
 
   workspaceStates: {
@@ -262,6 +302,27 @@ export const enUS: Translations = {
   // Chats
   chats: {
     searchChats: "Search chats",
+    overviewDescription:
+      "Search, reopen, and continue active conversations without leaving the shared workspace shell.",
+    emptySearchTitle: "No matching conversations",
+    emptySearchDescription:
+      "Try a different keyword or clear the filter to inspect the latest workspace threads.",
+    listDescription:
+      "Resume a conversation or open a workbench-backed thread from the same shared workspace shell.",
+    recentlyUpdated: "Recently updated",
+    threadMetaLabel: "Workspace thread",
+    threadSummaryDescription:
+      "Keep the message flow centered while workspace context and recovery actions stay reachable through the shared support panel.",
+    workspaceContextLabel: "Workspace context",
+    workspaceContextDescription:
+      "Shared conversation controls, runtime handoffs, and quick recovery actions stay here instead of hiding in a separate mini-product shell.",
+    runtimeHandoffLabel: "Runtime handoff",
+    runtimeHandoffDescription:
+      "This thread already carries submarine runtime data or artifacts. Jump straight into the dedicated workbench when you need the live cockpit view.",
+    conversationFirstTitle: "Conversation-first surface",
+    conversationFirstDescription:
+      "When a thread grows into a runtime-backed workflow, the matching workbench entry will appear here instead of forcing the chat view to absorb those controls.",
+    sessionSnapshotLabel: "Session snapshot",
   },
 
   // Page titles (document title)

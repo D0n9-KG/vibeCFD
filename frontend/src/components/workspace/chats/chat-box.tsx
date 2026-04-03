@@ -17,6 +17,7 @@ import {
   ArtifactFileList,
   useArtifacts,
 } from "../artifacts";
+import { useI18n } from "@/core/i18n/hooks";
 import { useThread } from "../messages/context";
 import { WORKSPACE_RESIZABLE_IDS } from "../workspace-resizable-ids";
 
@@ -27,6 +28,7 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
   children,
   threadId,
 }) => {
+  const { t } = useI18n();
   const { thread } = useThread();
   const threadIdRef = useRef(threadId);
   const layoutRef = useRef<GroupImperativeHandle>(null);
@@ -147,13 +149,13 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
               {thread.values.artifacts?.length === 0 ? (
                 <ConversationEmptyState
                   icon={<FilesIcon />}
-                  title="No artifact selected"
-                  description="Select an artifact to view its details"
+                  title={t.workspace.noArtifactSelectedTitle}
+                  description={t.workspace.noArtifactSelectedDescription}
                 />
               ) : (
                 <div className="flex size-full max-w-(--container-width-sm) flex-col justify-center p-4 pt-8">
                   <header className="shrink-0">
-                    <h2 className="text-lg font-medium">Artifacts</h2>
+                    <h2 className="text-lg font-medium">{t.common.artifacts}</h2>
                   </header>
                   <main className="min-h-0 grow">
                     <ArtifactFileList

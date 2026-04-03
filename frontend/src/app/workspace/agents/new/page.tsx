@@ -136,8 +136,7 @@ export default function NewAgentPage() {
                 {t.agents.createPageTitle}
               </h1>
               <p className="mt-2 max-w-3xl text-sm leading-7 text-stone-600">
-                Move from naming to bootstrap chat inside the same workspace
-                rhythm instead of dropping into a detached setup wizard.
+                {t.agents.createPageDescription}
               </p>
             </div>
 
@@ -151,7 +150,7 @@ export default function NewAgentPage() {
         <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(240px,280px)_minmax(0,1fr)]">
           <WorkspaceSurfaceCard className="h-fit">
             <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">
-              Build path
+              {t.agents.buildPathLabel}
             </div>
             <div className="mt-4 space-y-3">
               <StepCard
@@ -167,19 +166,17 @@ export default function NewAgentPage() {
                 index="02"
                 title={t.agents.createPageSubtitle}
                 note={
-                  agent
-                    ? t.agents.agentCreated
-                    : "Bootstrap the agent in chat, then review the generated result."
+                  agent ? t.agents.agentCreated : t.agents.chatStepNote
                 }
               />
             </div>
 
             <div className="mt-6 rounded-2xl border border-stone-200/80 bg-stone-50/80 p-4">
               <div className="text-sm font-semibold text-stone-900">
-                Planned identity
+                {t.agents.plannedIdentityLabel}
               </div>
               <div className="mt-2 text-sm text-stone-600">
-                {agentName || nameInput || "Waiting for a confirmed agent name."}
+                {agentName || nameInput || t.agents.waitingForConfirmedName}
               </div>
             </div>
           </WorkspaceSurfaceCard>
@@ -235,14 +232,14 @@ export default function NewAgentPage() {
                 <WorkspaceSurfaceCard className="flex min-h-[40rem] flex-col overflow-hidden p-0">
                   <div className="border-b border-stone-200/80 bg-stone-50/80 px-5 py-4">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
-                      Bootstrap thread
+                      {t.agents.bootstrapThreadLabel}
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-stone-200/80 bg-white px-3 py-1 text-xs font-medium text-stone-700">
                         {agentName}
                       </span>
                       <span className="rounded-full border border-stone-200/80 bg-white px-3 py-1 text-xs font-medium text-stone-500">
-                        {thread.isLoading ? "Running" : "Ready"}
+                        {thread.isLoading ? t.common.running : t.common.ready}
                       </span>
                     </div>
                   </div>
@@ -318,6 +315,8 @@ function StepCard({
   title: string;
   note: string;
 }) {
+  const { t } = useI18n();
+
   return (
     <div
       className={cn(
@@ -341,7 +340,7 @@ function StepCard({
                 : "bg-stone-100 text-stone-500",
           )}
         >
-          {complete ? "Done" : active ? "Active" : "Waiting"}
+          {complete ? t.common.done : active ? t.common.active : t.common.waiting}
         </div>
       </div>
       <div className="mt-3 text-sm font-semibold text-stone-900">{title}</div>

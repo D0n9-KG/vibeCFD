@@ -129,7 +129,7 @@ export default function AgentChatPage() {
                 onClick={() => setSupportPanelOpen((open) => !open)}
               >
                 <LayoutPanelLeftIcon className="size-4" />
-                Panel
+                {t.common.panel}
               </Button>
               <Button
                 size="sm"
@@ -158,16 +158,14 @@ export default function AgentChatPage() {
                         {agent?.name ?? agent_name}
                       </span>
                       <span className="rounded-full border border-stone-200/80 bg-white px-2.5 py-1 font-medium text-stone-700">
-                        {thread.messages.length} messages
+                        {t.common.messageCount(thread.messages.length)}
                       </span>
                       <span className="rounded-full border border-stone-200/80 bg-white px-2.5 py-1 font-medium text-stone-700">
-                        {artifactCount} artifacts
+                        {t.common.artifactCount(artifactCount)}
                       </span>
                     </div>
                     <p className="mt-3 text-sm leading-6 text-stone-600">
-                      Agent-specific collaboration stays in the main thread while
-                      capabilities, status, and recovery actions stay reachable
-                      from the shared workspace support panel.
+                      {t.agents.collaborationDescription}
                     </p>
                   </div>
 
@@ -240,7 +238,7 @@ export default function AgentChatPage() {
                           description={
                             agentError instanceof Error
                               ? agentError.message
-                              : "The agent profile could not be refreshed."
+                              : t.agents.agentProfileRefreshError
                           }
                           actions={[
                             {
@@ -266,14 +264,14 @@ export default function AgentChatPage() {
 
                       <div className="rounded-[24px] border border-stone-200/80 bg-stone-50/80 p-4">
                         <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
-                          Agent profile
+                          {t.agents.profileLabel}
                         </div>
                         <h2 className="mt-2 text-lg font-semibold tracking-tight text-stone-900">
                           {agent?.name ?? agent_name}
                         </h2>
                         <p className="mt-2 text-sm leading-6 text-stone-600">
                           {agent?.description ??
-                            "This dedicated agent chat keeps the collaboration surface focused on a single persona and capability envelope."}
+                            t.agents.profileFallbackDescription}
                         </p>
                         {agent?.model ? (
                           <div className="mt-3 rounded-full border border-stone-200/80 bg-white px-3 py-1 text-xs font-medium text-stone-600">
@@ -284,7 +282,7 @@ export default function AgentChatPage() {
 
                       <div className="rounded-[24px] border border-stone-200/80 bg-white/92 p-4">
                         <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">
-                          Workspace actions
+                          {t.agents.actionsLabel}
                         </div>
                         <div className="mt-4 flex flex-wrap gap-2">
                           <Button
@@ -305,14 +303,20 @@ export default function AgentChatPage() {
 
                       <div className="rounded-[24px] border border-stone-200/80 bg-white/92 p-4">
                         <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">
-                          Session snapshot
+                          {t.agents.sessionSnapshotLabel}
                         </div>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          <SnapshotMetric label="Messages" value={String(thread.messages.length)} />
-                          <SnapshotMetric label="Artifacts" value={String(artifactCount)} />
-                          <SnapshotMetric label="Todos" value={String(todoCount)} />
                           <SnapshotMetric
-                            label="Tool groups"
+                            label={t.common.messages}
+                            value={String(thread.messages.length)}
+                          />
+                          <SnapshotMetric
+                            label={t.common.artifacts}
+                            value={String(artifactCount)}
+                          />
+                          <SnapshotMetric label={t.common.todos} value={String(todoCount)} />
+                          <SnapshotMetric
+                            label={t.agents.toolGroupsLabel}
                             value={String(agent?.tool_groups?.length ?? 0)}
                           />
                         </div>
@@ -321,7 +325,7 @@ export default function AgentChatPage() {
                       {agent?.tool_groups?.length ? (
                         <div className="rounded-[24px] border border-stone-200/80 bg-stone-50/80 p-4">
                           <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">
-                            Capabilities
+                            {t.agents.capabilitiesLabel}
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2">
                             {agent.tool_groups.map((group) => (

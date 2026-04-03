@@ -51,8 +51,7 @@ export function AgentGallery({
                 {t.agents.title}
               </h1>
               <p className="mt-2 max-w-3xl text-sm leading-7 text-stone-600">
-                Keep custom agents inside the same workspace system as
-                simulation, Skill Studio, and chat surfaces.
+                {t.agents.description}
               </p>
             </div>
 
@@ -96,16 +95,15 @@ export function AgentGallery({
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
                 <div className="text-sm font-medium text-stone-900">
-                  {agents.length} agent{agents.length === 1 ? "" : "s"}
+                  {t.common.agentCount(agents.length)}
                 </div>
                 <div className="mt-1 text-sm text-stone-500">
-                  Open a dedicated agent chat or continue refining your current
-                  catalog.
+                  {t.agents.listDescription}
                 </div>
               </div>
               <div className="hidden rounded-full border border-stone-200/80 bg-stone-50 px-3 py-1 text-xs font-medium text-stone-500 md:flex md:items-center md:gap-2">
                 <BotIcon className="size-3.5" />
-                workspace catalog
+                {t.agents.catalogLabel}
               </div>
             </div>
 
