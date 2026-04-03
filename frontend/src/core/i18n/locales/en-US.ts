@@ -216,6 +216,41 @@ export const enUS: Translations = {
     reportIssue: "Report a issue",
     contactUs: "Contact us",
     about: "About DeerFlow",
+    toggleChatRail: "Toggle chat rail",
+    toggleWorkspacePanel: "Toggle workspace panel",
+    showWorkspaceViews: "Show workspace views",
+    hideWorkspaceViews: "Hide workspace views",
+    openGraphFilters: "Open graph filters",
+    backToOverview: "Back to overview",
+    retryUpdate: "Retry update",
+    openRuntimeWorkbench: "Open runtime workbench",
+  },
+
+  workspaceStates: {
+    "first-run": {
+      label: "First run",
+      title: "No workspace context is ready yet",
+      message:
+        "Start a new simulation, Skill Studio thread, or conversation to build the first recoverable workspace context.",
+    },
+    "permissions-error": {
+      label: "Permissions error",
+      title: "This workspace is missing a required permission",
+      message:
+        "Review browser, local runtime, or file-access permissions before continuing with the current workflow.",
+    },
+    "data-interrupted": {
+      label: "Data interrupted",
+      title: "The latest workspace data is temporarily unavailable",
+      message:
+        "Keep the current context, then retry the update or return to overview to inspect the latest confirmed state.",
+    },
+    "update-failed": {
+      label: "Update failed",
+      title: "The workspace could not refresh this view",
+      message:
+        "The last available state is still preserved. Retry the update, or return to overview and confirm whether the current object is still running.",
+    },
   },
 
   // Conversation

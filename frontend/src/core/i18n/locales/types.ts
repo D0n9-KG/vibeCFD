@@ -154,6 +154,37 @@ export interface Translations {
     reportIssue: string;
     contactUs: string;
     about: string;
+    toggleChatRail: string;
+    toggleWorkspacePanel: string;
+    showWorkspaceViews: string;
+    hideWorkspaceViews: string;
+    openGraphFilters: string;
+    backToOverview: string;
+    retryUpdate: string;
+    openRuntimeWorkbench: string;
+  };
+
+  workspaceStates: {
+    "first-run": {
+      label: string;
+      title: string;
+      message: string;
+    };
+    "permissions-error": {
+      label: string;
+      title: string;
+      message: string;
+    };
+    "data-interrupted": {
+      label: string;
+      title: string;
+      message: string;
+    };
+    "update-failed": {
+      label: string;
+      title: string;
+      message: string;
+    };
   };
 
   // Conversation

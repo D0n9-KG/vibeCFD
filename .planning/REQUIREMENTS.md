@@ -10,7 +10,7 @@
 - [x] **UX-01**: User can navigate chat, submarine workbench, skill studio, and agent entry points through one coherent workspace information architecture
 - [x] **UX-02**: User can complete key submarine and skill-studio tasks on desktop and laptop layouts without losing primary actions, status context, or artifact access
 - [x] **UX-03**: User can rely on shared page shells, navigation patterns, feedback states, and visual hierarchy across core workspace pages instead of page-by-page layout drift
-- [ ] **UX-04**: User-facing Chinese copy, spacing, readability, focus states, and loading or empty states remain understandable and consistent across the redesigned workspace
+- [x] **UX-04**: User-facing Chinese copy, spacing, readability, focus states, and loading or empty states remain understandable and consistent across the redesigned workspace
 
 ### Skill Lifecycle
 
@@ -67,7 +67,7 @@
 | UX-01 | Phase 7 | Complete |
 | UX-02 | Phase 7 | Complete |
 | UX-03 | Phase 7 | Complete |
-| UX-04 | Phase 7 | Pending |
+| UX-04 | Phase 7 | Complete |
 | SKILL-01 | Phase 8 | Pending |
 | SKILL-02 | Phase 8 | Pending |
 | SKILL-03 | Phase 8 | Pending |
@@ -91,4 +91,4 @@
 
 ---
 *Requirements defined: 2026-04-03*
-*Last updated: 2026-04-03 after Phase 07 Plan 02 execution*
+*Last updated: 2026-04-03 after Phase 07 completion*

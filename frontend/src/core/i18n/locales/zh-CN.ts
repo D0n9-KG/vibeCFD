@@ -205,6 +205,41 @@ export const zhCN: Translations = {
     reportIssue: "报告问题",
     contactUs: "联系我们",
     about: "关于 DeerFlow",
+    toggleChatRail: "切换聊天侧栏",
+    toggleWorkspacePanel: "切换工作区面板",
+    showWorkspaceViews: "展开工作台视图",
+    hideWorkspaceViews: "收起工作台视图",
+    openGraphFilters: "打开图谱筛选",
+    backToOverview: "返回总览",
+    retryUpdate: "重试刷新",
+    openRuntimeWorkbench: "打开运行工作台",
+  },
+
+  workspaceStates: {
+    "first-run": {
+      label: "首次进入",
+      title: "还没有可恢复的工作上下文",
+      message:
+        "从统一工作区启动新的仿真、Skill Studio 线程，或直接发起对话，系统就会开始沉淀可恢复的上下文。",
+    },
+    "permissions-error": {
+      label: "权限不足",
+      title: "当前工作区缺少必要权限",
+      message:
+        "请先检查浏览器、文件访问或本地运行环境的权限设置，再继续当前工作流。",
+    },
+    "data-interrupted": {
+      label: "数据中断",
+      title: "最新工作区数据暂时不可用",
+      message:
+        "先保留当前上下文，再重试刷新，或回到总览确认最近一次已经落盘的可用结果。",
+    },
+    "update-failed": {
+      label: "更新失败",
+      title: "工作区暂时无法刷新当前视图",
+      message:
+        "上一次可用状态仍然保留。你可以重试刷新，或先回到总览确认对象是否仍在运行。",
+    },
   },
 
   // Conversation

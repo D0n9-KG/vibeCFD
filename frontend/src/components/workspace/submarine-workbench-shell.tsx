@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
 import { useArtifactContent } from "@/core/artifacts/hooks";
+import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
 import { useThread } from "./messages/context";
@@ -120,6 +121,7 @@ export function SubmarineWorkbenchShell({
   sendMessage,
   onStop,
 }: SubmarineWorkbenchShellProps) {
+  const { t } = useI18n();
   const { thread } = useThread();
   const [activeView, setActiveView] =
     useState<SubmarineWorkbenchView>("overview");
@@ -289,12 +291,21 @@ export function SubmarineWorkbenchShell({
         <div className="mb-4 flex flex-wrap gap-2">
           <Button
             variant="outline"
+            className="focus-visible:ring-2 focus-visible:ring-sky-300/60"
+            aria-label={
+              navOpen
+                ? t.workspace.hideWorkspaceViews
+                : t.workspace.showWorkspaceViews
+            }
             onClick={() => setNavOpen((open) => !open)}
           >
             <LayoutPanelLeftIcon className="size-4" />
             {navOpen ? "鏀惰捣鍒嗘爮" : "灞曞紑鍒嗘爮"}
           </Button>
-          <div className="rounded-full border border-stone-200 bg-white px-3 py-2 text-xs text-stone-500">
+          <div
+            className="rounded-full border border-stone-200 bg-white px-3 py-2 text-xs text-stone-500"
+            aria-label={t.workspace.toggleChatRail}
+          >
             {chatOpen ? "鑱婂ぉ闈㈡澘宸插睍寮€" : "鑱婂ぉ闈㈡澘宸叉敹璧?"}
           </div>
         </div>
@@ -336,6 +347,18 @@ export function SubmarineWorkbenchShell({
       </div>
 
       <section className="min-h-0 min-w-0 overflow-hidden">
+        {activeView !== "overview" ? (
+          <div className="mb-4">
+            <Button
+              variant="outline"
+              aria-label={t.workspace.backToOverview}
+              onClick={() => setActiveView("overview")}
+            >
+              {t.workspace.backToOverview}
+            </Button>
+          </div>
+        ) : null}
+
         {activeView === "overview" ? (
           <div className="flex h-full min-h-0 flex-col overflow-y-auto rounded-[28px] border border-stone-200/80 bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.10),_transparent_32%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.08)]">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">

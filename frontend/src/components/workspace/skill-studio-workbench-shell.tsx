@@ -14,6 +14,7 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
 import {
@@ -94,6 +95,7 @@ export function SkillStudioWorkbenchShell({
   className,
   onOpenChat,
 }: SkillStudioWorkbenchShellProps) {
+  const { t } = useI18n();
   const [activeView, setActiveView] =
     useState<SkillStudioWorkbenchView>("overview");
   const [graphFilter, setGraphFilter] =
@@ -173,12 +175,23 @@ export function SkillStudioWorkbenchShell({
         <div className="mb-4 flex flex-wrap gap-2">
           <Button
             variant="outline"
+            className="focus-visible:ring-2 focus-visible:ring-sky-300/60"
+            aria-label={
+              navOpen
+                ? t.workspace.hideWorkspaceViews
+                : t.workspace.showWorkspaceViews
+            }
             onClick={() => setNavOpen((open) => !open)}
           >
             <LayoutPanelLeftIcon className="size-4" />
             {navOpen ? "鏀惰捣鍒嗘爮" : "灞曞紑鍒嗘爮"}
           </Button>
-          <Button variant="outline" onClick={onOpenChat}>
+          <Button
+            variant="outline"
+            className="focus-visible:ring-2 focus-visible:ring-sky-300/60"
+            aria-label={t.workspace.toggleChatRail}
+            onClick={onOpenChat}
+          >
             <WaypointsIcon className="size-4" />
             鎵撳紑 Skill Creator 鑱婂ぉ
           </Button>
@@ -245,16 +258,29 @@ export function SkillStudioWorkbenchShell({
               <Badge variant="outline">
                 {hasWorkbenchSurface ? "Workbench ready" : "Waiting for first draft"}
               </Badge>
+              {activeView !== "overview" ? (
+                <Button
+                  variant="outline"
+                  aria-label={t.workspace.backToOverview}
+                  onClick={() => setActiveView("overview")}
+                >
+                  {t.workspace.backToOverview}
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>
 
         {activeView === "graph" ? (
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div
+            className="mb-4 flex flex-wrap gap-2"
+            aria-label={t.workspace.openGraphFilters}
+          >
             {SKILL_STUDIO_GRAPH_FILTERS.map((filter) => (
               <Button
                 key={filter.id}
                 variant={graphFilter === filter.id ? "default" : "outline"}
+                aria-label={`${t.workspace.openGraphFilters}: ${filter.label}`}
                 onClick={() => setGraphFilter(filter.id)}
               >
                 {filter.label}
