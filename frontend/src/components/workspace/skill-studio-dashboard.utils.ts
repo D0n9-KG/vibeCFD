@@ -9,6 +9,7 @@ import {
   labelOfSkillStudioAgentName,
   normalizeSkillStudioAgentLabel,
 } from "./skill-studio-agent-options.ts";
+import type { SkillStudioLifecycleSummary } from "./skill-studio-workbench.utils.ts";
 
 type SkillStudioThreadState = {
   skill_name?: string | null;
@@ -102,11 +103,44 @@ function normalizeSkillStudioBindings(
     .filter((binding): binding is SkillStudioLifecycleBinding => binding !== null);
 }
 
+function normalizeLifecycleSummaryBindings(
+  bindings: SkillStudioLifecycleSummary["binding_targets"] | undefined,
+): SkillStudioLifecycleBinding[] {
+  if (!Array.isArray(bindings)) {
+    return [];
+  }
+
+  return bindings
+    .map((binding) => {
+      const roleId =
+        typeof binding?.role_id === "string" ? binding.role_id : null;
+      const mode = typeof binding?.mode === "string" ? binding.mode : null;
+      if (!roleId || !mode) {
+        return null;
+      }
+
+      return {
+        roleId,
+        mode,
+        targetSkills: Array.isArray(binding?.target_skills)
+          ? binding.target_skills.filter(
+              (skill): skill is string => typeof skill === "string",
+            )
+          : [],
+      };
+    })
+    .filter((binding): binding is SkillStudioLifecycleBinding => binding !== null);
+}
+
 export function buildSkillStudioEntries(
   threads: AgentThread[],
   untitledLabel = "未命名技能工作台",
+  lifecycleSummaries: SkillStudioLifecycleSummary[] = [],
 ): SkillStudioDashboardEntry[] {
   const entries: SkillStudioDashboardEntry[] = [];
+  const lifecycleBySkillName = new Map(
+    lifecycleSummaries.map((summary) => [summary.skill_name, summary]),
+  );
 
   for (const thread of threads) {
     const threadArtifacts = Array.isArray(thread.values?.artifacts)
@@ -136,6 +170,7 @@ export function buildSkillStudioEntries(
       studioState?.assistant_mode ?? DEFAULT_SKILL_STUDIO_AGENT;
     const fallbackSkillAssetId =
       studioState?.skill_name ?? extractSkillSlugFromArtifacts(artifactSet);
+    const lifecycleSummary = lifecycleBySkillName.get(fallbackSkillAssetId);
 
     entries.push({
       threadId: thread.thread_id,
@@ -162,10 +197,20 @@ export function buildSkillStudioEntries(
       warningCount: studioState?.warning_count ?? 0,
       artifactCount: artifactSet.length,
       lifecycleVirtualPath: studioState?.lifecycle_virtual_path ?? null,
-      activeRevisionId: studioState?.active_revision_id ?? null,
-      publishedRevisionId: studioState?.published_revision_id ?? null,
-      versionNote: studioState?.version_note ?? "",
-      bindings: normalizeSkillStudioBindings(studioState?.bindings),
+      activeRevisionId:
+        lifecycleSummary?.active_revision_id ??
+        studioState?.active_revision_id ??
+        null,
+      publishedRevisionId:
+        lifecycleSummary?.published_revision_id ??
+        studioState?.published_revision_id ??
+        null,
+      versionNote:
+        lifecycleSummary?.version_note ?? studioState?.version_note ?? "",
+      bindings:
+        lifecycleSummary && lifecycleSummary.binding_targets.length > 0
+          ? normalizeLifecycleSummaryBindings(lifecycleSummary.binding_targets)
+          : normalizeSkillStudioBindings(studioState?.bindings),
       reportVirtualPath: studioState?.report_virtual_path ?? null,
       updatedAt: thread.updated_at ?? null,
     });

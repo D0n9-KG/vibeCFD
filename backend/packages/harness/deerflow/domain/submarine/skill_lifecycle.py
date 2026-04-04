@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -64,6 +65,125 @@ class SkillLifecycleRegistry(BaseModel):
     records: dict[str, SkillLifecycleRecord] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid")
+
+
+def utc_timestamp() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
+def build_default_skill_lifecycle_record(
+    skill_name: str,
+    *,
+    enabled: bool = False,
+    published_path: str | None = None,
+) -> SkillLifecycleRecord:
+    return SkillLifecycleRecord(
+        skill_name=skill_name,
+        skill_asset_id=skill_name,
+        draft_status="published" if published_path else "draft_ready",
+        enabled=enabled,
+        published_path=published_path,
+    )
+
+
+def load_skill_lifecycle_record(
+    lifecycle_path: Path | None,
+) -> SkillLifecycleRecord | None:
+    if lifecycle_path is None:
+        return None
+
+    resolved_path = Path(lifecycle_path)
+    if not resolved_path.exists():
+        return None
+
+    with resolved_path.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return SkillLifecycleRecord.model_validate(payload)
+
+
+def merge_skill_lifecycle_record(
+    *,
+    skill_name: str,
+    lifecycle_payload: SkillLifecycleRecord | None = None,
+    existing_record: SkillLifecycleRecord | None = None,
+    enabled: bool | None = None,
+    version_note: str | None = None,
+    binding_targets: list[SkillLifecycleBinding] | None = None,
+    published_path: str | None = None,
+    last_published_at: str | None = None,
+    last_published_from_thread_id: str | None = None,
+) -> SkillLifecycleRecord:
+    merged = (
+        existing_record.model_copy(deep=True)
+        if existing_record is not None
+        else build_default_skill_lifecycle_record(
+            skill_name,
+            published_path=published_path,
+            enabled=enabled or False,
+        )
+    )
+
+    if lifecycle_payload is not None:
+        merged.skill_asset_id = lifecycle_payload.skill_asset_id
+        merged.source_thread_id = lifecycle_payload.source_thread_id
+        merged.draft_status = lifecycle_payload.draft_status
+        merged.draft_updated_at = lifecycle_payload.draft_updated_at
+        merged.package_archive_virtual_path = lifecycle_payload.package_archive_virtual_path
+        merged.artifact_virtual_paths = list(lifecycle_payload.artifact_virtual_paths)
+        merged.version_note = lifecycle_payload.version_note
+        merged.bindings = [
+            binding.model_copy(deep=True)
+            for binding in lifecycle_payload.bindings
+        ]
+        if lifecycle_payload.active_revision_id is not None:
+            merged.active_revision_id = lifecycle_payload.active_revision_id
+        if lifecycle_payload.published_revision_id is not None:
+            merged.published_revision_id = lifecycle_payload.published_revision_id
+        if lifecycle_payload.published_revisions:
+            merged.published_revisions = [
+                revision.model_copy(deep=True)
+                for revision in lifecycle_payload.published_revisions
+            ]
+        if not merged.binding_targets and merged.bindings:
+            merged.binding_targets = [
+                binding.model_copy(deep=True)
+                for binding in merged.bindings
+            ]
+
+    if binding_targets is not None:
+        merged.binding_targets = [
+            SkillLifecycleBinding.model_validate(binding).model_copy(deep=True)
+            for binding in binding_targets
+        ]
+        merged.bindings = [
+            binding.model_copy(deep=True)
+            for binding in merged.binding_targets
+        ]
+    elif not merged.binding_targets and merged.bindings:
+        merged.binding_targets = [
+            binding.model_copy(deep=True)
+            for binding in merged.bindings
+        ]
+    elif not merged.bindings and merged.binding_targets:
+        merged.bindings = [
+            binding.model_copy(deep=True)
+            for binding in merged.binding_targets
+        ]
+
+    if enabled is not None:
+        merged.enabled = enabled
+    if version_note is not None:
+        merged.version_note = version_note
+    if published_path is not None:
+        merged.published_path = published_path
+        if merged.draft_status == "draft_ready":
+            merged.draft_status = "published"
+    if last_published_at is not None:
+        merged.last_published_at = last_published_at
+    if last_published_from_thread_id is not None:
+        merged.last_published_from_thread_id = last_published_from_thread_id
+
+    return merged
 
 
 def get_skill_lifecycle_registry_path(skills_root: Path | None = None) -> Path:

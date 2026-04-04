@@ -1,8 +1,21 @@
 from datetime import datetime
 
 from deerflow.config.agents_config import load_agent_soul
+from deerflow.domain.submarine.skill_lifecycle import load_skill_lifecycle_registry
 from deerflow.skills import load_skills
 from deerflow.skills.relationships import recommend_skills_for_subagent
+
+
+_PROJECT_SKILL_BINDING_ROLE_IDS = [
+    "task-intelligence",
+    "geometry-preflight",
+    "solver-dispatch",
+    "scientific-study",
+    "experiment-compare",
+    "scientific-verification",
+    "result-reporting",
+    "scientific-followup",
+]
 
 
 def _build_subagent_section(max_concurrent: int) -> str:
@@ -473,6 +486,48 @@ Recommended starting skill groups:
 </subagent_skill_routing>"""
 
 
+def get_project_skill_bindings_prompt_section() -> str:
+    """Render persisted project-local explicit bindings for later routing decisions."""
+
+    try:
+        registry = load_skill_lifecycle_registry()
+    except Exception:
+        return ""
+
+    bindings_by_role: dict[str, set[str]] = {
+        role_id: set()
+        for role_id in _PROJECT_SKILL_BINDING_ROLE_IDS
+    }
+
+    for record in registry.records.values():
+        for binding in record.binding_targets:
+            if binding.mode != "explicit":
+                continue
+            if binding.role_id not in bindings_by_role:
+                continue
+
+            targets = binding.target_skills or [record.skill_name]
+            bindings_by_role[binding.role_id].update(targets)
+
+    lines = []
+    for role_id in _PROJECT_SKILL_BINDING_ROLE_IDS:
+        targets = sorted(bindings_by_role[role_id])
+        if targets:
+            lines.append(f"- {role_id} -> {', '.join(targets)}")
+        else:
+            lines.append(f"- {role_id} -> enabled skill pool")
+
+    return f"""<project_skill_bindings>
+Project-level explicit bindings complement the normal enabled-skill pool.
+If a role below is mapped to one or more skills, prefer passing those skill
+names through `target_skills` when delegating that specific stage. When a role
+still points to the enabled skill pool, use the normal enabled skills or the
+graph-assisted recommendations.
+
+{chr(10).join(lines)}
+</project_skill_bindings>"""
+
+
 def get_submarine_workflow_prompt_section() -> str:
     """Describe the required supervisor workflow for submarine CFD requests."""
 
@@ -557,6 +612,7 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
     skill_routing_section = (
         get_subagent_skill_routing_prompt_section() if subagent_enabled else ""
     )
+    project_skill_bindings_section = get_project_skill_bindings_prompt_section()
     submarine_workflow_section = get_submarine_workflow_prompt_section()
 
     # Get deferred tools section (tool_search)
@@ -568,7 +624,13 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
         soul=get_agent_soul(agent_name),
         submarine_workflow_section=submarine_workflow_section,
         skills_section="\n\n".join(
-            section for section in [skills_section, skill_routing_section] if section
+            section
+            for section in [
+                skills_section,
+                skill_routing_section,
+                project_skill_bindings_section,
+            ]
+            if section
         ),
         deferred_tools_section=deferred_tools_section,
         memory_context=memory_context,

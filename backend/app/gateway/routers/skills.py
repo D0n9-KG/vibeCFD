@@ -11,6 +11,16 @@ from pydantic import BaseModel, Field
 
 from app.gateway.path_utils import resolve_thread_virtual_path
 from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
+from deerflow.domain.submarine.skill_lifecycle import (
+    SkillLifecycleBinding,
+    SkillLifecycleRecord,
+    SkillLifecycleRegistry,
+    load_skill_lifecycle_record,
+    load_skill_lifecycle_registry,
+    merge_skill_lifecycle_record,
+    save_skill_lifecycle_registry,
+    utc_timestamp,
+)
 from deerflow.skills import Skill, analyze_skill_relationships, load_skills
 from deerflow.skills.loader import get_skills_root_path
 from deerflow.skills.validation import _validate_skill_frontmatter
@@ -182,6 +192,11 @@ class SkillPublishRequest(BaseModel):
     path: str = Field(..., description="Virtual path to the generated .skill archive")
     overwrite: bool = Field(default=False, description="Whether to replace an existing custom skill with the same name")
     enable: bool = Field(default=True, description="Whether to enable the published skill in extensions_config.json")
+    version_note: str = Field(default="", description="Optional lifecycle note recorded for the published revision")
+    binding_targets: list[SkillLifecycleBinding] = Field(
+        default_factory=list,
+        description="Explicit role bindings to persist for this project-local skill",
+    )
 
 
 class SkillPublishResponse(BaseModel):
@@ -192,6 +207,30 @@ class SkillPublishResponse(BaseModel):
     message: str = Field(..., description="Publish result message")
     published_path: str = Field(..., description="Filesystem path of the published skill directory")
     enabled: bool = Field(..., description="Whether the skill is enabled after publishing")
+
+
+class SkillLifecycleSummaryResponse(BaseModel):
+    skill_name: str
+    enabled: bool
+    binding_targets: list[SkillLifecycleBinding] = Field(default_factory=list)
+    active_revision_id: str | None = None
+    draft_status: str
+    published_path: str | None = None
+    last_published_at: str | None = None
+    version_note: str = ""
+
+
+class SkillLifecycleListResponse(BaseModel):
+    skills: list[SkillLifecycleSummaryResponse]
+
+
+class SkillLifecycleUpdateRequest(BaseModel):
+    enabled: bool = Field(..., description="Whether the custom skill should stay enabled for later threads")
+    version_note: str = Field(default="", description="Project-level note attached to the current published state")
+    binding_targets: list[SkillLifecycleBinding] = Field(
+        default_factory=list,
+        description="Explicit role bindings keyed by role_id, mode, and target_skills",
+    )
 
 
 def _should_ignore_archive_entry(path: Path) -> bool:
@@ -215,6 +254,66 @@ def _skill_to_response(skill: Skill) -> SkillResponse:
         license=skill.license,
         category=skill.category,
         enabled=skill.enabled,
+    )
+
+
+def _find_custom_skill(skill_name: str) -> Skill | None:
+    skills = load_skills(enabled_only=False)
+    return next(
+        (
+            skill
+            for skill in skills
+            if skill.name == skill_name and skill.category == "custom"
+        ),
+        None,
+    )
+
+
+def _get_skill_lifecycle_payload_path(skill: Skill) -> Path:
+    return skill.skill_dir / "skill-lifecycle.json"
+
+
+def _resolve_skill_lifecycle_record(
+    skill: Skill,
+    registry: SkillLifecycleRegistry,
+) -> SkillLifecycleRecord:
+    lifecycle_payload = load_skill_lifecycle_record(
+        _get_skill_lifecycle_payload_path(skill),
+    )
+    return merge_skill_lifecycle_record(
+        skill_name=skill.name,
+        lifecycle_payload=lifecycle_payload,
+        existing_record=registry.records.get(skill.name),
+        enabled=skill.enabled,
+        published_path=str(skill.skill_dir),
+    )
+
+
+def _save_skill_lifecycle_record(
+    record: SkillLifecycleRecord,
+    *,
+    skills_root: Path | None = None,
+) -> None:
+    registry = load_skill_lifecycle_registry(skills_root=skills_root)
+    registry.records[record.skill_name] = record
+    save_skill_lifecycle_registry(registry, skills_root=skills_root)
+
+
+def _to_skill_lifecycle_summary(
+    record: SkillLifecycleRecord,
+) -> SkillLifecycleSummaryResponse:
+    return SkillLifecycleSummaryResponse(
+        skill_name=record.skill_name,
+        enabled=record.enabled,
+        binding_targets=[
+            binding.model_copy(deep=True)
+            for binding in record.binding_targets
+        ],
+        active_revision_id=record.active_revision_id,
+        draft_status=record.draft_status,
+        published_path=record.published_path,
+        last_published_at=record.last_published_at,
+        version_note=record.version_note,
     )
 
 
@@ -369,6 +468,126 @@ async def get_skill_graph(skill_name: str | None = None) -> SkillGraphResponse:
 
 
 @router.get(
+    "/skills/lifecycle",
+    response_model=SkillLifecycleListResponse,
+    summary="List Skill Lifecycle State",
+    description="Return lifecycle summaries for every custom project-local skill.",
+)
+async def list_skill_lifecycle() -> SkillLifecycleListResponse:
+    try:
+        skills_root = get_skills_root_path()
+        registry = load_skill_lifecycle_registry(skills_root=skills_root)
+        custom_skills = [
+            skill
+            for skill in load_skills(enabled_only=False)
+            if skill.category == "custom"
+        ]
+        summaries = [
+            _to_skill_lifecycle_summary(
+                _resolve_skill_lifecycle_record(skill, registry),
+            )
+            for skill in custom_skills
+        ]
+        summaries.sort(key=lambda item: item.skill_name)
+        return SkillLifecycleListResponse(skills=summaries)
+    except Exception as e:
+        logger.error("Failed to list skill lifecycle summaries: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list skill lifecycle summaries: {str(e)}",
+        )
+
+
+@router.get(
+    "/skills/lifecycle/{skill_name}",
+    response_model=SkillLifecycleRecord,
+    summary="Get Skill Lifecycle Details",
+    description="Return the full lifecycle record for a custom project-local skill.",
+)
+async def get_skill_lifecycle(skill_name: str) -> SkillLifecycleRecord:
+    try:
+        skill = _find_custom_skill(skill_name)
+        if skill is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Custom skill '{skill_name}' not found",
+            )
+
+        registry = load_skill_lifecycle_registry(skills_root=get_skills_root_path())
+        return _resolve_skill_lifecycle_record(skill, registry)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to get skill lifecycle for %s: %s",
+            skill_name,
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get skill lifecycle: {str(e)}",
+        )
+
+
+@router.put(
+    "/skills/lifecycle/{skill_name}",
+    response_model=SkillLifecycleRecord,
+    summary="Update Skill Lifecycle Management State",
+    description="Update enablement, version note, and explicit binding targets without re-publishing the skill.",
+)
+async def update_skill_lifecycle(
+    skill_name: str,
+    request: SkillLifecycleUpdateRequest,
+) -> SkillLifecycleRecord:
+    try:
+        skill = _find_custom_skill(skill_name)
+        if skill is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Custom skill '{skill_name}' not found",
+            )
+
+        skills_root = get_skills_root_path()
+        registry = load_skill_lifecycle_registry(skills_root=skills_root)
+        _set_skill_enabled(skill_name, request.enabled)
+        updated_skill = _find_custom_skill(skill_name)
+        if updated_skill is None:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to reload custom skill '{skill_name}' after lifecycle update",
+            )
+
+        record = merge_skill_lifecycle_record(
+            skill_name=skill_name,
+            lifecycle_payload=load_skill_lifecycle_record(
+                _get_skill_lifecycle_payload_path(updated_skill),
+            ),
+            existing_record=registry.records.get(skill_name),
+            enabled=request.enabled,
+            version_note=request.version_note,
+            binding_targets=request.binding_targets,
+            published_path=str(updated_skill.skill_dir),
+        )
+        registry.records[skill_name] = record
+        save_skill_lifecycle_registry(registry, skills_root=skills_root)
+        return record
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to update skill lifecycle for %s: %s",
+            skill_name,
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update skill lifecycle: {str(e)}",
+        )
+
+
+@router.get(
     "/skills/{skill_name}",
     response_model=SkillResponse,
     summary="Get Skill Details",
@@ -463,6 +682,23 @@ async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillRes
         _set_skill_enabled(skill_name, request.enabled)
         logger.info("Skill '%s' enabled status updated to %s", skill_name, request.enabled)
 
+        if skill.category == "custom":
+            record = merge_skill_lifecycle_record(
+                skill_name=skill.name,
+                lifecycle_payload=load_skill_lifecycle_record(
+                    _get_skill_lifecycle_payload_path(skill),
+                ),
+                existing_record=load_skill_lifecycle_registry(
+                    skills_root=get_skills_root_path(),
+                ).records.get(skill.name),
+                enabled=request.enabled,
+                published_path=str(skill.skill_dir),
+            )
+            _save_skill_lifecycle_record(
+                record,
+                skills_root=get_skills_root_path(),
+            )
+
         # Reload the skills to get the updated status (for API response)
         skills = load_skills(enabled_only=False)
         updated_skill = next((s for s in skills if s.name == skill_name), None)
@@ -552,6 +788,24 @@ async def publish_skill(request: SkillPublishRequest) -> SkillPublishResponse:
             overwrite=request.overwrite,
         )
         _set_skill_enabled(skill_name, request.enable)
+
+        skills_root = get_skills_root_path()
+        registry = load_skill_lifecycle_registry(skills_root=skills_root)
+        record = merge_skill_lifecycle_record(
+            skill_name=skill_name,
+            lifecycle_payload=load_skill_lifecycle_record(
+                target_dir / "skill-lifecycle.json",
+            ),
+            existing_record=registry.records.get(skill_name),
+            enabled=request.enable,
+            version_note=request.version_note,
+            binding_targets=request.binding_targets,
+            published_path=str(target_dir),
+            last_published_at=utc_timestamp(),
+            last_published_from_thread_id=request.thread_id,
+        )
+        registry.records[skill_name] = record
+        save_skill_lifecycle_registry(registry, skills_root=skills_root)
 
         action = "updated" if request.overwrite else "installed"
         message = f"Skill '{skill_name}' {action} successfully"

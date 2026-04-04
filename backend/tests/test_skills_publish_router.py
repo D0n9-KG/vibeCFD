@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.gateway.routers import skills
 from deerflow.config.extensions_config import ExtensionsConfig
 from deerflow.config.paths import Paths
+from deerflow.domain.submarine.skill_lifecycle import load_skill_lifecycle_registry
 from deerflow.domain.submarine.skill_studio import run_skill_studio
 
 
@@ -83,6 +84,14 @@ def test_publish_skill_route_installs_and_enables_skill(tmp_path: Path, monkeypa
                 "path": archive_virtual_path,
                 "overwrite": False,
                 "enable": True,
+                "version_note": "Promote acceptance skill",
+                "binding_targets": [
+                    {
+                        "role_id": "scientific-verification",
+                        "mode": "explicit",
+                        "target_skills": ["submarine-result-acceptance"],
+                    },
+                ],
             },
         )
 
@@ -94,6 +103,17 @@ def test_publish_skill_route_installs_and_enables_skill(tmp_path: Path, monkeypa
     assert data["published_path"].endswith("skills\\custom\\submarine-result-acceptance")
     installed_skill = tmp_path / "skills" / "custom" / "submarine-result-acceptance" / "SKILL.md"
     assert installed_skill.is_file() is True
+
+    registry = load_skill_lifecycle_registry(
+        registry_path=tmp_path / "skills" / "custom" / ".skill-studio-registry.json",
+    )
+    record = registry.records["submarine-result-acceptance"]
+    assert record.enabled is True
+    assert record.version_note == "Promote acceptance skill"
+    assert record.binding_targets[0].role_id == "scientific-verification"
+    assert record.binding_targets[0].target_skills == ["submarine-result-acceptance"]
+    assert record.last_published_at is not None
+    assert record.last_published_from_thread_id == "thread-1"
 
 
 def test_publish_skill_route_supports_overwrite(tmp_path: Path, monkeypatch) -> None:
@@ -113,6 +133,8 @@ def test_publish_skill_route_supports_overwrite(tmp_path: Path, monkeypatch) -> 
                 "path": archive_virtual_path,
                 "overwrite": False,
                 "enable": True,
+                "version_note": "",
+                "binding_targets": [],
             },
         )
         overwritten = client.post(
@@ -122,9 +144,24 @@ def test_publish_skill_route_supports_overwrite(tmp_path: Path, monkeypatch) -> 
                 "path": archive_virtual_path,
                 "overwrite": True,
                 "enable": True,
+                "version_note": "Overwrite publish",
+                "binding_targets": [
+                    {
+                        "role_id": "result-reporting",
+                        "mode": "explicit",
+                        "target_skills": ["submarine-result-acceptance"],
+                    },
+                ],
             },
         )
 
     assert conflict.status_code == 409
     assert overwritten.status_code == 200
     assert "updated successfully" in overwritten.json()["message"]
+
+    registry = load_skill_lifecycle_registry(
+        registry_path=tmp_path / "skills" / "custom" / ".skill-studio-registry.json",
+    )
+    record = registry.records["submarine-result-acceptance"]
+    assert record.version_note == "Overwrite publish"
+    assert record.binding_targets[0].role_id == "result-reporting"

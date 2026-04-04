@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const {
+  buildSkillStudioBindingTargets,
+  buildSkillStudioPublishPanelModel,
+  findSkillLifecycleSummary,
   buildSkillStudioReadinessSummary,
   formatSkillStudioStatus,
   groupSkillStudioArtifacts,
@@ -104,4 +107,78 @@ void test("normalizes legacy persisted assistant labels", () => {
       assistantLabel: "Codex 技能创建器",
     },
   );
+});
+
+void test("finds lifecycle summaries with explicit bindings for the focused skill", () => {
+  const summary = findSkillLifecycleSummary(
+    [
+      {
+        skill_name: "submarine-result-acceptance",
+        enabled: true,
+        binding_targets: [
+          {
+            role_id: "scientific-verification",
+            mode: "explicit",
+            target_skills: ["submarine-result-acceptance"],
+          },
+        ],
+        active_revision_id: "rev-003",
+        draft_status: "published",
+        published_path: "skills/custom/submarine-result-acceptance",
+        last_published_at: "2026-04-04T00:00:00Z",
+        version_note: "Promote acceptance skill",
+      },
+    ],
+    "submarine-result-acceptance",
+  );
+
+  assert.equal(summary?.skill_name, "submarine-result-acceptance");
+  assert.equal(summary?.binding_targets[0]?.role_id, "scientific-verification");
+});
+
+void test("builds publish panel state with no explicit bindings configured", () => {
+  const model = buildSkillStudioPublishPanelModel({
+    skillName: "submarine-result-acceptance",
+    lifecycleSummary: {
+      skill_name: "submarine-result-acceptance",
+      enabled: false,
+      binding_targets: [],
+      active_revision_id: "rev-002",
+      draft_status: "published",
+      published_path: "skills/custom/submarine-result-acceptance",
+      last_published_at: "2026-04-04T00:00:00Z",
+      version_note: "Keep disabled for manual review",
+    },
+    stateVersionNote: "",
+    stateBindings: null,
+    stateActiveRevisionId: null,
+    statePublishedRevisionId: null,
+  });
+
+  assert.equal(model.enabled, false);
+  assert.equal(model.versionNote, "Keep disabled for manual review");
+  assert.deepEqual(model.bindingTargets, []);
+  assert.deepEqual(model.explicitBindingRoleIds, []);
+  assert.equal(model.hasExplicitBindings, false);
+  assert.equal(model.activeRevisionId, "rev-002");
+});
+
+void test("builds canonical explicit binding targets from selected role ids", () => {
+  const bindingTargets = buildSkillStudioBindingTargets(
+    "submarine-result-acceptance",
+    ["result-reporting", "scientific-verification"],
+  );
+
+  assert.deepEqual(bindingTargets, [
+    {
+      role_id: "scientific-verification",
+      mode: "explicit",
+      target_skills: ["submarine-result-acceptance"],
+    },
+    {
+      role_id: "result-reporting",
+      mode: "explicit",
+      target_skills: ["submarine-result-acceptance"],
+    },
+  ]);
 });

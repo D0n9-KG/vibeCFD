@@ -41,6 +41,8 @@ export interface PublishSkillRequest {
   path: string;
   overwrite?: boolean;
   enable?: boolean;
+  version_note?: string;
+  binding_targets?: SkillLifecycleBindingTarget[];
 }
 
 export interface PublishSkillResponse {
@@ -49,6 +51,53 @@ export interface PublishSkillResponse {
   message: string;
   published_path: string;
   enabled: boolean;
+}
+
+export interface SkillLifecycleBindingTarget {
+  role_id: string;
+  mode: string;
+  target_skills: string[];
+}
+
+export interface SkillLifecycleRevision {
+  revision_id: string;
+  published_at: string;
+  archive_path: string;
+  published_path: string;
+  version_note: string;
+  binding_targets: SkillLifecycleBindingTarget[];
+  enabled: boolean;
+  source_thread_id?: string | null;
+}
+
+export interface SkillLifecycleSummary {
+  skill_name: string;
+  enabled: boolean;
+  binding_targets: SkillLifecycleBindingTarget[];
+  active_revision_id?: string | null;
+  published_revision_id?: string | null;
+  draft_status: string;
+  published_path?: string | null;
+  last_published_at?: string | null;
+  version_note?: string;
+}
+
+export interface SkillLifecycleRecord extends SkillLifecycleSummary {
+  skill_asset_id: string;
+  source_thread_id?: string | null;
+  draft_updated_at?: string | null;
+  package_archive_virtual_path?: string | null;
+  artifact_virtual_paths: string[];
+  bindings: SkillLifecycleBindingTarget[];
+  published_revisions: SkillLifecycleRevision[];
+  last_published_from_thread_id?: string | null;
+  rollback_target_id?: string | null;
+}
+
+export interface UpdateSkillLifecycleRequest {
+  enabled: boolean;
+  version_note?: string;
+  binding_targets: SkillLifecycleBindingTarget[];
 }
 
 export interface SkillGraphNode {
@@ -138,6 +187,67 @@ export async function publishSkill(
       ...request,
     }),
   });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage =
+      errorData.detail ?? `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+export async function loadSkillLifecycleSummaries(): Promise<
+  SkillLifecycleSummary[]
+> {
+  const response = await fetch(`${getBackendBaseURL()}/api/skills/lifecycle`);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage =
+      errorData.detail ?? `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  const json = (await response.json()) as { skills: SkillLifecycleSummary[] };
+  return json.skills;
+}
+
+export async function loadSkillLifecycle(
+  skillName: string,
+): Promise<SkillLifecycleRecord> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/skills/lifecycle/${skillName}`,
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage =
+      errorData.detail ?? `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+export async function updateSkillLifecycle(
+  skillName: string,
+  request: UpdateSkillLifecycleRequest,
+): Promise<SkillLifecycleRecord> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/skills/lifecycle/${skillName}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        version_note: "",
+        ...request,
+      }),
+    },
+  );
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));

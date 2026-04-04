@@ -6,59 +6,75 @@ const { buildSkillStudioEntries } = await import(
 );
 
 void test("extracts lifecycle-backed skill-studio entries from thread search results", () => {
-  const entries = buildSkillStudioEntries([
-    {
-      thread_id: "submarine-skill-studio-demo",
-      updated_at: "2026-03-27T00:00:00+00:00",
-      values: {
-        title: "娼滆墖 Skill Studio 婕旂ず",
-        artifacts: [
-          "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-draft.json",
-          "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
-        ],
-        submarine_skill_studio: {
-          skill_name: "submarine-result-acceptance",
-          skill_asset_id: "submarine-result-acceptance",
-          assistant_mode: "claude-code-skill-creator",
-          assistant_label: "Claude Code 鎶€鑳藉垱寤哄櫒",
-          validation_status: "ready_for_review",
-          test_status: "ready_for_dry_run",
-          publish_status: "ready_for_review",
-          error_count: 0,
-          warning_count: 1,
-          lifecycle_virtual_path:
-            "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-lifecycle.json",
-          active_revision_id: "rev-002",
-          published_revision_id: "rev-001",
-          version_note: "Promote acceptance skill",
-          bindings: [
-            {
-              role_id: "scientific-verification",
-              mode: "explicit",
-              target_skills: ["submarine-result-acceptance"],
-            },
-          ],
-          report_virtual_path:
-            "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
-          artifact_virtual_paths: [
+  const entries = buildSkillStudioEntries(
+    [
+      {
+        thread_id: "submarine-skill-studio-demo",
+        updated_at: "2026-03-27T00:00:00+00:00",
+        values: {
+          title: "娼滆墖 Skill Studio 婕旂ず",
+          artifacts: [
             "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-draft.json",
-            "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-lifecycle.json",
             "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
+          ],
+          submarine_skill_studio: {
+            skill_name: "submarine-result-acceptance",
+            skill_asset_id: "submarine-result-acceptance",
+            assistant_mode: "claude-code-skill-creator",
+            assistant_label: "Claude Code 鎶€鑳藉垱寤哄櫒",
+            validation_status: "ready_for_review",
+            test_status: "ready_for_dry_run",
+            publish_status: "ready_for_review",
+            error_count: 0,
+            warning_count: 1,
+            lifecycle_virtual_path:
+              "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-lifecycle.json",
+            active_revision_id: "rev-002",
+            published_revision_id: "rev-001",
+            version_note: "Legacy note",
+            bindings: [],
+            report_virtual_path:
+              "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
+            artifact_virtual_paths: [
+              "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-draft.json",
+              "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-lifecycle.json",
+              "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/validation-report.md",
+            ],
+          },
+        },
+      },
+      {
+        thread_id: "submarine-cfd-demo",
+        updated_at: "2026-03-26T00:00:00+00:00",
+        values: {
+          title: "娼滆墖 CFD 鏈€灏忛棴鐜紨绀?",
+          artifacts: [
+            "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
           ],
         },
       },
-    },
-    {
-      thread_id: "submarine-cfd-demo",
-      updated_at: "2026-03-26T00:00:00+00:00",
-      values: {
-        title: "娼滆墖 CFD 鏈€灏忛棴鐜紨绀?",
-        artifacts: [
-          "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+    ],
+    "未命名技能工作台",
+    [
+      {
+        skill_name: "submarine-result-acceptance",
+        enabled: true,
+        binding_targets: [
+          {
+            role_id: "scientific-verification",
+            mode: "explicit",
+            target_skills: ["submarine-result-acceptance"],
+          },
         ],
+        active_revision_id: "rev-003",
+        published_revision_id: "rev-002",
+        draft_status: "published",
+        published_path: "skills/custom/submarine-result-acceptance",
+        last_published_at: "2026-03-27T01:00:00+00:00",
+        version_note: "Promote acceptance skill",
       },
-    },
-  ]);
+    ],
+  );
 
   assert.equal(entries.length, 1);
   assert.equal(entries[0]?.threadId, "submarine-skill-studio-demo");
@@ -75,8 +91,8 @@ void test("extracts lifecycle-backed skill-studio entries from thread search res
     entries[0]?.lifecycleVirtualPath,
     "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-lifecycle.json",
   );
-  assert.equal(entries[0]?.activeRevisionId, "rev-002");
-  assert.equal(entries[0]?.publishedRevisionId, "rev-001");
+  assert.equal(entries[0]?.activeRevisionId, "rev-003");
+  assert.equal(entries[0]?.publishedRevisionId, "rev-002");
   assert.equal(entries[0]?.versionNote, "Promote acceptance skill");
   assert.equal(entries[0]?.bindings.length, 1);
   assert.equal(entries[0]?.bindings[0]?.roleId, "scientific-verification");

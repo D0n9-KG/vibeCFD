@@ -50,7 +50,7 @@ Plans:
 
 Plans:
 - [x] 08-01: Unify skill creator orchestration, thread state, and package schema for Vibe CFD skills
-- [ ] 08-02: Add publish, auto-configure, and management flows for project-local DeerFlow skills
+- [x] 08-02: Add publish, auto-configure, and management flows for project-local DeerFlow skills
 - [ ] 08-03: Add revision history, rollback, and post-publish discoverability plus governance views
 
 ### Phase 9: Runtime Isolation and Deployment Hardening
@@ -111,10 +111,10 @@ Plans:
 | 5. Experiment Ops and Reproducibility | v1.0 | 3/3 | Complete | 2026-04-02 |
 | 6. Research Delivery Workbench | v1.0 | 3/3 | Complete | 2026-04-03 |
 | 7. Workspace UX and Navigation System | v1.1 | 3/3 | Complete | 2026-04-03 |
-| 8. Skill Studio Lifecycle and Governance | v1.1 | 1/3 | In Progress | - |
+| 8. Skill Studio Lifecycle and Governance | v1.1 | 2/3 | In Progress | - |
 | 9. Runtime Isolation and Deployment Hardening | v1.1 | 0/3 | Not started | - |
 | 10. Architecture Simplification and Contract Boundaries | v1.1 | 0/3 | Not started | - |
 | 11. Live Validation and Release Readiness | v1.1 | 0/3 | Not started | - |
 
 ---
-*Last updated: 2026-04-04 after Phase 08-01 completion*
+*Last updated: 2026-04-04 after Phase 08-02 completion*

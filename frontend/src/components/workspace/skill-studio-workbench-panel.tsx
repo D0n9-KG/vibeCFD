@@ -23,10 +23,17 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useArtifactContent } from "@/core/artifacts/hooks";
 import { urlOfArtifact } from "@/core/artifacts/utils";
 import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
-import { usePublishSkill, useSkillGraph } from "@/core/skills/hooks";
+import {
+  usePublishSkill,
+  useSkillGraph,
+  useSkillLifecycleSummaries,
+  useUpdateSkillLifecycle,
+} from "@/core/skills/hooks";
 import { cn } from "@/lib/utils";
 
 import { useArtifacts } from "./artifacts";
@@ -38,10 +45,14 @@ import {
   type SkillGraphWorkbenchFilter,
 } from "./skill-graph.utils";
 import {
+  buildSkillStudioBindingTargets,
+  buildSkillStudioPublishPanelModel,
   buildSkillStudioReadinessSummary,
+  findSkillLifecycleSummary,
   formatSkillStudioStatus,
   groupSkillStudioArtifacts,
   resolveSkillStudioAssistantIdentity,
+  SKILL_STUDIO_BINDING_ROLE_IDS,
 } from "./skill-studio-workbench.utils";
 
 export type SkillStudioWorkbenchView =
@@ -66,6 +77,16 @@ type SkillStudioState = {
   warning_count?: number | null;
   package_archive_virtual_path?: string | null;
   ui_metadata_virtual_path?: string | null;
+  active_revision_id?: string | null;
+  published_revision_id?: string | null;
+  version_note?: string | null;
+  bindings?:
+    | Array<{
+        role_id?: string | null;
+        mode?: string | null;
+        target_skills?: string[] | null;
+      }>
+    | null;
   artifact_virtual_paths?: string[] | null;
 };
 
@@ -265,8 +286,12 @@ export function SkillStudioWorkbenchPanel({
   const { thread, isMock } = useThread();
   const { select, setOpen } = useArtifacts();
   const publishSkill = usePublishSkill();
+  const updateSkillLifecycle = useUpdateSkillLifecycle();
   const [publishFeedback, setPublishFeedback] = useState<PublishFeedback | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [enableOnPublish, setEnableOnPublish] = useState(true);
+  const [versionNote, setVersionNote] = useState("");
+  const [explicitBindingRoleIds, setExplicitBindingRoleIds] = useState<string[]>([]);
 
   const studioState = useMemo(() => {
     const raw = thread.values.submarine_skill_studio;
@@ -275,6 +300,9 @@ export function SkillStudioWorkbenchPanel({
 
   const currentSkillName =
     typeof studioState?.skill_name === "string" ? studioState.skill_name : undefined;
+  const { lifecycleSummaries } = useSkillLifecycleSummaries({
+    enabled: Boolean(currentSkillName) && !Boolean(isMock),
+  });
   const { data: skillGraph } = useSkillGraph({
     skillName: currentSkillName,
     isMock: Boolean(isMock),
@@ -353,6 +381,10 @@ export function SkillStudioWorkbenchPanel({
     () => safeJsonParse<PublishReadinessPayload>(publishContent),
     [publishContent],
   );
+  const lifecycleSummary = useMemo(
+    () => findSkillLifecycleSummary(lifecycleSummaries, currentSkillName),
+    [currentSkillName, lifecycleSummaries],
+  );
 
   if (!studioState && studioArtifacts.length === 0) {
     return null;
@@ -380,6 +412,25 @@ export function SkillStudioWorkbenchPanel({
     skillPackage?.archive_virtual_path ??
     studioState?.package_archive_virtual_path ??
     null;
+  const publishPanelModel = useMemo(
+    () =>
+      buildSkillStudioPublishPanelModel({
+        skillName,
+        lifecycleSummary,
+        stateVersionNote: studioState?.version_note,
+        stateBindings: studioState?.bindings,
+        stateActiveRevisionId: studioState?.active_revision_id,
+        statePublishedRevisionId: studioState?.published_revision_id,
+      }),
+    [
+      lifecycleSummary,
+      skillName,
+      studioState?.active_revision_id,
+      studioState?.bindings,
+      studioState?.published_revision_id,
+      studioState?.version_note,
+    ],
+  );
   const readiness = buildSkillStudioReadinessSummary({
     errorCount: validation?.error_count ?? studioState?.error_count ?? 0,
     warningCount: validation?.warning_count ?? studioState?.warning_count ?? 0,
@@ -397,6 +448,10 @@ export function SkillStudioWorkbenchPanel({
     validationWarnings: validation?.warnings ?? [],
     blockingCount: readiness.blockingCount,
   });
+  const bindingTargets = useMemo(
+    () => buildSkillStudioBindingTargets(skillName, explicitBindingRoleIds),
+    [explicitBindingRoleIds, skillName],
+  );
   const publishDisabled = [
     isMock,
     !archiveVirtualPath,
@@ -406,6 +461,21 @@ export function SkillStudioWorkbenchPanel({
   const overwriteDisabled = [isMock, !archiveVirtualPath, publishSkill.isPending].some(
     Boolean,
   );
+  const saveLifecycleDisabled = [
+    isMock,
+    updateSkillLifecycle.isPending,
+    !publishPanelModel.publishedPath,
+  ].some(Boolean);
+
+  useEffect(() => {
+    setEnableOnPublish(publishPanelModel.enabled);
+    setVersionNote(publishPanelModel.versionNote);
+    setExplicitBindingRoleIds(publishPanelModel.explicitBindingRoleIds);
+  }, [
+    publishPanelModel.enabled,
+    publishPanelModel.explicitBindingRoleIds,
+    publishPanelModel.versionNote,
+  ]);
 
   useEffect(() => {
     if (graphModel.nodes.length === 0) {
@@ -425,6 +495,39 @@ export function SkillStudioWorkbenchPanel({
     graphModel.nodes[0] ??
     null;
 
+  async function handleSaveLifecycle() {
+    if (!currentSkillName) {
+      return;
+    }
+
+    try {
+      await updateSkillLifecycle.mutateAsync({
+        skillName: currentSkillName,
+        enabled: enableOnPublish,
+        version_note: versionNote,
+        binding_targets: bindingTargets,
+      });
+      setPublishFeedback({
+        variant: "default",
+        title: "治理配置已保存",
+        message:
+          bindingTargets.length > 0
+            ? `已为 ${bindingTargets.length} 个角色保存显式绑定，并同步当前启用状态。`
+            : "已保存当前启用状态，后续线程将继续使用全局启用池自动发现。",
+      });
+      toast.success("技能治理配置已保存");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "保存技能治理配置失败。";
+      setPublishFeedback({
+        variant: "destructive",
+        title: "保存失败",
+        message,
+      });
+      toast.error(message);
+    }
+  }
+
   async function handlePublish(overwrite: boolean) {
     if (!archiveVirtualPath) {
       setPublishFeedback({
@@ -440,7 +543,9 @@ export function SkillStudioWorkbenchPanel({
         thread_id: threadId,
         path: archiveVirtualPath,
         overwrite,
-        enable: true,
+        enable: enableOnPublish,
+        version_note: versionNote,
+        binding_targets: bindingTargets,
       });
       setPublishFeedback({
         variant: "default",
@@ -463,7 +568,7 @@ export function SkillStudioWorkbenchPanel({
   const data: WorkbenchData = {
     threadId,
     assistantLabel,
-    assistantMode: assistantLabel,
+    assistantMode,
     builtinSkills: displayBuiltinSkills,
     skillName: displaySkillName,
     skillTitle: displaySkillTitle,
@@ -533,14 +638,39 @@ export function SkillStudioWorkbenchPanel({
           {view === "test" ? <TestSection draft={draft} testMatrix={testMatrix} /> : null}
           {view === "publish" ? (
             <PublishSection
+              currentSkillName={currentSkillName ?? skillName}
+              enableOnPublish={enableOnPublish}
+              versionNote={versionNote}
+              bindingTargets={bindingTargets}
+              explicitBindingRoleIds={explicitBindingRoleIds}
+              activeRevisionId={publishPanelModel.activeRevisionId}
+              publishedRevisionId={publishPanelModel.publishedRevisionId}
+              publishedPath={publishPanelModel.publishedPath}
+              lastPublishedAt={publishPanelModel.lastPublishedAt}
+              draftStatus={publishPanelModel.draftStatus}
               feedback={publishFeedback}
               publishDisabled={publishDisabled}
               overwriteDisabled={overwriteDisabled}
               publishPending={publishSkill.isPending}
+              savePending={updateSkillLifecycle.isPending}
+              saveDisabled={saveLifecycleDisabled}
               readiness={readiness}
               archiveVirtualPath={archiveVirtualPath}
               publishReadiness={publishReadiness}
               nextActionLines={nextActionLines}
+              onToggleEnabled={setEnableOnPublish}
+              onVersionNoteChange={setVersionNote}
+              onToggleBindingRole={(roleId) => {
+                setExplicitBindingRoleIds((current) => {
+                  if (current.includes(roleId)) {
+                    return current.filter((item) => item !== roleId);
+                  }
+                  return SKILL_STUDIO_BINDING_ROLE_IDS.filter(
+                    (item) => item === roleId || current.includes(item),
+                  );
+                });
+              }}
+              onSaveLifecycle={handleSaveLifecycle}
               onPublish={handlePublish}
             />
           ) : null}
@@ -869,24 +999,60 @@ function TestSection({
 }
 
 function PublishSection({
+  currentSkillName,
+  enableOnPublish,
+  versionNote,
+  bindingTargets,
+  explicitBindingRoleIds,
+  activeRevisionId,
+  publishedRevisionId,
+  publishedPath,
+  lastPublishedAt,
+  draftStatus,
   feedback,
   publishDisabled,
   overwriteDisabled,
   publishPending,
+  savePending,
+  saveDisabled,
   readiness,
   archiveVirtualPath,
   publishReadiness,
   nextActionLines,
+  onToggleEnabled,
+  onVersionNoteChange,
+  onToggleBindingRole,
+  onSaveLifecycle,
   onPublish,
 }: {
+  currentSkillName: string;
+  enableOnPublish: boolean;
+  versionNote: string;
+  bindingTargets: Array<{
+    role_id: string;
+    mode: string;
+    target_skills: string[];
+  }>;
+  explicitBindingRoleIds: string[];
+  activeRevisionId: string | null;
+  publishedRevisionId: string | null;
+  publishedPath: string | null;
+  lastPublishedAt: string | null;
+  draftStatus: string;
   feedback: PublishFeedback | null;
   publishDisabled: boolean;
   overwriteDisabled: boolean;
   publishPending: boolean;
+  savePending: boolean;
+  saveDisabled: boolean;
   readiness: WorkbenchData["readiness"];
   archiveVirtualPath: string | null;
   publishReadiness: PublishReadinessPayload | null;
   nextActionLines: string[];
+  onToggleEnabled: (enabled: boolean) => void;
+  onVersionNoteChange: (value: string) => void;
+  onToggleBindingRole: (roleId: string) => void;
+  onSaveLifecycle: () => Promise<void>;
   onPublish: (overwrite: boolean) => Promise<void>;
 }) {
   return (
@@ -932,22 +1098,93 @@ function PublishSection({
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">下一步动作</CardTitle>
+            <CardTitle className="text-base">发布与治理</CardTitle>
             <CardDescription>
-              在真正发布前，把最终审阅队列保持清晰可见。
+              在当前工作台内同时管理启用状态、版本说明和显式角色绑定。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <StudioListCard
-              title="动作队列"
-              items={nextActionLines}
-              emptyText="当前还没有下一步动作。"
-              compact
-            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <MiniMetric label="草稿状态" value={formatSkillStudioStatus(draftStatus)} />
+              <MiniMetric label="显式绑定" value={String(bindingTargets.length)} />
+            </div>
+            <div className="rounded-xl border bg-muted/10 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-foreground">发布后启用</div>
+                  <div className="text-xs text-muted-foreground">
+                    关闭时仍会发布技能，但后续线程不会默认加载它。
+                  </div>
+                </div>
+                <Switch
+                  checked={enableOnPublish}
+                  disabled={publishPending || savePending}
+                  onCheckedChange={onToggleEnabled}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-foreground">Version note</div>
+              <Textarea
+                className="min-h-24"
+                disabled={publishPending || savePending}
+                onChange={(event) => onVersionNoteChange(event.target.value)}
+                placeholder="记录这次发布的目的、风险边界或上线说明。"
+                value={versionNote}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-medium text-foreground">bindingTargets</div>
+                <Badge variant="outline">
+                  {explicitBindingRoleIds.length > 0
+                    ? "显式角色绑定"
+                    : "全局启用池自动发现"}
+                </Badge>
+              </div>
+              <div className="space-y-2">
+                {SKILL_STUDIO_BINDING_ROLE_IDS.map((roleId) => {
+                  const checked = explicitBindingRoleIds.includes(roleId);
+                  return (
+                    <div
+                      key={roleId}
+                      className="flex items-center justify-between gap-3 rounded-xl border bg-background/70 p-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-foreground">
+                          {roleId}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {checked
+                            ? `显式绑定到 ${currentSkillName}`
+                            : "未设置显式绑定，保持全局启用池自动发现。"}
+                        </div>
+                      </div>
+                      <Switch
+                        checked={checked}
+                        disabled={publishPending || savePending}
+                        onCheckedChange={() => onToggleBindingRole(roleId)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
             <Separator />
             <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={saveDisabled || publishPending}
+                onClick={() => void onSaveLifecycle()}
+                variant="secondary"
+              >
+                {savePending ? "保存中..." : "保存治理配置"}
+              </Button>
               <Button disabled={publishDisabled} onClick={() => void onPublish(false)}>
-                {publishPending ? "发布中..." : "发布并启用"}
+                {publishPending
+                  ? "发布中..."
+                  : enableOnPublish
+                    ? "发布并启用"
+                    : "发布并保持停用"}
               </Button>
               <Button
                 disabled={overwriteDisabled}
@@ -957,12 +1194,29 @@ function PublishSection({
                 {publishPending ? "发布中..." : "覆盖发布"}
               </Button>
             </div>
+            {!publishedPath ? (
+              <div className="rounded-xl border border-dashed bg-background/60 p-4 text-sm text-muted-foreground">
+                技能还没有发布到项目中。当前启用状态、Version note 和 bindingTargets
+                会随下一次发布一起生效。
+              </div>
+            ) : null}
             <div className="space-y-2 text-sm text-muted-foreground">
               <div>校验：{readiness.validationLabel}</div>
               <div>场景测试：{readiness.testLabel}</div>
               <div>发布：{readiness.publishLabel}</div>
               <div>技能包：{archiveVirtualPath ?? "尚未生成"}</div>
+              <div>当前 revision：{activeRevisionId ?? "尚未发布"}</div>
+              <div>已发布 revision：{publishedRevisionId ?? "尚未发布"}</div>
+              <div>项目路径：{publishedPath ?? "尚未安装到项目"}</div>
+              <div>最近发布：{lastPublishedAt ?? "尚无发布记录"}</div>
             </div>
+            <Separator />
+            <StudioListCard
+              title="动作队列"
+              items={nextActionLines}
+              emptyText="当前还没有下一步动作。"
+              compact
+            />
           </CardContent>
         </Card>
       </div>

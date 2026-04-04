@@ -1,6 +1,15 @@
-from collections.abc import Callable
 from pathlib import Path
 from typing import cast
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from app.gateway.routers import skills
+from deerflow.config.extensions_config import ExtensionsConfig
+from deerflow.config.paths import Paths
+from deerflow.domain.submarine.skill_studio import run_skill_studio
+from deerflow.skills.loader import load_skills as load_skills_from_path
+from collections.abc import Callable
 
 from deerflow.skills.validation import _validate_skill_frontmatter
 
@@ -86,3 +95,152 @@ description: "Curly quotes: \u201cutf8\u201d"
     assert valid is True
     assert message == "Skill is valid!"
     assert skill_name == "demo-skill"
+
+
+def _build_skill_archive(
+    tmp_path: Path,
+    thread_id: str = "thread-1",
+) -> tuple[str, Path]:
+    paths = Paths(tmp_path)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    payload, _ = run_skill_studio(
+        outputs_dir=outputs_dir,
+        skill_name="Submarine Result Acceptance",
+        skill_purpose=(
+            "Define how Claude Code and reporting subagents should decide whether a "
+            "submarine CFD run is trustworthy, needs review, or should be rerun."
+        ),
+        trigger_conditions=[
+            "the user asks whether the current CFD result is trustworthy",
+        ],
+        workflow_steps=[
+            "review mesh, residual, and force summaries from the current run",
+            "produce a Chinese acceptance conclusion with evidence and next-step advice",
+        ],
+        expert_rules=[
+            "flag drag values that materially diverge from the baseline case family",
+        ],
+        acceptance_criteria=[
+            "state an explicit delivery decision",
+            "cite which CFD indicators support that decision",
+        ],
+        test_scenarios=[
+            "baseline steady-state bare-hull case with stable Cd and residual decay",
+        ],
+    )
+    skill_slug = payload["skill_name"]
+    archive_virtual_path = (
+        f"/mnt/user-data/outputs/submarine/skill-studio/{skill_slug}/{skill_slug}.skill"
+    )
+    archive_path = (
+        outputs_dir / "submarine" / "skill-studio" / skill_slug / f"{skill_slug}.skill"
+    )
+    return archive_virtual_path, archive_path
+
+
+def _create_router_client(
+    tmp_path: Path,
+    monkeypatch,
+    archive_path: Path,
+) -> TestClient:
+    skills_root = tmp_path / "skills"
+    config_path = tmp_path / "extensions_config.json"
+
+    monkeypatch.setattr(
+        skills,
+        "resolve_thread_virtual_path",
+        lambda _thread_id, _path: archive_path,
+    )
+    monkeypatch.setattr(skills, "get_skills_root_path", lambda: skills_root)
+    monkeypatch.setattr(
+        skills.ExtensionsConfig,
+        "resolve_config_path",
+        classmethod(lambda _cls: config_path),
+    )
+    monkeypatch.setattr(skills, "reload_extensions_config", lambda: None)
+    monkeypatch.setattr(skills, "get_extensions_config", lambda: ExtensionsConfig())
+    monkeypatch.setattr(
+        skills,
+        "load_skills",
+        lambda enabled_only=False: load_skills_from_path(
+            skills_path=skills_root,
+            use_config=False,
+            enabled_only=enabled_only,
+        ),
+    )
+
+    app = FastAPI()
+    app.include_router(skills.router)
+    return TestClient(app)
+
+
+def test_skill_lifecycle_routes_round_trip_publish_management_state(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    archive_virtual_path, archive_path = _build_skill_archive(tmp_path)
+
+    with _create_router_client(tmp_path, monkeypatch, archive_path) as client:
+        publish_response = client.post(
+            "/api/skills/publish",
+            json={
+                "thread_id": "thread-1",
+                "path": archive_virtual_path,
+                "overwrite": False,
+                "enable": True,
+                "version_note": "Promote acceptance skill",
+                "binding_targets": [
+                    {
+                        "role_id": "scientific-verification",
+                        "mode": "explicit",
+                        "target_skills": ["submarine-result-acceptance"],
+                    },
+                ],
+            },
+        )
+        list_response = client.get("/api/skills/lifecycle")
+        detail_response = client.get(
+            "/api/skills/lifecycle/submarine-result-acceptance",
+        )
+        update_response = client.put(
+            "/api/skills/lifecycle/submarine-result-acceptance",
+            json={
+                "enabled": False,
+                "version_note": "Hold back after manual review",
+                "binding_targets": [
+                    {
+                        "role_id": "result-reporting",
+                        "mode": "explicit",
+                        "target_skills": ["submarine-result-acceptance"],
+                    },
+                ],
+            },
+        )
+
+    assert publish_response.status_code == 200
+
+    assert list_response.status_code == 200
+    lifecycle_summaries = list_response.json()["skills"]
+    assert len(lifecycle_summaries) == 1
+    assert lifecycle_summaries[0]["skill_name"] == "submarine-result-acceptance"
+    assert lifecycle_summaries[0]["enabled"] is True
+    assert lifecycle_summaries[0]["binding_targets"][0]["role_id"] == "scientific-verification"
+    assert lifecycle_summaries[0]["draft_status"] == "published"
+    assert lifecycle_summaries[0]["published_path"].endswith(
+        "skills\\custom\\submarine-result-acceptance",
+    )
+    assert lifecycle_summaries[0]["last_published_at"] is not None
+
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["version_note"] == "Promote acceptance skill"
+    assert detail_payload["binding_targets"][0]["role_id"] == "scientific-verification"
+    assert detail_payload["last_published_from_thread_id"] == "thread-1"
+
+    assert update_response.status_code == 200
+    updated_payload = update_response.json()
+    assert updated_payload["enabled"] is False
+    assert updated_payload["version_note"] == "Hold back after manual review"
+    assert updated_payload["binding_targets"][0]["role_id"] == "result-reporting"

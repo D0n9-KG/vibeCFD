@@ -56,6 +56,51 @@ export type SkillStudioAssistantIdentity = {
   assistantLabel: string;
 };
 
+export const SKILL_STUDIO_BINDING_ROLE_IDS = [
+  "task-intelligence",
+  "geometry-preflight",
+  "solver-dispatch",
+  "scientific-study",
+  "experiment-compare",
+  "scientific-verification",
+  "result-reporting",
+  "scientific-followup",
+] as const;
+
+export type SkillStudioBindingRoleId =
+  (typeof SKILL_STUDIO_BINDING_ROLE_IDS)[number];
+
+export type SkillStudioLifecycleBindingTarget = {
+  role_id: string;
+  mode: string;
+  target_skills: string[];
+};
+
+export type SkillStudioLifecycleSummary = {
+  skill_name: string;
+  enabled: boolean;
+  binding_targets: SkillStudioLifecycleBindingTarget[];
+  active_revision_id?: string | null;
+  published_revision_id?: string | null;
+  draft_status: SkillStudioStatusValue;
+  published_path?: string | null;
+  last_published_at?: string | null;
+  version_note?: string | null;
+};
+
+export type SkillStudioPublishPanelModel = {
+  enabled: boolean;
+  versionNote: string;
+  bindingTargets: SkillStudioLifecycleBindingTarget[];
+  explicitBindingRoleIds: string[];
+  hasExplicitBindings: boolean;
+  activeRevisionId: string | null;
+  publishedRevisionId: string | null;
+  draftStatus: SkillStudioStatusValue;
+  publishedPath: string | null;
+  lastPublishedAt: string | null;
+};
+
 const STATUS_LABELS: Record<string, string> = {
   ready_for_review: "寰呭闃?",
   needs_revision: "闇€淇",
@@ -230,5 +275,119 @@ export function resolveSkillStudioAssistantIdentity(
   return {
     assistantMode,
     assistantLabel,
+  };
+}
+
+function normalizeBindingTargets(
+  bindingTargets:
+    | Array<{
+        role_id?: string | null;
+        mode?: string | null;
+        target_skills?: string[] | null;
+      }>
+    | null
+    | undefined,
+): SkillStudioLifecycleBindingTarget[] {
+  if (!Array.isArray(bindingTargets)) {
+    return [];
+  }
+
+  return bindingTargets
+    .map((binding) => {
+      const roleId =
+        typeof binding?.role_id === "string" ? binding.role_id : null;
+      const mode = typeof binding?.mode === "string" ? binding.mode : null;
+      if (!roleId || !mode) {
+        return null;
+      }
+
+      return {
+        role_id: roleId,
+        mode,
+        target_skills: Array.isArray(binding?.target_skills)
+          ? binding.target_skills.filter(
+              (skill): skill is string => typeof skill === "string",
+            )
+          : [],
+      };
+    })
+    .filter(
+      (
+        binding,
+      ): binding is SkillStudioLifecycleBindingTarget => binding !== null,
+    );
+}
+
+export function findSkillLifecycleSummary(
+  lifecycleSummaries: SkillStudioLifecycleSummary[],
+  skillName?: string | null,
+): SkillStudioLifecycleSummary | null {
+  if (!skillName) {
+    return null;
+  }
+  return (
+    lifecycleSummaries.find((summary) => summary.skill_name === skillName) ??
+    null
+  );
+}
+
+export function buildSkillStudioBindingTargets(
+  skillName: string,
+  explicitBindingRoleIds: string[],
+): SkillStudioLifecycleBindingTarget[] {
+  const explicitRoleIdSet = new Set(explicitBindingRoleIds);
+  return SKILL_STUDIO_BINDING_ROLE_IDS.filter((roleId) =>
+    explicitRoleIdSet.has(roleId),
+  ).map((roleId) => ({
+    role_id: roleId,
+    mode: "explicit",
+    target_skills: [skillName],
+  }));
+}
+
+export function buildSkillStudioPublishPanelModel(input: {
+  skillName: string;
+  lifecycleSummary?: SkillStudioLifecycleSummary | null;
+  stateVersionNote?: string | null;
+  stateBindings?:
+    | Array<{
+        role_id?: string | null;
+        mode?: string | null;
+        target_skills?: string[] | null;
+      }>
+    | null;
+  stateActiveRevisionId?: string | null;
+  statePublishedRevisionId?: string | null;
+}): SkillStudioPublishPanelModel {
+  const lifecycleBindingTargets = normalizeBindingTargets(
+    input.lifecycleSummary?.binding_targets,
+  );
+  const stateBindingTargets = normalizeBindingTargets(input.stateBindings);
+  const bindingTargets =
+    lifecycleBindingTargets.length > 0
+      ? lifecycleBindingTargets
+      : stateBindingTargets;
+  const explicitBindingRoleIds = bindingTargets
+    .filter((binding) => binding.mode === "explicit")
+    .map((binding) => binding.role_id);
+
+  return {
+    enabled: input.lifecycleSummary?.enabled ?? true,
+    versionNote:
+      input.lifecycleSummary?.version_note ?? input.stateVersionNote ?? "",
+    bindingTargets,
+    explicitBindingRoleIds,
+    hasExplicitBindings: explicitBindingRoleIds.length > 0,
+    activeRevisionId:
+      input.lifecycleSummary?.active_revision_id ??
+      input.stateActiveRevisionId ??
+      null,
+    publishedRevisionId:
+      input.lifecycleSummary?.published_revision_id ??
+      input.statePublishedRevisionId ??
+      null,
+    draftStatus: input.lifecycleSummary?.draft_status ?? "draft_only",
+    publishedPath: input.lifecycleSummary?.published_path ?? null,
+    lastPublishedAt: input.lifecycleSummary?.last_published_at ?? null,
   };
 }

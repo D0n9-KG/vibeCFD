@@ -1,10 +1,12 @@
 import json
 
 from deerflow.domain.submarine.skill_lifecycle import (
+    SkillLifecycleBinding,
     SkillLifecycleRecord,
     SkillLifecycleRegistry,
     get_skill_lifecycle_registry_path,
     load_skill_lifecycle_registry,
+    merge_skill_lifecycle_record,
     save_skill_lifecycle_registry,
 )
 
@@ -62,3 +64,54 @@ def test_load_skill_lifecycle_registry_returns_empty_registry_when_missing(tmp_p
     loaded_registry = load_skill_lifecycle_registry(registry_path=registry_path)
 
     assert loaded_registry.records == {}
+
+
+def test_merge_skill_lifecycle_record_syncs_bindings_and_publish_metadata(tmp_path) -> None:
+    existing_record = SkillLifecycleRecord(
+        skill_name="submarine-result-acceptance",
+        skill_asset_id="submarine-result-acceptance",
+        source_thread_id="thread-1",
+        draft_status="draft_ready",
+        draft_updated_at="2026-04-04T00:00:00Z",
+        package_archive_virtual_path="/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/submarine-result-acceptance.skill",
+        artifact_virtual_paths=[],
+        active_revision_id=None,
+        published_revision_id=None,
+        version_note="old note",
+        bindings=[],
+        published_revisions=[],
+        enabled=False,
+        binding_targets=[],
+        published_path=str(tmp_path / "skills" / "custom" / "submarine-result-acceptance"),
+        last_published_at="2026-04-04T00:00:00Z",
+        last_published_from_thread_id="thread-1",
+        rollback_target_id=None,
+    )
+
+    merged = merge_skill_lifecycle_record(
+        skill_name="submarine-result-acceptance",
+        existing_record=existing_record,
+        enabled=True,
+        version_note="Publish for verification stage",
+        binding_targets=[
+            SkillLifecycleBinding(
+                role_id="scientific-verification",
+                mode="explicit",
+                target_skills=["submarine-result-acceptance"],
+            ),
+        ],
+        published_path=str(tmp_path / "skills" / "custom" / "submarine-result-acceptance"),
+        last_published_at="2026-04-04T01:00:00Z",
+        last_published_from_thread_id="thread-2",
+    )
+
+    assert merged.enabled is True
+    assert merged.version_note == "Publish for verification stage"
+    assert merged.binding_targets[0].role_id == "scientific-verification"
+    assert merged.binding_targets[0].target_skills == ["submarine-result-acceptance"]
+    assert merged.bindings[0].role_id == "scientific-verification"
+    assert merged.last_published_at == "2026-04-04T01:00:00Z"
+    assert merged.last_published_from_thread_id == "thread-2"
+    assert merged.published_path == str(
+        tmp_path / "skills" / "custom" / "submarine-result-acceptance"
+    )
