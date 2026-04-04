@@ -14,10 +14,10 @@
 
 ### Skill Lifecycle
 
-- [ ] **SKILL-01**: User can co-create a Vibe CFD skill with the lead agent inside a dedicated skill workbench that follows DeerFlow skill conventions
-- [ ] **SKILL-02**: Generated skill packages include usable `SKILL.md`, metadata, references, validation artifacts, and an installable `.skill` archive without manual patching
+- [x] **SKILL-01**: User can co-create a Vibe CFD skill with the lead agent inside a dedicated skill workbench that follows DeerFlow skill conventions
+- [x] **SKILL-02**: Generated skill packages include usable `SKILL.md`, metadata, references, validation artifacts, and an installable `.skill` archive without manual patching
 - [ ] **SKILL-03**: After expert sign-off, the system can publish and auto-configure a generated skill into the project's DeerFlow skill setup without manual filesystem surgery
-- [ ] **SKILL-04**: User can inspect draft versus published revisions, version notes, and rollback targets for custom Vibe CFD skills
+- [x] **SKILL-04**: User can inspect draft versus published revisions, version notes, and rollback targets for custom Vibe CFD skills
 - [ ] **SKILL-05**: Published custom skills become discoverable and callable by the main agent in later threads while remaining visible in management and relationship views
 
 ### Deployment and Isolation
@@ -68,10 +68,10 @@
 | UX-02 | Phase 7 | Complete |
 | UX-03 | Phase 7 | Complete |
 | UX-04 | Phase 7 | Complete |
-| SKILL-01 | Phase 8 | Pending |
-| SKILL-02 | Phase 8 | Pending |
+| SKILL-01 | Phase 8 | Complete |
+| SKILL-02 | Phase 8 | Complete |
 | SKILL-03 | Phase 8 | Pending |
-| SKILL-04 | Phase 8 | Pending |
+| SKILL-04 | Phase 8 | Complete |
 | SKILL-05 | Phase 8 | Pending |
 | DEP-01 | Phase 9 | Pending |
 | DEP-02 | Phase 9 | Pending |
@@ -91,4 +91,4 @@
 
 ---
 *Requirements defined: 2026-04-03*
-*Last updated: 2026-04-03 after Phase 07 completion*
+*Last updated: 2026-04-04 after Phase 08-01 completion*

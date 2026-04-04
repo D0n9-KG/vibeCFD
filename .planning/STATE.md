@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
+milestone: v1.1
+milestone_name: experience-platform
 current_phase: 08
 current_phase_name: skill-studio-lifecycle-and-governance
-status: planning
-stopped_at: Phase 8 planned
-last_updated: "2026-04-04T12:01:06.286Z"
-last_activity: 2026-04-03
+status: executing
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-04-04T12:45:06.462Z"
+last_activity: 2026-04-04
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 6
-  completed_plans: 3
-  percent: 64
+  completed_plans: 4
+  percent: 67
 ---
 
 # Project State
@@ -23,35 +23,32 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-03)
 
 **Core value:** A researcher can go from natural-language CFD intent to reproducible, evidence-backed submarine results without manually building and operating OpenFOAM cases.
-**Current focus:** Phase 07 is complete. Next up is planning and starting Phase 08 to turn Skill Studio into a governed full-lifecycle product.
+**Current focus:** Phase 08 is in progress. Plan 08-01 shipped the lifecycle contract, and the next step is executing Plan 08-02 to add publish-management and explicit binding flows.
 
 ## Current Position
 
-Phase: 08 (skill-studio-lifecycle-and-governance) - READY
-Plan: 1 of 3
+Phase: 08 (skill-studio-lifecycle-and-governance) - IN PROGRESS
+Plan: 2 of 3
 **Current Milestone:** `v1.1 Experience & Platform`
 **Current Phase:** 08
 **Current Phase Name:** skill-studio-lifecycle-and-governance
-**Status:** Phase 07 complete, ready to plan Phase 08
-**Progress:** [######] Phase 7 complete | milestone progress 64%
-**Last Activity:** 2026-04-03
-**Last Activity Description:** Completed 07-03 workspace polish and closed Phase 07.
+**Status:** Completed 08-01 lifecycle contract work; ready to execute 08-02 publish and management flows
+**Progress:** [#######...] Phase 08 1/3 complete | milestone progress 67%
+**Last Activity:** 2026-04-04
+**Last Activity Description:** Completed 08-01 by adding the Skill Studio lifecycle registry, emitted lifecycle artifacts, and lifecycle-aware frontend helpers.
 
 ## Milestone Snapshot
 
-- `v1.0` remains archived and shipped
-- `v1.1` now spans phases 07 through 11
-- 19 new milestone requirements are mapped across UX, skill lifecycle, deployment, architecture, and validation
-- Phase 07 is complete, including shared shells for submarine, skill studio, chats, and agents plus reusable feedback states
+- `v1.0` remains archived and shipped.
+- `v1.1` spans phases 07 through 11 and is now actively executing Phase 08.
+- Phase 08-01 established the durable lifecycle contract for skill assets, thread state, and helper-layer consumption.
+- Phase 08-02 will add publish-management APIs, explicit role bindings, and Skill Studio management controls.
 
 ## Ready Scope
 
-- Phase 07 now has a shared workspace surface registry, activity bar, contextual sidebar shell, stable pane ids, rebuilt workbenches, aligned chat and agent surfaces, and reusable workspace state feedback.
-- Phase 08 will start by unifying skill creator orchestration, thread state, and package schema for Vibe CFD skills.
-- Phase 08 will productize full-chain Vibe CFD skill creation, publish, and governance flows.
-- Phase 09 will harden Docker and sandbox isolation for safer server deployment.
-- Phase 10 will simplify oversized modules and stabilize shared contracts.
-- Phase 11 will close live validation debt and release-hardening gaps.
+- The Skill Studio draft flow now emits `skill-lifecycle.json` and persists lifecycle identifiers in thread state.
+- Frontend dashboard and workbench helpers can read lifecycle ids, revision placeholders, version notes, and bindings directly from `submarine_skill_studio`.
+- The remaining Phase 08 work is focused on publish management, explicit routing bindings, revision history, rollback, and governance visibility.
 
 ## Carry-Forward Debt
 
@@ -61,15 +58,18 @@ Plan: 1 of 3
 
 ## Blockers
 
-- No blocking issues are currently open. The main execution risk is scope breadth, so the roadmap intentionally separates UX, skill lifecycle, deployment, architecture, and live validation into distinct phases.
+- No blocking issues are currently open for 08-02.
+- The only notable metadata issue was that GSD helper commands did not fully refresh the narrative STATE/ROADMAP sections, so those docs were corrected manually after 08-01 completion.
 
 ## Decisions
 
 - Use `WORKSPACE_SURFACES` as the shared source of truth for workspace labels, hrefs, and active-path matching.
 - Keep settings in the activity bar and reserve the contextual sidebar for surface-specific actions and recent work objects.
+- Persist draft lifecycle truth in `skill-lifecycle.json` and a registry-ready model instead of relying on artifact-only inference.
+- Mirror lifecycle identifiers into thread state and frontend helpers so later publish, revision, and rollback work can build on the Phase 7 shell without reopening workspace architecture.
 
 ## Session
 
-**Last Date:** 2026-04-04T12:01:06.283Z
-**Stopped At:** Phase 8 planned
-**Resume File:** .planning/phases/08-skill-studio-lifecycle-and-governance/08-01-PLAN.md
+**Last Date:** 2026-04-04T20:45:06+08:00
+**Stopped At:** Completed 08-01-PLAN.md
+**Resume File:** .planning/phases/08-skill-studio-lifecycle-and-governance/08-02-PLAN.md
