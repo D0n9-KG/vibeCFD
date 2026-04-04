@@ -12,6 +12,7 @@ import {
 
 type SkillStudioThreadState = {
   skill_name?: string | null;
+  skill_asset_id?: string | null;
   assistant_mode?: string | null;
   assistant_label?: string | null;
   validation_status?: string | null;
@@ -19,14 +20,30 @@ type SkillStudioThreadState = {
   publish_status?: string | null;
   error_count?: number | null;
   warning_count?: number | null;
+  lifecycle_virtual_path?: string | null;
+  active_revision_id?: string | null;
+  published_revision_id?: string | null;
+  version_note?: string | null;
+  bindings?: Array<{
+    role_id?: string | null;
+    mode?: string | null;
+    target_skills?: string[] | null;
+  }> | null;
   report_virtual_path?: string | null;
   artifact_virtual_paths?: string[] | null;
+};
+
+export type SkillStudioLifecycleBinding = {
+  roleId: string;
+  mode: string;
+  targetSkills: string[];
 };
 
 export type SkillStudioDashboardEntry = {
   threadId: string;
   title: string;
   skillName: string;
+  skillAssetId: string;
   assistantMode: string;
   assistantLabel: string;
   validationStatus: string;
@@ -35,6 +52,11 @@ export type SkillStudioDashboardEntry = {
   errorCount: number;
   warningCount: number;
   artifactCount: number;
+  lifecycleVirtualPath: string | null;
+  activeRevisionId: string | null;
+  publishedRevisionId: string | null;
+  versionNote: string;
+  bindings: SkillStudioLifecycleBinding[];
   reportVirtualPath: string | null;
   updatedAt: string | null;
 };
@@ -49,6 +71,35 @@ function extractSkillSlugFromArtifacts(artifacts: string[]) {
 
   const parts = matched.split("/submarine/skill-studio/")[1]?.split("/") ?? [];
   return parts[0] ?? "draft-only";
+}
+
+function normalizeSkillStudioBindings(
+  bindings: SkillStudioThreadState["bindings"],
+): SkillStudioLifecycleBinding[] {
+  if (!Array.isArray(bindings)) {
+    return [];
+  }
+
+  return bindings
+    .map((binding) => {
+      const roleId =
+        typeof binding?.role_id === "string" ? binding.role_id : null;
+      const mode = typeof binding?.mode === "string" ? binding.mode : null;
+      if (!roleId || !mode) {
+        return null;
+      }
+
+      return {
+        roleId,
+        mode,
+        targetSkills: Array.isArray(binding?.target_skills)
+          ? binding.target_skills.filter(
+              (skill): skill is string => typeof skill === "string",
+            )
+          : [],
+      };
+    })
+    .filter((binding): binding is SkillStudioLifecycleBinding => binding !== null);
 }
 
 export function buildSkillStudioEntries(
@@ -83,6 +134,8 @@ export function buildSkillStudioEntries(
 
     const assistantMode =
       studioState?.assistant_mode ?? DEFAULT_SKILL_STUDIO_AGENT;
+    const fallbackSkillAssetId =
+      studioState?.skill_name ?? extractSkillSlugFromArtifacts(artifactSet);
 
     entries.push({
       threadId: thread.thread_id,
@@ -95,6 +148,7 @@ export function buildSkillStudioEntries(
       skillName: localizeWorkspaceDisplayText(
         studioState?.skill_name ?? extractSkillSlugFromArtifacts(artifactSet),
       ),
+      skillAssetId: studioState?.skill_asset_id ?? fallbackSkillAssetId,
       assistantMode,
       assistantLabel: normalizeSkillStudioAgentLabel(
         studioState?.assistant_label ??
@@ -107,6 +161,11 @@ export function buildSkillStudioEntries(
       errorCount: studioState?.error_count ?? 0,
       warningCount: studioState?.warning_count ?? 0,
       artifactCount: artifactSet.length,
+      lifecycleVirtualPath: studioState?.lifecycle_virtual_path ?? null,
+      activeRevisionId: studioState?.active_revision_id ?? null,
+      publishedRevisionId: studioState?.published_revision_id ?? null,
+      versionNote: studioState?.version_note ?? "",
+      bindings: normalizeSkillStudioBindings(studioState?.bindings),
       reportVirtualPath: studioState?.report_virtual_path ?? null,
       updatedAt: thread.updated_at ?? null,
     });

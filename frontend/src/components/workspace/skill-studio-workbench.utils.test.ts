@@ -13,6 +13,7 @@ const {
 void test("groups skill-studio artifacts into package, validation, testing, and publish buckets", () => {
   const groups = groupSkillStudioArtifacts([
     "/mnt/user-data/outputs/submarine/skill-studio/demo/skill-draft.json",
+    "/mnt/user-data/outputs/submarine/skill-studio/demo/skill-lifecycle.json",
     "/mnt/user-data/outputs/submarine/skill-studio/demo/SKILL.md",
     "/mnt/user-data/outputs/submarine/skill-studio/demo/agents/openai.yaml",
     "/mnt/user-data/outputs/submarine/skill-studio/demo/demo.skill",
@@ -25,8 +26,8 @@ void test("groups skill-studio artifacts into package, validation, testing, and 
     groups.map((group) => group.id),
     ["package", "validation", "testing", "publish"],
   );
-  assert.equal(groups[0]?.count, 4);
-  assert.equal(groups[0]?.label, "技能包");
+  assert.equal(groups[0]?.count, 5);
+  assert.equal(groups[0]?.label, "鎶€鑳藉寘");
 });
 
 void test("builds a readiness summary from validation, testing, and publish state", () => {
@@ -41,15 +42,18 @@ void test("builds a readiness summary from validation, testing, and publish stat
   assert.equal(readiness.progress, 92);
   assert.equal(readiness.blockingCount, 0);
   assert.equal(readiness.warningCount, 1);
-  assert.equal(readiness.validationLabel, "待审阅");
-  assert.equal(readiness.testLabel, "可试运行");
-  assert.equal(readiness.publishLabel, "待审阅");
+  assert.equal(readiness.validationLabel, "寰呭闃?");
+  assert.equal(readiness.testLabel, "鍙瘯杩愯");
+  assert.equal(readiness.publishLabel, "寰呭闃?");
 });
 
-void test("formats statuses into stable labels", () => {
-  assert.equal(formatSkillStudioStatus("needs_revision"), "需修订");
-  assert.equal(formatSkillStudioStatus("draft_only"), "仅有草稿");
-  assert.equal(formatSkillStudioStatus("Passed"), "已通过");
+void test("formats lifecycle-aware statuses into stable labels", () => {
+  assert.equal(formatSkillStudioStatus("needs_revision"), "闇€淇");
+  assert.equal(formatSkillStudioStatus("draft_only"), "浠呮湁鑽夌");
+  assert.equal(formatSkillStudioStatus("draft_ready"), "草稿就绪");
+  assert.equal(formatSkillStudioStatus("published"), "已发布");
+  assert.equal(formatSkillStudioStatus("rollback_available"), "可回滚");
+  assert.equal(formatSkillStudioStatus("Passed"), "宸查€氳繃");
   assert.equal(formatSkillStudioStatus("custom_status"), "Custom Status");
 });
 
@@ -93,7 +97,7 @@ void test("normalizes legacy persisted assistant labels", () => {
       packageAssistantMode: null,
       packageAssistantLabel: null,
       stateAssistantMode: "codex-skill-creator",
-      stateAssistantLabel: "Codex · Skill Creator",
+      stateAssistantLabel: "Codex 路 Skill Creator",
     }),
     {
       assistantMode: "codex-skill-creator",

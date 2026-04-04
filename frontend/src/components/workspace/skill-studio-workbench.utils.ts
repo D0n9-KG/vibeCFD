@@ -11,12 +11,26 @@ export type SkillStudioArtifactGroup = {
   paths: string[];
 };
 
+export type SkillStudioStatusValue =
+  | "ready_for_review"
+  | "needs_revision"
+  | "draft_only"
+  | "ready_for_dry_run"
+  | "draft_ready"
+  | "published"
+  | "rollback_available"
+  | "blocked"
+  | "passed"
+  | "failed"
+  | "pending"
+  | (string & {});
+
 export type SkillStudioReadinessInput = {
   errorCount: number;
   warningCount: number;
-  validationStatus?: string | null;
-  testStatus?: string | null;
-  publishStatus?: string | null;
+  validationStatus?: SkillStudioStatusValue | null;
+  testStatus?: SkillStudioStatusValue | null;
+  publishStatus?: SkillStudioStatusValue | null;
 };
 
 export type SkillStudioReadinessSummary = {
@@ -43,19 +57,24 @@ export type SkillStudioAssistantIdentity = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  ready_for_review: "待审阅",
-  needs_revision: "需修订",
-  draft_only: "仅有草稿",
-  ready_for_dry_run: "可试运行",
-  blocked: "已阻塞",
-  passed: "已通过",
-  failed: "未通过",
-  pending: "待处理",
+  ready_for_review: "寰呭闃?",
+  needs_revision: "闇€淇",
+  draft_only: "浠呮湁鑽夌",
+  ready_for_dry_run: "鍙瘯杩愯",
+  draft_ready: "\u8349\u7a3f\u5c31\u7eea",
+  published: "\u5df2\u53d1\u5e03",
+  rollback_available: "\u53ef\u56de\u6eda",
+  blocked: "宸查樆濉?",
+  passed: "宸查€氳繃",
+  failed: "鏈€氳繃",
+  pending: "寰呭鐞?",
 };
 
-export function formatSkillStudioStatus(value?: string | null) {
+export function formatSkillStudioStatus(
+  value?: SkillStudioStatusValue | null,
+) {
   if (!value) {
-    return "未知";
+    return "鏈煡";
   }
   const normalizedValue = value.trim().toLowerCase();
   if (STATUS_LABELS[normalizedValue]) {
@@ -70,6 +89,7 @@ export function formatSkillStudioStatus(value?: string | null) {
 function getArtifactGroupId(path: string): SkillStudioArtifactGroup["id"] {
   if (
     path.endsWith("/skill-draft.json") ||
+    path.endsWith("/skill-lifecycle.json") ||
     path.endsWith("/skill-package.json") ||
     path.endsWith(".skill") ||
     path.endsWith("/SKILL.md") ||
@@ -91,11 +111,11 @@ function getArtifactGroupId(path: string): SkillStudioArtifactGroup["id"] {
 }
 
 const GROUP_LABELS: Record<SkillStudioArtifactGroup["id"], string> = {
-  package: "技能包",
-  validation: "校验",
-  testing: "测试",
-  publish: "发布",
-  other: "其他",
+  package: "鎶€鑳藉寘",
+  validation: "鏍￠獙",
+  testing: "娴嬭瘯",
+  publish: "鍙戝竷",
+  other: "鍏朵粬",
 };
 
 export function groupSkillStudioArtifacts(
@@ -134,12 +154,17 @@ export function groupSkillStudioArtifacts(
     .filter((group): group is SkillStudioArtifactGroup => group !== null);
 }
 
-function getStatusWeight(status?: string | null) {
+function getStatusWeight(status?: SkillStudioStatusValue | null) {
   switch (status) {
     case "ready_for_review":
       return 100;
     case "ready_for_dry_run":
       return 100;
+    case "published":
+    case "rollback_available":
+      return 100;
+    case "draft_ready":
+      return 60;
     case "needs_revision":
       return 45;
     case "draft_only":
@@ -151,7 +176,7 @@ function getStatusWeight(status?: string | null) {
   }
 }
 
-function getBlockingCount(statuses: Array<string | null | undefined>) {
+function getBlockingCount(statuses: Array<SkillStudioStatusValue | null | undefined>) {
   return statuses.reduce((count, status) => {
     return count + (status === "blocked" || status === "needs_revision" ? 1 : 0);
   }, 0);
