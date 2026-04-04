@@ -65,6 +65,7 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
 
     artifacts = result.update["artifacts"]
     assert any(path.endswith("/skill-draft.json") for path in artifacts)
+    assert any(path.endswith("/skill-lifecycle.json") for path in artifacts)
     assert any(path.endswith("/skill-package.json") for path in artifacts)
     assert any(path.endswith("/SKILL.md") for path in artifacts)
     assert any(path.endswith("/agents/openai.yaml") for path in artifacts)
@@ -80,6 +81,9 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
     payload = json.loads((draft_dir / "skill-draft.json").read_text(encoding="utf-8"))
     package_payload = json.loads(
         (draft_dir / "skill-package.json").read_text(encoding="utf-8"),
+    )
+    lifecycle_payload = json.loads(
+        (draft_dir / "skill-lifecycle.json").read_text(encoding="utf-8"),
     )
     test_matrix = json.loads(
         (draft_dir / "test-matrix.json").read_text(encoding="utf-8"),
@@ -99,8 +103,19 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
     assert payload["skill_name"] == "submarine-result-acceptance"
     assert payload["assistant_mode"] == "claude-code-skill-creator"
     assert payload["builtin_skills"] == ["skill-creator", "writing-skills"]
+    assert payload["skill_asset_id"] == "submarine-result-acceptance"
+    assert payload["source_thread_id"] == thread_id
     assert payload["test_status"] == "ready_for_dry_run"
     assert payload["publish_status"] == "ready_for_review"
+    assert payload["lifecycle_virtual_path"].endswith("/skill-lifecycle.json")
+    assert payload["version_note"] == ""
+    assert payload["bindings"] == []
+
+    assert lifecycle_payload["skill_asset_id"] == "submarine-result-acceptance"
+    assert lifecycle_payload["draft_status"] == "draft_ready"
+    assert lifecycle_payload["bindings"] == []
+    assert lifecycle_payload["published_revisions"] == []
+    assert lifecycle_payload["source_thread_id"] == thread_id
 
     assert package_payload["assistant_mode"] == "claude-code-skill-creator"
     assert package_payload["ui_metadata_virtual_path"].endswith("/agents/openai.yaml")
@@ -124,6 +139,7 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
 
     studio_state = result.update["submarine_skill_studio"]
     assert studio_state["skill_name"] == "submarine-result-acceptance"
+    assert studio_state["skill_asset_id"] == "submarine-result-acceptance"
     assert studio_state["assistant_mode"] == "claude-code-skill-creator"
     assert studio_state["builtin_skills"] == ["skill-creator", "writing-skills"]
     assert studio_state["validation_status"] == "ready_for_review"
@@ -131,6 +147,11 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
     assert studio_state["publish_status"] == "ready_for_review"
     assert studio_state["error_count"] == 0
     assert studio_state["report_virtual_path"].endswith("/validation-report.md")
+    assert studio_state["lifecycle_virtual_path"].endswith("/skill-lifecycle.json")
+    assert studio_state["active_revision_id"] is None
+    assert studio_state["published_revision_id"] is None
+    assert studio_state["version_note"] == ""
+    assert studio_state["bindings"] == []
     assert studio_state["artifact_virtual_paths"]
 
 

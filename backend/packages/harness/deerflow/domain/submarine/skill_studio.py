@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 import re
 import zipfile
+from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 
 from deerflow.config.agents_config import load_agent_config
+from deerflow.domain.submarine.skill_lifecycle import SkillLifecycleRecord
 
 ASSISTANT_MODE = "claude-code-skill-creator"
 ASSISTANT_LABEL = "Claude Code · Skill Creator"
@@ -23,6 +25,10 @@ def _slugify_skill_name(value: str) -> str:
 
 def _artifact_virtual_path(skill_slug: str, filename: str) -> str:
     return f"/mnt/user-data/outputs/submarine/skill-studio/{skill_slug}/{filename}"
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _fallback_assistant_label(agent_name: str) -> str:
@@ -468,6 +474,7 @@ def run_skill_studio(
     acceptance_criteria: list[str] | None,
     test_scenarios: list[str] | None,
     assistant_mode: str | None = None,
+    source_thread_id: str | None = None,
 ) -> tuple[dict, list[str]]:
     cleaned_triggers = [item.strip() for item in trigger_conditions or [] if item and item.strip()]
     cleaned_workflow = [item.strip() for item in workflow_steps or [] if item and item.strip()]
@@ -515,9 +522,12 @@ def run_skill_studio(
     agents_dir.mkdir(parents=True, exist_ok=True)
     archive_filename = f"{skill_slug}.skill"
     archive_virtual_path = _artifact_virtual_path(skill_slug, archive_filename)
+    draft_virtual_path = _artifact_virtual_path(skill_slug, "skill-draft.json")
+    lifecycle_virtual_path = _artifact_virtual_path(skill_slug, "skill-lifecycle.json")
 
     artifact_virtual_paths = [
-        _artifact_virtual_path(skill_slug, "skill-draft.json"),
+        draft_virtual_path,
+        lifecycle_virtual_path,
         _artifact_virtual_path(skill_slug, "skill-package.json"),
         _artifact_virtual_path(skill_slug, "SKILL.md"),
         _artifact_virtual_path(skill_slug, "agents/openai.yaml"),
@@ -534,11 +544,13 @@ def run_skill_studio(
 
     payload = {
         "skill_name": skill_slug,
+        "skill_asset_id": skill_slug,
         "skill_title": skill_title,
         "skill_purpose": skill_purpose.strip(),
         "description": description,
         "assistant_mode": resolved_assistant_mode,
         "assistant_label": resolved_assistant_label,
+        "source_thread_id": source_thread_id,
         "workspace_mode": "expert_skill_studio",
         "builtin_skills": BUILTIN_SKILLS,
         "trigger_conditions": cleaned_triggers,
@@ -547,6 +559,8 @@ def run_skill_studio(
         "acceptance_criteria": cleaned_acceptance,
         "test_scenarios": cleaned_scenarios,
         "artifact_virtual_paths": artifact_virtual_paths,
+        "draft_virtual_path": draft_virtual_path,
+        "lifecycle_virtual_path": lifecycle_virtual_path,
         "report_virtual_path": _artifact_virtual_path(skill_slug, "validation-report.md"),
         "ui_metadata_virtual_path": _artifact_virtual_path(skill_slug, "agents/openai.yaml"),
         "package_virtual_path": _artifact_virtual_path(skill_slug, "skill-package.json"),
@@ -597,9 +611,33 @@ def run_skill_studio(
     payload["publish_status"] = publish_readiness["status"]
     payload["error_count"] = validation_payload["error_count"]
     payload["warning_count"] = validation_payload["warning_count"]
+    payload["active_revision_id"] = None
+    payload["published_revision_id"] = None
+    payload["version_note"] = ""
+    payload["bindings"] = []
+    payload["published_revisions"] = []
+
+    lifecycle_payload = SkillLifecycleRecord(
+        skill_name=skill_slug,
+        skill_asset_id=skill_slug,
+        source_thread_id=source_thread_id,
+        draft_status="draft_ready",
+        draft_updated_at=_utc_timestamp(),
+        package_archive_virtual_path=archive_virtual_path,
+        artifact_virtual_paths=artifact_virtual_paths,
+        active_revision_id=None,
+        published_revision_id=None,
+        version_note="",
+        bindings=[],
+        published_revisions=[],
+    ).model_dump(mode="json")
 
     (draft_dir / "skill-draft.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (draft_dir / "skill-lifecycle.json").write_text(
+        json.dumps(lifecycle_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     (draft_dir / "skill-package.json").write_text(

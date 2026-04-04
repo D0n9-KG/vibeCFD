@@ -75,6 +75,7 @@ def submarine_skill_studio_tool(
             acceptance_criteria=acceptance_criteria,
             test_scenarios=test_scenarios,
             assistant_mode=runtime.context.get("agent_name") if runtime.context else None,
+            source_thread_id=_get_thread_id(runtime),
         )
     except ValueError as exc:
         return Command(
@@ -83,6 +84,7 @@ def submarine_skill_studio_tool(
 
     skill_studio_state = {
         "skill_name": payload["skill_name"],
+        "skill_asset_id": payload["skill_asset_id"],
         "assistant_mode": payload["assistant_mode"],
         "assistant_label": payload["assistant_label"],
         "builtin_skills": payload["builtin_skills"],
@@ -94,9 +96,15 @@ def submarine_skill_studio_tool(
         "report_virtual_path": payload["report_virtual_path"],
         "package_virtual_path": payload["package_virtual_path"],
         "package_archive_virtual_path": payload["package_archive_virtual_path"],
+        "draft_virtual_path": payload["draft_virtual_path"],
+        "lifecycle_virtual_path": payload["lifecycle_virtual_path"],
         "test_virtual_path": payload["test_virtual_path"],
         "publish_virtual_path": payload["publish_virtual_path"],
         "ui_metadata_virtual_path": payload["ui_metadata_virtual_path"],
+        "active_revision_id": payload["active_revision_id"],
+        "published_revision_id": payload["published_revision_id"],
+        "version_note": payload["version_note"],
+        "bindings": payload["bindings"],
         "artifact_virtual_paths": artifacts,
     }
     detail_lines = "\n".join(f"- {artifact}" for artifact in artifacts)
