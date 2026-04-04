@@ -20,6 +20,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { useArtifactContent } from "@/core/artifacts/hooks";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import { useLocalSettings } from "@/core/settings";
 import { useDeleteThread, useThreads } from "@/core/threads/hooks";
 import { env } from "@/env";
@@ -698,9 +699,16 @@ function PipelineCenterPane({
   ) => Promise<void> | void;
 }) {
   const centerPaneConfig = getSubmarinePipelineCenterPaneConfig();
-  const currentStageLabel = displayedCurrentStage
-    ? (STAGE_LABELS[displayedCurrentStage] ?? displayedCurrentStage)
-    : "等待建立研究 brief";
+  const currentStageLabel = localizeWorkspaceDisplayText(
+    displayedCurrentStage
+      ? (STAGE_LABELS[displayedCurrentStage] ?? displayedCurrentStage)
+      : "等待建立研究简报",
+  );
+  const nextStageLabel = localizeWorkspaceDisplayText(
+    displayedNextStage
+      ? (STAGE_LABELS[displayedNextStage] ?? displayedNextStage)
+      : "补充目标与基线条件",
+  );
   const calculationPlanDraft =
     runtime?.calculation_plan ?? designBrief?.calculation_plan ?? [];
   const pendingCalculationPlanCount = calculationPlanDraft.filter(
@@ -735,6 +743,19 @@ function PipelineCenterPane({
     !designBrief &&
     !finalReport &&
     !runtime;
+  const evidenceStatusLabel = localizeWorkspaceDisplayText(
+    finalReport
+      ? "已有报告与评估结论"
+      : hasPendingBriefConfirmation
+        ? hasImmediateCalculationPlanClarification
+          ? "计算计划需要立即确认"
+          : pendingCalculationPlanCount > 0
+            ? `计算计划待确认（${pendingCalculationPlanCount} 项）`
+            : "研究简报待确认，确认后才会进入求解派发"
+        : designBrief
+          ? "简报已确认，待生成数值证据"
+          : "等待建立可确认的研究简报",
+  );
   return (
     <div className="flex h-full min-h-0 flex-col bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.10),_transparent_32%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))]">
       {/* Center header — xl only (mobile header is in parent) */}
@@ -760,7 +781,7 @@ function PipelineCenterPane({
             <div className="min-w-0 flex-1 space-y-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-600">
-                  Research Cockpit
+                  研究驾驶舱
                 </span>
                 {runtime?.current_stage ? (
                   <StageBadge
@@ -799,27 +820,11 @@ function PipelineCenterPane({
                 />
                 <WorkbenchFocusTile
                   label="下一步"
-                  value={
-                    displayedNextStage
-                      ? STAGE_LABELS[displayedNextStage] ?? displayedNextStage
-                      : "补充目标与 baseline"
-                  }
+                  value={nextStageLabel}
                 />
                 <WorkbenchFocusTile
                   label="证据链"
-                  value={
-                    finalReport
-                      ? "已有报告与评估结论"
-                      : hasPendingBriefConfirmation
-                        ? hasImmediateCalculationPlanClarification
-                          ? "Calculation plan needs immediate researcher clarification"
-                          : pendingCalculationPlanCount > 0
-                            ? `Calculation plan awaiting researcher confirmation (${pendingCalculationPlanCount} items)`
-                            : "Brief awaiting user confirmation before solver dispatch"
-                        : designBrief
-                        ? "brief 已确认，待生成数值证据"
-                        : "等待建立可确认的 study brief"
-                  }
+                  value={evidenceStatusLabel}
                 />
               </div>
 
@@ -859,7 +864,7 @@ function PipelineCenterPane({
                 meta="已纳入上下文"
               />
               <WorkbenchStatCard
-                label="Artifacts"
+                label="产物"
                 value={String(submarineArtifactCount)}
                 meta="研究产物"
               />
@@ -1051,7 +1056,7 @@ const STAGE_LABELS: Record<string, string> = {
   "geometry-preflight": "几何预检",
   "solver-dispatch": "求解执行",
   "result-reporting": "结果整理",
-  "supervisor-review": "Supervisor 复核",
+  "supervisor-review": "主管复核",
   "user-confirmation": "用户确认",
 };
 

@@ -16,8 +16,6 @@ import { useThreads } from "@/core/threads/hooks";
 import { pathOfThread, titleOfThread } from "@/core/threads/utils";
 import { formatTimeAgo } from "@/core/utils/datetime";
 
-const CHAT_SURFACE_LABEL = "对话";
-
 export default function ChatsPage() {
   const { t } = useI18n();
   const { data: threads = [], isLoading, error } = useThreads();
@@ -34,18 +32,18 @@ export default function ChatsPage() {
     }
 
     return threads.filter((thread) =>
-      titleOfThread(thread).toLowerCase().includes(normalized),
+      titleOfThread(thread, t.pages.untitled).toLowerCase().includes(normalized),
     );
-  }, [search, threads]);
+  }, [search, t.pages.untitled, threads]);
 
   return (
-    <WorkspaceSurfacePage data-surface-label={CHAT_SURFACE_LABEL}>
+    <WorkspaceSurfacePage data-surface-label={t.pages.chats}>
       <WorkspaceSurfaceMain className="max-w-[1840px]">
         <WorkspaceSurfaceCard className="overflow-hidden">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
-                {CHAT_SURFACE_LABEL}
+                {t.pages.chats}
               </div>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900">
                 {t.pages.chats}
@@ -59,6 +57,8 @@ export default function ChatsPage() {
               <div className="relative">
                 <SearchIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-stone-400" />
                 <Input
+                  id="workspace-chat-search"
+                  name="workspace-chat-search"
                   type="search"
                   className="h-12 rounded-2xl border-stone-200 bg-white pl-11 text-base shadow-sm"
                   placeholder={t.chats.searchChats}
@@ -133,7 +133,7 @@ export default function ChatsPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-stone-900">
-                      {titleOfThread(thread)}
+                      {titleOfThread(thread, t.pages.untitled)}
                     </div>
                     <div className="mt-1 truncate text-sm text-stone-500">
                       {thread.updated_at

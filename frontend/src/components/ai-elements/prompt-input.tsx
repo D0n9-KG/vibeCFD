@@ -742,6 +742,7 @@ export const PromptInput = ({
         aria-label="上传文件"
         className="hidden"
         multiple={multiple}
+        name="prompt-input-upload"
         onChange={handleChange}
         ref={inputRef}
         title="上传文件"
