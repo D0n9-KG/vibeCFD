@@ -74,8 +74,11 @@ export interface SkillLifecycleSummary {
   skill_name: string;
   enabled: boolean;
   binding_targets: SkillLifecycleBindingTarget[];
+  revision_count: number;
+  binding_count: number;
   active_revision_id?: string | null;
   published_revision_id?: string | null;
+  rollback_target_id?: string | null;
   draft_status: string;
   published_path?: string | null;
   last_published_at?: string | null;
@@ -92,12 +95,18 @@ export interface SkillLifecycleRecord extends SkillLifecycleSummary {
   published_revisions: SkillLifecycleRevision[];
   last_published_from_thread_id?: string | null;
   rollback_target_id?: string | null;
+  revision_count: number;
+  binding_count: number;
 }
 
 export interface UpdateSkillLifecycleRequest {
   enabled: boolean;
   version_note?: string;
   binding_targets: SkillLifecycleBindingTarget[];
+}
+
+export interface RollbackSkillRevisionRequest {
+  revision_id: string;
 }
 
 export interface SkillGraphNode {
@@ -107,6 +116,11 @@ export interface SkillGraphNode {
   enabled: boolean;
   related_count: number;
   stage?: string | null;
+  revision_count: number;
+  active_revision_id?: string | null;
+  rollback_target_id?: string | null;
+  binding_count: number;
+  last_published_at?: string | null;
 }
 
 export interface SkillGraphRelationship {
@@ -125,6 +139,11 @@ export interface SkillGraphFocusItem {
   relationship_types: string[];
   strongest_score: number;
   reasons: string[];
+  revision_count: number;
+  active_revision_id?: string | null;
+  rollback_target_id?: string | null;
+  binding_count: number;
+  last_published_at?: string | null;
 }
 
 export interface SkillGraphFocus {
@@ -246,6 +265,31 @@ export async function updateSkillLifecycle(
         version_note: "",
         ...request,
       }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage =
+      errorData.detail ?? `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+export async function rollbackSkillRevision(
+  skillName: string,
+  request: RollbackSkillRevisionRequest,
+): Promise<SkillLifecycleSummary> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/skills/${skillName}/rollback`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
     },
   );
 

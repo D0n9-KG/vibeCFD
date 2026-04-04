@@ -54,8 +54,12 @@ export type SkillStudioDashboardEntry = {
   warningCount: number;
   artifactCount: number;
   lifecycleVirtualPath: string | null;
+  revisionCount: number;
+  bindingCount: number;
   activeRevisionId: string | null;
   publishedRevisionId: string | null;
+  rollbackTargetId: string | null;
+  lastPublishedAt: string | null;
   versionNote: string;
   bindings: SkillStudioLifecycleBinding[];
   reportVirtualPath: string | null;
@@ -197,6 +201,10 @@ export function buildSkillStudioEntries(
       warningCount: studioState?.warning_count ?? 0,
       artifactCount: artifactSet.length,
       lifecycleVirtualPath: studioState?.lifecycle_virtual_path ?? null,
+      revisionCount: lifecycleSummary?.revision_count ?? 0,
+      bindingCount:
+        lifecycleSummary?.binding_count ??
+        normalizeSkillStudioBindings(studioState?.bindings).length,
       activeRevisionId:
         lifecycleSummary?.active_revision_id ??
         studioState?.active_revision_id ??
@@ -205,6 +213,8 @@ export function buildSkillStudioEntries(
         lifecycleSummary?.published_revision_id ??
         studioState?.published_revision_id ??
         null,
+      rollbackTargetId: lifecycleSummary?.rollback_target_id ?? null,
+      lastPublishedAt: lifecycleSummary?.last_published_at ?? null,
       versionNote:
         lifecycleSummary?.version_note ?? studioState?.version_note ?? "",
       bindings:

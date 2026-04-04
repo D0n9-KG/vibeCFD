@@ -74,6 +74,11 @@ class SkillGraphNode:
     enabled: bool
     related_count: int
     stage: str | None
+    revision_count: int = 0
+    active_revision_id: str | None = None
+    rollback_target_id: str | None = None
+    binding_count: int = 0
+    last_published_at: str | None = None
 
 
 @dataclass
@@ -104,6 +109,11 @@ class SkillFocusItem:
     relationship_types: list[str]
     strongest_score: float
     reasons: list[str]
+    revision_count: int = 0
+    active_revision_id: str | None = None
+    rollback_target_id: str | None = None
+    binding_count: int = 0
+    last_published_at: str | None = None
 
 
 @dataclass
@@ -171,17 +181,60 @@ def _contains_skill_reference(content: str, other_skill_name: str) -> bool:
     )
 
 
+def _build_skill_governance_metadata(
+    skill,
+    lifecycle_registry,
+) -> dict[str, str | int | None]:
+    from deerflow.domain.submarine.skill_lifecycle import (
+        get_skill_lifecycle_binding_count,
+        get_skill_lifecycle_revision_count,
+        load_skill_lifecycle_record,
+        merge_skill_lifecycle_record,
+    )
+
+    if skill.category != "custom":
+        return {
+            "revision_count": 0,
+            "active_revision_id": None,
+            "rollback_target_id": None,
+            "binding_count": 0,
+            "last_published_at": None,
+        }
+
+    record = merge_skill_lifecycle_record(
+        skill_name=skill.name,
+        lifecycle_payload=load_skill_lifecycle_record(
+            skill.skill_dir / "skill-lifecycle.json",
+        ),
+        existing_record=lifecycle_registry.records.get(skill.name),
+        enabled=skill.enabled,
+        published_path=str(skill.skill_dir),
+    )
+    return {
+        "revision_count": get_skill_lifecycle_revision_count(record),
+        "active_revision_id": record.active_revision_id,
+        "rollback_target_id": record.rollback_target_id,
+        "binding_count": get_skill_lifecycle_binding_count(record),
+        "last_published_at": record.last_published_at,
+    }
+
+
 def analyze_skill_relationships(
     *,
     skills_path: Path | None = None,
     focus_skill_name: str | None = None,
 ) -> SkillGraph:
+    from deerflow.domain.submarine.skill_lifecycle import (
+        load_skill_lifecycle_registry,
+    )
+
     loaded_skills = load_skills(
         skills_path=skills_path,
         use_config=False,
         enabled_only=False,
     )
     loaded_skills.sort(key=lambda skill: skill.name)
+    lifecycle_registry = load_skill_lifecycle_registry(skills_root=skills_path)
 
     token_map = {
         skill.name: _tokenize(skill.name, skill.description)
@@ -193,6 +246,10 @@ def analyze_skill_relationships(
     }
     stage_map = {
         skill.name: _infer_stage(token_map[skill.name])
+        for skill in loaded_skills
+    }
+    governance_map = {
+        skill.name: _build_skill_governance_metadata(skill, lifecycle_registry)
         for skill in loaded_skills
     }
 
@@ -288,6 +345,11 @@ def analyze_skill_relationships(
             enabled=skill.enabled,
             related_count=related_counts[skill.name],
             stage=stage_map[skill.name],
+            revision_count=governance_map[skill.name]["revision_count"],
+            active_revision_id=governance_map[skill.name]["active_revision_id"],
+            rollback_target_id=governance_map[skill.name]["rollback_target_id"],
+            binding_count=governance_map[skill.name]["binding_count"],
+            last_published_at=governance_map[skill.name]["last_published_at"],
         )
         for skill in loaded_skills
     ]
@@ -316,6 +378,11 @@ def analyze_skill_relationships(
                         relationship_types=[],
                         strongest_score=edge.score,
                         reasons=[],
+                        revision_count=governance_map[related_name]["revision_count"],
+                        active_revision_id=governance_map[related_name]["active_revision_id"],
+                        rollback_target_id=governance_map[related_name]["rollback_target_id"],
+                        binding_count=governance_map[related_name]["binding_count"],
+                        last_published_at=governance_map[related_name]["last_published_at"],
                     )
                     related_items[related_name] = current
                 current.relationship_types.append(edge.relationship_type)

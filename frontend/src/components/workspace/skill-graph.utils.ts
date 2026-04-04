@@ -2,7 +2,7 @@ import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.
 
 type SkillGraphRelationshipCounts = Record<string, number>;
 
-export type SkillGraphWorkbenchFilter = 
+export type SkillGraphWorkbenchFilter =
   | "all"
   | "upstream"
   | "downstream"
@@ -23,6 +23,7 @@ export type SkillGraphOverview = {
 };
 
 export type FocusedSkillGraphItem = {
+  skillAssetId: string;
   skillName: string;
   category: string;
   enabled: boolean;
@@ -30,10 +31,16 @@ export type FocusedSkillGraphItem = {
   relationshipLabels: string[];
   strongestScore: number;
   reasons: string[];
+  revisionCount: number;
+  activeRevisionId: string | null;
+  rollbackTargetId: string | null;
+  bindingCount: number;
+  lastPublishedAt: string | null;
 };
 
 export type SkillGraphWorkbenchNode = {
   id: string;
+  skillAssetId: string;
   skillName: string;
   category: string;
   enabled: boolean;
@@ -41,6 +48,11 @@ export type SkillGraphWorkbenchNode = {
   relationshipLabels: string[];
   strongestScore: number;
   reasons: string[];
+  revisionCount: number;
+  activeRevisionId: string | null;
+  rollbackTargetId: string | null;
+  bindingCount: number;
+  lastPublishedAt: string | null;
   isFocus: boolean;
   x: number;
   y: number;
@@ -60,6 +72,21 @@ export type SkillGraphWorkbenchModel = {
   edges: SkillGraphWorkbenchEdge[];
 };
 
+type SkillGraphFocusItemInput = {
+  skill_name: string;
+  category: string;
+  enabled: boolean;
+  description: string;
+  relationship_types: string[];
+  strongest_score: number;
+  reasons: string[];
+  revision_count?: number;
+  active_revision_id?: string | null;
+  rollback_target_id?: string | null;
+  binding_count?: number;
+  last_published_at?: string | null;
+};
+
 function formatRelationshipLabel(value: string) {
   switch (value) {
     case "similar_to":
@@ -69,9 +96,7 @@ function formatRelationshipLabel(value: string) {
     case "depend_on":
       return "依赖于";
     default:
-      return value
-        .split("_")
-        .join(" / ");
+      return value.split("_").join(" / ");
   }
 }
 
@@ -119,7 +144,10 @@ export function buildSkillGraphOverview(graph?: {
       label: formatRelationshipLabel(type),
       count,
     }))
-    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.label.localeCompare(right.label),
+    )
     .slice(0, 3);
 
   return {
@@ -134,15 +162,7 @@ export function buildSkillGraphOverview(graph?: {
 
 export function buildFocusedSkillGraphItems(graph?: {
   focus?: {
-    related_skills?: Array<{
-      skill_name: string;
-      category: string;
-      enabled: boolean;
-      description: string;
-      relationship_types: string[];
-      strongest_score: number;
-      reasons: string[];
-    }>;
+    related_skills?: SkillGraphFocusItemInput[];
   } | null;
 } | null): FocusedSkillGraphItem[] {
   const relatedSkills = graph?.focus?.related_skills ?? [];
@@ -153,6 +173,7 @@ export function buildFocusedSkillGraphItems(graph?: {
         left.skill_name.localeCompare(right.skill_name),
     )
     .map((item) => ({
+      skillAssetId: item.skill_name,
       skillName: localizeWorkspaceDisplayText(item.skill_name),
       category: item.category,
       enabled: item.enabled,
@@ -164,6 +185,11 @@ export function buildFocusedSkillGraphItems(graph?: {
       reasons: (item.reasons ?? []).map((reason) =>
         localizeWorkspaceDisplayText(reason),
       ),
+      revisionCount: item.revision_count ?? 0,
+      activeRevisionId: item.active_revision_id ?? null,
+      rollbackTargetId: item.rollback_target_id ?? null,
+      bindingCount: item.binding_count ?? 0,
+      lastPublishedAt: item.last_published_at ?? null,
     }));
 }
 
@@ -171,15 +197,7 @@ export function buildSkillGraphWorkbenchModel(
   graph?: {
     focus?: {
       skill_name?: string;
-      related_skills?: Array<{
-        skill_name: string;
-        category: string;
-        enabled: boolean;
-        description: string;
-        relationship_types: string[];
-        strongest_score: number;
-        reasons: string[];
-      }>;
+      related_skills?: SkillGraphFocusItemInput[];
     } | null;
   } | null,
   filter: SkillGraphWorkbenchFilter = "all",
@@ -200,6 +218,7 @@ export function buildSkillGraphWorkbenchModel(
 
   const focusNode: SkillGraphWorkbenchNode = {
     id: focusSkillName,
+    skillAssetId: focusSkillName,
     skillName: localizeWorkspaceDisplayText(focusSkillName),
     category: "焦点",
     enabled: true,
@@ -207,6 +226,11 @@ export function buildSkillGraphWorkbenchModel(
     relationshipLabels: [],
     strongestScore: 1,
     reasons: ["当前工作台焦点"],
+    revisionCount: 0,
+    activeRevisionId: null,
+    rollbackTargetId: null,
+    bindingCount: 0,
+    lastPublishedAt: null,
     isFocus: true,
     x: 50,
     y: 18,
@@ -217,15 +241,21 @@ export function buildSkillGraphWorkbenchModel(
     const x = total === 1 ? 50 : 14 + (72 / (total - 1)) * index;
     const y = 72;
 
-      return {
-        id: item.skillName,
-        skillName: item.skillName,
+    return {
+      id: item.skillAssetId,
+      skillAssetId: item.skillAssetId,
+      skillName: item.skillName,
       category: item.category,
       enabled: item.enabled,
       description: item.description,
       relationshipLabels: item.relationshipLabels,
       strongestScore: item.strongestScore,
       reasons: item.reasons,
+      revisionCount: item.revisionCount,
+      activeRevisionId: item.activeRevisionId,
+      rollbackTargetId: item.rollbackTargetId,
+      bindingCount: item.bindingCount,
+      lastPublishedAt: item.lastPublishedAt,
       isFocus: false,
       x,
       y,
@@ -233,9 +263,9 @@ export function buildSkillGraphWorkbenchModel(
   });
 
   const edges = relatedNodes.map((node) => ({
-    id: `${focusSkillName}-${node.skillName}`,
+    id: `${focusSkillName}-${node.id}`,
     source: focusSkillName,
-    target: node.skillName,
+    target: node.id,
     label: node.relationshipLabels.join(" / ") || "相关",
     score: node.strongestScore,
   }));

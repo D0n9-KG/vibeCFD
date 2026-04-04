@@ -122,7 +122,10 @@ void test("finds lifecycle summaries with explicit bindings for the focused skil
             target_skills: ["submarine-result-acceptance"],
           },
         ],
+        revision_count: 3,
+        binding_count: 1,
         active_revision_id: "rev-003",
+        rollback_target_id: "rev-002",
         draft_status: "published",
         published_path: "skills/custom/submarine-result-acceptance",
         last_published_at: "2026-04-04T00:00:00Z",
@@ -143,7 +146,10 @@ void test("builds publish panel state with no explicit bindings configured", () 
       skill_name: "submarine-result-acceptance",
       enabled: false,
       binding_targets: [],
+      revision_count: 2,
+      binding_count: 0,
       active_revision_id: "rev-002",
+      rollback_target_id: "rev-001",
       draft_status: "published",
       published_path: "skills/custom/submarine-result-acceptance",
       last_published_at: "2026-04-04T00:00:00Z",
@@ -160,7 +166,10 @@ void test("builds publish panel state with no explicit bindings configured", () 
   assert.deepEqual(model.bindingTargets, []);
   assert.deepEqual(model.explicitBindingRoleIds, []);
   assert.equal(model.hasExplicitBindings, false);
+  assert.equal(model.revisionCount, 2);
+  assert.equal(model.bindingCount, 0);
   assert.equal(model.activeRevisionId, "rev-002");
+  assert.equal(model.rollbackTargetId, "rev-001");
 });
 
 void test("builds canonical explicit binding targets from selected role ids", () => {

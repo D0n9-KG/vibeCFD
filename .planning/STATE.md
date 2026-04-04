@@ -4,16 +4,16 @@ milestone: v1.1
 milestone_name: experience-platform
 current_phase: 08
 current_phase_name: skill-studio-lifecycle-and-governance
-status: executing
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-04-04T13:31:29.4445034Z"
+status: completed
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-04-04T14:12:04.2753505Z"
 last_activity: 2026-04-04
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 6
+  percent: 80
 ---
 
 # Project State
@@ -23,33 +23,33 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-04-03)
 
 **Core value:** A researcher can go from natural-language CFD intent to reproducible, evidence-backed submarine results without manually building and operating OpenFOAM cases.
-**Current focus:** Phase 08 is in progress. Plans 08-01 and 08-02 shipped the lifecycle contract plus publish-management flows, and the next step is executing Plan 08-03 for revision history, rollback, and governance visibility.
+**Current focus:** Phase 08 is complete. The next milestone step is planning and executing Phase 09 for runtime isolation and deployment hardening.
 
 ## Current Position
 
-Phase: 08 (skill-studio-lifecycle-and-governance) - IN PROGRESS
+Phase: 08 (skill-studio-lifecycle-and-governance) - COMPLETE
 Plan: 3 of 3
 **Current Milestone:** `v1.1 Experience & Platform`
 **Current Phase:** 08
 **Current Phase Name:** skill-studio-lifecycle-and-governance
-**Status:** Completed 08-02 publish-management work; ready to execute 08-03 revision history, rollback, and governance visibility
-**Progress:** [########..] Phase 08 2/3 complete | milestone progress 72%
+**Status:** Completed Phase 08 by shipping revision history, rollback, and governance visibility for project-local DeerFlow skills
+**Progress:** [########..] Milestone progress 80%
 **Last Activity:** 2026-04-04
-**Last Activity Description:** Completed 08-02 by adding lifecycle publish APIs, explicit role binding guidance, and Skill Studio management controls.
+**Last Activity Description:** Completed 08-03 by persisting published revisions, adding rollback against saved snapshots, and surfacing governance metadata in lifecycle, dashboard, workbench, and graph views.
 
 ## Milestone Snapshot
 
 - `v1.0` remains archived and shipped.
-- `v1.1` spans phases 07 through 11 and is now actively executing Phase 08.
+- `v1.1` spans phases 07 through 11 and now has both Phase 07 and Phase 08 complete.
 - Phase 08-01 established the durable lifecycle contract for skill assets, thread state, and helper-layer consumption.
 - Phase 08-02 added publish-management APIs, explicit role bindings, lead-agent binding guidance, and inline workbench governance controls.
-- Phase 08-03 now focuses the remaining phase scope on revision history, rollback, and governance visibility in graph/dashboard surfaces.
+- Phase 08-03 completed the lifecycle product by adding persisted revisions, rollback, and governance visibility across lifecycle and graph surfaces.
 
 ## Ready Scope
 
-- The Skill Studio draft flow now emits `skill-lifecycle.json` and persists lifecycle identifiers in thread state.
-- Frontend dashboard and workbench helpers can read lifecycle ids, revision placeholders, version notes, and bindings directly from `submarine_skill_studio`.
-- The remaining Phase 08 work is focused on revision history, rollback, and governance visibility across lifecycle and graph surfaces.
+- Skill Studio now supports the full project-local lifecycle: draft, publish, manage bindings, inspect revisions, roll back, and review discoverability state.
+- Lifecycle-backed governance metadata now flows through the backend APIs, the dashboard, the publish surface, and the graph inspector.
+- The next open milestone scope is Phase 09 runtime isolation and deployment hardening.
 
 ## Carry-Forward Debt
 
@@ -59,8 +59,8 @@ Plan: 3 of 3
 
 ## Blockers
 
-- No blocking issues are currently open for 08-03.
-- The only notable metadata issue was that GSD helper commands did not fully refresh the narrative STATE/ROADMAP sections, so those docs were corrected manually after 08-01 and 08-02 completion.
+- No active blockers are open now that Phase 08 is complete.
+- Phase 09 has not been planned into `.planning/phases/09-...` artifacts yet, so the next workflow step is planning rather than execution.
 
 ## Decisions
 
@@ -70,9 +70,10 @@ Plan: 3 of 3
 - Mirror lifecycle identifiers into thread state and frontend helpers so later publish, revision, and rollback work can build on the Phase 7 shell without reopening workspace architecture.
 - Keep enablement compatible with DeerFlow's existing `extensions_config.json` flow while persisting version notes and explicit bindings in the lifecycle registry.
 - Feed explicit role bindings back into later lead-agent routing through `<project_skill_bindings>` instead of hiding them as UI-only state.
+- Center revision history and rollback on saved `.skill` snapshots under the project-local custom skill directory instead of treating rollback as metadata-only state.
 
 ## Session
 
-**Last Date:** 2026-04-04T21:31:13+08:00
-**Stopped At:** Completed 08-02-PLAN.md
-**Resume File:** .planning/phases/08-skill-studio-lifecycle-and-governance/08-03-PLAN.md
+**Last Date:** 2026-04-04T22:12:04+08:00
+**Stopped At:** Completed 08-03-PLAN.md
+**Resume File:** Plan Phase 09 next (`.planning/phases/09-runtime-isolation-and-deployment-hardening/09-01-PLAN.md` does not exist yet)

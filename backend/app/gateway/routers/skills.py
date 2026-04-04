@@ -13,10 +13,18 @@ from app.gateway.path_utils import resolve_thread_virtual_path
 from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
 from deerflow.domain.submarine.skill_lifecycle import (
     SkillLifecycleBinding,
+    SkillLifecycleRevision,
     SkillLifecycleRecord,
     SkillLifecycleRegistry,
+    append_skill_lifecycle_revision,
+    apply_skill_lifecycle_revision,
+    get_next_skill_revision_id,
+    get_skill_lifecycle_binding_count,
     load_skill_lifecycle_record,
     load_skill_lifecycle_registry,
+    get_skill_lifecycle_revision,
+    get_skill_lifecycle_revision_count,
+    get_skill_revision_archive_path,
     merge_skill_lifecycle_record,
     save_skill_lifecycle_registry,
     utc_timestamp,
@@ -143,6 +151,11 @@ class SkillGraphNodeResponse(BaseModel):
     enabled: bool
     related_count: int
     stage: str | None = None
+    revision_count: int = 0
+    active_revision_id: str | None = None
+    rollback_target_id: str | None = None
+    binding_count: int = 0
+    last_published_at: str | None = None
 
 
 class SkillGraphRelationshipResponse(BaseModel):
@@ -170,6 +183,11 @@ class SkillGraphFocusItemResponse(BaseModel):
     relationship_types: list[str]
     strongest_score: float
     reasons: list[str]
+    revision_count: int = 0
+    active_revision_id: str | None = None
+    rollback_target_id: str | None = None
+    binding_count: int = 0
+    last_published_at: str | None = None
 
 
 class SkillGraphFocusResponse(BaseModel):
@@ -213,7 +231,11 @@ class SkillLifecycleSummaryResponse(BaseModel):
     skill_name: str
     enabled: bool
     binding_targets: list[SkillLifecycleBinding] = Field(default_factory=list)
+    revision_count: int = 0
+    binding_count: int = 0
     active_revision_id: str | None = None
+    published_revision_id: str | None = None
+    rollback_target_id: str | None = None
     draft_status: str
     published_path: str | None = None
     last_published_at: str | None = None
@@ -224,6 +246,11 @@ class SkillLifecycleListResponse(BaseModel):
     skills: list[SkillLifecycleSummaryResponse]
 
 
+class SkillLifecycleDetailResponse(SkillLifecycleRecord):
+    revision_count: int = 0
+    binding_count: int = 0
+
+
 class SkillLifecycleUpdateRequest(BaseModel):
     enabled: bool = Field(..., description="Whether the custom skill should stay enabled for later threads")
     version_note: str = Field(default="", description="Project-level note attached to the current published state")
@@ -231,6 +258,10 @@ class SkillLifecycleUpdateRequest(BaseModel):
         default_factory=list,
         description="Explicit role bindings keyed by role_id, mode, and target_skills",
     )
+
+
+class SkillRollbackRequest(BaseModel):
+    revision_id: str = Field(..., description="Published revision ID to restore")
 
 
 def _should_ignore_archive_entry(path: Path) -> bool:
@@ -258,7 +289,11 @@ def _skill_to_response(skill: Skill) -> SkillResponse:
 
 
 def _find_custom_skill(skill_name: str) -> Skill | None:
-    skills = load_skills(enabled_only=False)
+    skills = load_skills(
+        skills_path=get_skills_root_path(),
+        use_config=False,
+        enabled_only=False,
+    )
     return next(
         (
             skill
@@ -309,11 +344,49 @@ def _to_skill_lifecycle_summary(
             binding.model_copy(deep=True)
             for binding in record.binding_targets
         ],
+        revision_count=get_skill_lifecycle_revision_count(record),
+        binding_count=get_skill_lifecycle_binding_count(record),
         active_revision_id=record.active_revision_id,
+        published_revision_id=record.published_revision_id,
+        rollback_target_id=record.rollback_target_id,
         draft_status=record.draft_status,
         published_path=record.published_path,
         last_published_at=record.last_published_at,
         version_note=record.version_note,
+    )
+
+
+def _to_skill_lifecycle_detail(
+    record: SkillLifecycleRecord,
+) -> SkillLifecycleDetailResponse:
+    return SkillLifecycleDetailResponse(
+        **record.model_dump(mode="python"),
+        revision_count=get_skill_lifecycle_revision_count(record),
+        binding_count=get_skill_lifecycle_binding_count(record),
+    )
+
+
+def _build_published_skill_revision(
+    *,
+    record: SkillLifecycleRecord,
+    revision_id: str,
+    revision_archive_path: Path,
+    published_path: Path,
+    published_at: str,
+    source_thread_id: str,
+) -> SkillLifecycleRevision:
+    return SkillLifecycleRevision(
+        revision_id=revision_id,
+        published_at=published_at,
+        archive_path=str(revision_archive_path),
+        published_path=str(published_path),
+        version_note=record.version_note,
+        binding_targets=[
+            binding.model_copy(deep=True)
+            for binding in record.binding_targets
+        ],
+        enabled=record.enabled,
+        source_thread_id=source_thread_id,
     )
 
 
@@ -382,6 +455,7 @@ def _install_skill_archive(skill_file_path: Path, *, overwrite: bool = False) ->
             raise HTTPException(status_code=400, detail="Could not determine skill name")
 
         target_dir = custom_skills_dir / skill_name
+        preserved_revisions_dir = temp_path / "__preserved_revisions__"
         if target_dir.exists():
             if not overwrite:
                 raise HTTPException(
@@ -391,9 +465,17 @@ def _install_skill_archive(skill_file_path: Path, *, overwrite: bool = False) ->
                         "Use overwrite=true to replace it."
                     ),
                 )
+            revision_dir = target_dir / ".revisions"
+            if revision_dir.exists():
+                shutil.copytree(revision_dir, preserved_revisions_dir)
             shutil.rmtree(target_dir)
 
         shutil.copytree(skill_dir, target_dir)
+        if preserved_revisions_dir.exists():
+            restored_revision_dir = target_dir / ".revisions"
+            if restored_revision_dir.exists():
+                shutil.rmtree(restored_revision_dir)
+            shutil.copytree(preserved_revisions_dir, restored_revision_dir)
 
     return skill_name, target_dir
 
@@ -500,11 +582,11 @@ async def list_skill_lifecycle() -> SkillLifecycleListResponse:
 
 @router.get(
     "/skills/lifecycle/{skill_name}",
-    response_model=SkillLifecycleRecord,
+    response_model=SkillLifecycleDetailResponse,
     summary="Get Skill Lifecycle Details",
     description="Return the full lifecycle record for a custom project-local skill.",
 )
-async def get_skill_lifecycle(skill_name: str) -> SkillLifecycleRecord:
+async def get_skill_lifecycle(skill_name: str) -> SkillLifecycleDetailResponse:
     try:
         skill = _find_custom_skill(skill_name)
         if skill is None:
@@ -514,7 +596,9 @@ async def get_skill_lifecycle(skill_name: str) -> SkillLifecycleRecord:
             )
 
         registry = load_skill_lifecycle_registry(skills_root=get_skills_root_path())
-        return _resolve_skill_lifecycle_record(skill, registry)
+        return _to_skill_lifecycle_detail(
+            _resolve_skill_lifecycle_record(skill, registry),
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -532,14 +616,14 @@ async def get_skill_lifecycle(skill_name: str) -> SkillLifecycleRecord:
 
 @router.put(
     "/skills/lifecycle/{skill_name}",
-    response_model=SkillLifecycleRecord,
+    response_model=SkillLifecycleDetailResponse,
     summary="Update Skill Lifecycle Management State",
     description="Update enablement, version note, and explicit binding targets without re-publishing the skill.",
 )
 async def update_skill_lifecycle(
     skill_name: str,
     request: SkillLifecycleUpdateRequest,
-) -> SkillLifecycleRecord:
+) -> SkillLifecycleDetailResponse:
     try:
         skill = _find_custom_skill(skill_name)
         if skill is None:
@@ -571,7 +655,7 @@ async def update_skill_lifecycle(
         )
         registry.records[skill_name] = record
         save_skill_lifecycle_registry(registry, skills_root=skills_root)
-        return record
+        return _to_skill_lifecycle_detail(record)
     except HTTPException:
         raise
     except Exception as e:
@@ -584,6 +668,98 @@ async def update_skill_lifecycle(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to update skill lifecycle: {str(e)}",
+        )
+
+
+@router.post(
+    "/skills/{skill_name}/rollback",
+    response_model=SkillLifecycleSummaryResponse,
+    summary="Rollback Published Skill Revision",
+    description="Restore a previously published skill snapshot into the project-local custom skills directory.",
+)
+async def rollback_skill_revision(
+    skill_name: str,
+    request: SkillRollbackRequest,
+) -> SkillLifecycleSummaryResponse:
+    try:
+        skill = _find_custom_skill(skill_name)
+        if skill is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Custom skill '{skill_name}' not found",
+            )
+
+        skills_root = get_skills_root_path()
+        registry = load_skill_lifecycle_registry(skills_root=skills_root)
+        record = _resolve_skill_lifecycle_record(skill, registry)
+        revision = get_skill_lifecycle_revision(record, request.revision_id)
+        if revision is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Published revision '{request.revision_id}' not found for "
+                    f"skill '{skill_name}'"
+                ),
+            )
+
+        revision_archive_path = Path(revision.archive_path)
+        if not revision_archive_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Revision archive not found: {revision_archive_path}",
+            )
+
+        restored_skill_name, target_dir = _install_skill_archive(
+            revision_archive_path,
+            overwrite=True,
+        )
+        if restored_skill_name != skill_name:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Revision '{request.revision_id}' does not match "
+                    f"skill '{skill_name}'"
+                ),
+            )
+
+        _set_skill_enabled(skill_name, revision.enabled)
+        updated_skill = _find_custom_skill(skill_name)
+        if updated_skill is None:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to reload custom skill '{skill_name}' after rollback",
+            )
+
+        restored_record = merge_skill_lifecycle_record(
+            skill_name=skill_name,
+            lifecycle_payload=load_skill_lifecycle_record(
+                _get_skill_lifecycle_payload_path(updated_skill),
+            ),
+            existing_record=record,
+            sync_active_revision=False,
+            enabled=revision.enabled,
+            published_path=str(target_dir),
+        )
+        restored_record = apply_skill_lifecycle_revision(
+            restored_record,
+            revision=revision,
+        )
+        registry.records[skill_name] = restored_record
+        save_skill_lifecycle_registry(registry, skills_root=skills_root)
+        return _to_skill_lifecycle_summary(restored_record)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to roll back skill %s to revision %s: %s",
+            skill_name,
+            request.revision_id,
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to rollback skill revision: {str(e)}",
         )
 
 
@@ -791,18 +967,39 @@ async def publish_skill(request: SkillPublishRequest) -> SkillPublishResponse:
 
         skills_root = get_skills_root_path()
         registry = load_skill_lifecycle_registry(skills_root=skills_root)
+        published_at = utc_timestamp()
         record = merge_skill_lifecycle_record(
             skill_name=skill_name,
             lifecycle_payload=load_skill_lifecycle_record(
                 target_dir / "skill-lifecycle.json",
             ),
             existing_record=registry.records.get(skill_name),
+            sync_active_revision=False,
             enabled=request.enable,
             version_note=request.version_note,
             binding_targets=request.binding_targets,
             published_path=str(target_dir),
-            last_published_at=utc_timestamp(),
+            last_published_at=published_at,
             last_published_from_thread_id=request.thread_id,
+        )
+        revision_id = get_next_skill_revision_id(record)
+        revision_archive_path = get_skill_revision_archive_path(
+            skill_name,
+            revision_id,
+            skills_root=skills_root,
+        )
+        revision_archive_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(skill_file_path, revision_archive_path)
+        record = append_skill_lifecycle_revision(
+            record,
+            revision=_build_published_skill_revision(
+                record=record,
+                revision_id=revision_id,
+                revision_archive_path=revision_archive_path,
+                published_path=target_dir,
+                published_at=published_at,
+                source_thread_id=request.thread_id,
+            ),
         )
         registry.records[skill_name] = record
         save_skill_lifecycle_registry(registry, skills_root=skills_root)

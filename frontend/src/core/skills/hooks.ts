@@ -6,6 +6,7 @@ import {
   loadSkillLifecycle,
   loadSkillLifecycleSummaries,
   publishSkill,
+  rollbackSkillRevision,
   updateSkillLifecycle,
 } from "./api";
 
@@ -103,6 +104,31 @@ export function useUpdateSkillLifecycle() {
       });
       void queryClient.invalidateQueries({ queryKey: ["skills"] });
       void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+    },
+  });
+}
+
+export function useRollbackSkillRevision() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      skillName,
+      revision_id,
+    }: {
+      skillName: string;
+      revision_id: string;
+    }) => rollbackSkillRevision(skillName, { revision_id }),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ["skills", "lifecycle"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["skills", "lifecycle", variables.skillName],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["skills"] });
+      void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["skills", "graph", variables.skillName],
+        exact: false,
+      });
     },
   });
 }

@@ -1,10 +1,14 @@
 import json
 
 from deerflow.domain.submarine.skill_lifecycle import (
+    SkillLifecycleRevision,
+    append_skill_lifecycle_revision,
     SkillLifecycleBinding,
     SkillLifecycleRecord,
     SkillLifecycleRegistry,
+    get_next_skill_revision_id,
     get_skill_lifecycle_registry_path,
+    get_skill_revision_archive_path,
     load_skill_lifecycle_registry,
     merge_skill_lifecycle_record,
     save_skill_lifecycle_registry,
@@ -115,3 +119,84 @@ def test_merge_skill_lifecycle_record_syncs_bindings_and_publish_metadata(tmp_pa
     assert merged.published_path == str(
         tmp_path / "skills" / "custom" / "submarine-result-acceptance"
     )
+
+
+def test_revision_helpers_generate_hidden_archive_paths_and_rollback_targets(
+    tmp_path,
+) -> None:
+    record = SkillLifecycleRecord(
+        skill_name="submarine-result-acceptance",
+        skill_asset_id="submarine-result-acceptance",
+        draft_status="published",
+        artifact_virtual_paths=[],
+        active_revision_id=None,
+        published_revision_id=None,
+        version_note="",
+        bindings=[],
+        published_revisions=[],
+        enabled=True,
+        binding_targets=[],
+        rollback_target_id=None,
+    )
+
+    revision_one_path = get_skill_revision_archive_path(
+        "submarine-result-acceptance",
+        "rev-001",
+        skills_root=tmp_path / "skills",
+    )
+    assert revision_one_path.as_posix().endswith(
+        "skills/custom/submarine-result-acceptance/.revisions/rev-001.skill"
+    )
+    assert get_next_skill_revision_id(record) == "rev-001"
+
+    record = append_skill_lifecycle_revision(
+        record,
+        revision=SkillLifecycleRevision(
+            revision_id="rev-001",
+            published_at="2026-04-04T00:00:00Z",
+            archive_path=str(revision_one_path),
+            published_path=str(
+                tmp_path / "skills" / "custom" / "submarine-result-acceptance"
+            ),
+            version_note="Initial publish",
+            binding_targets=[],
+            enabled=True,
+            source_thread_id="thread-1",
+        ),
+    )
+    assert record.active_revision_id == "rev-001"
+    assert record.rollback_target_id is None
+    assert get_next_skill_revision_id(record) == "rev-002"
+
+    record = append_skill_lifecycle_revision(
+        record,
+        revision=SkillLifecycleRevision(
+            revision_id="rev-002",
+            published_at="2026-04-04T01:00:00Z",
+            archive_path=str(
+                get_skill_revision_archive_path(
+                    "submarine-result-acceptance",
+                    "rev-002",
+                    skills_root=tmp_path / "skills",
+                )
+            ),
+            published_path=str(
+                tmp_path / "skills" / "custom" / "submarine-result-acceptance"
+            ),
+            version_note="Second publish",
+            binding_targets=[
+                SkillLifecycleBinding(
+                    role_id="scientific-verification",
+                    mode="explicit",
+                    target_skills=["submarine-result-acceptance"],
+                ),
+            ],
+            enabled=False,
+            source_thread_id="thread-2",
+        ),
+    )
+    assert record.active_revision_id == "rev-002"
+    assert record.published_revision_id == "rev-002"
+    assert record.rollback_target_id == "rev-001"
+    assert record.version_note == "Second publish"
+    assert record.enabled is False

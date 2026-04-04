@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -67,8 +68,148 @@ class SkillLifecycleRegistry(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+_REVISION_ID_PATTERN = re.compile(r"^rev-(\d+)$")
+
+
 def utc_timestamp() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
+def get_skill_revision_directory(
+    skill_name: str,
+    *,
+    skills_root: Path | None = None,
+) -> Path:
+    root = Path(skills_root) if skills_root is not None else get_skills_root_path()
+    return root / "custom" / skill_name / ".revisions"
+
+
+def get_skill_revision_archive_path(
+    skill_name: str,
+    revision_id: str,
+    *,
+    skills_root: Path | None = None,
+) -> Path:
+    return get_skill_revision_directory(
+        skill_name,
+        skills_root=skills_root,
+    ) / f"{revision_id}.skill"
+
+
+def get_next_skill_revision_id(record: SkillLifecycleRecord) -> str:
+    next_index = 1
+    for revision in record.published_revisions:
+        match = _REVISION_ID_PATTERN.match(revision.revision_id)
+        if match is None:
+            next_index = max(next_index, len(record.published_revisions) + 1)
+            continue
+        next_index = max(next_index, int(match.group(1)) + 1)
+    return f"rev-{next_index:03d}"
+
+
+def get_skill_lifecycle_revision(
+    record: SkillLifecycleRecord,
+    revision_id: str,
+) -> SkillLifecycleRevision | None:
+    return next(
+        (
+            revision
+            for revision in record.published_revisions
+            if revision.revision_id == revision_id
+        ),
+        None,
+    )
+
+
+def get_skill_lifecycle_revision_count(record: SkillLifecycleRecord) -> int:
+    return len(record.published_revisions)
+
+
+def get_skill_lifecycle_binding_count(record: SkillLifecycleRecord) -> int:
+    return len(record.binding_targets)
+
+
+def sync_active_skill_lifecycle_revision(
+    record: SkillLifecycleRecord,
+) -> SkillLifecycleRecord:
+    if not record.active_revision_id:
+        return record
+
+    updated_revisions: list[SkillLifecycleRevision] = []
+    did_update = False
+    for revision in record.published_revisions:
+        if revision.revision_id != record.active_revision_id:
+            updated_revisions.append(revision.model_copy(deep=True))
+            continue
+
+        updated_revisions.append(
+            revision.model_copy(
+                update={
+                    "published_path": record.published_path or revision.published_path,
+                    "version_note": record.version_note,
+                    "binding_targets": [
+                        binding.model_copy(deep=True)
+                        for binding in record.binding_targets
+                    ],
+                    "enabled": record.enabled,
+                    "source_thread_id": (
+                        record.last_published_from_thread_id
+                        or revision.source_thread_id
+                    ),
+                },
+                deep=True,
+            ),
+        )
+        did_update = True
+
+    if did_update:
+        record.published_revisions = updated_revisions
+    return record
+
+
+def apply_skill_lifecycle_revision(
+    record: SkillLifecycleRecord,
+    *,
+    revision: SkillLifecycleRevision,
+) -> SkillLifecycleRecord:
+    previous_active_revision_id = record.active_revision_id
+    record.active_revision_id = revision.revision_id
+    record.published_revision_id = revision.revision_id
+    record.version_note = revision.version_note
+    record.binding_targets = [
+        binding.model_copy(deep=True)
+        for binding in revision.binding_targets
+    ]
+    record.bindings = [
+        binding.model_copy(deep=True)
+        for binding in revision.binding_targets
+    ]
+    record.enabled = revision.enabled
+    record.published_path = revision.published_path
+    record.last_published_at = revision.published_at
+    record.last_published_from_thread_id = revision.source_thread_id
+    record.rollback_target_id = (
+        previous_active_revision_id
+        if previous_active_revision_id
+        and previous_active_revision_id != revision.revision_id
+        else None
+    )
+    record.draft_status = (
+        "rollback_available" if record.rollback_target_id else "published"
+    )
+    return record
+
+
+def append_skill_lifecycle_revision(
+    record: SkillLifecycleRecord,
+    *,
+    revision: SkillLifecycleRevision,
+) -> SkillLifecycleRecord:
+    record.published_revisions = [
+        *record.published_revisions,
+        revision.model_copy(deep=True),
+    ]
+    return apply_skill_lifecycle_revision(record, revision=revision)
 
 
 def build_default_skill_lifecycle_record(
@@ -106,6 +247,7 @@ def merge_skill_lifecycle_record(
     skill_name: str,
     lifecycle_payload: SkillLifecycleRecord | None = None,
     existing_record: SkillLifecycleRecord | None = None,
+    sync_active_revision: bool = True,
     enabled: bool | None = None,
     version_note: str | None = None,
     binding_targets: list[SkillLifecycleBinding] | None = None,
@@ -135,11 +277,17 @@ def merge_skill_lifecycle_record(
             binding.model_copy(deep=True)
             for binding in lifecycle_payload.bindings
         ]
-        if lifecycle_payload.active_revision_id is not None:
+        if (
+            lifecycle_payload.active_revision_id is not None
+            and merged.active_revision_id is None
+        ):
             merged.active_revision_id = lifecycle_payload.active_revision_id
-        if lifecycle_payload.published_revision_id is not None:
+        if (
+            lifecycle_payload.published_revision_id is not None
+            and merged.published_revision_id is None
+        ):
             merged.published_revision_id = lifecycle_payload.published_revision_id
-        if lifecycle_payload.published_revisions:
+        if lifecycle_payload.published_revisions and not merged.published_revisions:
             merged.published_revisions = [
                 revision.model_copy(deep=True)
                 for revision in lifecycle_payload.published_revisions
@@ -183,6 +331,8 @@ def merge_skill_lifecycle_record(
     if last_published_from_thread_id is not None:
         merged.last_published_from_thread_id = last_published_from_thread_id
 
+    if sync_active_revision:
+        return sync_active_skill_lifecycle_revision(merged)
     return merged
 
 

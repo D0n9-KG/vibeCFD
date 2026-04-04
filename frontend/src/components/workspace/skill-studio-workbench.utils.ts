@@ -76,12 +76,26 @@ export type SkillStudioLifecycleBindingTarget = {
   target_skills: string[];
 };
 
+export type SkillStudioLifecycleRevision = {
+  revision_id: string;
+  published_at: string;
+  archive_path: string;
+  published_path: string;
+  version_note: string;
+  binding_targets: SkillStudioLifecycleBindingTarget[];
+  enabled: boolean;
+  source_thread_id?: string | null;
+};
+
 export type SkillStudioLifecycleSummary = {
   skill_name: string;
   enabled: boolean;
   binding_targets: SkillStudioLifecycleBindingTarget[];
+  revision_count: number;
+  binding_count: number;
   active_revision_id?: string | null;
   published_revision_id?: string | null;
+  rollback_target_id?: string | null;
   draft_status: SkillStudioStatusValue;
   published_path?: string | null;
   last_published_at?: string | null;
@@ -94,8 +108,11 @@ export type SkillStudioPublishPanelModel = {
   bindingTargets: SkillStudioLifecycleBindingTarget[];
   explicitBindingRoleIds: string[];
   hasExplicitBindings: boolean;
+  revisionCount: number;
+  bindingCount: number;
   activeRevisionId: string | null;
   publishedRevisionId: string | null;
+  rollbackTargetId: string | null;
   draftStatus: SkillStudioStatusValue;
   publishedPath: string | null;
   lastPublishedAt: string | null;
@@ -378,6 +395,9 @@ export function buildSkillStudioPublishPanelModel(input: {
     bindingTargets,
     explicitBindingRoleIds,
     hasExplicitBindings: explicitBindingRoleIds.length > 0,
+    revisionCount: input.lifecycleSummary?.revision_count ?? 0,
+    bindingCount:
+      input.lifecycleSummary?.binding_count ?? bindingTargets.length,
     activeRevisionId:
       input.lifecycleSummary?.active_revision_id ??
       input.stateActiveRevisionId ??
@@ -386,6 +406,7 @@ export function buildSkillStudioPublishPanelModel(input: {
       input.lifecycleSummary?.published_revision_id ??
       input.statePublishedRevisionId ??
       null,
+    rollbackTargetId: input.lifecycleSummary?.rollback_target_id ?? null,
     draftStatus: input.lifecycleSummary?.draft_status ?? "draft_only",
     publishedPath: input.lifecycleSummary?.published_path ?? null,
     lastPublishedAt: input.lifecycleSummary?.last_published_at ?? null,

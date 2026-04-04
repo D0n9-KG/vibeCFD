@@ -30,7 +30,9 @@ import { urlOfArtifact } from "@/core/artifacts/utils";
 import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import {
   usePublishSkill,
+  useRollbackSkillRevision,
   useSkillGraph,
+  useSkillLifecycle,
   useSkillLifecycleSummaries,
   useUpdateSkillLifecycle,
 } from "@/core/skills/hooks";
@@ -53,6 +55,7 @@ import {
   groupSkillStudioArtifacts,
   resolveSkillStudioAssistantIdentity,
   SKILL_STUDIO_BINDING_ROLE_IDS,
+  type SkillStudioLifecycleRevision,
 } from "./skill-studio-workbench.utils";
 
 export type SkillStudioWorkbenchView =
@@ -286,6 +289,7 @@ export function SkillStudioWorkbenchPanel({
   const { thread, isMock } = useThread();
   const { select, setOpen } = useArtifacts();
   const publishSkill = usePublishSkill();
+  const rollbackSkillRevision = useRollbackSkillRevision();
   const updateSkillLifecycle = useUpdateSkillLifecycle();
   const [publishFeedback, setPublishFeedback] = useState<PublishFeedback | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -301,6 +305,10 @@ export function SkillStudioWorkbenchPanel({
   const currentSkillName =
     typeof studioState?.skill_name === "string" ? studioState.skill_name : undefined;
   const { lifecycleSummaries } = useSkillLifecycleSummaries({
+    enabled: Boolean(currentSkillName) && !Boolean(isMock),
+  });
+  const { data: lifecycleDetail } = useSkillLifecycle({
+    skillName: currentSkillName,
     enabled: Boolean(currentSkillName) && !Boolean(isMock),
   });
   const { data: skillGraph } = useSkillGraph({
@@ -416,13 +424,14 @@ export function SkillStudioWorkbenchPanel({
     () =>
       buildSkillStudioPublishPanelModel({
         skillName,
-        lifecycleSummary,
+        lifecycleSummary: lifecycleDetail ?? lifecycleSummary,
         stateVersionNote: studioState?.version_note,
         stateBindings: studioState?.bindings,
         stateActiveRevisionId: studioState?.active_revision_id,
         statePublishedRevisionId: studioState?.published_revision_id,
       }),
     [
+      lifecycleDetail,
       lifecycleSummary,
       skillName,
       studioState?.active_revision_id,
@@ -452,6 +461,10 @@ export function SkillStudioWorkbenchPanel({
     () => buildSkillStudioBindingTargets(skillName, explicitBindingRoleIds),
     [explicitBindingRoleIds, skillName],
   );
+  const publishedRevisions = useMemo(
+    () => [...(lifecycleDetail?.published_revisions ?? [])].reverse(),
+    [lifecycleDetail?.published_revisions],
+  );
   const publishDisabled = [
     isMock,
     !archiveVirtualPath,
@@ -466,6 +479,7 @@ export function SkillStudioWorkbenchPanel({
     updateSkillLifecycle.isPending,
     !publishPanelModel.publishedPath,
   ].some(Boolean);
+  const rollbackDisabled = [isMock, rollbackSkillRevision.isPending].some(Boolean);
 
   useEffect(() => {
     setEnableOnPublish(publishPanelModel.enabled);
@@ -522,6 +536,34 @@ export function SkillStudioWorkbenchPanel({
       setPublishFeedback({
         variant: "destructive",
         title: "保存失败",
+        message,
+      });
+      toast.error(message);
+    }
+  }
+
+  async function handleRollback(revisionId: string) {
+    if (!currentSkillName) {
+      return;
+    }
+
+    try {
+      const result = await rollbackSkillRevision.mutateAsync({
+        skillName: currentSkillName,
+        revision_id: revisionId,
+      });
+      setPublishFeedback({
+        variant: "default",
+        title: "回滚完成",
+        message: `已恢复到 ${revisionId}。当前 revision：${result.active_revision_id ?? revisionId}。`,
+      });
+      toast.success(`已恢复到 ${revisionId}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "回滚技能 revision 失败。";
+      setPublishFeedback({
+        variant: "destructive",
+        title: "回滚失败",
         message,
       });
       toast.error(message);
@@ -643,17 +685,23 @@ export function SkillStudioWorkbenchPanel({
               versionNote={versionNote}
               bindingTargets={bindingTargets}
               explicitBindingRoleIds={explicitBindingRoleIds}
+              revisionCount={publishPanelModel.revisionCount}
+              bindingCount={publishPanelModel.bindingCount}
               activeRevisionId={publishPanelModel.activeRevisionId}
               publishedRevisionId={publishPanelModel.publishedRevisionId}
+              rollbackTargetId={publishPanelModel.rollbackTargetId}
               publishedPath={publishPanelModel.publishedPath}
               lastPublishedAt={publishPanelModel.lastPublishedAt}
               draftStatus={publishPanelModel.draftStatus}
+              publishedRevisions={publishedRevisions}
               feedback={publishFeedback}
               publishDisabled={publishDisabled}
               overwriteDisabled={overwriteDisabled}
               publishPending={publishSkill.isPending}
+              rollbackPending={rollbackSkillRevision.isPending}
               savePending={updateSkillLifecycle.isPending}
               saveDisabled={saveLifecycleDisabled}
+              rollbackDisabled={rollbackDisabled}
               readiness={readiness}
               archiveVirtualPath={archiveVirtualPath}
               publishReadiness={publishReadiness}
@@ -672,6 +720,7 @@ export function SkillStudioWorkbenchPanel({
               }}
               onSaveLifecycle={handleSaveLifecycle}
               onPublish={handlePublish}
+              onRollback={handleRollback}
             />
           ) : null}
           {view === "graph" ? (
@@ -1004,17 +1053,23 @@ function PublishSection({
   versionNote,
   bindingTargets,
   explicitBindingRoleIds,
+  revisionCount,
+  bindingCount,
   activeRevisionId,
   publishedRevisionId,
+  rollbackTargetId,
   publishedPath,
   lastPublishedAt,
   draftStatus,
+  publishedRevisions,
   feedback,
   publishDisabled,
   overwriteDisabled,
   publishPending,
+  rollbackPending,
   savePending,
   saveDisabled,
+  rollbackDisabled,
   readiness,
   archiveVirtualPath,
   publishReadiness,
@@ -1024,6 +1079,7 @@ function PublishSection({
   onToggleBindingRole,
   onSaveLifecycle,
   onPublish,
+  onRollback,
 }: {
   currentSkillName: string;
   enableOnPublish: boolean;
@@ -1034,17 +1090,23 @@ function PublishSection({
     target_skills: string[];
   }>;
   explicitBindingRoleIds: string[];
+  revisionCount: number;
+  bindingCount: number;
   activeRevisionId: string | null;
   publishedRevisionId: string | null;
+  rollbackTargetId: string | null;
   publishedPath: string | null;
   lastPublishedAt: string | null;
   draftStatus: string;
+  publishedRevisions: SkillStudioLifecycleRevision[];
   feedback: PublishFeedback | null;
   publishDisabled: boolean;
   overwriteDisabled: boolean;
   publishPending: boolean;
+  rollbackPending: boolean;
   savePending: boolean;
   saveDisabled: boolean;
+  rollbackDisabled: boolean;
   readiness: WorkbenchData["readiness"];
   archiveVirtualPath: string | null;
   publishReadiness: PublishReadinessPayload | null;
@@ -1054,6 +1116,7 @@ function PublishSection({
   onToggleBindingRole: (roleId: string) => void;
   onSaveLifecycle: () => Promise<void>;
   onPublish: (overwrite: boolean) => Promise<void>;
+  onRollback: (revisionId: string) => Promise<void>;
 }) {
   return (
     <>
@@ -1106,7 +1169,9 @@ function PublishSection({
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <MiniMetric label="草稿状态" value={formatSkillStudioStatus(draftStatus)} />
-              <MiniMetric label="显式绑定" value={String(bindingTargets.length)} />
+              <MiniMetric label="已发布 revision" value={String(revisionCount)} />
+              <MiniMetric label="当前绑定" value={String(bindingCount)} />
+              <MiniMetric label="回滚目标" value={rollbackTargetId ?? "暂无"} />
             </div>
             <div className="rounded-xl border bg-muted/10 p-4">
               <div className="flex items-center justify-between gap-3">
@@ -1169,6 +1234,71 @@ function PublishSection({
                   );
                 })}
               </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-medium text-foreground">Revision history</div>
+                <Badge variant="outline">{publishedRevisions.length}</Badge>
+              </div>
+              {publishedRevisions.length > 0 ? (
+                <div className="space-y-2">
+                  {publishedRevisions.map((revision) => {
+                    const isActive = revision.revision_id === activeRevisionId;
+                    const isRollbackTarget =
+                      revision.revision_id === rollbackTargetId;
+                    return (
+                      <div
+                        key={revision.revision_id}
+                        className="rounded-xl border bg-background/70 p-3"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="text-sm font-medium text-foreground">
+                                {revision.revision_id}
+                              </div>
+                              {isActive ? <Badge>Active</Badge> : null}
+                              {isRollbackTarget ? (
+                                <Badge variant="outline">Rollback target</Badge>
+                              ) : null}
+                              <Badge variant="outline">
+                                {revision.enabled ? "Enabled" : "Disabled"}
+                              </Badge>
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {revision.published_at}
+                            </div>
+                            <div className="mt-2 text-sm text-muted-foreground">
+                              {revision.version_note || "No version note"}
+                            </div>
+                            <div className="mt-2 text-xs text-muted-foreground">
+                              {revision.binding_targets.length > 0
+                                ? `Bindings: ${revision.binding_targets.length}`
+                                : "Bindings: auto-discovery"}
+                            </div>
+                          </div>
+                          {!isActive ? (
+                            <Button
+                              disabled={rollbackDisabled}
+                              onClick={() => void onRollback(revision.revision_id)}
+                              size="sm"
+                              variant="outline"
+                            >
+                              {rollbackPending && isRollbackTarget
+                                ? "Rolling back..."
+                                : "Rollback"}
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed bg-background/60 p-4 text-sm text-muted-foreground">
+                  Publish the skill once to start collecting revision snapshots for rollback.
+                </div>
+              )}
             </div>
             <Separator />
             <div className="flex flex-wrap gap-2">
@@ -1325,8 +1455,24 @@ function GraphSection({
               <div className="grid gap-3 sm:grid-cols-2">
                 <MiniMetric label="分类" value={selectedNode.category} />
                 <MiniMetric label="启用状态" value={selectedNode.enabled ? "是" : "否"} />
+                <MiniMetric label="Revisions" value={String(selectedNode.revisionCount)} />
+                <MiniMetric label="Bindings" value={String(selectedNode.bindingCount)} />
               </div>
               <MiniMetric label="最高分值" value={selectedNode.strongestScore.toFixed(2)} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <MiniMetric
+                  label="Active revision"
+                  value={selectedNode.activeRevisionId ?? "None"}
+                />
+                <MiniMetric
+                  label="Rollback target"
+                  value={selectedNode.rollbackTargetId ?? "None"}
+                />
+              </div>
+              <MiniMetric
+                label="Last published"
+                value={selectedNode.lastPublishedAt ?? "No publish yet"}
+              />
               <div className="flex flex-wrap gap-2">
                 {selectedNode.relationshipLabels.map((label) => (
                   <Badge key={label} variant="outline">

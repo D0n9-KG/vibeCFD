@@ -14,7 +14,7 @@ Goal: turn the shipped submarine CFD loop into a cleaner, safer, and more extens
 ## Phases
 
 - [x] **Phase 7: Workspace UX and Navigation System** - Rebuild the core workspace information architecture, page shells, and responsive layouts for submarine, chat, and skill surfaces
-- [ ] **Phase 8: Skill Studio Lifecycle and Governance** - Productize full-chain Vibe CFD skill creation, publish, auto-configuration, and revision management around DeerFlow skills
+- [x] **Phase 8: Skill Studio Lifecycle and Governance** - Productize full-chain Vibe CFD skill creation, publish, auto-configuration, and revision management around DeerFlow skills
 - [ ] **Phase 9: Runtime Isolation and Deployment Hardening** - Harden Docker and sandbox deployment boundaries so lead agents, subagents, and OpenFOAM execution are safer on servers
 - [ ] **Phase 10: Architecture Simplification and Contract Boundaries** - Break oversized modules into clearer domain boundaries while stabilizing shared state and lifecycle contracts
 - [ ] **Phase 11: Live Validation and Release Readiness** - Close the remaining live-thread validation debt and verify the milestone against real flows instead of fixtures alone
@@ -51,7 +51,7 @@ Plans:
 Plans:
 - [x] 08-01: Unify skill creator orchestration, thread state, and package schema for Vibe CFD skills
 - [x] 08-02: Add publish, auto-configure, and management flows for project-local DeerFlow skills
-- [ ] 08-03: Add revision history, rollback, and post-publish discoverability plus governance views
+- [x] 08-03: Add revision history, rollback, and post-publish discoverability plus governance views
 
 ### Phase 9: Runtime Isolation and Deployment Hardening
 **Goal**: Make server deployment safer by turning existing Docker and sandbox support into a deliberate runtime isolation model.
@@ -111,10 +111,10 @@ Plans:
 | 5. Experiment Ops and Reproducibility | v1.0 | 3/3 | Complete | 2026-04-02 |
 | 6. Research Delivery Workbench | v1.0 | 3/3 | Complete | 2026-04-03 |
 | 7. Workspace UX and Navigation System | v1.1 | 3/3 | Complete | 2026-04-03 |
-| 8. Skill Studio Lifecycle and Governance | v1.1 | 2/3 | In Progress | - |
+| 8. Skill Studio Lifecycle and Governance | v1.1 | 3/3 | Complete | 2026-04-04 |
 | 9. Runtime Isolation and Deployment Hardening | v1.1 | 0/3 | Not started | - |
 | 10. Architecture Simplification and Contract Boundaries | v1.1 | 0/3 | Not started | - |
 | 11. Live Validation and Release Readiness | v1.1 | 0/3 | Not started | - |
 
 ---
-*Last updated: 2026-04-04 after Phase 08-02 completion*
+*Last updated: 2026-04-04 after Phase 08 completion*

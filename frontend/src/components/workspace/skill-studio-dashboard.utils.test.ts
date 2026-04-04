@@ -66,8 +66,11 @@ void test("extracts lifecycle-backed skill-studio entries from thread search res
             target_skills: ["submarine-result-acceptance"],
           },
         ],
+        revision_count: 3,
+        binding_count: 1,
         active_revision_id: "rev-003",
         published_revision_id: "rev-002",
+        rollback_target_id: "rev-001",
         draft_status: "published",
         published_path: "skills/custom/submarine-result-acceptance",
         last_published_at: "2026-03-27T01:00:00+00:00",
@@ -91,8 +94,12 @@ void test("extracts lifecycle-backed skill-studio entries from thread search res
     entries[0]?.lifecycleVirtualPath,
     "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-lifecycle.json",
   );
+  assert.equal(entries[0]?.revisionCount, 3);
+  assert.equal(entries[0]?.bindingCount, 1);
   assert.equal(entries[0]?.activeRevisionId, "rev-003");
   assert.equal(entries[0]?.publishedRevisionId, "rev-002");
+  assert.equal(entries[0]?.rollbackTargetId, "rev-001");
+  assert.equal(entries[0]?.lastPublishedAt, "2026-03-27T01:00:00+00:00");
   assert.equal(entries[0]?.versionNote, "Promote acceptance skill");
   assert.equal(entries[0]?.bindings.length, 1);
   assert.equal(entries[0]?.bindings[0]?.roleId, "scientific-verification");
@@ -141,8 +148,12 @@ void test("falls back to legacy skill-studio artifacts when structured lifecycle
   assert.equal(entries[0]?.artifactCount, 2);
   assert.equal(entries[0]?.validationStatus, "draft_only");
   assert.equal(entries[0]?.lifecycleVirtualPath, null);
+  assert.equal(entries[0]?.revisionCount, 0);
+  assert.equal(entries[0]?.bindingCount, 0);
   assert.equal(entries[0]?.activeRevisionId, null);
   assert.equal(entries[0]?.publishedRevisionId, null);
+  assert.equal(entries[0]?.rollbackTargetId, null);
+  assert.equal(entries[0]?.lastPublishedAt, null);
   assert.equal(entries[0]?.versionNote, "");
   assert.deepEqual(entries[0]?.bindings, []);
 });
