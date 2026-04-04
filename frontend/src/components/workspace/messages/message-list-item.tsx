@@ -20,6 +20,7 @@ import { Task, TaskTrigger } from "@/components/ai-elements/task";
 import { Badge } from "@/components/ui/badge";
 import { resolveArtifactURL } from "@/core/artifacts/utils";
 import { useI18n } from "@/core/i18n/hooks";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import {
   extractContentFromMessage,
   extractReasoningContentFromMessage,
@@ -158,8 +159,12 @@ function MessageContent_({
     if (isHuman) {
       return rawContent ? stripUploadedFilesTag(rawContent) : "";
     }
-    return rawContent ?? "";
+    return localizeWorkspaceDisplayText(rawContent ?? "");
   }, [rawContent, isHuman]);
+  const localizedReasoningContent = useMemo(
+    () => localizeWorkspaceDisplayText(reasoningContent ?? ""),
+    [reasoningContent],
+  );
 
   const filesList =
     files && files.length > 0 && thread_id ? (
@@ -192,7 +197,7 @@ function MessageContent_({
       <AIElementMessageContent className={className}>
         <Reasoning isStreaming={isLoading}>
           <ReasoningTrigger />
-          <ReasoningContent>{reasoningContent}</ReasoningContent>
+          <ReasoningContent>{localizedReasoningContent}</ReasoningContent>
         </Reasoning>
       </AIElementMessageContent>
     );

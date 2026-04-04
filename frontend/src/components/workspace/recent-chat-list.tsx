@@ -129,7 +129,7 @@ export function RecentChatList() {
         }
         toast.success(t.common.exportSuccess);
       } catch {
-        toast.error("Failed to export conversation");
+        toast.error("导出会话失败");
       }
     },
     [t],
@@ -167,7 +167,7 @@ export function RecentChatList() {
                             className="block w-full whitespace-nowrap text-inherit group-hover/side-menu-item:overflow-hidden"
                             href={href}
                           >
-                            {titleOfThread(thread)}
+                            {titleOfThread(thread, t.pages.untitled)}
                           </Link>
                           {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true" && (
                             <DropdownMenu>
@@ -191,7 +191,7 @@ export function RecentChatList() {
                                   onSelect={() =>
                                     handleRenameClick(
                                       thread.thread_id,
-                                      titleOfThread(thread),
+                                      titleOfThread(thread, t.pages.untitled),
                                     )
                                   }
                                 >

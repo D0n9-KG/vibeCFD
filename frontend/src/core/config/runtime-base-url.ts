@@ -35,16 +35,12 @@ export function resolveBackendBaseURL({
   backendBaseURL,
   location,
 }: BackendBaseURLOptions): string {
+  if (location) {
+    return "";
+  }
+
   const normalizedBackendBaseURL = normalizeConfiguredBaseURL(backendBaseURL);
-  if (normalizedBackendBaseURL) {
-    return normalizedBackendBaseURL;
-  }
-
-  if (isStandaloneLocalFrontendDev(location)) {
-    return "http://localhost:8001";
-  }
-
-  return "";
+  return normalizedBackendBaseURL ?? "http://localhost:8001";
 }
 
 export function resolveLangGraphBaseURL({

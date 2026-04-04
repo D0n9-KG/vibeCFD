@@ -8,6 +8,8 @@ import type {
   SubmarineRuntimeSnapshotPayload,
 } from "./submarine-runtime-panel.contract";
 
+import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.ts";
+
 export type SubmarineArtifactGroupId =
   | "planning"
   | "report"
@@ -488,148 +490,149 @@ const ACCEPTANCE_CONFIDENCE_LABELS: Record<string, string> = {
 };
 
 const CALCULATION_PLAN_APPROVAL_LABELS: Record<string, string> = {
-  pending_researcher_confirmation: "Pending Researcher Confirmation",
-  researcher_confirmed: "Researcher Confirmed",
+  pending_researcher_confirmation: "待研究确认",
+  researcher_confirmed: "研究确认通过",
 };
 
 const CALCULATION_PLAN_ORIGIN_LABELS: Record<string, string> = {
-  user_input: "User Input",
-  ai_suggestion: "AI Suggestion",
-  researcher_edit: "Researcher Edit",
+  user_input: "用户输入",
+  ai_suggestion: "AI 建议",
+  researcher_edit: "研究人员编辑",
 };
 
 const CALCULATION_PLAN_CONFIDENCE_LABELS: Record<string, string> = {
-  high: "High",
-  medium: "Medium",
-  low: "Low",
+  high: "高",
+  medium: "中",
+  low: "低",
 };
 
 const SCIENTIFIC_VERIFICATION_STATUS_LABELS: Record<string, string> = {
-  research_ready: "Research Ready",
-  needs_more_verification: "Needs More Verification",
-  blocked: "Blocked",
+  research_ready: "可用于科研结论",
+  needs_more_verification: "仍需更多校验",
+  blocked: "已阻塞",
 };
 
 const STABILITY_EVIDENCE_STATUS_LABELS: Record<string, string> = {
-  passed: "Passed",
-  missing_evidence: "Missing Evidence",
-  blocked: "Blocked",
+  passed: "已通过",
+  missing_evidence: "缺少证据",
+  blocked: "已阻塞",
 };
 
 const SCIENTIFIC_VERIFICATION_CONFIDENCE_LABELS: Record<string, string> = {
-  high: "High",
-  medium: "Medium",
-  low: "Low",
+  high: "高",
+  medium: "中",
+  low: "低",
 };
 
 const SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS: Record<string, string> = {
-  planned: "Planned",
-  in_progress: "In Progress",
-  partial: "Partial",
-  completed: "Completed",
-  blocked: "Blocked",
+  planned: "已规划",
+  in_progress: "进行中",
+  partial: "部分完成",
+  completed: "已完成",
+  blocked: "已阻塞",
 };
 
 const EXPERIMENT_STATUS_LABELS: Record<string, string> = {
-  planned: "Planned",
-  partial: "Partial",
-  completed: "Completed",
-  blocked: "Blocked",
+  planned: "已规划",
+  partial: "部分完成",
+  completed: "已完成",
+  blocked: "已阻塞",
 };
 
 const EXPERIMENT_COMPARE_STATUS_LABELS: Record<string, string> = {
-  planned: "Planned",
-  completed: "Completed",
-  missing_metrics: "Missing Metrics",
-  blocked: "Blocked",
+  planned: "已规划",
+  completed: "已完成",
+  missing_metrics: "缺少指标",
+  blocked: "已阻塞",
 };
 
 const FIGURE_RENDER_STATUS_LABELS: Record<string, string> = {
-  rendered: "Rendered",
-  skipped: "Skipped",
-  blocked: "Blocked",
+  rendered: "已渲染",
+  skipped: "已跳过",
+  blocked: "已阻塞",
 };
 
 const RESEARCH_EVIDENCE_READINESS_LABELS: Record<string, string> = {
-  blocked: "Blocked",
-  insufficient_evidence: "Insufficient Evidence",
-  verified_but_not_validated: "Verified But Not Validated",
-  validated_with_gaps: "Validated With Gaps",
-  research_ready: "Research Ready",
+  blocked: "已阻塞",
+  insufficient_evidence: "证据不足",
+  verified_but_not_validated: "已验证但未外部校核",
+  validated_with_gaps: "已校核但仍有缺口",
+  research_ready: "可用于科研结论",
 };
 
 const RESEARCH_EVIDENCE_DIMENSION_LABELS: Record<string, string> = {
-  passed: "Passed",
-  needs_more_verification: "Needs More Verification",
-  validated: "Validated",
-  missing_validation_reference: "Missing Validation Reference",
-  validation_failed: "Validation Failed",
-  blocked: "Blocked",
-  traceable: "Traceable",
-  partial: "Partial",
-  missing: "Missing",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
+  passed: "已通过",
+  needs_more_verification: "仍需更多校验",
+  validated: "已校核",
+  missing_validation_reference: "缺少校核参考",
+  validation_failed: "校核失败",
+  blocked: "已阻塞",
+  traceable: "可追溯",
+  partial: "部分可追溯",
+  missing: "缺失",
+  high: "高",
+  medium: "中",
+  low: "低",
 };
 
 const REPRODUCIBILITY_STATUS_LABELS: Record<string, string> = {
-  matched: "Matched",
-  drifted_but_runnable: "Drifted But Runnable",
-  unknown: "Unknown Environment Profile",
-  blocked: "Blocked Runtime Parity",
+  matched: "环境一致",
+  drifted_but_runnable: "环境漂移但仍可运行",
+  unknown: "环境画像未知",
+  blocked: "运行环境一致性受阻",
 };
 
 const REPORT_REVIEW_STATUS_LABELS: Record<string, string> = {
-  ready_for_supervisor: "Ready For Supervisor",
-  needs_user_confirmation: "Needs User Confirmation",
-  blocked: "Blocked",
+  ready_for_supervisor: "待主管复核",
+  needs_user_confirmation: "待用户确认",
+  blocked: "已阻塞",
 };
 
 const SCIENTIFIC_GATE_STATUS_LABELS: Record<string, string> = {
-  ready_for_claim: "Ready For Claim",
-  claim_limited: "Claim Limited",
-  blocked: "Blocked",
+  ready_for_claim: "可声明",
+  claim_limited: "结论受限",
+  blocked: "已阻塞",
 };
 
 const BENCHMARK_COMPARISON_STATUS_LABELS: Record<string, string> = {
-  passed: "Passed",
-  blocked: "Blocked",
-  warning: "Warning",
-  not_applicable: "Not Applicable",
+  passed: "已通过",
+  blocked: "已阻塞",
+  warning: "需关注",
+  not_applicable: "不适用",
+  not_yet_supported: "暂不支持",
 };
 
 const SCIENTIFIC_CLAIM_LEVEL_LABELS: Record<string, string> = {
-  delivery_only: "Delivery Only",
-  verified_but_not_validated: "Verified But Not Validated",
-  validated_with_gaps: "Validated With Gaps",
-  research_ready: "Research Ready",
+  delivery_only: "仅可交付",
+  verified_but_not_validated: "已验证但未外部校核",
+  validated_with_gaps: "已校核但仍有缺口",
+  research_ready: "可用于科研结论",
 };
 
 const SCIENTIFIC_GATE_STAGE_LABELS: Record<string, string> = {
-  "task-intelligence": "Task Intelligence",
-  "geometry-preflight": "Geometry Preflight",
-  "user-confirmation": "Researcher Confirmation",
-  "solver-dispatch": "Solver Dispatch",
-  "scientific-study": "Scientific Study",
-  "experiment-compare": "Experiment Compare",
-  "scientific-verification": "Scientific Verification",
-  "result-reporting": "Result Reporting",
-  "scientific-followup": "Scientific Follow-Up",
-  "supervisor-review": "Supervisor Review",
+  "task-intelligence": "任务理解",
+  "geometry-preflight": "几何预检",
+  "user-confirmation": "用户确认",
+  "solver-dispatch": "求解派发",
+  "scientific-study": "科研研究",
+  "experiment-compare": "实验对比",
+  "scientific-verification": "科研校验",
+  "result-reporting": "结果整理",
+  "scientific-followup": "科研跟进",
+  "supervisor-review": "主管复核",
 };
 
 const EXECUTION_ROLE_LABELS: Record<string, string> = {
-  "claude-code-supervisor": "Claude Code Supervisor",
-  "task-intelligence": "Task Intelligence",
-  "geometry-preflight": "Geometry Preflight",
-  "solver-dispatch": "Solver Dispatch",
-  "scientific-study": "Scientific Study",
-  "experiment-compare": "Experiment Compare",
-  "scientific-verification": "Scientific Verification",
-  "result-reporting": "Result Reporting",
-  "scientific-followup": "Scientific Follow-Up",
-  "supervisor-review": "Supervisor Review",
+  "claude-code-supervisor": "Claude Code 主管代理",
+  "task-intelligence": "任务理解",
+  "geometry-preflight": "几何预检",
+  "solver-dispatch": "求解派发",
+  "scientific-study": "科研研究",
+  "experiment-compare": "实验对比",
+  "scientific-verification": "科研校验",
+  "result-reporting": "结果整理",
+  "scientific-followup": "科研跟进",
+  "supervisor-review": "主管复核",
 };
 
 const LEGACY_STAGE_TRACK_ORDER = [
@@ -641,52 +644,64 @@ const LEGACY_STAGE_TRACK_ORDER = [
 ] as const;
 
 const SCIENTIFIC_REMEDIATION_PLAN_STATUS_LABELS: Record<string, string> = {
-  not_needed: "Not Needed",
-  recommended: "Recommended",
-  blocked: "Blocked",
+  not_needed: "无需补救",
+  recommended: "建议执行",
+  blocked: "已阻塞",
 };
 
 const SCIENTIFIC_REMEDIATION_EXECUTION_MODE_LABELS: Record<string, string> = {
-  auto_executable: "Auto Executable",
-  manual_required: "Manual Required",
+  auto_executable: "可自动执行",
+  manual_required: "需要人工处理",
 };
 
 const SCIENTIFIC_REMEDIATION_ACTION_STATUS_LABELS: Record<string, string> = {
-  pending: "Pending",
-  not_needed: "Not Needed",
+  pending: "待处理",
+  not_needed: "无需处理",
 };
 
 const SCIENTIFIC_REMEDIATION_HANDOFF_STATUS_LABELS: Record<string, string> = {
-  ready_for_auto_followup: "Ready For Auto Follow-Up",
-  manual_followup_required: "Manual Follow-Up Required",
-  not_needed: "Not Needed",
+  ready_for_auto_followup: "可自动跟进",
+  manual_followup_required: "需要人工跟进",
+  not_needed: "无需跟进",
 };
 
 const DELIVERY_DECISION_STATUS_LABELS: Record<string, string> = {
-  ready_for_user_decision: "Ready For User Decision",
-  needs_more_evidence: "Needs More Evidence",
-  blocked_by_setup: "Blocked By Setup",
+  ready_for_user_decision: "待用户决策",
+  needs_more_evidence: "需要更多证据",
+  blocked_by_setup: "受环境阻塞",
 };
 
 const DELIVERY_DECISION_FOLLOWUP_KIND_LABELS: Record<string, string> = {
-  evidence_supplement: "Evidence Supplement",
-  parameter_correction: "Parameter Correction",
-  study_extension: "Study Extension",
-  task_complete: "Task Complete",
+  evidence_supplement: "补充证据",
+  parameter_correction: "修正参数",
+  study_extension: "扩展研究",
+  task_complete: "任务完成",
+};
+
+const OUTPUT_SUPPORT_LEVEL_LABELS: Record<string, string> = {
+  delivered: "已交付",
+  requested: "已请求",
+  pending: "待处理",
+  partially_delivered: "部分交付",
+  supported: "已支持",
+  not_yet_supported: "暂不支持",
+  needs_clarification: "待澄清",
+  planned: "已规划",
+  unknown: "待确认",
 };
 
 const DELIVERY_DECISION_CHAT_PROMPT = "请在聊天中确认下一步。";
 
 const SCIENTIFIC_FOLLOWUP_OUTCOME_LABELS: Record<string, string> = {
-  error: "Error",
-  invalid_tool_args: "Invalid Tool Args",
-  manual_followup_required: "Manual Follow-Up Required",
-  not_needed: "Not Needed",
-  unsupported_target: "Unsupported Target",
-  result_report_refreshed: "Result Report Refreshed",
-  dispatch_planned: "Dispatch Planned",
-  dispatch_failed: "Dispatch Failed",
-  dispatch_refreshed_report: "Dispatch Refreshed Report",
+  error: "执行出错",
+  invalid_tool_args: "工具参数无效",
+  manual_followup_required: "需要人工跟进",
+  not_needed: "无需跟进",
+  unsupported_target: "目标暂不支持",
+  result_report_refreshed: "已刷新结果报告",
+  dispatch_planned: "已规划派发",
+  dispatch_failed: "派发失败",
+  dispatch_refreshed_report: "派发后已刷新报告",
 };
 
 const SCIENTIFIC_FOLLOWUP_KIND_LABELS: Record<string, string> = {
@@ -697,9 +712,9 @@ const SCIENTIFIC_FOLLOWUP_KIND_LABELS: Record<string, string> = {
 };
 
 const DISPATCH_STAGE_STATUS_LABELS: Record<string, string> = {
-  executed: "Executed",
-  planned: "Planned",
-  failed: "Failed",
+  executed: "已执行",
+  planned: "已规划",
+  failed: "失败",
 };
 
 const RESULT_CARD_ARTIFACT_SUFFIXES: Record<string, string[]> = {
@@ -755,7 +770,10 @@ function formatStatusLabel(
   value: string | null | undefined,
   labels: Record<string, string>,
 ) {
-  return labels[value ?? ""] ?? value ?? "--";
+  if (!value) {
+    return "--";
+  }
+  return labels[value] ?? localizeWorkspaceDisplayText(value.replaceAll("_", " "));
 }
 
 function formatStatusCountLines(
@@ -772,6 +790,20 @@ function formatStatusCountLines(
     }
     return [`${formatStatusLabel(status, labels)}: ${rawCount}`];
   });
+}
+
+function formatOutputSupportLevel(value: string | null | undefined) {
+  if (!value) {
+    return "--";
+  }
+  return OUTPUT_SUPPORT_LEVEL_LABELS[value] ?? localizeWorkspaceDisplayText(value.replaceAll("_", " "));
+}
+
+function formatDisplayText(value: string | null | undefined, fallback = "--") {
+  if (!value) {
+    return fallback;
+  }
+  return localizeWorkspaceDisplayText(value);
 }
 
 function isCustomVariantEntry(
@@ -803,7 +835,7 @@ function formatExperimentCompareStudyLabel(
 ) {
   const variantId = item?.variant_id ?? "unknown";
   if (isCustomVariantEntry(item)) {
-    return `custom / ${variantId}`;
+    return `自定义 / ${variantId}`;
   }
   const studyType = item?.study_type ?? "unknown";
   return `${studyType} / ${variantId}`;
@@ -822,7 +854,7 @@ function formatExperimentLineageLabel(
     | undefined,
 ) {
   if (isCustomVariantEntry(item)) {
-    return `Custom Variant | ${item?.variant_label ?? item?.variant_id ?? "unknown"}`;
+    return `自定义变体 | ${item?.variant_label ?? item?.variant_id ?? "unknown"}`;
   }
   return formatExperimentCompareStudyLabel(item);
 }
@@ -845,7 +877,7 @@ function formatCompareMetricDeltaLines(metricDeltas: unknown) {
     };
 
     return [
-      `${metricName}: baseline=${formatCompareMetricValue(metric.baseline_value)} | candidate=${formatCompareMetricValue(metric.candidate_value)} | delta=${formatCompareMetricValue(metric.absolute_delta)} | relative=${formatCompareMetricRelativeDelta(metric.relative_delta)}`,
+      `${metricName}: 基线=${formatCompareMetricValue(metric.baseline_value)} | 候选=${formatCompareMetricValue(metric.candidate_value)} | 差值=${formatCompareMetricValue(metric.absolute_delta)} | 相对变化=${formatCompareMetricRelativeDelta(metric.relative_delta)}`,
     ];
   });
 }
@@ -860,7 +892,7 @@ function formatPostprocessSpecSummary(
   const parts: string[] = [];
   const field = typeof spec.field === "string" ? spec.field : null;
   if (field) {
-    parts.push(`field=${field}`);
+    parts.push(`字段=${field}`);
   }
 
   const selector =
@@ -874,21 +906,21 @@ function formatPostprocessSpecSummary(
         : [];
       parts.push(
         patches.length > 0
-          ? `selector=patch[${patches.join(",")}]`
-          : "selector=patch",
+          ? `选择器=边界 patch[${patches.join(",")}]`
+          : "选择器=边界 patch",
       );
     } else if (selector.type === "plane") {
       const originMode =
         typeof selector.origin_mode === "string" ? selector.origin_mode : null;
       const originValue =
         typeof selector.origin_value === "number" ? selector.origin_value : null;
-      let originSummary = "origin=--";
+      let originSummary = "位置=--";
       if (originMode === "x_by_lref" && originValue !== null) {
         originSummary = `x/Lref=${formatSpecNumber(originValue)}`;
       } else if (originMode === "x_absolute_m" && originValue !== null) {
         originSummary = `x=${formatSpecNumber(originValue)}m`;
       } else if (originValue !== null) {
-        originSummary = `origin=${formatSpecNumber(originValue)}`;
+        originSummary = `位置=${formatSpecNumber(originValue)}`;
       }
       const normal =
         Array.isArray(selector.normal) &&
@@ -898,20 +930,20 @@ function formatPostprocessSpecSummary(
               .map((item) => formatSpecNumber(item))
               .join(", ")})`
           : "";
-      parts.push(`selector=plane[${originSummary}${normal}]`);
+      parts.push(`选择器=截面[${originSummary}${normal}]`);
     }
   }
 
   const timeMode = typeof spec.time_mode === "string" ? spec.time_mode : null;
   if (timeMode) {
-    parts.push(`time=${timeMode}`);
+    parts.push(`时序=${timeMode}`);
   }
 
   const formats = Array.isArray(spec.formats)
     ? spec.formats.filter((item): item is string => typeof item === "string")
     : [];
   if (formats.length > 0) {
-    parts.push(`formats=${formats.join(",")}`);
+    parts.push(`格式=${formats.join(",")}`);
   }
 
   return parts.length > 0 ? parts.join("; ") : "--";
@@ -936,21 +968,21 @@ function formatVerificationRequirementDetail(
   const parts: string[] = [];
   const requiredArtifacts = requirement.required_artifacts?.filter(Boolean) ?? [];
   if (requiredArtifacts.length > 0) {
-    parts.push(`artifacts=${requiredArtifacts.join(",")}`);
+    parts.push(`所需产物=${requiredArtifacts.join(",")}`);
   }
   if (requirement.force_coefficient) {
-    parts.push(`force_coefficient=${requirement.force_coefficient}`);
+    parts.push(`力系数=${requirement.force_coefficient}`);
   }
   if (typeof requirement.minimum_history_samples === "number") {
-    parts.push(`min_samples=${requirement.minimum_history_samples}`);
+    parts.push(`最小样本数=${requirement.minimum_history_samples}`);
   }
   if (typeof requirement.max_tail_relative_spread === "number") {
     parts.push(
-      `max_tail_relative_spread=${requirement.max_tail_relative_spread.toFixed(4)}`,
+      `尾段最大相对波动=${requirement.max_tail_relative_spread.toFixed(4)}`,
     );
   }
   if (typeof requirement.max_value === "number") {
-    parts.push(`max_value=${requirement.max_value.toFixed(6)}`);
+    parts.push(`最大值=${requirement.max_value.toFixed(6)}`);
   }
 
   return parts.length > 0 ? parts.join("; ") : "--";
@@ -960,15 +992,15 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
   [
     "/skill-draft.json",
     {
-      label: "Skill 草稿 JSON",
-      externalLinkLabel: "在新窗口打开 Skill 草稿 JSON",
+      label: "技能草稿 JSON",
+      externalLinkLabel: "在新窗口打开技能草稿 JSON",
     },
   ],
   [
     "/SKILL.md",
     {
-      label: "Skill 草稿 Markdown",
-      externalLinkLabel: "在新窗口打开 Skill 草稿 Markdown",
+      label: "技能草稿 Markdown",
+      externalLinkLabel: "在新窗口打开技能草稿 Markdown",
     },
   ],
   [
@@ -1009,57 +1041,57 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
   [
     "/cfd-design-brief.html",
     {
-      label: "CFD 设计简报 HTML",
-      externalLinkLabel: "在新窗口打开 CFD 设计简报 HTML",
+      label: "CFD 设计简报网页稿",
+      externalLinkLabel: "在新窗口打开 CFD 设计简报网页稿",
     },
   ],
   [
     "/cfd-design-brief.json",
     {
-      label: "CFD 设计简报 JSON",
-      externalLinkLabel: "在新窗口打开 CFD 设计简报 JSON",
+      label: "CFD 设计简报数据稿",
+      externalLinkLabel: "在新窗口打开 CFD 设计简报数据稿",
     },
   ],
   [
     "/study-plan.json",
     {
-      label: "Scientific Study Plan JSON",
-      externalLinkLabel: "Open scientific study plan JSON in a new window",
+      label: "科研研究计划 JSON",
+      externalLinkLabel: "在新窗口打开科研研究计划 JSON",
     },
   ],
   [
     "/study-manifest.json",
     {
-      label: "Scientific Study Manifest JSON",
-      externalLinkLabel: "Open scientific study manifest JSON in a new window",
+      label: "科研研究清单 JSON",
+      externalLinkLabel: "在新窗口打开科研研究清单 JSON",
     },
   ],
   [
     "/experiment-manifest.json",
     {
-      label: "Experiment Manifest JSON",
-      externalLinkLabel: "Open experiment manifest JSON in a new window",
+      label: "实验清单 JSON",
+      externalLinkLabel: "在新窗口打开实验清单 JSON",
     },
   ],
   [
     "/figure-manifest.json",
     {
-      label: "Figure Manifest JSON",
-      externalLinkLabel: "Open figure manifest JSON in a new window",
+      label: "图表清单 JSON",
+      externalLinkLabel: "在新窗口打开图表清单 JSON",
     },
   ],
   [
     "/run-compare-summary.json",
     {
-      label: "Run Compare Summary JSON",
-      externalLinkLabel: "Open run compare summary JSON in a new window",
+      label: "运行对比摘要 JSON",
+      externalLinkLabel: "在新窗口打开运行对比摘要 JSON",
     },
   ],
   [
     "/run-record.json",
     {
-      label: "Experiment Run Record JSON",
-      externalLinkLabel: "Open experiment run record JSON in a new window",
+      label: "实验运行记录 JSON",
+      externalLinkLabel: "在新窗口打开实验运行记录 JSON",
     },
   ],
   [
@@ -1079,29 +1111,29 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
   [
     "/research-evidence-summary.json",
     {
-      label: "Research Evidence Summary JSON",
-      externalLinkLabel: "Open research evidence summary JSON in a new window",
+      label: "研究证据摘要 JSON",
+      externalLinkLabel: "在新窗口打开研究证据摘要 JSON",
     },
   ],
   [
     "/supervisor-scientific-gate.json",
     {
-      label: "Scientific Supervisor Gate JSON",
-      externalLinkLabel: "Open scientific supervisor gate JSON in a new window",
+      label: "科研主管闸门 JSON",
+      externalLinkLabel: "在新窗口打开科研主管闸门 JSON",
     },
   ],
   [
     "/scientific-remediation-handoff.json",
     {
-      label: "Scientific Remediation Handoff JSON",
-      externalLinkLabel: "Open scientific remediation handoff JSON in a new window",
+      label: "科研补救交接 JSON",
+      externalLinkLabel: "在新窗口打开科研补救交接 JSON",
     },
   ],
   [
     "/scientific-followup-history.json",
     {
-      label: "Scientific Follow-Up History JSON",
-      externalLinkLabel: "Open scientific follow-up history JSON in a new window",
+      label: "科研跟进历史 JSON",
+      externalLinkLabel: "在新窗口打开科研跟进历史 JSON",
     },
   ],
   [
@@ -1142,8 +1174,8 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
   [
     "/stability-evidence.json",
     {
-      label: "Stability Evidence JSON",
-      externalLinkLabel: "Open stability evidence JSON in a new window",
+      label: "稳定性证据 JSON",
+      externalLinkLabel: "在新窗口打开稳定性证据 JSON",
     },
   ],
   [
@@ -1191,25 +1223,22 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
   [
     "/verification-mesh-independence.json",
     {
-      label: "Scientific Verification - Mesh Independence JSON",
-      externalLinkLabel:
-        "Open scientific verification mesh independence JSON in a new tab",
+      label: "科研校验 - 网格无关性 JSON",
+      externalLinkLabel: "在新窗口打开科研校验网格无关性 JSON",
     },
   ],
   [
     "/verification-domain-sensitivity.json",
     {
-      label: "Scientific Verification - Domain Sensitivity JSON",
-      externalLinkLabel:
-        "Open scientific verification domain sensitivity JSON in a new tab",
+      label: "科研校验 - 域敏感性 JSON",
+      externalLinkLabel: "在新窗口打开科研校验域敏感性 JSON",
     },
   ],
   [
     "/verification-time-step-sensitivity.json",
     {
-      label: "Scientific Verification - Time-Step Sensitivity JSON",
-      externalLinkLabel:
-        "Open scientific verification time-step sensitivity JSON in a new tab",
+      label: "科研校验 - 时间步敏感性 JSON",
+      externalLinkLabel: "在新窗口打开科研校验时间步敏感性 JSON",
     },
   ],
   [
@@ -1264,8 +1293,8 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
   [
     "/supervisor-handoff.json",
     {
-      label: "Supervisor 交接单",
-      externalLinkLabel: "在新窗口打开 Supervisor 交接单",
+      label: "主管交接单",
+      externalLinkLabel: "在新窗口打开主管交接单",
     },
   ],
 ];
@@ -1455,7 +1484,7 @@ function formatCalculationPlanValue(payload: {
       .map((item) => formatCalculationPlanScalarValue(item))
       .filter((item) => item !== "--");
     if (values.length > 0) {
-      return `${values.join(" to ")}${payload.unit ? ` ${payload.unit}` : ""}`;
+      return `${values.join(" 至 ")}${payload.unit ? ` ${payload.unit}` : ""}`;
     }
   }
 
@@ -1464,7 +1493,7 @@ function formatCalculationPlanValue(payload: {
     const minValue = formatCalculationPlanScalarValue(rangePayload.min);
     const maxValue = formatCalculationPlanScalarValue(rangePayload.max);
     if (minValue !== "--" || maxValue !== "--") {
-      return `${minValue} to ${maxValue}${payload.unit ? ` ${payload.unit}` : ""}`;
+      return `${minValue} 至 ${maxValue}${payload.unit ? ` ${payload.unit}` : ""}`;
     }
   }
 
@@ -1487,6 +1516,69 @@ export function formatSubmarineExecutionRoleLabel(roleId?: string | null) {
     SCIENTIFIC_GATE_STAGE_LABELS[roleId] ??
     roleId
   );
+}
+
+const EXECUTION_OUTLINE_STATUS_LABELS: Record<string, string> = {
+  pending: "待执行",
+  ready: "就绪",
+  in_progress: "进行中",
+  running: "运行中",
+  completed: "已完成",
+  done: "已完成",
+  blocked: "已阻塞",
+  failed: "失败",
+};
+
+const EXECUTION_GOAL_LABELS: Record<string, string> = {
+  "Clarify the CFD objective, constraints, deliverables, and keep the active plan aligned with the user.":
+    "澄清 CFD 目标、约束和交付物，并让当前计划始终与用户确认保持一致。",
+  "Match candidate cases, understand the task, and select the most relevant submarine CFD workflow template.":
+    "匹配候选案例，理解任务意图，并选择最合适的潜艇 CFD 工作流模板。",
+  "Inspect the uploaded STL geometry, detect scale or format risks, and record a traceable preflight decision.":
+    "检查已上传 STL 几何，识别尺度或格式风险，并沉淀可追溯的预检结论。",
+  "Map the confirmed setup into an OpenFOAM case, run controlled execution, and capture CFD outputs.":
+    "把已确认设置映射为 OpenFOAM 算例，受控执行并沉淀 CFD 输出。",
+  "Plan and track deterministic scientific-study variants so baseline evidence can expand into research-grade sensitivity checks.":
+    "规划并跟踪可复现的科研变体研究，让基线证据扩展为研究级敏感性检查。",
+  "Compare baseline and study-variant runs through structured experiment manifests and run-delta summaries.":
+    "对比基线与研究变体运行，整理结构化实验清单和差异摘要。",
+  "Evaluate study evidence, verification requirements, and scientific readiness before stronger claims are made.":
+    "评估研究证据、验证要求与科研准备度，再决定是否允许更强结论。",
+  "Organize metrics, logs, and reports into reviewable artifacts for supervisor sign-off and user delivery.":
+    "把指标、日志和报告整理成可复核的交付产物，供主管签署。",
+  "Execute or track remediation follow-ups after scientific review so the next iteration stays traceable.":
+    "在科研复核后执行或跟踪补救动作，让下一轮迭代继续保持可追溯。",
+  "Review the scientific evidence gate, confirm the allowed claim level, and decide whether follow-up remediation is needed.":
+    "复核科研证据门槛，确认允许的结论级别，并决定是否需要后续补救。",
+};
+
+function formatExecutionOutlineOwner(
+  owner: string | null | undefined,
+  roleId: string,
+) {
+  if (!owner) {
+    return "待指定";
+  }
+  if (owner === "DeerFlow") {
+    return "DeerFlow";
+  }
+  if (owner === "Claude Code") {
+    return "Claude Code";
+  }
+  if (owner === "Claude Code Supervisor") {
+    return "Claude Code 主管代理";
+  }
+  if (owner.startsWith("DeerFlow ")) {
+    return `DeerFlow ${formatSubmarineExecutionRoleLabel(roleId)}`;
+  }
+  return localizeWorkspaceDisplayText(owner);
+}
+
+function formatExecutionOutlineGoal(goal: string | null | undefined) {
+  if (!goal) {
+    return "待补充";
+  }
+  return EXECUTION_GOAL_LABELS[goal] ?? localizeWorkspaceDisplayText(goal);
 }
 
 export function buildSubmarineStageTrack({
@@ -1551,9 +1643,11 @@ function normalizeExecutionOutline(
       ?.map((item) => ({
         roleId: item.role_id ?? "unknown",
         roleLabel: formatSubmarineExecutionRoleLabel(item.role_id),
-        owner: item.owner ?? "待指定",
-        goal: item.goal ?? "待补充",
-        status: item.status ?? "pending",
+        owner: formatExecutionOutlineOwner(item.owner, item.role_id ?? "unknown"),
+        goal: formatExecutionOutlineGoal(item.goal),
+        status:
+          EXECUTION_OUTLINE_STATUS_LABELS[item.status ?? ""] ??
+          localizeWorkspaceDisplayText((item.status ?? "pending").replaceAll("_", " ")),
         targetSkills: item.target_skills?.filter(Boolean) ?? [],
       }))
       .filter((item) => item.goal) ?? []
@@ -1615,7 +1709,7 @@ export function buildSubmarineDesignBriefSummary(
       label: "输出步数间隔",
       value:
         typeof requirements.write_interval_steps === "number"
-          ? `${requirements.write_interval_steps}`
+          ? `${requirements.write_interval_steps} 步`
           : "--",
     },
   ].filter((item) => item.value !== "--");
@@ -1624,17 +1718,21 @@ export function buildSubmarineDesignBriefSummary(
     .filter(Boolean)
     .map((item) => ({
       itemId: item.item_id ?? "unknown",
-      category: item.category ?? "--",
-      label: item.label ?? item.category ?? "Calculation plan item",
+      category: localizeWorkspaceDisplayText(item.category ?? "--"),
+      label: localizeWorkspaceDisplayText(
+        item.label ?? item.category ?? "计算计划项",
+      ),
       proposedValue: formatCalculationPlanValue(item),
-      sourceLabel: item.source_label ?? item.origin ?? "--",
+      sourceLabel: localizeWorkspaceDisplayText(
+        item.source_label ?? item.origin ?? "--",
+      ),
       sourceUrl: item.source_url ?? "--",
       confidenceLabel:
         CALCULATION_PLAN_CONFIDENCE_LABELS[item.confidence ?? ""] ??
         item.confidence ??
         "--",
       applicabilityConditions: item.applicability_conditions?.filter(Boolean) ?? [],
-      evidenceGapNote: item.evidence_gap_note ?? "--",
+      evidenceGapNote: localizeWorkspaceDisplayText(item.evidence_gap_note ?? "--"),
       originLabel:
         CALCULATION_PLAN_ORIGIN_LABELS[item.origin ?? ""] ??
         item.origin ??
@@ -1657,14 +1755,14 @@ export function buildSubmarineDesignBriefSummary(
   ).length;
   const precomputeApprovalLabel =
     immediateClarificationCount > 0
-      ? "Immediate Clarification Required"
+      ? "需要立即补充确认"
       : pendingCalculationPlanCount > 0
-        ? "Pending Researcher Confirmation"
+        ? "待研究确认"
         : calculationPlan.length > 0
-          ? "Researcher Confirmed"
+          ? "研究确认通过"
           : payload.confirmation_status === "confirmed"
-            ? "Brief Confirmed"
-            : "Brief Draft";
+            ? "简报已确认"
+            : "简报草稿";
 
   return {
     precomputeApprovalLabel,
@@ -1672,29 +1770,38 @@ export function buildSubmarineDesignBriefSummary(
     immediateClarificationCount,
     confirmationStatusLabel:
       payload.confirmation_status === "confirmed" ? "已确认" : "待确认",
-    expectedOutputs: payload.expected_outputs?.filter(Boolean) ?? [],
+    expectedOutputs:
+      payload.expected_outputs
+        ?.filter(Boolean)
+        .map((item) => localizeWorkspaceDisplayText(item)) ?? [],
     scientificVerificationRequirements: (
       payload.scientific_verification_requirements ?? []
     )
       .filter(Boolean)
       .map((item) => ({
         requirementId: item.requirement_id ?? "unknown",
-        label: item.label ?? "--",
-        checkType: item.check_type ?? "--",
+        label: formatDisplayText(item.label),
+        checkType: formatDisplayText(item.check_type),
         detail: formatVerificationRequirementDetail(item),
       })),
     requestedOutputs: (payload.requested_outputs ?? [])
       .filter(Boolean)
       .map((item) => ({
         outputId: item.output_id ?? "unknown",
-        label: item.label ?? "--",
-        requestedLabel: item.requested_label ?? item.label ?? "--",
-        supportLevel: item.support_level ?? "--",
+        label: formatDisplayText(item.label),
+        requestedLabel: formatDisplayText(item.requested_label ?? item.label),
+        supportLevel: formatOutputSupportLevel(item.support_level),
         specSummary: formatPostprocessSpecSummary(item.postprocess_spec ?? null),
-        notes: item.notes ?? "",
+        notes: localizeWorkspaceDisplayText(item.notes ?? ""),
       })),
-    userConstraints: payload.user_constraints?.filter(Boolean) ?? [],
-    openQuestions: payload.open_questions?.filter(Boolean) ?? [],
+    userConstraints:
+      payload.user_constraints
+        ?.filter(Boolean)
+        .map((item) => localizeWorkspaceDisplayText(item)) ?? [],
+    openQuestions:
+      payload.open_questions
+        ?.filter(Boolean)
+        .map((item) => localizeWorkspaceDisplayText(item)) ?? [],
     executionOutline: buildSubmarineExecutionOutline({
       designBrief: payload,
       runtimePlan: null,
@@ -1728,10 +1835,10 @@ export function buildSubmarineOutputDeliverySummary({
 
   return (outputDeliveryPlan ?? []).filter(Boolean).map((item) => ({
     outputId: item.output_id ?? "unknown",
-    label: item.label ?? "--",
-    deliveryStatus: item.delivery_status ?? "--",
+    label: formatDisplayText(item.label),
+    deliveryStatus: formatOutputSupportLevel(item.delivery_status),
     specSummary: requestedOutputSpecById.get(item.output_id ?? "unknown") ?? "--",
-    detail: item.detail ?? "--",
+    detail: localizeWorkspaceDisplayText(item.detail ?? "--"),
     artifactPaths: item.artifact_virtual_paths?.filter(Boolean) ?? [],
   }));
 }
@@ -1813,16 +1920,16 @@ export function formatSubmarineBenchmarkComparisonSummaryLine(
 
   if (comparison.relativeError !== "--" || comparison.relativeTolerance !== "--") {
     segments.push(
-      `error ${comparison.relativeError} / tol ${comparison.relativeTolerance}`,
+      `误差 ${comparison.relativeError} / 容差 ${comparison.relativeTolerance}`,
     );
   }
   if (comparison.targetVelocity !== "--" || comparison.observedVelocity !== "--") {
     segments.push(
-      `velocity ${comparison.observedVelocity} vs ${comparison.targetVelocity} m/s`,
+      `速度 ${comparison.observedVelocity} 对比 ${comparison.targetVelocity} m/s`,
     );
   }
   if (comparison.sourceLabel !== "--") {
-    segments.push(`source ${comparison.sourceLabel}`);
+    segments.push(`来源 ${comparison.sourceLabel}`);
   }
 
   return segments.join(" | ");
@@ -1830,18 +1937,34 @@ export function formatSubmarineBenchmarkComparisonSummaryLine(
 
 function formatScientificRequirementStatus(status?: string | null): string {
   if (status === "missing_evidence") {
-    return "Missing Evidence";
+    return "缺少证据";
   }
   if (status === "research_ready") {
-    return "Research Ready";
+    return "可用于科研结论";
   }
   if (status === "passed") {
-    return "Passed";
+    return "已通过";
   }
   if (status === "blocked") {
-    return "Blocked";
+    return "已阻塞";
   }
-  return status ?? "--";
+  return status ? localizeWorkspaceDisplayText(status.replaceAll("_", " ")) : "--";
+}
+
+function formatWorkflowDetail(detail?: string | null): string {
+  if (!detail) {
+    return "--";
+  }
+
+  if (detail === "All planned variants completed with compare coverage.") {
+    return "全部计划变体均已完成，并具备对比覆盖。";
+  }
+
+  if (detail.startsWith("Pending variant execution: ")) {
+    return `待执行变体：${detail.slice("Pending variant execution: ".length)}`;
+  }
+
+  return localizeWorkspaceDisplayText(detail);
 }
 
 function formatFiniteNumber(
@@ -1886,7 +2009,7 @@ export function buildSubmarineStabilityEvidenceSummary(
       STABILITY_EVIDENCE_STATUS_LABELS[evidence.status ?? ""] ??
       evidence.status ??
       "--",
-    summary: evidence.summary_zh ?? "--",
+    summary: localizeWorkspaceDisplayText(evidence.summary_zh ?? "--"),
     solverResultsPath: evidence.source_solver_results_virtual_path ?? "--",
     artifactPath:
       evidence.artifact_virtual_path ??
@@ -1906,16 +2029,25 @@ export function buildSubmarineStabilityEvidenceSummary(
       Number.isFinite(tail.required_sample_count)
         ? `${tail.observed_sample_count}/${tail.required_sample_count}`
         : "--",
-    blockingIssues: evidence.blocking_issues?.filter(Boolean) ?? [],
-    missingEvidence: evidence.missing_evidence?.filter(Boolean) ?? [],
-    passedRequirements: evidence.passed_requirements?.filter(Boolean) ?? [],
+    blockingIssues:
+      evidence.blocking_issues
+        ?.filter(Boolean)
+        .map((item) => localizeWorkspaceDisplayText(item)) ?? [],
+    missingEvidence:
+      evidence.missing_evidence
+        ?.filter(Boolean)
+        .map((item) => localizeWorkspaceDisplayText(item)) ?? [],
+    passedRequirements:
+      evidence.passed_requirements
+        ?.filter(Boolean)
+        .map((item) => localizeWorkspaceDisplayText(item)) ?? [],
     requirementLines: (evidence.requirements ?? [])
       .filter(Boolean)
       .map(
         (item) =>
-          `${item.label ?? "--"} | ${formatScientificRequirementStatus(
+          `${localizeWorkspaceDisplayText(item.label ?? "--")} | ${formatScientificRequirementStatus(
             item.status,
-          )} | ${item.detail ?? "--"}`,
+          )} | ${localizeWorkspaceDisplayText(item.detail ?? "--")}`,
       ),
   };
 }
@@ -1937,14 +2069,23 @@ export function buildSubmarineScientificVerificationSummary(
       SCIENTIFIC_VERIFICATION_CONFIDENCE_LABELS[assessment.confidence ?? ""] ??
       assessment.confidence ??
       "--",
-    blockingIssues: assessment.blocking_issues?.filter(Boolean) ?? [],
-    missingEvidence: assessment.missing_evidence?.filter(Boolean) ?? [],
-    passedRequirements: assessment.passed_requirements?.filter(Boolean) ?? [],
+    blockingIssues:
+      assessment.blocking_issues
+        ?.filter(Boolean)
+        .map((item) => localizeWorkspaceDisplayText(item)) ?? [],
+    missingEvidence:
+      assessment.missing_evidence
+        ?.filter(Boolean)
+        .map((item) => localizeWorkspaceDisplayText(item)) ?? [],
+    passedRequirements:
+      assessment.passed_requirements
+        ?.filter(Boolean)
+        .map((item) => localizeWorkspaceDisplayText(item)) ?? [],
     requirements: (assessment.requirements ?? []).filter(Boolean).map((item) => ({
       requirementId: item.requirement_id ?? "unknown",
-      label: item.label ?? "--",
+      label: localizeWorkspaceDisplayText(item.label ?? "--"),
       status: formatScientificRequirementStatus(item.status),
-      detail: item.detail ?? "--",
+      detail: localizeWorkspaceDisplayText(item.detail ?? "--"),
     })),
   };
 }
@@ -1985,7 +2126,7 @@ export function buildSubmarineScientificStudySummary(
         item.workflow_status ?? item.study_execution_status,
         SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS,
       ),
-      workflowDetail: item.workflow_detail ?? "--",
+      workflowDetail: formatWorkflowDetail(item.workflow_detail),
       variantStatusCountLines: formatStatusCountLines(
         item.variant_status_counts,
         SCIENTIFIC_STUDY_EXECUTION_STATUS_LABELS,
@@ -2033,7 +2174,7 @@ export function buildSubmarineExperimentSummary(
       summary.workflow_status ?? summary.experiment_status,
       EXPERIMENT_STATUS_LABELS,
     ),
-    workflowDetail: summary.workflow_detail ?? "--",
+    workflowDetail: formatWorkflowDetail(summary.workflow_detail),
     baselineRunId: summary.baseline_run_id ?? "--",
     runCount:
       typeof summary.run_count === "number" && Number.isFinite(summary.run_count)
@@ -2600,7 +2741,7 @@ export function buildSubmarineScientificFollowupSummary(
       DISPATCH_STAGE_STATUS_LABELS[summary.latest_dispatch_stage_status ?? ""] ??
       summary.latest_dispatch_stage_status ??
       "none",
-    reportRefreshedLabel: summary.report_refreshed ? "Yes" : "No",
+    reportRefreshedLabel: summary.report_refreshed ? "是" : "否",
     historyPath: summary.history_virtual_path ?? "--",
     latestResultReportPath: summary.latest_result_report_virtual_path ?? "--",
     latestResultProvenanceManifestPath:
@@ -2695,19 +2836,29 @@ export function buildSubmarineResultCards({
 
     return {
       outputId,
-      label,
+      label: formatDisplayText(label),
       requestedLabel:
-        requestedItem?.requestedLabel ?? requestedItem?.label ?? label,
-      supportLevel: requestedItem?.supportLevel ?? "--",
-      deliveryStatus: deliveryItem?.deliveryStatus ?? "requested",
+        localizeWorkspaceDisplayText(
+          requestedItem?.requestedLabel ?? requestedItem?.label ?? label,
+        ),
+      supportLevel: formatOutputSupportLevel(requestedItem?.supportLevel),
+      deliveryStatus: formatOutputSupportLevel(
+        deliveryItem?.deliveryStatus ?? "requested",
+      ),
       specSummary:
         deliveryItem?.specSummary && deliveryItem.specSummary !== "--"
           ? deliveryItem.specSummary
           : requestedItem?.specSummary ?? "--",
-      detail: deliveryItem?.detail ?? requestedItem?.notes ?? "--",
-      figureCaption: figureItem?.caption ?? "--",
-      selectorSummary: figureItem?.selectorSummary ?? "--",
-      figureRenderStatus: figureItem?.renderStatusLabel ?? "--",
+      detail: localizeWorkspaceDisplayText(
+        deliveryItem?.detail ?? requestedItem?.notes ?? "--",
+      ),
+      figureCaption: localizeWorkspaceDisplayText(figureItem?.caption ?? "--"),
+      selectorSummary: localizeWorkspaceDisplayText(
+        figureItem?.selectorSummary ?? "--",
+      ),
+      figureRenderStatus: localizeWorkspaceDisplayText(
+        figureItem?.renderStatusLabel ?? "--",
+      ),
       previewArtifactPath,
       artifactPaths: combinedArtifactPaths,
       figureArtifactPaths,

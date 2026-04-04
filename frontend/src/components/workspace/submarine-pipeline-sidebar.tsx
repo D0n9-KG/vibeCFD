@@ -36,7 +36,7 @@ const STAGE_LABELS: Record<string, string> = {
   "geometry-preflight": "几何预检",
   "solver-dispatch": "求解执行",
   "result-reporting": "结果整理",
-  "supervisor-review": "Supervisor 复核",
+  "supervisor-review": "主管复核",
 };
 
 export interface SidebarRunItem {
@@ -119,12 +119,12 @@ export function SubmarinePipelineSidebar({
     <div className={chrome.rootClassName}>
       <div className={chrome.headerWrapClassName}>
         <div className={chrome.headerCardClassName}>
-          <div className={chrome.headerEyebrowClassName}>Mission Board</div>
+          <div className={chrome.headerEyebrowClassName}>任务看板</div>
           <div className={chrome.headerTitleClassName}>
             {currentRun?.title ?? "当前潜艇研究任务"}
           </div>
           <p className={chrome.headerMetaClassName}>
-            聚焦当前 run、阶段推进与清理操作；左侧米色栏继续负责全局工作台导航和历史会话。
+            聚焦当前任务、阶段推进与清理操作；左侧米色栏继续负责全局工作台导航和历史会话。
           </p>
         </div>
       </div>
@@ -195,7 +195,7 @@ export function SubmarinePipelineSidebar({
                       type="button"
                       className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-white/80 hover:text-stone-700 disabled:pointer-events-none disabled:opacity-50"
                       disabled={isCleanupPending}
-                      aria-label="More run actions"
+                      aria-label="更多任务操作"
                     >
                       <MoreHorizontal className="size-4" />
                     </button>

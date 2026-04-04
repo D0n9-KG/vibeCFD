@@ -2,11 +2,13 @@
 
 import { useMemo } from "react";
 import type { AnchorHTMLAttributes } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 
 import {
   MessageResponse,
   type MessageResponseProps,
 } from "@/components/ai-elements/message";
+import { localizeWorkspaceToolName } from "@/core/i18n/workspace-display";
 import { streamdownPlugins } from "@/core/streamdown";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +16,20 @@ import { CitationLink } from "../citations/citation-link";
 
 function isExternalUrl(href: string | undefined): boolean {
   return !!href && /^https?:\/\//.test(href);
+}
+
+function localizeInlineCode(children: ReactNode) {
+  if (typeof children !== "string") {
+    return children;
+  }
+
+  const trimmed = children.trim();
+  if (!trimmed || trimmed.includes("\n")) {
+    return children;
+  }
+
+  const localized = localizeWorkspaceToolName(trimmed);
+  return localized === trimmed ? children : localized;
 }
 
 export type MarkdownContentProps = {
@@ -52,6 +68,19 @@ export function MarkdownContent({
             target={target ?? (external ? "_blank" : undefined)}
             rel={rel ?? (external ? "noopener noreferrer" : undefined)}
           />
+        );
+      },
+      code: (props: HTMLAttributes<HTMLElement>) => {
+        const { children, className, ...rest } = props;
+        const shouldLocalizeInlineCode =
+          !className?.includes("language-") &&
+          !className?.includes("hljs") &&
+          !className?.includes("shiki");
+
+        return (
+          <code {...rest} className={className}>
+            {shouldLocalizeInlineCode ? localizeInlineCode(children) : children}
+          </code>
         );
       },
       ...componentsFromProps,

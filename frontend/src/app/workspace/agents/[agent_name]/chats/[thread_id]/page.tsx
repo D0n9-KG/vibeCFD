@@ -2,7 +2,7 @@
 
 import { LayoutPanelLeftIcon, PlusSquareIcon } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
@@ -18,10 +18,17 @@ import { TodoList } from "@/components/workspace/todo-list";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { WorkspaceStatePanel } from "@/components/workspace/workspace-state-panel";
 import { useAgent } from "@/core/agents";
+import {
+  getAgentDisplayName,
+  getAgentModelLabel,
+  getAgentToolGroupLabel,
+} from "@/core/agents/display";
 import { useI18n } from "@/core/i18n/hooks";
+import { localizeThreadDisplayTitle } from "@/core/i18n/workspace-display";
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings } from "@/core/settings";
 import { useThreadStream } from "@/core/threads/hooks";
+import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
 import { textOfMessage } from "@/core/threads/utils";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
@@ -35,6 +42,9 @@ export default function AgentChatPage() {
   const [settings, setSettings] = useLocalSettings();
   const router = useRouter();
   const [supportPanelOpen, setSupportPanelOpen] = useState(false);
+  const [pendingThreadRouteId, setPendingThreadRouteId] = useState<
+    string | null
+  >(null);
 
   const { agent_name } = useParams<{
     agent_name: string;
@@ -43,13 +53,15 @@ export default function AgentChatPage() {
   const { threadId, isNewThread, markThreadStarted } = useThreadChat();
   const { showNotification } = useNotification();
 
-  const [thread, sendMessage, isUploading] = useThreadStream({
+  const [thread, sendMessage, isUploading, streamMeta] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
     isNewThread,
     context: { ...settings.context, agent_name },
     onStart: (createdThreadId) => {
       markThreadStarted(createdThreadId);
-      router.replace(`/workspace/agents/${agent_name}/chats/${createdThreadId}`);
+      if (isNewThread) {
+        setPendingThreadRouteId(createdThreadId);
+      }
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
@@ -68,6 +80,29 @@ export default function AgentChatPage() {
       }
     },
   });
+
+  useEffect(() => {
+    if (
+      !shouldPromoteStartedThreadRoute({
+        pendingThreadId: pendingThreadRouteId,
+        isLoading: thread.isLoading,
+        persistedMessageCount: streamMeta.persistedMessageCount,
+      })
+    ) {
+      return;
+    }
+
+    router.replace(
+      `/workspace/agents/${agent_name}/chats/${pendingThreadRouteId}`,
+    );
+    setPendingThreadRouteId(null);
+  }, [
+    agent_name,
+    pendingThreadRouteId,
+    router,
+    streamMeta.persistedMessageCount,
+    thread.isLoading,
+  ]);
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
@@ -97,7 +132,13 @@ export default function AgentChatPage() {
       : thread.error
         ? String(thread.error)
         : null;
-  const threadLabel = thread.values.title ?? (isNewThread ? t.pages.newChat : t.pages.untitled);
+  const threadLabel =
+    isNewThread && (!thread.values.title || thread.values.title === "Untitled")
+      ? t.pages.newChat
+      : thread.values.title && thread.values.title !== "Untitled"
+        ? localizeThreadDisplayTitle(thread.values.title)
+        : t.pages.untitled;
+  const agentDisplayName = getAgentDisplayName(agent, agent_name);
 
   return (
     <ThreadContext.Provider value={{ thread }}>
@@ -116,7 +157,7 @@ export default function AgentChatPage() {
                   {threadLabel}
                 </div>
                 <div className="text-xs text-stone-500">
-                  {agent?.name ?? agent_name}
+                  {agentDisplayName}
                 </div>
               </div>
             </div>
@@ -155,7 +196,7 @@ export default function AgentChatPage() {
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-500">
                       <span className="rounded-full border border-stone-200/80 bg-white px-2.5 py-1 font-medium text-stone-700">
-                        {agent?.name ?? agent_name}
+                        {agentDisplayName}
                       </span>
                       <span className="rounded-full border border-stone-200/80 bg-white px-2.5 py-1 font-medium text-stone-700">
                         {t.common.messageCount(thread.messages.length)}
@@ -267,7 +308,7 @@ export default function AgentChatPage() {
                           {t.agents.profileLabel}
                         </div>
                         <h2 className="mt-2 text-lg font-semibold tracking-tight text-stone-900">
-                          {agent?.name ?? agent_name}
+                          {agentDisplayName}
                         </h2>
                         <p className="mt-2 text-sm leading-6 text-stone-600">
                           {agent?.description ??
@@ -275,7 +316,7 @@ export default function AgentChatPage() {
                         </p>
                         {agent?.model ? (
                           <div className="mt-3 rounded-full border border-stone-200/80 bg-white px-3 py-1 text-xs font-medium text-stone-600">
-                            {agent.model}
+                            {getAgentModelLabel(agent.model)}
                           </div>
                         ) : null}
                       </div>
@@ -333,7 +374,7 @@ export default function AgentChatPage() {
                                 key={group}
                                 className="rounded-full border border-stone-200/80 bg-white px-3 py-1 text-xs font-medium text-stone-600"
                               >
-                                {group}
+                                {getAgentToolGroupLabel(group)}
                               </span>
                             ))}
                           </div>

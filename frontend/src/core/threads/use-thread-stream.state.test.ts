@@ -9,6 +9,7 @@ import {
   deriveThreadsAfterWorkbenchStart,
   deriveThreadStreamBinding,
   deriveThreadStreamSendState,
+  shouldPromoteStartedThreadRoute,
 } from "./use-thread-stream.state.ts";
 
 void test("deriveThreadStreamBinding keeps reconnect enabled for new-thread routes so active runs can rejoin after navigation", () => {
@@ -190,5 +191,32 @@ void test("deriveThreadsAfterWorkbenchStart patches a created thread with a pers
         },
       },
     ],
+  );
+});
+
+void test("shouldPromoteStartedThreadRoute waits until the first thread response has landed", () => {
+  assert.equal(
+    shouldPromoteStartedThreadRoute({
+      pendingThreadId: "thread-123",
+      isLoading: true,
+      persistedMessageCount: 1,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldPromoteStartedThreadRoute({
+      pendingThreadId: "thread-123",
+      isLoading: false,
+      persistedMessageCount: 0,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldPromoteStartedThreadRoute({
+      pendingThreadId: "thread-123",
+      isLoading: false,
+      persistedMessageCount: 2,
+    }),
+    true,
   );
 });

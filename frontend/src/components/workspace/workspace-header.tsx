@@ -27,7 +27,7 @@ const SURFACE_ACTIONS: Record<
   },
   "skill-studio": {
     href: "/workspace/skill-studio",
-    label: "进入 Skill Studio",
+    label: "进入技能工作台",
     icon: SparklesIcon,
   },
   chats: {
@@ -54,20 +54,20 @@ export function WorkspaceHeader({ className }: { className?: string }) {
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       <WorkspaceActivityBar orientation="horizontal" className="md:hidden" />
-      <div className={cn("flex items-center gap-3", chrome.headerPanelClassName)}>
-        <div className="min-w-0 flex-1 leading-none">
+      <div className={cn("flex flex-col gap-3", chrome.headerPanelClassName)}>
+        <div className="min-w-0 leading-tight">
           <span className={chrome.brandEyebrowClassName}>统一工作区</span>
           <span className="text-primary mt-1 block truncate font-serif text-base font-semibold">
             VibeCFD
           </span>
-          <span className={chrome.brandMetaClassName}>
+          <span className={cn("mt-1 block", chrome.brandMetaClassName)}>
             当前上下文: {activeSurface.label}
           </span>
         </div>
         <Link
           className={cn(
             chrome.headerQuickActionClassName,
-            "inline-flex items-center gap-2 px-3",
+            "inline-flex w-full items-center justify-center gap-2 px-3",
           )}
           href={
             activeSurface.id === "skill-studio"

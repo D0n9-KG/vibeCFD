@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useArtifactContent } from "@/core/artifacts/hooks";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import { urlOfArtifact } from "@/core/artifacts/utils";
 import { cn } from "@/lib/utils";
 
@@ -108,7 +109,7 @@ const WORKBENCH_SECTIONS: Array<{ id: WorkbenchSectionId; label: string }> = [
   { id: "metrics", label: "关键指标" },
   { id: "trend", label: "结果趋势" },
   { id: "cases", label: "案例匹配" },
-  { id: "artifacts", label: "Artifacts" },
+  { id: "artifacts", label: "产物" },
 ];
 
 export const STAGE_ORDER: RuntimeStage[] = [
@@ -124,7 +125,7 @@ export const STAGE_LABELS: Record<RuntimeStage, string> = {
   "geometry-preflight": "几何预检",
   "solver-dispatch": "求解执行",
   "result-reporting": "结果整理",
-  "supervisor-review": "Supervisor 复核",
+  "supervisor-review": "主管复核",
   "user-confirmation": "用户确认",
 };
 
@@ -134,6 +135,27 @@ const REVIEW_STATUS_LABELS: Record<string, string> = {
   blocked: "已阻塞",
 };
 
+const RUNTIME_STATUS_LABELS: Record<string, string> = {
+  draft: "草稿",
+  pending: "待执行",
+  ready: "就绪",
+  in_progress: "进行中",
+  running: "运行中",
+  completed: "已完成",
+  blocked: "已阻塞",
+  failed: "失败",
+  needs_clarification: "待澄清",
+  needs_user_confirmation: "待用户确认",
+};
+
+function localizeRuntimeText(value?: string | null) {
+  if (!value) {
+    return "--";
+  }
+
+  return localizeWorkspaceDisplayText(value.replaceAll("_", " "));
+}
+
 function formatStage(stage?: string | null) {
   if (!stage) return "未开始";
   return formatSubmarineRuntimeStageLabel(stage);
@@ -141,7 +163,15 @@ function formatStage(stage?: string | null) {
 
 function formatReviewStatus(status?: string | null) {
   if (!status) return "运行中";
-  return REVIEW_STATUS_LABELS[status] ?? status;
+  return REVIEW_STATUS_LABELS[status] ?? localizeRuntimeText(status);
+}
+
+function formatRuntimeStatus(status?: string | null) {
+  if (!status) {
+    return "--";
+  }
+
+  return RUNTIME_STATUS_LABELS[status] ?? localizeRuntimeText(status);
 }
 
 function formatTimelineTimestamp(value?: string | null) {
@@ -488,7 +518,7 @@ export function SubmarineRuntimePanel({
     }
 
     for (const runId of experimentSummary?.missingCustomCompareEntryIds ?? []) {
-      const line = `Custom Variant | ${runId.replace(/^custom:/, "")} | ${runId} | compare target baseline | compare pending`;
+      const line = `自定义变体 | ${runId.replace(/^custom:/, "")} | ${runId} | 待对比基线目标 | 对比待完成`;
       if (!seen.has(line)) {
         seen.add(line);
         lines.push(line);
@@ -673,17 +703,19 @@ export function SubmarineRuntimePanel({
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
               <ShipWheelIcon className="size-4" />
-              Submarine CFD Workbench
+              潜艇 CFD 工作台
             </div>
             <div>
               <CardTitle className="text-xl">潜艇任务运行面板</CardTitle>
               <CardDescription className="mt-1 max-w-3xl text-sm leading-6">
-                {finalReport?.summary_zh ??
-                  designBrief?.summary_zh ??
-                  dispatchPayload?.summary_zh ??
-                  geometryPayload?.summary_zh ??
-                  runtime?.task_summary ??
-                  "当前线程已经进入潜艇 CFD 专业流程。这里集中展示方案简报、运行状态和交付产物。"}
+                {localizeWorkspaceDisplayText(
+                  finalReport?.summary_zh ??
+                    designBrief?.summary_zh ??
+                    dispatchPayload?.summary_zh ??
+                    geometryPayload?.summary_zh ??
+                    runtime?.task_summary ??
+                    "当前线程已经进入潜艇 CFD 专业流程。这里集中展示方案简报、运行状态和交付产物。",
+                )}
               </CardDescription>
             </div>
           </div>
@@ -700,64 +732,76 @@ export function SubmarineRuntimePanel({
         <StageTrack items={stageTrack} />
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <MetricTile icon={ActivityIcon} label="运行状态" value={runtime?.stage_status ?? "待命中"} note={`下一阶段：${formatStage(runtime?.next_recommended_stage)}`} />
-          <MetricTile icon={BoxesIcon} label="案例模板" value={selectedCase?.title ?? runtime?.selected_case_id ?? "待匹配"} note={runtime?.geometry_family ?? designBrief?.geometry_family_hint ?? "几何家族待识别"} />
+          <MetricTile icon={ActivityIcon} label="运行状态" value={formatRuntimeStatus(runtime?.stage_status ?? "draft")} note={`下一阶段：${formatStage(runtime?.next_recommended_stage)}`} />
+          <MetricTile
+            icon={BoxesIcon}
+            label="案例模板"
+            value={localizeWorkspaceDisplayText(
+              selectedCase?.title ?? runtime?.selected_case_id ?? "待匹配",
+            )}
+            note={runtime?.geometry_family ?? designBrief?.geometry_family_hint ?? "几何家族待识别"}
+          />
           <MetricTile icon={GaugeIcon} label="阻力系数 Cd" value={formatNumeric(cd, 6)} note={`最终时间步：${formatNumeric(solverMetrics?.final_time_seconds, 0, " s")}`} />
-          <MetricTile icon={WavesIcon} label="总阻力 Fx" value={formatNumeric(dragForceX, 4, " N")} note={`Artifacts：${submarineArtifacts.length}`} />
+          <MetricTile icon={WavesIcon} label="总阻力 Fx" value={formatNumeric(dragForceX, 4, " N")} note={`产物：${submarineArtifacts.length}`} />
         </div>
 
         <QuickAccess onJump={(id) => document.getElementById(sectionElementId(id))?.scrollIntoView({ behavior: "smooth", block: "start" })} />
 
-        <InfoPanel id={sectionElementId("runtime")} title="任务与运行上下文" kicker="Runtime">
+        <InfoPanel id={sectionElementId("runtime")} title="任务与运行上下文" kicker="运行面板">
           <RuntimeContextGrid
             entries={[
-              { label: "任务摘要", value: runtime?.task_summary ?? designBrief?.task_description ?? "待生成" },
+              {
+                label: "任务摘要",
+                value: localizeWorkspaceDisplayText(
+                  runtime?.task_summary ?? designBrief?.task_description ?? "待生成",
+                ),
+              },
               { label: "几何文件", value: runtime?.geometry_virtual_path ?? designBrief?.geometry_virtual_path ?? "待上传" },
               { label: "几何家族", value: runtime?.geometry_family ?? designBrief?.geometry_family_hint ?? "待识别" },
               {
-                label: "Researcher approval",
+                label: "研究批准",
                 value:
                   designBriefSummary?.precomputeApprovalLabel ??
                   (runtime?.review_status === "needs_user_confirmation"
-                    ? "Pending Researcher Confirmation"
-                    : "Ready"),
+                    ? "待研究人员确认"
+                    : "已就绪"),
               },
               {
-                label: "Calculation plan",
-                value: `${designBriefSummary?.calculationPlan.length ?? calculationPlanDraft.length} items`,
+                label: "计算计划",
+                value: `${designBriefSummary?.calculationPlan.length ?? calculationPlanDraft.length} 项`,
               },
               { label: "当前报告", value: runtime?.report_virtual_path ?? designBriefJson ?? "待生成" },
-              { label: "Workspace case", value: runtime?.workspace_case_dir_virtual_path ?? "待生成" },
-              { label: "Run script / 后处理", value: runtime?.run_script_virtual_path ?? solverMetrics?.workspace_postprocess_virtual_path ?? "待生成" },
-              { label: "Dispatch request", value: dispatchJson ?? "待生成" },
+              { label: "工作区案例目录", value: runtime?.workspace_case_dir_virtual_path ?? "待生成" },
+              { label: "运行脚本与后处理", value: runtime?.run_script_virtual_path ?? solverMetrics?.workspace_postprocess_virtual_path ?? "待生成" },
+              { label: "派发请求", value: dispatchJson ?? "待生成" },
               {
-                label: "Execution log",
+                label: "执行日志",
                 value:
                   executionLogPath ??
                   (runtime?.current_stage === "solver-dispatch" ||
                   runtime?.current_stage === "result-reporting"
-                    ? "当前还没有写入 execution log"
+                    ? "当前还没有写入执行日志"
                     : "本轮尚未执行"),
               },
-              { label: "Solver results JSON", value: solverResultsJson ?? "待生成" },
+              { label: "求解结果数据", value: solverResultsJson ?? "待生成" },
               {
-                label: "Solver results Markdown",
+                label: "求解结果说明文档",
                 value: solverResultsMarkdownPath ?? "待生成",
               },
             ]}
           />
           <LabeledList
-            title="Runtime Output Delivery"
+            title="运行时输出交付"
             items={outputDeliverySummary.map((item) =>
               item.specSummary !== "--"
-                ? `${item.outputId} | ${item.deliveryStatus} | ${item.specSummary} | ${item.detail}`
-                : `${item.outputId} | ${item.deliveryStatus} | ${item.detail}`,
+                ? `${localizeWorkspaceDisplayText(item.label)} | ${localizeWorkspaceDisplayText(item.deliveryStatus)} | ${localizeWorkspaceDisplayText(item.specSummary)} | ${localizeWorkspaceDisplayText(item.detail)}`
+                : `${localizeWorkspaceDisplayText(item.label)} | ${localizeWorkspaceDisplayText(item.deliveryStatus)} | ${localizeWorkspaceDisplayText(item.detail)}`,
             )}
-            emptyText="褰撳墠杩樻病鏈夋眰瑙ｈ緭鍑虹殑鏄惧紡浜や粯鐪熺浉銆?"
+            emptyText="当前还没有求解输出的显式交付情况。"
           />
         </InfoPanel>
 
-        <InfoPanel id={sectionElementId("brief")} title="CFD 设计简报" kicker="Plan">
+        <InfoPanel id={sectionElementId("brief")} title="CFD 设计简报" kicker="方案简报">
           {designBriefSummary ? (
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -768,34 +812,34 @@ export function SubmarineRuntimePanel({
               </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <KeyValue
-                  label="Researcher approval"
+                  label="研究批准"
                   value={designBriefSummary.precomputeApprovalLabel}
                 />
                 <KeyValue
-                  label="Calculation plan"
-                  value={`${designBriefSummary.calculationPlan.length} items`}
+                  label="计算计划"
+                  value={`${designBriefSummary.calculationPlan.length} 项`}
                 />
                 <KeyValue
-                  label="Pending plan items"
-                  value={`${designBriefSummary.pendingCalculationPlanCount} items`}
+                  label="待确认计划项"
+                  value={`${designBriefSummary.pendingCalculationPlanCount} 项`}
                 />
                 <KeyValue
-                  label="Immediate clarification"
-                  value={`${designBriefSummary.immediateClarificationCount} items`}
+                  label="立即澄清项"
+                  value={`${designBriefSummary.immediateClarificationCount} 项`}
                 />
                 <StatusTile
                   icon={BoxesIcon}
-                  label="Researcher approval"
+                  label="研究批准"
                   value={
                     designBriefSummary?.precomputeApprovalLabel ??
                     (runtime?.review_status === "needs_user_confirmation"
-                      ? "Pending Researcher Confirmation"
-                      : "Ready")
+                      ? "待研究人员确认"
+                      : "已就绪")
                   }
                   note={
                     runtime?.review_status === "needs_user_confirmation"
-                      ? "Pre-compute approval is still pending. This gate blocks solver execution and stays separate from post-compute scientific claim labels."
-                      : "No outstanding pre-compute approval blocker is recorded."
+                      ? "预计算审批仍未完成。这个关口会阻止求解执行，并且与求解后的科研结论级别判断相互独立。"
+                      : "当前没有记录尚未解决的预计算审批阻断项。"
                   }
                 />
               </div>
@@ -807,24 +851,23 @@ export function SubmarineRuntimePanel({
                 </div>
               )}
               <div className="grid gap-4 xl:grid-cols-3">
-                <LabeledList title="预期交付物" items={designBriefSummary.expectedOutputs} emptyText="Claude Code 还没有整理出明确的交付清单。" />
-                <LabeledList title="用户约束" items={designBriefSummary.userConstraints} emptyText="当前还没有明确的额外约束。" />
-                <LabeledList title="待确认项" items={designBriefSummary.openQuestions} emptyText="当前方案已经没有待确认项。" />
+                <LabeledList title="预期交付物" items={designBriefSummary.expectedOutputs.map((item) => localizeWorkspaceDisplayText(item))} emptyText="Claude Code 还没有整理出明确的交付清单。" />
+                <LabeledList title="用户约束" items={designBriefSummary.userConstraints.map((item) => localizeWorkspaceDisplayText(item))} emptyText="当前还没有明确的额外约束。" />
+                <LabeledList title="待确认项" items={designBriefSummary.openQuestions.map((item) => localizeWorkspaceDisplayText(item))} emptyText="当前方案已经没有待确认项。" />
               </div>
               {designBriefSummary.calculationPlan.length > 0 ? (
                 <div className="rounded-xl border bg-background/70 p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-medium text-foreground">
-                        Calculation Plan Review
+                        计算计划审阅
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Pre-compute assumptions that still require researcher review.
-                        This approval gate is separate from post-compute claim levels.
+                        这些预计算假设仍需要研究人员审阅。这个批准门槛与求解后的结论级别判断是分开的。
                       </div>
                     </div>
                     <Badge variant="outline">
-                      {designBriefSummary.calculationPlan.length} items
+                      {designBriefSummary.calculationPlan.length} 项
                     </Badge>
                   </div>
                   <div className="grid gap-3 xl:grid-cols-2">
@@ -852,41 +895,41 @@ export function SubmarineRuntimePanel({
                           <div className="flex flex-wrap gap-2">
                             {item.requiresImmediateConfirmation ? (
                               <Badge variant="secondary">
-                                Immediate Clarification
+                                立即澄清
                               </Badge>
                             ) : null}
                             <Badge variant="outline">{item.approvalStateLabel}</Badge>
                           </div>
                         </div>
                         <div className="mt-3 grid gap-3 md:grid-cols-2">
-                          <KeyValue label="Proposed value" value={item.proposedValue} />
-                          <KeyValue label="Confidence" value={item.confidenceLabel} />
-                          <KeyValue label="Source" value={item.sourceLabel} />
-                          <KeyValue label="Source URL" value={item.sourceUrl} />
+                          <KeyValue label="建议值" value={item.proposedValue} />
+                          <KeyValue label="置信度" value={item.confidenceLabel} />
+                          <KeyValue label="来源" value={item.sourceLabel} />
+                          <KeyValue label="来源链接" value={item.sourceUrl} />
                         </div>
                         <div className="mt-3 grid gap-3 xl:grid-cols-3">
                           <LabeledList
-                            title="Applicability"
+                            title="适用条件"
                             items={item.applicabilityConditions}
-                            emptyText="No explicit applicability conditions are recorded."
+                            emptyText="当前没有记录明确的适用条件。"
                           />
                           <LabeledList
-                            title="Evidence Gap"
+                            title="证据缺口"
                             items={
                               item.evidenceGapNote !== "--"
                                 ? [item.evidenceGapNote]
                                 : []
                             }
-                            emptyText="No evidence-gap disclosure is recorded."
+                            emptyText="当前没有记录证据缺口说明。"
                           />
                           <LabeledList
-                            title="Researcher Notes"
+                            title="研究人员备注"
                             items={
                               item.researcherNote !== "--"
                                 ? [item.researcherNote]
                                 : []
                             }
-                            emptyText="No researcher note is recorded yet."
+                            emptyText="当前还没有研究人员备注。"
                           />
                         </div>
                       </div>
@@ -894,43 +937,43 @@ export function SubmarineRuntimePanel({
                   </div>
                 </div>
               ) : null}
-              <div className="rounded-xl border bg-background/70 p-4">
-                <div className="mb-2 text-sm font-medium text-foreground">
-                  Requested Outputs
-                </div>
-                <LabeledList
-                  title="Requested Outputs"
-                  items={designBriefSummary.requestedOutputs.map((item) =>
-                    item.specSummary !== "--"
-                      ? `${item.label} | ${item.supportLevel} | ${item.requestedLabel} | ${item.specSummary}`
-                      : `${item.label} | ${item.supportLevel} | ${item.requestedLabel}`,
-                  )}
+                <div className="rounded-xl border bg-background/70 p-4">
+                  <div className="mb-2 text-sm font-medium text-foreground">
+                    请求输出
+                  </div>
+                  <LabeledList
+                    title="请求输出"
+                    items={designBriefSummary.requestedOutputs.map((item) =>
+                      item.specSummary !== "--"
+                        ? `${localizeWorkspaceDisplayText(item.label)} | ${localizeWorkspaceDisplayText(item.supportLevel)} | ${localizeWorkspaceDisplayText(item.requestedLabel)} | ${localizeWorkspaceDisplayText(item.specSummary)}`
+                        : `${localizeWorkspaceDisplayText(item.label)} | ${localizeWorkspaceDisplayText(item.supportLevel)} | ${localizeWorkspaceDisplayText(item.requestedLabel)}`,
+                    )}
                   emptyText="Claude Code 还没有把用户需求收敛成结构化输出合同。"
                 />
               </div>
-              <div className="rounded-xl border bg-background/70 p-4">
-                <div className="mb-2 text-sm font-medium text-foreground">
-                  Scientific Verification Requirements
+                <div className="rounded-xl border bg-background/70 p-4">
+                  <div className="mb-2 text-sm font-medium text-foreground">
+                    科研验证要求
+                  </div>
+                  <LabeledList
+                    title="科研验证要求"
+                    items={designBriefSummary.scientificVerificationRequirements.map(
+                      (item) =>
+                        item.detail !== "--"
+                          ? `${localizeWorkspaceDisplayText(item.label)} | ${localizeWorkspaceDisplayText(item.checkType)} | ${localizeWorkspaceDisplayText(item.detail)}`
+                          : `${localizeWorkspaceDisplayText(item.label)} | ${localizeWorkspaceDisplayText(item.checkType)}`,
+                    )}
+                    emptyText="当前设计简报还没有列出面向科研的验证要求。"
+                  />
                 </div>
-                <LabeledList
-                  title="Scientific Verification Requirements"
-                  items={designBriefSummary.scientificVerificationRequirements.map(
-                    (item) =>
-                      item.detail !== "--"
-                        ? `${item.label} | ${item.checkType} | ${item.detail}`
-                        : `${item.label} | ${item.checkType}`,
-                  )}
-                  emptyText="Current design brief does not yet list research-facing verification requirements."
-                />
-              </div>
               <OutlineList items={executionOutline} />
             </div>
           ) : (
-            <EmptyState text="Claude Code 与用户的当前讨论还没有沉淀为结构化 CFD 设计简报。生成 design brief 后，这里会展示任务目标、待确认项、交付物和执行分工。" />
+            <EmptyState text="Claude Code 与用户的当前讨论还没有沉淀为结构化 CFD 设计简报。生成设计简报后，这里会展示任务目标、待确认项、交付物和执行分工。" />
           )}
         </InfoPanel>
 
-        <InfoPanel id={sectionElementId("timeline")} title="执行时间线" kicker="Timeline">
+        <InfoPanel id={sectionElementId("timeline")} title="执行时间线" kicker="时间线">
           {timelineEvents.length > 0 ? (
             <div className="space-y-3">
               {timelineEvents.map((event, index) => (
@@ -941,23 +984,23 @@ export function SubmarineRuntimePanel({
               ))}
             </div>
           ) : (
-            <EmptyState text="当前 thread 还没有沉淀执行时间线。随着 Claude Code 修订方案、几何预检、求解派发和结果报告推进，这里会持续追加阶段记录。" />
+          <EmptyState text="当前线程还没有沉淀执行时间线。随着 Claude Code 修订方案、几何预检、求解派发和结果报告推进，这里会持续追加阶段记录。" />
           )}
         </InfoPanel>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
           <div className="grid gap-4">
-            <InfoPanel id={sectionElementId("health")} title="求解健康状态" kicker="Health">
+            <InfoPanel id={sectionElementId("health")} title="求解健康状态" kicker="健康">
               <div className="grid gap-3 md:grid-cols-3">
                 <StatusTile icon={ShipWheelIcon} label="几何就绪" value={dispatchPayload?.requires_geometry_conversion ? "待转换" : runtime?.geometry_virtual_path ? "可求解" : "待上传"} note={dispatchPayload?.requires_geometry_conversion ? "当前上传格式需要先转换成 STL。" : runtime?.geometry_virtual_path ? "当前线程已经具备几何输入。" : "当前线程还没有潜艇几何输入。"} />
-                <StatusTile icon={RadarIcon} label="求解执行" value={solverMetrics?.solver_completed ? "已完成" : runtime?.current_stage === "solver-dispatch" ? "执行中" : "待执行"} note={solverMetrics?.solver_completed ? `最终时间步 ${formatNumeric(solverMetrics.final_time_seconds, 0, " s")}` : runtime?.current_stage === "solver-dispatch" ? runtime?.stage_status ?? "等待更多求解产物。" : "完成几何预检与案例确认后，可进入真实 OpenFOAM 求解。"} />
+                <StatusTile icon={RadarIcon} label="求解执行" value={solverMetrics?.solver_completed ? "已完成" : runtime?.current_stage === "solver-dispatch" ? "执行中" : "待执行"} note={solverMetrics?.solver_completed ? `最终时间步 ${formatNumeric(solverMetrics.final_time_seconds, 0, " s")}` : runtime?.current_stage === "solver-dispatch" ? formatRuntimeStatus(runtime?.stage_status) : "完成几何预检与案例确认后，可进入真实 OpenFOAM 求解。"} />
                 <StatusTile
                   icon={Layers2Icon}
-                  label="Supervisor 复核"
+                  label="主管复核"
                   value={formatReviewStatus(runtime?.review_status)}
                   note={
                     scientificGateSummary
-                      ? `Scientific gate：${scientificGateSummary.gateStatusLabel}；claim level：${scientificGateSummary.allowedClaimLevelLabel}；下一阶段：${formatStage(runtime?.next_recommended_stage)}`
+                        ? `科研门槛：${scientificGateSummary.gateStatusLabel}；结论级别：${scientificGateSummary.allowedClaimLevelLabel}；下一阶段：${formatStage(runtime?.next_recommended_stage)}`
                       : `下一阶段：${formatStage(runtime?.next_recommended_stage)}`
                   }
                 />
@@ -973,8 +1016,7 @@ export function SubmarineRuntimePanel({
                         结论优先交付
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Workbench mirrors the packaged final report contract and
-                        artifact linkage.
+                        当前工作台会同步展示最终报告结构以及与产物的关联关系。
                       </div>
                     </div>
                     {reportOverviewSummary ? (
@@ -987,21 +1029,21 @@ export function SubmarineRuntimePanel({
                     <>
                       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                         <KeyValue
-                          label="Allowed Claim"
+                          label="允许结论级别"
                           value={reportOverviewSummary.allowedClaimLevelLabel}
                         />
                         <KeyValue
-                          label="Review Status"
+                          label="复核状态"
                           value={reportOverviewSummary.reviewStatusLabel}
                         />
                         <KeyValue
-                          label="Reproducibility"
+                          label="可复现性"
                           value={
                             reportOverviewSummary.reproducibilityStatusLabel
                           }
                         />
                         <KeyValue
-                          label="Evidence Groups"
+                          label="证据分组"
                           value={
                             evidenceIndexSummary
                               ? `${evidenceIndexSummary.groupCount}`
@@ -1011,13 +1053,13 @@ export function SubmarineRuntimePanel({
                       </div>
                       <div className="rounded-xl border bg-muted/20 p-4">
                         <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                          Current Conclusion
+                          当前结论
                         </div>
                         <div className="mt-2 text-sm leading-6 text-foreground">
                           {reportOverviewSummary.currentConclusion}
                         </div>
                         <div className="mt-4 text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                          Recommended Next Step
+                          推荐下一步
                         </div>
                         <div className="mt-1 text-sm leading-6 text-muted-foreground">
                           {reportOverviewSummary.recommendedNextStep}
@@ -1065,19 +1107,19 @@ export function SubmarineRuntimePanel({
                           </div>
                           <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                             <KeyValue
-                              label="Claim Level"
+                              label="结论级别"
                               value={section.claimLevelLabel}
                             />
                             <KeyValue
-                              label="Confidence"
+                              label="可信度"
                               value={section.confidenceLabel}
                             />
                             <KeyValue
-                              label="Sources"
+                              label="来源数"
                               value={`${section.inlineSourceRefs.length}`}
                             />
                             <KeyValue
-                              label="Artifacts"
+                              label="产物数"
                               value={`${section.artifactPaths.length}`}
                             />
                           </div>
@@ -1126,15 +1168,15 @@ export function SubmarineRuntimePanel({
                               onOpenArtifact={openArtifact}
                             />
                             <ArtifactPathList
-                              title="Provenance Manifest"
+                              title="溯源清单"
                               paths={
                                 group.provenanceManifestPath !== "--"
                                   ? [group.provenanceManifestPath]
                                   : []
                               }
-                              emptyText="当前没有 provenance manifest 链接。"
-                              onOpenArtifact={openArtifact}
-                            />
+                                emptyText="当前没有溯源清单链接。"
+                                onOpenArtifact={openArtifact}
+                              />
                           </div>
                         </div>
                       ))}
@@ -1145,22 +1187,22 @@ export function SubmarineRuntimePanel({
               {!acceptanceSummary && outputDeliverySummary.length > 0 ? (
                 <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                   <div className="grid gap-3 md:grid-cols-3">
-                    <KeyValue label="Requested outputs" value={`${outputDeliverySummary.length} 项`} />
+                    <KeyValue label="请求输出" value={`${outputDeliverySummary.length} 项`} />
                     <KeyValue
-                      label="Delivered"
+                      label="已交付"
                       value={`${outputDeliverySummary.filter((item) => item.deliveryStatus === "delivered").length} 项`}
                     />
                     <KeyValue
-                      label="Pending / Planned"
+                      label="待交付 / 已规划"
                       value={`${outputDeliverySummary.filter((item) => item.deliveryStatus === "pending" || item.deliveryStatus === "planned").length} 项`}
                     />
                   </div>
                   <LabeledList
-                    title="Runtime Output Delivery"
+                    title="运行时输出交付"
                     items={outputDeliverySummary.map((item) =>
                       item.specSummary !== "--"
-                        ? `${item.outputId} | ${item.deliveryStatus} | ${item.specSummary} | ${item.detail}`
-                        : `${item.outputId} | ${item.deliveryStatus} | ${item.detail}`,
+                        ? `${item.label} | ${item.deliveryStatus} | ${item.specSummary} | ${item.detail}`
+                        : `${item.label} | ${item.deliveryStatus} | ${item.detail}`,
                     )}
                     emptyText="当前还没有记录请求输出的交付状态。"
                   />
@@ -1188,20 +1230,20 @@ export function SubmarineRuntimePanel({
                       items={acceptanceSummary.blockingIssues}
                       emptyText="当前没有阻断问题。"
                     />
-                    <LabeledList
-                      title="Benchmark 对比"
-                      items={acceptanceSummary.benchmarkComparisons.map((item) =>
-                        formatSubmarineBenchmarkComparisonSummaryLine(item),
-                      )}
-                      emptyText="当前没有命中的 benchmark 对比。"
-                    />
+                      <LabeledList
+                        title="基准对比"
+                        items={acceptanceSummary.benchmarkComparisons.map((item) =>
+                          formatSubmarineBenchmarkComparisonSummaryLine(item),
+                        )}
+                        emptyText="当前没有命中的基准对比。"
+                      />
                   </div>
                   <LabeledList
-                    title="Output Delivery"
+                    title="输出交付"
                     items={acceptanceSummary.outputDelivery.map((item) =>
                       item.specSummary !== "--"
-                        ? `${item.outputId} | ${item.deliveryStatus} | ${item.specSummary} | ${item.detail}`
-                        : `${item.outputId} | ${item.deliveryStatus} | ${item.detail}`,
+                        ? `${item.label} | ${item.deliveryStatus} | ${item.specSummary} | ${item.detail}`
+                        : `${item.label} | ${item.deliveryStatus} | ${item.detail}`,
                     )}
                     emptyText="当前还没有记录请求输出的交付状态。"
                   />
@@ -1211,19 +1253,19 @@ export function SubmarineRuntimePanel({
                   <div className="mt-4 space-y-4 rounded-xl border border-sky-200 bg-sky-50/70 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <KeyValue
-                        label="Decision Status"
+                        label="决策状态"
                         value={deliveryDecisionSummary.decisionStatusLabel}
                       />
                       <KeyValue
-                        label="Recommended"
+                        label="推荐选项"
                         value={deliveryDecisionSummary.recommendedOptionLabel}
                       />
                       <KeyValue
-                        label="Decision Question"
+                        label="决策问题"
                         value={deliveryDecisionSummary.question}
                       />
                       <KeyValue
-                        label="Chat Prompt"
+                        label="聊天提示"
                         value={deliveryDecisionSummary.chatPrompt}
                       />
                     </div>
@@ -1243,7 +1285,7 @@ export function SubmarineRuntimePanel({
                               </Badge>
                               {item.optionId ===
                               deliveryDecisionSummary.recommendedOptionId ? (
-                                <Badge variant="secondary">Recommended</Badge>
+                                <Badge variant="secondary">推荐</Badge>
                               ) : null}
                               <span className="text-sm font-medium text-foreground">
                                 {item.label}
@@ -1258,19 +1300,19 @@ export function SubmarineRuntimePanel({
                     ) : null}
                     <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
-                        title="Blocking Context"
+                        title="阻塞上下文"
                         items={deliveryDecisionSummary.blockingReasons}
-                        emptyText="No blocking context is recorded."
+                        emptyText="当前没有记录阻塞上下文。"
                       />
                       <LabeledList
-                        title="Advisory Notes"
+                        title="建议备注"
                         items={deliveryDecisionSummary.advisoryNotes}
-                        emptyText="No advisory notes are recorded."
+                        emptyText="当前没有记录建议备注。"
                       />
                       <ArtifactPathList
-                        title="Decision Artifacts"
+                        title="决策产物"
                         paths={deliveryDecisionSummary.artifactPaths}
-                        emptyText="No decision artifacts are recorded."
+                        emptyText="当前没有记录决策产物。"
                         onOpenArtifact={openArtifact}
                       />
                     </div>
@@ -1280,41 +1322,41 @@ export function SubmarineRuntimePanel({
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <KeyValue
-                        label="Scientific Gate"
+                        label="科研门槛"
                         value={scientificGateSummary.gateStatusLabel}
                       />
                       <KeyValue
-                        label="Allowed Claim"
+                        label="允许结论"
                         value={scientificGateSummary.allowedClaimLevelLabel}
                       />
                       <KeyValue
-                        label="Source Readiness"
+                        label="证据就绪度"
                         value={scientificGateSummary.sourceReadinessLabel}
                       />
                       <KeyValue
-                        label="Recommended Stage"
+                        label="建议阶段"
                         value={scientificGateSummary.recommendedStageLabel}
                       />
                       <KeyValue
-                        label="Remediation"
+                        label="补救阶段"
                         value={scientificGateSummary.remediationStageLabel}
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
-                        title="Blocking Reasons"
+                        title="阻塞原因"
                         items={scientificGateSummary.blockingReasons}
-                        emptyText="No scientific supervisor blockers are recorded."
+                        emptyText="当前没有记录科研复核阻塞项。"
                       />
                       <LabeledList
-                        title="Advisory Notes"
+                        title="建议备注"
                         items={scientificGateSummary.advisoryNotes}
-                        emptyText="No scientific supervisor advisory notes are recorded."
+                        emptyText="当前没有记录科研复核建议。"
                       />
                       <LabeledList
-                        title="Gate Artifacts"
+                        title="门槛产物"
                         items={scientificGateSummary.artifactPaths}
-                        emptyText="No scientific supervisor gate artifacts are recorded."
+                        emptyText="当前没有记录科研门槛产物。"
                       />
                     </div>
                   </div>
@@ -1323,19 +1365,19 @@ export function SubmarineRuntimePanel({
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <KeyValue
-                        label="Manifest"
+                        label="清单文件"
                         value={reproducibilitySummary.manifestPath}
                       />
                       <KeyValue
-                        label="Profile"
+                        label="环境配置"
                         value={reproducibilitySummary.profileLabel}
                       />
                       <KeyValue
-                        label="Parity"
+                        label="环境一致性"
                         value={reproducibilitySummary.parityStatusLabel}
                       />
                       <KeyValue
-                        label="Reproducibility"
+                        label="可复现性"
                         value={
                           reproducibilitySummary.reproducibilityStatusLabel
                         }
@@ -1343,14 +1385,14 @@ export function SubmarineRuntimePanel({
                     </div>
                     <div className="grid gap-4 xl:grid-cols-2">
                       <LabeledList
-                        title="Drift Reasons"
+                        title="漂移原因"
                         items={reproducibilitySummary.driftReasons}
-                        emptyText="No runtime parity drift reasons are recorded."
+                        emptyText="当前没有记录运行环境一致性漂移原因。"
                       />
                       <LabeledList
-                        title="Recovery Guidance"
+                        title="恢复建议"
                         items={reproducibilitySummary.recoveryGuidance}
-                        emptyText="No reproducibility recovery guidance is recorded."
+                        emptyText="当前没有记录可复现性恢复建议。"
                       />
                     </div>
                   </div>
@@ -1359,58 +1401,58 @@ export function SubmarineRuntimePanel({
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <KeyValue
-                        label="Research Readiness"
+                        label="科研准备度"
                         value={researchEvidenceSummary.readinessLabel}
                       />
                       <KeyValue
-                        label="Verification"
+                        label="验证状态"
                         value={researchEvidenceSummary.verificationStatusLabel}
                       />
                       <KeyValue
-                        label="Validation"
+                        label="校核状态"
                         value={researchEvidenceSummary.validationStatusLabel}
                       />
                       <KeyValue
-                        label="Provenance"
+                        label="溯源状态"
                         value={researchEvidenceSummary.provenanceStatusLabel}
                       />
                       <KeyValue
-                        label="Confidence"
+                        label="可信度"
                         value={researchEvidenceSummary.confidenceLabel}
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
-                        title="Blocking Issues"
+                        title="阻断问题"
                         items={researchEvidenceSummary.blockingIssues}
-                        emptyText="No research evidence blockers are recorded."
+                        emptyText="当前没有科研证据阻断问题。"
                       />
                       <LabeledList
-                        title="Passed Evidence"
+                        title="已通过证据"
                         items={researchEvidenceSummary.passedEvidence}
-                        emptyText="No passed research evidence is recorded yet."
+                        emptyText="当前还没有记录已通过的科研证据。"
                       />
                       <LabeledList
-                        title="Evidence Gaps"
+                        title="证据缺口"
                         items={researchEvidenceSummary.evidenceGaps}
-                        emptyText="No research evidence gaps are recorded."
+                        emptyText="当前没有科研证据缺口。"
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
-                        title="Benchmark Highlights"
+                        title="基准亮点"
                         items={researchEvidenceSummary.benchmarkHighlights}
-                        emptyText="No benchmark highlights are recorded."
+                        emptyText="当前没有基准亮点记录。"
                       />
                       <LabeledList
-                        title="Provenance Highlights"
+                        title="溯源亮点"
                         items={researchEvidenceSummary.provenanceHighlights}
-                        emptyText="No provenance highlights are recorded."
+                        emptyText="当前没有溯源亮点记录。"
                       />
                       <LabeledList
-                        title="Evidence Artifacts"
+                        title="证据产物"
                         items={researchEvidenceSummary.artifactPaths}
-                        emptyText="No research evidence artifacts are recorded."
+                        emptyText="当前没有记录研究证据产物。"
                       />
                     </div>
                   </div>
@@ -1419,33 +1461,33 @@ export function SubmarineRuntimePanel({
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                       <KeyValue
-                        label="Experiment Registry"
+                        label="实验登记"
                         value={experimentSummary.experimentStatusLabel}
                       />
                       <KeyValue
-                        label="Workflow"
+                        label="流程状态"
                         value={experimentSummary.workflowStatusLabel}
                       />
                       <KeyValue
-                        label="Experiment ID"
+                        label="实验 ID"
                         value={experimentSummary.experimentId}
                       />
                       <KeyValue
-                        label="Baseline Run"
+                        label="基线运行"
                         value={experimentSummary.baselineRunId}
                       />
                       <KeyValue
-                        label="Run Count"
+                        label="运行数量"
                         value={`${experimentSummary.runCount}`}
                       />
                       <KeyValue
-                        label="Compare Count"
+                        label="对比数量"
                         value={`${experimentSummary.compareCount}`}
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
-                        title="Experiment Artifacts"
+                        title="实验产物"
                         items={[
                           experimentSummary.manifestPath,
                           ...(experimentSummary.studyManifestPath !== "--"
@@ -1456,19 +1498,19 @@ export function SubmarineRuntimePanel({
                             : []),
                           ...experimentSummary.artifactPaths,
                         ]}
-                        emptyText="No experiment registry artifacts are recorded yet."
+                        emptyText="当前还没有记录实验登记产物。"
                       />
                       <LabeledList
-                        title="Workflow Detail"
+                        title="流程明细"
                         items={[
                           experimentSummary.workflowDetail,
                           ...experimentSummary.runStatusCountLines,
                           ...experimentSummary.compareStatusCountLines,
                         ]}
-                        emptyText="No experiment workflow detail is recorded yet."
+                        emptyText="当前还没有实验流程明细。"
                       />
                       <LabeledList
-                        title="Linkage Coverage"
+                        title="联动覆盖"
                         items={[
                           `status | ${experimentSummary.linkageStatus}`,
                           `issues | ${experimentSummary.linkageIssueCount}`,
@@ -1480,39 +1522,39 @@ export function SubmarineRuntimePanel({
                             (item) => `missing compare-entry | ${item}`,
                           ),
                         ]}
-                        emptyText="No experiment linkage issues are recorded."
+                        emptyText="当前没有实验联动问题。"
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
-                        title="Run Compare Notes"
+                        title="运行对比说明"
                         items={experimentSummary.compareNotes}
-                        emptyText="No run compare notes are recorded yet."
+                        emptyText="当前还没有运行对比说明。"
                       />
                       <LabeledList
-                        title="Expected Variant Runs"
+                        title="预期变体运行"
                         items={experimentSummary.expectedVariantRunIds}
-                        emptyText="No expected scientific-study variants are recorded."
+                        emptyText="当前还没有预期科研变体运行。"
                       />
                       <LabeledList
-                        title="Outstanding Variant Gaps"
+                        title="待补齐变体缺口"
                         items={[
                           ...experimentSummary.plannedVariantRunIds.map(
-                            (item) => `planned | ${item}`,
+                            (item) => `已规划 | ${item}`,
                           ),
                           ...experimentSummary.blockedVariantRunIds.map(
-                            (item) => `blocked | ${item}`,
+                            (item) => `已阻断 | ${item}`,
                           ),
                           ...experimentSummary.missingMetricsVariantRunIds.map(
-                            (item) => `missing metrics | ${item}`,
+                            (item) => `缺少指标 | ${item}`,
                           ),
                         ]}
-                        emptyText="No outstanding experiment workflow gaps are recorded."
+                        emptyText="当前没有待补齐的实验流程缺口。"
                       />
                       <LabeledList
-                        title="Custom Variant Lineage"
+                        title="自定义变体沿袭"
                         items={customVariantLineageItems}
-                        emptyText="No custom variant lineage is recorded."
+                        emptyText="当前没有自定义变体沿袭记录。"
                       />
                     </div>
                   </div>
@@ -1521,35 +1563,35 @@ export function SubmarineRuntimePanel({
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <KeyValue
-                        label="Remediation Plan"
+                        label="补救方案"
                         value={scientificRemediationSummary.planStatusLabel}
                       />
                       <KeyValue
-                        label="Current Claim"
+                        label="当前结论级别"
                         value={scientificRemediationSummary.currentClaimLevelLabel}
                       />
                       <KeyValue
-                        label="Target Claim"
+                        label="目标结论级别"
                         value={scientificRemediationSummary.targetClaimLevelLabel}
                       />
                       <KeyValue
-                        label="Recommended Stage"
+                        label="推荐阶段"
                         value={scientificRemediationSummary.recommendedStageLabel}
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-2">
                       <LabeledList
-                        title="Remediation Artifacts"
+                        title="补救产物"
                         items={scientificRemediationSummary.artifactPaths}
-                        emptyText="No remediation artifacts are recorded yet."
+                        emptyText="当前还没有记录补救产物。"
                       />
                       <LabeledList
-                        title="Remediation Actions"
+                        title="补救动作"
                         items={scientificRemediationSummary.actions.map(
                           (item) =>
                             `${item.title} | ${item.ownerStageLabel} | ${item.executionModeLabel} | ${item.statusLabel}`,
                         )}
-                        emptyText="No remediation actions are recorded."
+                        emptyText="当前没有记录补救动作。"
                       />
                     </div>
                     {scientificRemediationSummary.actions.length > 0 ? (
@@ -1571,21 +1613,21 @@ export function SubmarineRuntimePanel({
                               </span>
                             </div>
                             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                              <KeyValue label="Action ID" value={item.actionId} />
-                              <KeyValue label="Owner Stage" value={item.ownerStageLabel} />
-                              <KeyValue label="Execution Mode" value={item.executionModeLabel} />
-                              <KeyValue label="Priority" value={item.priority} />
+                              <KeyValue label="动作 ID" value={item.actionId} />
+                              <KeyValue label="负责阶段" value={item.ownerStageLabel} />
+                              <KeyValue label="执行方式" value={item.executionModeLabel} />
+                              <KeyValue label="优先级" value={item.priority} />
                             </div>
                             <div className="mt-3 grid gap-4 xl:grid-cols-2">
                               <LabeledList
-                                title="Action Summary"
+                                title="动作摘要"
                                 items={[item.summary, item.evidenceGap]}
-                                emptyText="No remediation detail is recorded."
+                                emptyText="当前没有记录补救详情。"
                               />
                               <LabeledList
-                                title="Required Artifacts"
+                                title="所需产物"
                                 items={item.requiredArtifacts}
-                                emptyText="No required remediation artifacts are recorded."
+                                emptyText="当前没有记录所需补救产物。"
                               />
                             </div>
                           </div>
@@ -1598,48 +1640,48 @@ export function SubmarineRuntimePanel({
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <KeyValue
-                        label="Remediation Handoff"
+                        label="补救交接"
                         value={scientificRemediationHandoffSummary.handoffStatusLabel}
                       />
                       <KeyValue
-                        label="Recommended Action"
+                        label="建议动作"
                         value={scientificRemediationHandoffSummary.recommendedActionId}
                       />
                       <KeyValue
-                        label="Suggested Tool"
+                        label="建议工具"
                         value={scientificRemediationHandoffSummary.toolName}
                       />
                       <KeyValue
-                        label="Reason"
+                        label="原因"
                         value={scientificRemediationHandoffSummary.reason}
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
-                        title="Handoff Artifacts"
+                        title="交接产物"
                         items={scientificRemediationHandoffSummary.artifactPaths}
-                        emptyText="No remediation handoff artifacts are recorded yet."
+                        emptyText="当前还没有记录补救交接产物。"
                       />
                       <LabeledList
-                        title="Suggested Tool Args"
+                        title="建议工具参数"
                         items={scientificRemediationHandoffSummary.toolArgs.map(
                           (item) => `${item.key} = ${item.value}`,
                         )}
-                        emptyText="No tool arguments are recorded for this handoff."
+                        emptyText="当前没有记录这次交接的工具参数。"
                       />
                       <LabeledList
-                        title="Manual Follow-Up"
+                        title="人工跟进"
                         items={scientificRemediationHandoffSummary.manualActions.map(
                           (item) =>
                             `${item.title} | ${item.ownerStageLabel} | ${item.evidenceGap}`,
                         )}
-                        emptyText="No manual follow-up actions are recorded."
+                        emptyText="当前没有人工跟进行动。"
                       />
                     </div>
                     {scientificRemediationHandoffSummary.toolArgs.length > 0 ? (
                       <div className="space-y-3">
                         <div className="text-sm font-medium text-foreground">
-                          Suggested Tool Contract
+                          建议工具契约
                         </div>
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                           {scientificRemediationHandoffSummary.toolArgs.map((item) => (
@@ -1664,62 +1706,62 @@ export function SubmarineRuntimePanel({
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <KeyValue
-                        label="Follow-Up Entries"
+                        label="跟进条目"
                         value={`${scientificFollowupSummary.entryCount}`}
                       />
                       <KeyValue
-                        label="Latest Outcome"
+                        label="最新结果"
                         value={scientificFollowupSummary.latestOutcomeLabel}
                       />
                       <KeyValue
-                        label="Latest Handoff"
+                        label="最新交接"
                         value={scientificFollowupSummary.latestHandoffStatusLabel}
                       />
                       <KeyValue
-                        label="Latest Kind"
+                        label="最新类型"
                         value={scientificFollowupSummary.latestFollowupKindLabel}
                       />
                       <KeyValue
-                        label="Report Refreshed"
+                        label="报告已刷新"
                         value={scientificFollowupSummary.reportRefreshedLabel}
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
-                        title="Latest Follow-Up Contract"
+                        title="最新跟进约定"
                         items={[
-                          `action | ${scientificFollowupSummary.latestRecommendedActionId}`,
-                          `tool | ${scientificFollowupSummary.latestToolName}`,
-                          `dispatch | ${scientificFollowupSummary.latestDispatchStageStatusLabel}`,
+                          `动作 | ${scientificFollowupSummary.latestRecommendedActionId}`,
+                          `工具 | ${scientificFollowupSummary.latestToolName}`,
+                          `派发 | ${scientificFollowupSummary.latestDispatchStageStatusLabel}`,
                         ]}
-                        emptyText="No follow-up contract details are recorded."
+                        emptyText="当前没有记录跟进约定明细。"
                       />
                       <LabeledList
-                        title="Latest Decision Context"
+                        title="最新决策上下文"
                         items={[
-                          `kind | ${scientificFollowupSummary.latestFollowupKindLabel}`,
+                          `类型 | ${scientificFollowupSummary.latestFollowupKindLabel}`,
                           ...(scientificFollowupSummary.latestDecisionSummary !== "--"
                             ? [scientificFollowupSummary.latestDecisionSummary]
                             : []),
                         ]}
-                        emptyText="No follow-up decision summary is recorded."
+                        emptyText="当前没有记录跟进决策摘要。"
                       />
                       <LabeledList
-                        title="Triggering IDs"
+                        title="触发来源 ID"
                         items={[
                           ...scientificFollowupSummary.latestSourceConclusionIds.map(
-                            (item) => `conclusion | ${item}`,
+                            (item) => `结论 | ${item}`,
                           ),
                           ...scientificFollowupSummary.latestSourceEvidenceGapIds.map(
-                            (item) => `evidence-gap | ${item}`,
+                            (item) => `证据缺口 | ${item}`,
                           ),
                         ]}
-                        emptyText="No source conclusion or evidence-gap ids are recorded."
+                        emptyText="当前没有记录来源结论或证据缺口 ID。"
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-3">
                       <ArtifactPathList
-                        title="Latest Evidence Anchor"
+                        title="最新证据锚点"
                         paths={[
                           ...(scientificFollowupSummary.historyPath !== "--"
                             ? [scientificFollowupSummary.historyPath]
@@ -1737,18 +1779,18 @@ export function SubmarineRuntimePanel({
                             ? [scientificFollowupSummary.latestResultHandoffPath]
                             : []),
                         ]}
-                        emptyText="No refreshed report or provenance anchor is recorded."
+                        emptyText="当前没有刷新后的报告或溯源锚点。"
                         onOpenArtifact={openArtifact}
                       />
                       <LabeledList
-                        title="Latest Follow-Up Notes"
+                        title="最新跟进备注"
                         items={scientificFollowupSummary.latestNotes}
-                        emptyText="No follow-up notes are recorded."
+                        emptyText="当前没有跟进备注。"
                       />
                       <ArtifactPathList
-                        title="Follow-Up Artifacts"
+                        title="后续产物"
                         paths={scientificFollowupSummary.artifactPaths}
-                        emptyText="No follow-up artifacts are recorded."
+                        emptyText="当前没有记录后续产物。"
                         onOpenArtifact={openArtifact}
                       />
                     </div>
@@ -1758,58 +1800,58 @@ export function SubmarineRuntimePanel({
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                       <KeyValue
-                        label="Experiment Compare"
+                        label="实验对比"
                         value={`${experimentCompareSummary.compareCount}`}
                       />
                       <KeyValue
-                        label="Workflow"
+                        label="流程状态"
                         value={experimentCompareSummary.workflowStatusLabel}
                       />
                       <KeyValue
-                        label="Experiment ID"
+                        label="实验 ID"
                         value={experimentCompareSummary.experimentId}
                       />
                       <KeyValue
-                        label="Baseline Run"
+                        label="基线运行"
                         value={experimentCompareSummary.baselineRunId}
                       />
                       <KeyValue
-                        label="Compare Artifact"
+                        label="对比产物"
                         value={experimentCompareSummary.comparePath}
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-3">
                       <LabeledList
-                        title="Compare Artifacts"
+                        title="对比产物"
                         items={experimentCompareSummary.artifactPaths}
-                        emptyText="No experiment compare artifacts are recorded yet."
+                        emptyText="当前还没有记录实验对比产物。"
                       />
                       <LabeledList
-                        title="Workflow Coverage"
+                        title="流程覆盖"
                         items={[
                           ...experimentCompareSummary.compareStatusCountLines,
                           ...experimentCompareSummary.plannedCandidateRunIds.map(
-                            (item) => `planned | ${item}`,
+                            (item) => `已规划 | ${item}`,
                           ),
                           ...experimentCompareSummary.completedCandidateRunIds.map(
-                            (item) => `completed | ${item}`,
+                            (item) => `已完成 | ${item}`,
                           ),
                           ...experimentCompareSummary.blockedCandidateRunIds.map(
-                            (item) => `blocked | ${item}`,
+                            (item) => `已阻塞 | ${item}`,
                           ),
                           ...experimentCompareSummary.missingMetricsCandidateRunIds.map(
-                            (item) => `missing metrics | ${item}`,
+                            (item) => `缺少指标 | ${item}`,
                           ),
                         ]}
-                        emptyText="No experiment compare workflow detail is recorded yet."
+                        emptyText="当前还没有记录实验对比流程详情。"
                       />
                       <LabeledList
-                        title="Compared Runs"
+                        title="已对比运行"
                         items={experimentCompareSummary.comparisons.map(
                           (item) =>
                             `${item.compareTargetRunId} -> ${item.candidateRunId} | ${item.compareStatusLabel} | ${item.candidateExecutionStatusLabel} | ${item.studyLabel}`,
                         )}
-                        emptyText="No experiment comparisons are recorded yet."
+                        emptyText="当前还没有记录实验对比项。"
                       />
                     </div>
                     {experimentCompareSummary.comparisons.length > 0 ? (
@@ -1834,37 +1876,37 @@ export function SubmarineRuntimePanel({
                             </div>
                             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                               <KeyValue
-                                label="Compare Target"
+                                label="对比目标"
                                 value={item.compareTargetRunId}
                               />
-                              <KeyValue label="Study Type" value={item.studyLabel} />
-                              <KeyValue label="Variant" value={item.variantLabel} />
-                              <KeyValue label="Status" value={item.compareStatusLabel} />
+                              <KeyValue label="研究类型" value={item.studyLabel} />
+                              <KeyValue label="变体" value={item.variantLabel} />
+                              <KeyValue label="状态" value={item.compareStatusLabel} />
                               <KeyValue
-                                label="Candidate Execution"
+                                 label="候选运行状态"
                                 value={item.candidateExecutionStatusLabel}
                               />
                             </div>
                             <div className="mt-3 grid gap-4 xl:grid-cols-2">
                               <LabeledList
-                                title="Metric Deltas"
+                                title="指标差值"
                                 items={
                                   item.metricDeltaLines.length > 0
                                     ? item.metricDeltaLines
                                     : [item.notes]
                                 }
-                                emptyText="No compare metric deltas are recorded."
+                                emptyText="当前没有记录对比指标差值。"
                               />
                               <LabeledList
-                                title="Comparison Artifacts"
+                                title="比较产物"
                                 items={item.artifactPaths}
-                                emptyText="No comparison artifacts are recorded."
+                                emptyText="当前没有记录比较产物。"
                               />
                             </div>
                             <LabeledList
-                              title="Comparison Notes"
+                              title="比较备注"
                               items={[item.notes]}
-                              emptyText="No comparison notes are recorded."
+                              emptyText="当前没有记录比较备注。"
                             />
                           </div>
                         ))}
@@ -1876,25 +1918,25 @@ export function SubmarineRuntimePanel({
                   <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <KeyValue
-                        label="Scientific Studies"
+                        label="科学研究"
                         value={scientificStudySummary.executionStatusLabel}
                       />
                       <KeyValue
-                        label="Workflow"
+                        label="流程状态"
                         value={scientificStudySummary.workflowStatusLabel}
                       />
                       <KeyValue
-                        label="Study Count"
+                        label="研究数量"
                         value={`${scientificStudySummary.studies.length}`}
                       />
                       <KeyValue
-                        label="Study Manifest"
+                        label="研究清单"
                         value={scientificStudySummary.manifestPath}
                       />
                     </div>
                     <div className="grid gap-4 xl:grid-cols-2">
                       <LabeledList
-                        title="Workflow Overview"
+                        title="流程概览"
                         items={[
                           ...scientificStudySummary.studyStatusCountLines,
                           ...scientificStudySummary.studies.map(
@@ -1902,12 +1944,12 @@ export function SubmarineRuntimePanel({
                               `${item.summaryLabel} | ${item.workflowStatusLabel} | ${item.studyExecutionStatusLabel} | ${item.verificationStatus}`,
                           ),
                         ]}
-                        emptyText="No scientific study workflow detail is available yet."
+                        emptyText="当前还没有可用的科学研究流程详情。"
                       />
                       <LabeledList
-                        title="Study Artifacts"
+                        title="研究产物"
                         items={scientificStudySummary.artifactPaths}
-                        emptyText="No scientific study artifacts are recorded yet."
+                        emptyText="当前还没有记录科学研究产物。"
                       />
                     </div>
                     {scientificStudySummary.studies.length > 0 ? (
@@ -1930,71 +1972,71 @@ export function SubmarineRuntimePanel({
                             </div>
                             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                               <KeyValue
-                                label="Execution"
+                                label="执行状态"
                                 value={item.studyExecutionStatusLabel}
                               />
                               <KeyValue
-                                label="Verification"
+                                label="验证状态"
                                 value={item.verificationStatus}
                               />
                               <KeyValue
-                                label="Variants"
+                                label="变体数量"
                                 value={`${item.variantCount}`}
                               />
                               <KeyValue
-                                label="Quantity"
+                                label="监测量"
                                 value={item.monitoredQuantity}
                               />
                             </div>
                             <div className="mt-3 grid gap-4 xl:grid-cols-3">
                               <LabeledList
-                                title="Workflow Detail"
+                                title="流程明细"
                                 items={[
                                   item.workflowDetail,
                                   ...item.variantStatusCountLines,
                                   ...item.compareStatusCountLines,
                                   item.verificationDetail,
                                 ]}
-                                emptyText="No study workflow detail is recorded."
+                                emptyText="当前没有研究流程明细。"
                               />
                               <LabeledList
-                                title="Expected / Outstanding Runs"
+                                title="预期 / 待处理运行"
                                 items={[
                                   ...item.expectedVariantRunIds.map(
-                                    (runId) => `expected | ${runId}`,
+                                    (runId) => `预期 | ${runId}`,
                                   ),
                                   ...item.plannedVariantRunIds.map(
-                                    (runId) => `planned | ${runId}`,
+                                    (runId) => `已规划 | ${runId}`,
                                   ),
                                   ...item.inProgressVariantRunIds.map(
-                                    (runId) => `running | ${runId}`,
+                                    (runId) => `运行中 | ${runId}`,
                                   ),
                                   ...item.blockedVariantRunIds.map(
-                                    (runId) => `blocked | ${runId}`,
+                                    (runId) => `已阻断 | ${runId}`,
                                   ),
                                 ]}
-                                emptyText="No outstanding study runs are recorded."
+                                emptyText="当前没有待处理的研究运行。"
                               />
                               <LabeledList
-                                title="Completed / Compare Coverage"
+                                title="已完成 / 对比覆盖"
                                 items={[
                                   ...item.completedVariantRunIds.map(
-                                    (runId) => `completed | ${runId}`,
+                                    (runId) => `已完成 | ${runId}`,
                                   ),
                                   ...item.plannedCompareVariantRunIds.map(
-                                    (runId) => `compare planned | ${runId}`,
+                                    (runId) => `对比已规划 | ${runId}`,
                                   ),
                                   ...item.completedCompareVariantRunIds.map(
-                                    (runId) => `compare completed | ${runId}`,
+                                    (runId) => `对比已完成 | ${runId}`,
                                   ),
                                   ...item.blockedCompareVariantRunIds.map(
-                                    (runId) => `compare blocked | ${runId}`,
+                                    (runId) => `对比已阻塞 | ${runId}`,
                                   ),
                                   ...item.missingMetricsVariantRunIds.map(
-                                    (runId) => `metrics missing | ${runId}`,
+                                    (runId) => `缺少指标 | ${runId}`,
                                   ),
                                 ]}
-                                emptyText="No completed or compare-coverage detail is recorded."
+                                emptyText="暂未记录已完成运行或对比覆盖明细。"
                               />
                             </div>
                           </div>
@@ -2007,65 +2049,65 @@ export function SubmarineRuntimePanel({
                 <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <KeyValue
-                      label="Stability Evidence"
+                      label="稳定性证据"
                       value={stabilityEvidenceSummary.statusLabel}
                     />
                     <KeyValue
-                      label="Max Final Residual"
+                      label="最终最大残差"
                       value={stabilityEvidenceSummary.residualMaxFinalValue}
                     />
                     <KeyValue
-                      label="Tail Coefficient"
+                      label="尾段系数"
                       value={stabilityEvidenceSummary.tailCoefficientLabel}
                     />
                     <KeyValue
-                      label="Tail Spread"
+                      label="尾段波动范围"
                       value={stabilityEvidenceSummary.tailSpreadLabel}
                     />
                   </div>
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     <KeyValue
-                      label="Tail Stability"
+                      label="尾段稳定性"
                       value={stabilityEvidenceSummary.tailStatusLabel}
                     />
                     <KeyValue
-                      label="Tail Samples"
+                      label="尾段采样数"
                       value={stabilityEvidenceSummary.tailSampleCountLabel}
                     />
                     <KeyValue
-                      label="Solver Results Source"
+                      label="求解结果来源"
                       value={stabilityEvidenceSummary.solverResultsPath}
                     />
                   </div>
                   <LabeledList
-                    title="Stability Summary"
+                    title="稳定性摘要"
                     items={[
                       stabilityEvidenceSummary.summary,
                       stabilityEvidenceSummary.artifactPath,
                     ]}
-                    emptyText="No structured stability summary is available."
+                    emptyText="暂未提供结构化稳定性摘要。"
                   />
                   <div className="grid gap-4 xl:grid-cols-3">
                     <LabeledList
-                      title="Passed Checks"
+                      title="已通过检查"
                       items={stabilityEvidenceSummary.passedRequirements}
-                      emptyText="No passed SCI-01 checks are recorded yet."
+                      emptyText="暂未记录已通过的 SCI-01 检查项。"
                     />
                     <LabeledList
-                      title="Missing Stability Evidence"
+                      title="缺失的稳定性证据"
                       items={stabilityEvidenceSummary.missingEvidence}
-                      emptyText="No missing SCI-01 evidence is recorded."
+                      emptyText="暂未记录缺失的 SCI-01 证据。"
                     />
                     <LabeledList
-                      title="Stability Blockers"
+                      title="稳定性阻塞项"
                       items={stabilityEvidenceSummary.blockingIssues}
-                      emptyText="No SCI-01 blockers are recorded."
+                      emptyText="暂未记录 SCI-01 阻塞项。"
                     />
                   </div>
                   <LabeledList
-                    title="SCI-01 Requirement Status"
+                    title="SCI-01 要求状态"
                     items={stabilityEvidenceSummary.requirementLines}
-                    emptyText="No SCI-01 requirement details are available."
+                    emptyText="暂未提供 SCI-01 要求明细。"
                   />
                 </div>
               ) : null}
@@ -2073,43 +2115,43 @@ export function SubmarineRuntimePanel({
                 <div className="mt-4 space-y-4 rounded-xl border bg-background/70 p-4">
                   <div className="grid gap-3 md:grid-cols-2">
                     <KeyValue
-                      label="Scientific Verification"
+                      label="科研验证"
                       value={scientificVerificationSummary.statusLabel}
                     />
                     <KeyValue
-                      label="Verification Confidence"
+                      label="验证可信度"
                       value={scientificVerificationSummary.confidenceLabel}
                     />
                   </div>
                   <div className="grid gap-4 xl:grid-cols-3">
                     <LabeledList
-                      title="Passed Requirements"
+                      title="已通过要求"
                       items={scientificVerificationSummary.passedRequirements}
-                      emptyText="No scientific verification checks have passed yet."
+                      emptyText="当前还没有通过的科研验证检查项。"
                     />
                     <LabeledList
-                      title="Missing Evidence"
+                      title="缺失证据"
                       items={scientificVerificationSummary.missingEvidence}
-                      emptyText="No missing scientific verification evidence is recorded."
+                      emptyText="当前没有记录缺失的科研验证证据。"
                     />
                     <LabeledList
-                      title="Blocking Issues"
+                      title="阻断问题"
                       items={scientificVerificationSummary.blockingIssues}
-                      emptyText="No scientific verification blockers are recorded."
+                      emptyText="当前没有科研验证阻断问题。"
                     />
                   </div>
                   <LabeledList
-                    title="Requirement Status"
+                    title="要求状态"
                     items={scientificVerificationSummary.requirements.map(
                       (item) => `${item.label} | ${item.status} | ${item.detail}`,
                     )}
-                    emptyText="No scientific verification requirement statuses are available."
+                    emptyText="当前没有科研验证要求状态明细。"
                   />
                 </div>
               ) : null}
             </InfoPanel>
 
-            <InfoPanel id={sectionElementId("metrics")} title="关键 CFD 指标" kicker="Metrics">
+            <InfoPanel id={sectionElementId("metrics")} title="关键 CFD 指标" kicker="指标">
               {solverMetrics ? (
                 <div className="grid gap-3 md:grid-cols-2">
                   <KeyValue label="求解完成" value={solverMetrics.solver_completed ? "是" : "否"} />
@@ -2124,7 +2166,7 @@ export function SubmarineRuntimePanel({
               )}
             </InfoPanel>
 
-            <InfoPanel id={sectionElementId("trend")} title="结果趋势" kicker="Trend">
+            <InfoPanel id={sectionElementId("trend")} title="结果趋势" kicker="趋势">
               {trendSeries.length > 0 ? (
                 <div className="grid gap-3 md:grid-cols-2">
                   {trendSeries.map((series) => (
@@ -2132,13 +2174,13 @@ export function SubmarineRuntimePanel({
                   ))}
                 </div>
               ) : (
-                <EmptyState text="当前还没有可展示的时间序列趋势。完成真实 OpenFOAM 求解并写出 forces 历史后，这里会显示收敛与受力变化趋势。" />
+              <EmptyState text="当前还没有可展示的时间序列趋势。完成真实 OpenFOAM 求解并写出受力历史后，这里会显示收敛与受力变化趋势。" />
               )}
             </InfoPanel>
           </div>
 
           <div className="grid gap-4">
-            <InfoPanel id={sectionElementId("cases")} title="案例匹配" kicker="Case Match">
+            <InfoPanel id={sectionElementId("cases")} title="案例匹配" kicker="案例">
               {geometryFindings.length > 0 ||
               scaleAssessment ||
               referenceValueSuggestions.length > 0 ||
@@ -2146,97 +2188,119 @@ export function SubmarineRuntimePanel({
                 <div className="mb-4 space-y-4 rounded-xl border bg-background/70 p-4">
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <KeyValue
-                      label="Geometry review"
+                      label="几何审阅"
                       value={
                         requiresImmediateConfirmation || geometryClarificationRequired
-                          ? "Immediate Clarification Required"
+                          ? "需要立即澄清"
                           : calculationPlanDraft.length > 0
-                            ? "Pending Researcher Confirmation"
-                            : "Ready"
+                            ? "待研究人员确认"
+                            : "已就绪"
                       }
                     />
                     <KeyValue
-                      label="Scale assessment"
+                      label="尺度评估"
                       value={scaleAssessment?.summary_zh ?? "--"}
                     />
                     <KeyValue
-                      label="Reference suggestions"
-                      value={`${referenceValueSuggestions.length} items`}
+                      label="参考建议"
+                      value={`${referenceValueSuggestions.length} 项`}
                     />
                     <KeyValue
-                      label="Calculation-plan linkage"
-                      value={`${calculationPlanDraft.length} items`}
+                      label="计算计划联动"
+                      value={`${calculationPlanDraft.length} 项`}
                     />
                   </div>
                   <div className="grid gap-4 xl:grid-cols-3">
                     <LabeledList
-                      title="Geometry Findings"
+                      title="几何发现"
                       items={geometryFindings.map((item) =>
-                        `${item.severity ?? "info"} | ${item.summary_zh ?? item.finding_id ?? "Pending geometry finding"}`,
+                        `${item.severity ?? "提示"} | ${item.summary_zh ?? item.finding_id ?? "待补充几何发现"}`,
                       )}
-                      emptyText="No structured geometry findings are recorded."
+                      emptyText="当前没有记录结构化几何发现。"
                     />
                     <LabeledList
-                      title="Reference Suggestions"
+                      title="参考建议"
                       items={referenceValueSuggestions.map((item) =>
-                        `${item.quantity ?? "reference"} | ${item.value ?? "--"}${item.unit ? ` ${item.unit}` : ""} | ${item.confidence ?? "--"} | ${item.source ?? "--"}`,
+                        `${item.quantity ?? "参考值"} | ${item.value ?? "--"}${item.unit ? ` ${item.unit}` : ""} | ${item.confidence ?? "--"} | ${item.source ?? "--"}`,
                       )}
-                      emptyText="No structured reference suggestions are recorded."
+                      emptyText="当前没有记录结构化参考建议。"
                     />
                     <LabeledList
-                      title="Calculation Plan Carry-Over"
+                      title="计算计划延续项"
                       items={calculationPlanDraft.map((item) =>
-                        `${item.label ?? item.category ?? "Calculation plan item"} | ${item.approval_state ?? "pending"}${item.requires_immediate_confirmation ? " | immediate clarification" : ""}`,
+                        `${item.label ?? item.category ?? "计算计划项"} | ${item.approval_state ?? "待处理"}${item.requires_immediate_confirmation ? " | 需要立即澄清" : ""}`,
                       )}
-                      emptyText="No calculation-plan linkage is recorded yet."
+                      emptyText="当前还没有计算计划联动记录。"
                     />
                   </div>
                 </div>
               ) : null}
               {selectedCaseProvenance ? (
-                <div className="mb-4 space-y-4 rounded-xl border bg-background/70 p-4">
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="mb-4 space-y-4 rounded-xl border bg-background/70 p-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <KeyValue
+                        label="选中案例"
+                        value={localizeWorkspaceDisplayText(
+                          selectedCaseProvenance.title ??
+                            selectedCaseProvenance.case_id ??
+                            "--",
+                        )}
+                      />
+                      <KeyValue
+                        label="主要来源"
+                        value={localizeWorkspaceDisplayText(
+                          selectedCaseProvenance.source_label ?? "--",
+                        )}
+                      />
+                      <KeyValue
+                        label="来源类型"
+                        value={localizeWorkspaceDisplayText(
+                          selectedCaseProvenance.source_type ?? "--",
+                        )}
+                      />
                     <KeyValue
-                      label="Selected case"
-                      value={selectedCaseProvenance.title ?? selectedCaseProvenance.case_id ?? "--"}
-                    />
-                    <KeyValue
-                      label="Primary source"
-                      value={selectedCaseProvenance.source_label ?? "--"}
-                    />
-                    <KeyValue
-                      label="Source type"
-                      value={selectedCaseProvenance.source_type ?? "--"}
-                    />
-                    <KeyValue
-                      label="Benchmark coverage"
-                      value={`${selectedCaseProvenance.benchmark_metric_ids?.length ?? 0} metrics`}
+                      label="基准覆盖"
+                      value={`${selectedCaseProvenance.benchmark_metric_ids?.length ?? 0} 项指标`}
                     />
                   </div>
                   <div className="grid gap-4 xl:grid-cols-3">
                     <LabeledList
-                      title="Applicability"
-                      items={selectedCaseProvenance.applicability_conditions ?? []}
-                      emptyText="No explicit applicability conditions are recorded."
+                      title="适用条件"
+                      items={(selectedCaseProvenance.applicability_conditions ?? []).map(
+                        (item) => localizeWorkspaceDisplayText(item),
+                      )}
+                      emptyText="当前没有记录明确的适用条件。"
                     />
                     <LabeledList
-                      title="Confidence / Evidence Gap"
+                      title="可信度 / 证据缺口"
                       items={[
-                        selectedCaseProvenance.confidence_note,
-                        selectedCaseProvenance.evidence_gap_note,
+                        selectedCaseProvenance.confidence_note
+                          ? localizeWorkspaceDisplayText(
+                              selectedCaseProvenance.confidence_note,
+                            )
+                          : null,
+                        selectedCaseProvenance.evidence_gap_note
+                          ? localizeWorkspaceDisplayText(
+                              selectedCaseProvenance.evidence_gap_note,
+                            )
+                          : null,
                         selectedCaseProvenance.source_url,
                       ].filter((item): item is string => Boolean(item))}
-                      emptyText="No additional provenance note is recorded."
+                      emptyText="当前没有额外的溯源备注。"
                     />
                     <LabeledList
-                      title="Acceptance Profile"
+                      title="验收画像"
                       items={[
-                        selectedCaseProvenance.acceptance_profile_summary_zh,
+                        selectedCaseProvenance.acceptance_profile_summary_zh
+                          ? localizeWorkspaceDisplayText(
+                              selectedCaseProvenance.acceptance_profile_summary_zh,
+                            )
+                          : null,
                         ...(selectedCaseProvenance.benchmark_metric_ids ?? []).map(
-                          (item) => `benchmark | ${item}`,
+                          (item) => `基准 | ${item}`,
                         ),
                       ].filter((item): item is string => Boolean(item))}
-                      emptyText="No acceptance-profile summary is recorded."
+                      emptyText="当前没有验收画像摘要。"
                     />
                   </div>
                 </div>
@@ -2247,42 +2311,58 @@ export function SubmarineRuntimePanel({
                     <div key={candidate.case_id} className={cn("rounded-xl border p-3", candidate.case_id === runtime?.selected_case_id ? "border-primary/30 bg-primary/5" : "border-border bg-muted/20")}>
                       <div className="mb-2 flex items-start justify-between gap-3">
                         <div>
-                          <div className="font-medium text-foreground">{candidate.title}</div>
-                          <div className="text-xs text-muted-foreground">{candidate.geometry_family ?? "潜艇"} · {candidate.task_type ?? "任务类型待定"}</div>
+                          <div className="font-medium text-foreground">
+                            {localizeWorkspaceDisplayText(candidate.title)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {localizeWorkspaceDisplayText(
+                              candidate.geometry_family ?? "潜艇",
+                            )}{" "}
+                            ·{" "}
+                            {localizeWorkspaceDisplayText(
+                              candidate.task_type ?? "任务类型待定",
+                            )}
+                          </div>
                         </div>
                         {typeof candidate.score === "number" && <Badge variant="outline">{candidate.score.toFixed(2)}</Badge>}
                       </div>
-                      <div className="text-sm leading-6 text-muted-foreground">{candidate.rationale ?? "待补充说明"}</div>
+                      <div className="text-sm leading-6 text-muted-foreground">
+                        {candidate.rationale
+                          ? localizeWorkspaceDisplayText(candidate.rationale)
+                          : "待补充说明"}
+                      </div>
                       {candidate.source_label ||
                       candidate.confidence_note ||
                       candidate.evidence_gap_note ||
                       (candidate.applicability_conditions?.length ?? 0) > 0 ? (
                         <div className="mt-3 grid gap-3 xl:grid-cols-2">
                           <LabeledList
-                            title="Provenance"
+                            title="溯源信息"
                             items={[
                               candidate.source_label
-                                ? `source | ${candidate.source_label}`
+                                ? `来源 | ${localizeWorkspaceDisplayText(candidate.source_label)}`
                                 : null,
                               candidate.source_url
-                                ? `url | ${candidate.source_url}`
+                                ? `链接 | ${candidate.source_url}`
                                 : null,
                               candidate.confidence_note
-                                ? `confidence | ${candidate.confidence_note}`
+                                ? `可信度 | ${localizeWorkspaceDisplayText(candidate.confidence_note)}`
                                 : null,
                               candidate.is_placeholder
-                                ? "placeholder-backed advisory case"
+                                ? "占位符支撑的建议案例"
                                 : null,
                               candidate.evidence_gap_note
-                                ? `gap | ${candidate.evidence_gap_note}`
+                                ? `缺口 | ${localizeWorkspaceDisplayText(candidate.evidence_gap_note)}`
                                 : null,
                             ].filter((item): item is string => Boolean(item))}
-                            emptyText="No provenance note is recorded."
+                            emptyText="当前没有溯源备注。"
                           />
                           <LabeledList
-                            title="Applicability"
-                            items={candidate.applicability_conditions ?? []}
-                            emptyText="No applicability conditions are recorded."
+                            title="适用条件"
+                            items={(candidate.applicability_conditions ?? []).map((item) =>
+                              localizeWorkspaceDisplayText(item),
+                            )}
+                            emptyText="当前没有适用条件记录。"
                           />
                         </div>
                       ) : null}
@@ -2294,7 +2374,7 @@ export function SubmarineRuntimePanel({
               )}
             </InfoPanel>
 
-            <InfoPanel id={sectionElementId("artifacts")} title="Artifacts 工作台" kicker="Deliverables">
+            <InfoPanel id={sectionElementId("artifacts")} title="产物工作台" kicker="交付物">
               {artifactGroups.length > 0 || resultCards.length > 0 ? (
                 <div className="space-y-4">
                   {resultCards.length > 0 ? (
@@ -2302,11 +2382,10 @@ export function SubmarineRuntimePanel({
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div>
                           <div className="text-sm font-medium text-foreground">
-                            Requested Results
+                            目标结果
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Output-specific result cards with previews, delivery
-                            status, and postprocess provenance.
+                            按输出项展示结果卡片，集中查看预览、交付状态和后处理来源。
                           </div>
                         </div>
                         <Badge variant="outline">{resultCards.length}</Badge>
@@ -2381,7 +2460,7 @@ function QuickAccess({ onJump }: { onJump: (id: WorkbenchSectionId) => void }) {
     <div className="rounded-xl border bg-muted/20 p-4">
       <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
         <Layers2Icon className="size-4" />
-        Quick Access
+        快速跳转
       </div>
       <div className="flex flex-wrap gap-2">
         {WORKBENCH_SECTIONS.map((section) => (
@@ -2396,15 +2475,19 @@ function QuickAccess({ onJump }: { onJump: (id: WorkbenchSectionId) => void }) {
 
 function formatResultToken(value: string) {
   const labels: Record<string, string> = {
-    delivered: "Delivered",
-    requested: "Requested",
-    pending: "Pending",
-    supported: "Supported",
-    partially_delivered: "Partially Delivered",
-    not_yet_supported: "Not Yet Supported",
+    delivered: "已交付",
+    requested: "已请求",
+    pending: "待处理",
+    planned: "已规划",
+    supported: "已支持",
+    partially_delivered: "部分交付",
+    not_yet_supported: "暂不支持",
+    needs_clarification: "待澄清",
+    "needs clarification": "待澄清",
+    unknown: "待确认",
   };
 
-  return labels[value] ?? value.replaceAll("_", " ");
+  return labels[value] ?? localizeRuntimeText(value);
 }
 
 function RequestedResultCard({
@@ -2425,9 +2508,11 @@ function RequestedResultCard({
           <div className="truncate text-sm font-semibold text-foreground">
             {card.label}
           </div>
-          <div className="truncate text-xs text-muted-foreground">
-            {card.outputId}
-          </div>
+          {card.requestedLabel !== card.label ? (
+            <div className="truncate text-xs text-muted-foreground">
+              {card.requestedLabel}
+            </div>
+          ) : null}
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Badge
@@ -2451,32 +2536,31 @@ function RequestedResultCard({
               threadId,
               isMock,
             })}
-            alt={`${card.label} preview`}
+            alt={`${card.label} 预览图`}
             className="aspect-[16/10] w-full object-cover"
           />
         </button>
       ) : (
         <div className="mb-3 flex aspect-[16/10] items-center justify-center rounded-lg border border-dashed bg-background/50 px-4 text-center text-xs text-muted-foreground">
-          Preview will appear here after the requested postprocess result is
-          exported.
+          请求的后处理结果导出后，这里会显示对应预览。
         </div>
       )}
 
       <div className="space-y-2 text-xs text-muted-foreground">
         <div>
-          <span className="font-medium text-foreground/80">Requested:</span>{" "}
+          <span className="font-medium text-foreground/80">请求项：</span>{" "}
           {card.requestedLabel}
         </div>
-        {card.specSummary !== "--" ? <div>Spec: {card.specSummary}</div> : null}
+        {card.specSummary !== "--" ? <div>规格：{card.specSummary}</div> : null}
         {card.figureRenderStatus !== "--" ? (
           <div>
-            <span className="font-medium text-foreground/80">Figure status:</span>{" "}
+            <span className="font-medium text-foreground/80">图像状态：</span>{" "}
             {card.figureRenderStatus}
           </div>
         ) : null}
-        {card.figureCaption !== "--" ? <div>Caption: {card.figureCaption}</div> : null}
+        {card.figureCaption !== "--" ? <div>图注：{card.figureCaption}</div> : null}
         {card.selectorSummary !== "--" ? (
-          <div>Selector provenance: {card.selectorSummary}</div>
+          <div>选择器来源：{card.selectorSummary}</div>
         ) : null}
         {card.detail !== "--" ? <div>{card.detail}</div> : null}
       </div>
@@ -2503,7 +2587,7 @@ function RequestedResultCard({
                   className="h-8"
                   onClick={() => onOpenArtifact(artifact.path)}
                 >
-                  Open
+                  打开
                 </Button>
                 <Button asChild size="icon-sm" variant="ghost">
                   <a
@@ -2522,7 +2606,7 @@ function RequestedResultCard({
         </div>
       ) : (
         <div className="mt-3 rounded-lg border border-dashed bg-background/50 px-3 py-2 text-xs text-muted-foreground">
-          No dedicated artifacts have been exported for this output yet.
+          当前结果还没有导出专属产物。
         </div>
       )}
     </div>
@@ -2720,14 +2804,16 @@ function TimelineEventCard({ event }: { event: RuntimeTimelineEvent }) {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{formatStage(event.stage)}</Badge>
-            {event.status ? <Badge variant="secondary">{event.status}</Badge> : null}
+            {event.status ? (
+              <Badge variant="secondary">{formatRuntimeStatus(event.status)}</Badge>
+            ) : null}
           </div>
           <div className="text-sm font-medium text-foreground">
-            {event.title ?? "阶段事件"}
+            {event.title ? localizeWorkspaceDisplayText(event.title) : "阶段事件"}
           </div>
           {event.summary ? (
             <div className="text-sm leading-6 text-muted-foreground">
-              {event.summary}
+              {localizeWorkspaceDisplayText(event.summary)}
             </div>
           ) : null}
           {skillNames.length > 0 ? (
@@ -2742,7 +2828,9 @@ function TimelineEventCard({ event }: { event: RuntimeTimelineEvent }) {
         </div>
         <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
           <Clock3Icon className="size-4" />
-          <span>{event.actor ?? "DeerFlow"}</span>
+          <span>
+            {event.actor ? localizeWorkspaceDisplayText(event.actor) : "DeerFlow"}
+          </span>
           <span>·</span>
           <span>{formatTimelineTimestamp(event.timestamp)}</span>
         </div>
@@ -2859,19 +2947,9 @@ function OutlineList({
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{item.roleLabel}</Badge>
                 <span className="text-sm font-medium text-foreground">{item.owner}</span>
-                <Badge variant="secondary">{item.status}</Badge>
+                <Badge variant="secondary">{formatRuntimeStatus(item.status)}</Badge>
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">{item.roleId}</div>
               <div className="mt-2 text-sm leading-6 text-muted-foreground">{item.goal}</div>
-              {item.targetSkills.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {item.targetSkills.map((skillName) => (
-                    <Badge key={`${item.roleId}-${skillName}`} variant="outline" className="bg-background/80">
-                      {skillName}
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
             </div>
           ))}
         </div>
@@ -2892,9 +2970,9 @@ function EmptyState({ text }: { text: string }) {
 
 function formatStageTrackStatus(status?: string | null) {
   if (!status) {
-    return "pending";
+    return "待执行";
   }
-  return status.replaceAll("_", " ");
+  return formatRuntimeStatus(status);
 }
 
 function StageTrack({ items }: { items: SubmarineStageTrackItem[] }) {
@@ -2922,7 +3000,7 @@ function StageTrack({ items }: { items: SubmarineStageTrackItem[] }) {
             )}
           >
             <div className="mb-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-              Step {index + 1}
+              第 {index + 1} 步
             </div>
             <div className="text-sm font-medium text-foreground">{item.label}</div>
             <div className="mt-2 text-xs text-muted-foreground">

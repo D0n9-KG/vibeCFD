@@ -2,6 +2,7 @@ import type { BaseStream } from "@langchain/langgraph-sdk";
 import { useEffect } from "react";
 
 import { useI18n } from "@/core/i18n/hooks";
+import { localizeThreadDisplayTitle } from "@/core/i18n/workspace-display";
 import type { AgentThreadState } from "@/core/threads";
 
 import { useThreadChat } from "./chats";
@@ -17,34 +18,31 @@ export function ThreadTitle({
 }) {
   const { t } = useI18n();
   const { isNewThread } = useThreadChat();
-  useEffect(() => {
-    let _title = t.pages.untitled;
+  const rawTitle = thread.values?.title?.trim();
+  const resolvedTitle =
+    !rawTitle || rawTitle === "Untitled"
+      ? isNewThread
+        ? t.pages.newChat
+        : t.pages.untitled
+      : localizeThreadDisplayTitle(rawTitle);
 
-    if (thread.values?.title) {
-      _title = thread.values.title;
-    } else if (isNewThread) {
-      _title = t.pages.newChat;
-    }
+  useEffect(() => {
     if (thread.isThreadLoading) {
-      document.title = `Loading... - ${t.pages.appName}`;
-    } else {
-      document.title = `${_title} - ${t.pages.appName}`;
+      document.title = `${t.common.loading} - ${t.pages.appName}`;
+      return;
     }
+
+    document.title = `${resolvedTitle} - ${t.pages.appName}`;
   }, [
-    isNewThread,
-    t.pages.newChat,
-    t.pages.untitled,
+    resolvedTitle,
+    t.common.loading,
     t.pages.appName,
     thread.isThreadLoading,
-    thread.values,
   ]);
 
-  if (!thread.values?.title) {
+  if (!rawTitle) {
     return null;
   }
-  return (
-    <FlipDisplay uniqueKey={threadId}>
-      {thread.values.title ?? "Untitled"}
-    </FlipDisplay>
-  );
+
+  return <FlipDisplay uniqueKey={threadId}>{resolvedTitle}</FlipDisplay>;
 }

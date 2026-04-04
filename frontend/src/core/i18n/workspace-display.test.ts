@@ -101,6 +101,12 @@ void test("localizeWorkspaceDisplayText rewrites mixed workflow terms in histori
   assert.equal(localized, "几何预检 / 有产物支撑的 / 有产物支撑的");
 });
 
+void test("localizeWorkspaceDisplayText rewrites draft-only fallback labels cleanly", () => {
+  const localized = localizeWorkspaceDisplayText("draft-only / draft only");
+
+  assert.equal(localized, "仅草稿 / 仅草稿");
+});
+
 void test("localizeWorkspaceDisplayText sanitizes trailing quotes and repeated punctuation", () => {
   const localized = localizeWorkspaceDisplayText(
     '已整理 CFD 设计简报：当前阶段仅做几何预检与准备，不启动 solver。。"',

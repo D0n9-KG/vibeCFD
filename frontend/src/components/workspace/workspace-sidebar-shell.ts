@@ -75,8 +75,8 @@ export function getWorkspaceSidebarChrome(): WorkspaceSidebarChrome {
     headerPanelClassName:
       "rounded-2xl border border-amber-100/80 bg-white/90 px-3 py-3 shadow-[0_18px_40px_rgba(120,53,15,0.08)] backdrop-blur-sm",
     brandEyebrowClassName:
-      "text-[10px] font-semibold uppercase tracking-[0.24em] text-amber-700/80",
-    brandMetaClassName: "text-[11px] leading-5 text-stone-500",
+      "block whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.24em] text-amber-700/80",
+    brandMetaClassName: "break-keep text-[11px] leading-5 text-stone-500",
     primaryGroupClassName:
       "rounded-2xl border border-amber-100/80 bg-white/90 p-2 shadow-[0_18px_40px_rgba(120,53,15,0.08)]",
     secondaryGroupClassName:
@@ -92,7 +92,7 @@ export function getWorkspaceSidebarChrome(): WorkspaceSidebarChrome {
     footerMenuButtonClassName:
       "rounded-xl border border-transparent bg-white/60 text-stone-700 shadow-sm transition-colors hover:bg-white hover:text-stone-900 data-[state=open]:bg-white data-[state=open]:text-stone-900",
     headerQuickActionClassName:
-      "mt-2 h-10 rounded-xl bg-stone-900 text-white shadow-sm transition-colors hover:bg-stone-800 hover:text-white data-[active=true]:bg-stone-900 data-[active=true]:text-white",
+      "h-10 rounded-xl bg-stone-900 text-white shadow-sm transition-colors hover:bg-stone-800 hover:text-white data-[active=true]:bg-stone-900 data-[active=true]:text-white",
   };
 }
 

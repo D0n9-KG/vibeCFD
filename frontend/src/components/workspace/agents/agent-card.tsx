@@ -25,6 +25,11 @@ import {
 } from "@/components/ui/dialog";
 import { useDeleteAgent } from "@/core/agents";
 import type { Agent } from "@/core/agents";
+import {
+  getAgentDisplayName,
+  getAgentModelLabel,
+  getAgentToolGroupLabel,
+} from "@/core/agents/display";
 import { useI18n } from "@/core/i18n/hooks";
 
 interface AgentCardProps {
@@ -36,6 +41,7 @@ export function AgentCard({ agent }: AgentCardProps) {
   const router = useRouter();
   const deleteAgent = useDeleteAgent();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const displayName = getAgentDisplayName(agent);
 
   function handleChat() {
     router.push(`/workspace/agents/${agent.name}/chats/new`);
@@ -62,11 +68,11 @@ export function AgentCard({ agent }: AgentCardProps) {
               </div>
               <div className="min-w-0">
                 <CardTitle className="truncate text-base">
-                  {agent.name}
+                  {displayName}
                 </CardTitle>
                 {agent.model && (
                   <Badge variant="secondary" className="mt-0.5 text-xs">
-                    {agent.model}
+                    {getAgentModelLabel(agent.model)}
                   </Badge>
                 )}
               </div>
@@ -84,7 +90,7 @@ export function AgentCard({ agent }: AgentCardProps) {
             <div className="flex flex-wrap gap-1">
               {agent.tool_groups.map((group) => (
                 <Badge key={group} variant="outline" className="text-xs">
-                  {group}
+                  {getAgentToolGroupLabel(group)}
                 </Badge>
               ))}
             </div>

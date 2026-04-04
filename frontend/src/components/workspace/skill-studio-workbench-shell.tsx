@@ -110,13 +110,13 @@ export function SkillStudioWorkbenchShell({
       <aside className="hidden min-h-0 flex-col overflow-hidden rounded-[28px] border border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.92),rgba(255,255,255,0.96))] p-4 shadow-[0_18px_44px_rgba(120,53,15,0.08)] xl:flex">
         <div className="rounded-2xl border border-amber-100/80 bg-white/92 p-4 shadow-[0_14px_34px_rgba(120,53,15,0.08)]">
           <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-amber-700">
-            Skill Studio
+            技能工作台
           </div>
           <div className="mt-2 text-lg font-semibold tracking-tight text-stone-900">
             生命周期工作台
           </div>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            {assistantLabel} 会一直服务当前线程中的技能起草、结构校验、试运行准备和发布收口。
+            {assistantLabel} 会持续服务当前线程中的技能起草、结构校验、试运行准备和发布收口。
           </p>
         </div>
 
@@ -192,7 +192,7 @@ export function SkillStudioWorkbenchShell({
             onClick={onOpenChat}
           >
             <WaypointsIcon className="size-4" />
-            打开 Skill Creator 对话
+            打开技能创建器对话
           </Button>
         </div>
 
@@ -249,10 +249,10 @@ export function SkillStudioWorkbenchShell({
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">{assistantLabel}</Badge>
               <Badge variant="outline">
-                  {isNewThread ? "新线程" : "既有线程"}
+                {isNewThread ? "新线程" : "既有线程"}
               </Badge>
               <Badge variant="outline">
-                  {hasWorkbenchSurface ? "工作台已就绪" : "等待首份草稿"}
+                {hasWorkbenchSurface ? "工作台已就绪" : "等待首份草稿"}
               </Badge>
               {activeView !== "overview" ? (
                 <Button
@@ -331,14 +331,14 @@ function SkillStudioLaunchpad({
       <div className="mt-3 grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
         <div>
           <h3 className="text-xl font-semibold tracking-tight text-stone-900">
-            用专属 Skill Creator 协作，而不是继续使用泛化线程。
+            用专属技能创建器协作，而不是继续使用泛化线程。
           </h3>
           <p className="mt-2 text-sm leading-7 text-stone-600">
             右侧轨道保留给 {assistantLabel}，当前工作台则持续跟踪技能包结构、校验结果、场景测试、发布门槛和图谱定位。
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button onClick={onOpenChat}>
-              {isNewThread ? "开始协作创建 Skill" : "继续与 Skill Creator 协作"}
+              {isNewThread ? "开始协作创建技能" : "继续与技能创建器协作"}
             </Button>
           </div>
         </div>

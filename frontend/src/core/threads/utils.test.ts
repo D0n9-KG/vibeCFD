@@ -7,6 +7,7 @@ const {
   deriveThreadsAfterDeletion,
   pathAfterThreadDeletion,
   pathOfThreadByState,
+  titleOfThread,
   rememberWorkbenchKindForThread,
   forgetWorkbenchKindForThread,
   workbenchKindOfThread,
@@ -189,4 +190,16 @@ void test("pathAfterThreadDeletion falls back to a matching workbench when the d
     pathAfterThreadDeletion([makeThread("only-chat")], "only-chat"),
     "/workspace/chats/new",
   );
+});
+
+void test("titleOfThread localizes known workspace-facing English thread titles", () => {
+  const draftThread = makeThread("skill-draft", {
+    title: "Submarine Result Acceptance Draft",
+  });
+  const overviewThread = makeThread("skill-overview", {
+    title: "DeerFlow Skill 能力说明",
+  });
+
+  assert.equal(titleOfThread(draftThread), "潜艇结果验收草稿");
+  assert.equal(titleOfThread(overviewThread), "DeerFlow 技能能力说明");
 });

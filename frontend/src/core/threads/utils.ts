@@ -1,5 +1,7 @@
 import type { Message } from "@langchain/langgraph-sdk";
 
+import { localizeThreadDisplayTitle } from "../i18n/workspace-display.ts";
+
 import type { AgentThread } from "./types";
 
 export function pathOfThread(threadId: string) {
@@ -124,6 +126,13 @@ export function textOfMessage(message: Message) {
   return null;
 }
 
-export function titleOfThread(thread: AgentThread) {
-  return thread.values?.title ?? "Untitled";
+export function titleOfThread(
+  thread: AgentThread,
+  untitledLabel = "Untitled",
+) {
+  const title = thread.values?.title?.trim();
+  if (!title || title === "Untitled") {
+    return untitledLabel;
+  }
+  return localizeThreadDisplayTitle(title);
 }

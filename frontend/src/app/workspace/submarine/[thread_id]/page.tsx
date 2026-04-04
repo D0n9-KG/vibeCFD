@@ -23,6 +23,7 @@ import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicato
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings } from "@/core/settings";
 import { useThreadStream } from "@/core/threads/hooks";
+import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
 import { textOfMessage } from "@/core/threads/utils";
 
 import { getSubmarineWorkbenchLayout } from "../submarine-workbench-layout";
@@ -34,6 +35,9 @@ export default function SubmarineWorkbenchPage() {
   const { showNotification } = useNotification();
   const { setOpen: setArtifactsOpen } = useArtifacts();
   const [chatOpen, setChatOpen] = useState(false);
+  const [pendingThreadRouteId, setPendingThreadRouteId] = useState<
+    string | null
+  >(null);
 
   useSpecificChatMode();
 
@@ -41,7 +45,7 @@ export default function SubmarineWorkbenchPage() {
     setArtifactsOpen(false);
   }, [setArtifactsOpen]);
 
-  const [thread, sendMessage, isUploading] = useThreadStream({
+  const [thread, sendMessage, isUploading, streamMeta] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
     isNewThread,
     context: settings.context,
@@ -49,10 +53,9 @@ export default function SubmarineWorkbenchPage() {
     workbenchKind: "submarine",
     onStart: (createdThreadId) => {
       markThreadStarted(createdThreadId);
-      const nextPath = isMock
-        ? `/workspace/submarine/${createdThreadId}?mock=true`
-        : `/workspace/submarine/${createdThreadId}`;
-      router.replace(nextPath);
+      if (isNewThread) {
+        setPendingThreadRouteId(createdThreadId);
+      }
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
@@ -71,6 +74,30 @@ export default function SubmarineWorkbenchPage() {
       }
     },
   });
+
+  useEffect(() => {
+    if (
+      !shouldPromoteStartedThreadRoute({
+        pendingThreadId: pendingThreadRouteId,
+        isLoading: thread.isLoading,
+        persistedMessageCount: streamMeta.persistedMessageCount,
+      })
+    ) {
+      return;
+    }
+
+    const nextPath = isMock
+      ? `/workspace/submarine/${pendingThreadRouteId}?mock=true`
+      : `/workspace/submarine/${pendingThreadRouteId}`;
+    router.replace(nextPath);
+    setPendingThreadRouteId(null);
+  }, [
+    isMock,
+    pendingThreadRouteId,
+    router,
+    streamMeta.persistedMessageCount,
+    thread.isLoading,
+  ]);
 
   const handleStop = useCallback(async () => {
     await thread.stop();

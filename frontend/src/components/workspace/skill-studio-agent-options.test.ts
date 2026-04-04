@@ -5,6 +5,7 @@ import type { Agent } from "../../core/agents/types.ts";
 
 const {
   buildSkillStudioAgentOptions,
+  normalizeSkillStudioAgentLabel,
   resolveSkillStudioAgentSelection,
 } = await import(
   new URL("./skill-studio-agent-options.ts", import.meta.url).href,
@@ -14,7 +15,7 @@ void test("buildSkillStudioAgentOptions keeps skill creators, prefers codex firs
   const options = buildSkillStudioAgentOptions([
     {
       name: "claude-code-skill-creator",
-      display_name: "Claude Code · Skill Creator",
+      display_name: "Claude Code 技能创建器",
       description: "Dedicated Claude agent.",
       model: "claude-sonnet-4-6",
       tool_groups: null,
@@ -28,7 +29,7 @@ void test("buildSkillStudioAgentOptions keeps skill creators, prefers codex firs
     },
     {
       name: "codex-skill-creator",
-      display_name: "Codex · Skill Creator",
+      display_name: "Codex 技能创建器",
       description: "Dedicated Codex agent.",
       model: "gpt-5.4",
       tool_groups: null,
@@ -43,13 +44,27 @@ void test("buildSkillStudioAgentOptions keeps skill creators, prefers codex firs
     [
       {
         name: "codex-skill-creator",
-        label: "Codex · Skill Creator",
+        label: "Codex 技能创建器",
       },
       {
         name: "claude-code-skill-creator",
-        label: "Claude Code · Skill Creator",
+        label: "Claude Code 技能创建器",
       },
     ],
+  );
+});
+
+void test("normalizeSkillStudioAgentLabel upgrades legacy skill creator labels", () => {
+  assert.equal(
+    normalizeSkillStudioAgentLabel("Codex · Skill Creator", "codex-skill-creator"),
+    "Codex 技能创建器",
+  );
+  assert.equal(
+    normalizeSkillStudioAgentLabel(
+      "Claude Code · Skill Creator",
+      "claude-code-skill-creator",
+    ),
+    "Claude Code 技能创建器",
   );
 });
 
@@ -57,14 +72,14 @@ void test("resolveSkillStudioAgentSelection prefers the thread assistant when it
   const options = buildSkillStudioAgentOptions([
     {
       name: "codex-skill-creator",
-      display_name: "Codex · Skill Creator",
+      display_name: "Codex 技能创建器",
       description: "Dedicated Codex agent.",
       model: "gpt-5.4",
       tool_groups: null,
     },
     {
       name: "claude-code-skill-creator",
-      display_name: "Claude Code · Skill Creator",
+      display_name: "Claude Code 技能创建器",
       description: "Dedicated Claude agent.",
       model: "claude-sonnet-4-6",
       tool_groups: null,

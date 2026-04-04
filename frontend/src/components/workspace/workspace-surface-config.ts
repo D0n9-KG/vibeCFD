@@ -25,7 +25,7 @@ export const WORKSPACE_SURFACES: readonly WorkspaceSurface[] = [
   },
   {
     id: "skill-studio",
-    label: "Skill Studio",
+    label: "技能工作台",
     defaultHref: "/workspace/skill-studio",
     pathPrefixes: ["/workspace/skill-studio"],
   },

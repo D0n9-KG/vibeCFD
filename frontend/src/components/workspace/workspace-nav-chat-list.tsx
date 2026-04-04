@@ -20,7 +20,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
 } from "@/components/ui/sidebar";
+import { useI18n } from "@/core/i18n/hooks";
 import { useThreads } from "@/core/threads/hooks";
 import type { AgentThread } from "@/core/threads/types";
 import {
@@ -43,6 +45,8 @@ type SurfaceQuickLink = {
   label: string;
   icon: ComponentType<{ className?: string }>;
 };
+
+const RECENT_THREAD_PLACEHOLDER_COUNT = 6;
 
 function surfaceQuickLinks(
   surfaceId: WorkspaceSurfaceId,
@@ -70,7 +74,7 @@ function surfaceQuickLinks(
             isMock,
             staticWebsiteOnly,
           }),
-          label: "工作台概览",
+          label: "工作台总览",
           icon: SparklesIcon,
         },
       ];
@@ -104,7 +108,9 @@ function filterThreadsForSurface(
 ) {
   switch (surfaceId) {
     case "submarine":
-      return threads.filter((thread) => workbenchKindOfThread(thread) === "submarine");
+      return threads.filter(
+        (thread) => workbenchKindOfThread(thread) === "submarine",
+      );
     case "skill-studio":
       return threads.filter(
         (thread) => workbenchKindOfThread(thread) === "skill-studio",
@@ -121,10 +127,11 @@ export function WorkspaceNavChatList({
 }: {
   surfaceId: WorkspaceSurfaceId;
 }) {
+  const { t } = useI18n();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const chrome = getWorkspaceSidebarChrome();
-  const { data: threads = [] } = useThreads();
+  const { data: threads = [], isLoading } = useThreads();
   const isMock = searchParams.get("mock") === "true";
   const surface =
     WORKSPACE_SURFACES.find((entry) => entry.id === surfaceId) ??
@@ -173,30 +180,42 @@ export function WorkspaceNavChatList({
         </SidebarGroupContent>
       </SidebarGroup>
 
-      {recentThreads.length > 0 && (
+      {(isLoading || recentThreads.length > 0) && (
         <SidebarGroup className={chrome.historyGroupClassName}>
           <SidebarGroupLabel className={chrome.groupLabelClassName}>
             {surfaceId === "chats" ? "最近对话" : "最近工作线程"}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {recentThreads.map((thread) => (
-                <SidebarMenuItem key={thread.thread_id}>
-                  <SidebarMenuButton
-                    isActive={pathOfThreadByState(thread) === pathname}
-                    className={chrome.historyButtonClassName}
-                    asChild
-                  >
-                    <Link
-                      className="text-inherit"
-                      href={pathOfThreadByState(thread)}
-                    >
-                      {surfaceId === "submarine" ? <WavesIcon /> : <SparklesIcon />}
-                      <span>{titleOfThread(thread)}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {isLoading
+                ? Array.from({
+                    length: RECENT_THREAD_PLACEHOLDER_COUNT,
+                  }).map((_, index) => (
+                    <SidebarMenuItem key={`placeholder-${index}`}>
+                      <SidebarMenuSkeleton showIcon />
+                    </SidebarMenuItem>
+                  ))
+                : recentThreads.map((thread) => (
+                    <SidebarMenuItem key={thread.thread_id}>
+                      <SidebarMenuButton
+                        isActive={pathOfThreadByState(thread) === pathname}
+                        className={chrome.historyButtonClassName}
+                        asChild
+                      >
+                        <Link
+                          className="text-inherit"
+                          href={pathOfThreadByState(thread)}
+                        >
+                          {surfaceId === "submarine" ? (
+                            <WavesIcon />
+                          ) : (
+                            <SparklesIcon />
+                          )}
+                          <span>{titleOfThread(thread, t.pages.untitled)}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

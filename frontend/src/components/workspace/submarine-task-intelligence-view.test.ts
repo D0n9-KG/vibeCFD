@@ -113,10 +113,11 @@ void test("buildTaskIntelligenceViewModel exposes detailed confirmed-plan fields
     viewModel.requestedOutputs[1].selectorSummary,
     "patch:hull",
   );
+  assert.equal(viewModel.planItems[5]?.value, "25 步");
   assert.equal(viewModel.verificationRequirements.length, 2);
   assert.equal(viewModel.executionSteps.length, 2);
   assert.deepEqual(viewModel.userConstraints, [
-    "先做 baseline，不直接展开参数扫描",
+    "先做 基线，不直接展开参数扫描",
   ]);
 });
 
@@ -134,4 +135,35 @@ void test("buildTaskIntelligenceViewModel blocks execution confirmation when ope
   assert.equal(viewModel.confirmationState, "needs_clarification");
   assert.equal(viewModel.canConfirmExecution, false);
   assert.equal(viewModel.openQuestions.length, 1);
+});
+
+void test("buildTaskIntelligenceViewModel localizes hybrid english chinese brief copy", () => {
+  const viewModel = buildTaskIntelligenceViewModel({
+    designBrief: makeBrief({
+      requested_outputs: [
+        {
+          output_id: "custom_baseline_case_template",
+          label: "推荐 baseline case/template 映射",
+          requested_label: "推荐 baseline case/template 映射",
+          support_level: "needs_clarification",
+        },
+      ],
+      user_constraints: ["brief 保持 draft / 待确认状态"],
+      open_questions: [
+        "是否将 requested outputs 明确限定为阻力基线准备，不包含压力分布/尾流输出？",
+      ],
+    }),
+    snapshot: {
+      current_stage: "task-intelligence",
+      review_status: "needs_user_confirmation",
+    },
+  });
+
+  assert.equal(viewModel.requestedOutputs[0]?.label, "推荐基线案例/模板映射");
+  assert.equal(viewModel.requestedOutputs[0]?.requestedLabel, "推荐基线案例/模板映射");
+  assert.equal(viewModel.userConstraints[0], "简报保持草稿 / 待确认状态");
+  assert.equal(
+    viewModel.openQuestions[0],
+    "是否将输出范围明确限定为阻力基线准备，不包含压力分布/尾流输出？",
+  );
 });

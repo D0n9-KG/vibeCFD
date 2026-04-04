@@ -70,11 +70,11 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用 🦌 DeerFlow，一个完全开源的超级智能体。通过内置和自定义的 Skills，\nDeerFlow 可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n图片、视频、播客及网页等，几乎可以做任何事情。",
+      "欢迎使用 🦌 DeerFlow，一个完全开源的超级智能体。通过内置和自定义的技能，\nDeerFlow 可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n图片、视频、播客及网页等，几乎可以做任何事情。",
 
-    createYourOwnSkill: "创建你自己的 Agent SKill",
+    createYourOwnSkill: "创建你自己的智能体技能",
     createYourOwnSkillDescription:
-      "创建你的 Agent Skill 来释放 DeerFlow 的潜力。通过自定义技能，DeerFlow\n可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n网页等作品，几乎可以做任何事情。",
+      "创建你的智能体技能来释放 DeerFlow 的潜力。通过自定义技能，DeerFlow\n可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n网页等作品，几乎可以做任何事情。",
   },
 
   // Clipboard
@@ -96,11 +96,11 @@ export const zhCN: Translations = {
     flashModeDescription: "快速且高效的完成任务，但可能不够精准",
     reasoningMode: "思考",
     reasoningModeDescription: "思考后再行动，在时间与准确性之间取得平衡",
-    proMode: "Pro",
-    proModeDescription: "思考、计划再执行，获得更精准的结果，可能需要更多时间",
-    ultraMode: "Ultra",
+    proMode: "专业",
+    proModeDescription: "先思考、再规划、再执行，结果更稳，更适合复杂任务",
+    ultraMode: "旗舰",
     ultraModeDescription:
-      "继承自 Pro 模式，可调用子代理分工协作，适合复杂多步骤任务，能力最强",
+      "继承自专业模式，可调用子代理分工协作，适合复杂多步骤任务，能力最强",
     reasoningEffort: "推理深度",
     reasoningEffortMinimal: "最低",
     reasoningEffortMinimalDescription: "检索 + 直接输出",
@@ -175,7 +175,7 @@ export const zhCN: Translations = {
     recentChats: "最近的对话",
     demoChats: "演示对话",
     agents: "智能体",
-    skillStudio: "Skill Studio",
+    skillStudio: "技能工作台",
   },
 
   // Agents
@@ -258,7 +258,7 @@ export const zhCN: Translations = {
       label: "首次进入",
       title: "还没有可恢复的工作上下文",
       message:
-        "从统一工作区启动新的仿真、Skill Studio 线程，或直接发起对话，系统就会开始沉淀可恢复的上下文。",
+        "从统一工作区启动新的仿真、技能工作台线程，或直接发起对话，系统就会开始沉淀可恢复的上下文。",
     },
     "permissions-error": {
       label: "权限不足",
@@ -335,7 +335,7 @@ export const zhCN: Translations = {
     readFile: "读取文件",
     writeFile: "写入文件",
     clickToViewContent: "点击查看文件内容",
-    writeTodos: "更新 To-do 列表",
+    writeTodos: "更新待办列表",
     skillInstallTooltip: "安装技能并使其可在 DeerFlow 中使用",
   },
 

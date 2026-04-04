@@ -26,6 +26,7 @@ void test("groups skill-studio artifacts into package, validation, testing, and 
     ["package", "validation", "testing", "publish"],
   );
   assert.equal(groups[0]?.count, 4);
+  assert.equal(groups[0]?.label, "技能包");
 });
 
 void test("builds a readiness summary from validation, testing, and publish state", () => {
@@ -48,6 +49,7 @@ void test("builds a readiness summary from validation, testing, and publish stat
 void test("formats statuses into stable labels", () => {
   assert.equal(formatSkillStudioStatus("needs_revision"), "需修订");
   assert.equal(formatSkillStudioStatus("draft_only"), "仅有草稿");
+  assert.equal(formatSkillStudioStatus("Passed"), "已通过");
   assert.equal(formatSkillStudioStatus("custom_status"), "Custom Status");
 });
 
@@ -63,7 +65,7 @@ void test("resolves skill studio assistant identity with codex-first fallback", 
     }),
     {
       assistantMode: "claude-code-skill-creator",
-      assistantLabel: "Claude Code · Skill Creator",
+      assistantLabel: "Claude Code 技能创建器",
     },
   );
 
@@ -78,7 +80,24 @@ void test("resolves skill studio assistant identity with codex-first fallback", 
     }),
     {
       assistantMode: "codex-skill-creator",
-      assistantLabel: "Codex · Skill Creator",
+      assistantLabel: "Codex 技能创建器",
+    },
+  );
+});
+
+void test("normalizes legacy persisted assistant labels", () => {
+  assert.deepEqual(
+    resolveSkillStudioAssistantIdentity({
+      draftAssistantMode: null,
+      draftAssistantLabel: null,
+      packageAssistantMode: null,
+      packageAssistantLabel: null,
+      stateAssistantMode: "codex-skill-creator",
+      stateAssistantLabel: "Codex · Skill Creator",
+    }),
+    {
+      assistantMode: "codex-skill-creator",
+      assistantLabel: "Codex 技能创建器",
     },
   );
 });

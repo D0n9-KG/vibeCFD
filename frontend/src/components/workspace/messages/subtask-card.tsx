@@ -17,6 +17,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import { ShineBorder } from "@/components/ui/shine-border";
 import { useI18n } from "@/core/i18n/hooks";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import { hasToolCalls } from "@/core/messages/utils";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import { streamdownPluginsWithWordAnimation } from "@/core/streamdown";
@@ -86,7 +87,7 @@ export function SubtaskCard({
                       {task.description}
                     </Shimmer>
                   ) : (
-                    task.description
+                    localizeWorkspaceDisplayText(task.description)
                   )
                 }
                 icon={<ClipboardListIcon />}
@@ -126,12 +127,12 @@ export function SubtaskCard({
           {task.prompt && (
             <ChainOfThoughtStep
               label={
-                <Streamdown
-                  {...streamdownPluginsWithWordAnimation}
-                  components={{ a: CitationLink }}
-                >
-                  {task.prompt}
-                </Streamdown>
+                  <Streamdown
+                    {...streamdownPluginsWithWordAnimation}
+                    components={{ a: CitationLink }}
+                  >
+                    {localizeWorkspaceDisplayText(task.prompt)}
+                  </Streamdown>
               }
             ></ChainOfThoughtStep>
           )}
@@ -155,7 +156,7 @@ export function SubtaskCard({
                 label={
                   task.result ? (
                     <MarkdownContent
-                      content={task.result}
+                      content={localizeWorkspaceDisplayText(task.result)}
                       isLoading={false}
                       rehypePlugins={rehypePlugins}
                     />

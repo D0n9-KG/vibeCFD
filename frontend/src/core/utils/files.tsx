@@ -176,17 +176,26 @@ export function getFileExtensionDisplayName(filepath: string) {
   switch (extension) {
     case "doc":
     case "docx":
-      return "Word";
+      return "文档文件";
+    case "htm":
+    case "html":
+      return "网页文件";
+    case "json":
+    case "jsonc":
+    case "json5":
+      return "数据文件";
+    case "log":
+      return "日志文件";
     case "md":
-      return "Markdown";
+      return "说明文档";
     case "txt":
-      return "Text";
+      return "文本文件";
     case "ppt":
     case "pptx":
-      return "PowerPoint";
+      return "演示文稿";
     case "xls":
     case "xlsx":
-      return "Excel";
+      return "表格文件";
     default:
       return extension.toUpperCase();
   }

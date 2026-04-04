@@ -23,9 +23,11 @@ import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicato
 import { Welcome } from "@/components/workspace/welcome";
 import { WorkspaceStatePanel } from "@/components/workspace/workspace-state-panel";
 import { useI18n } from "@/core/i18n/hooks";
+import { localizeThreadDisplayTitle } from "@/core/i18n/workspace-display";
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings } from "@/core/settings";
 import { useThreadStream } from "@/core/threads/hooks";
+import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
 import { textOfMessage } from "@/core/threads/utils";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
@@ -41,17 +43,22 @@ export default function ChatPage() {
   const { threadId, isNewThread, markThreadStarted, isMock } = useThreadChat();
   const { showNotification } = useNotification();
   const [supportPanelOpen, setSupportPanelOpen] = useState(false);
+  const [pendingThreadRouteId, setPendingThreadRouteId] = useState<
+    string | null
+  >(null);
 
   useSpecificChatMode();
 
-  const [thread, sendMessage, isUploading] = useThreadStream({
+  const [thread, sendMessage, isUploading, streamMeta] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
     isNewThread,
     context: settings.context,
     isMock,
     onStart: (createdThreadId) => {
       markThreadStarted(createdThreadId);
-      router.replace(`/workspace/chats/${createdThreadId}`);
+      if (isNewThread) {
+        setPendingThreadRouteId(createdThreadId);
+      }
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
@@ -70,6 +77,30 @@ export default function ChatPage() {
       }
     },
   });
+
+  useEffect(() => {
+    if (
+      !shouldPromoteStartedThreadRoute({
+        pendingThreadId: pendingThreadRouteId,
+        isLoading: thread.isLoading,
+        persistedMessageCount: streamMeta.persistedMessageCount,
+      })
+    ) {
+      return;
+    }
+
+    const nextPath = isMock
+      ? `/workspace/chats/${pendingThreadRouteId}?mock=true`
+      : `/workspace/chats/${pendingThreadRouteId}`;
+    router.replace(nextPath);
+    setPendingThreadRouteId(null);
+  }, [
+    isMock,
+    pendingThreadRouteId,
+    router,
+    streamMeta.persistedMessageCount,
+    thread.isLoading,
+  ]);
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
@@ -121,7 +152,12 @@ export default function ChatPage() {
       : thread.error
         ? String(thread.error)
         : null;
-  const threadLabel = thread.values.title ?? (isNewThread ? t.pages.newChat : t.pages.untitled);
+  const threadLabel =
+    isNewThread && (!thread.values.title || thread.values.title === "Untitled")
+      ? t.pages.newChat
+      : thread.values.title && thread.values.title !== "Untitled"
+        ? localizeThreadDisplayTitle(thread.values.title)
+        : t.pages.untitled;
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>

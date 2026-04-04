@@ -230,28 +230,126 @@ void test("builds a design brief summary from the structured brief payload", () 
   assert.deepEqual(summary?.expectedOutputs, ["阻力系数 Cd", "中文结果报告"]);
   assert.deepEqual(summary?.userConstraints, ["先做单工况基线"]);
   assert.deepEqual(summary?.openQuestions, ["是否补一个 5 m/s 对比工况"]);
-  assert.equal(summary?.precomputeApprovalLabel, "Immediate Clarification Required");
+  assert.equal(summary?.precomputeApprovalLabel, "需要立即补充确认");
   assert.equal(summary?.pendingCalculationPlanCount, 1);
   assert.equal(summary?.immediateClarificationCount, 1);
   assert.equal(summary?.calculationPlan.length, 2);
-  assert.equal(summary?.calculationPlan[0]?.approvalStateLabel, "Pending Researcher Confirmation");
-  assert.equal(summary?.calculationPlan[0]?.originLabel, "AI Suggestion");
+  assert.equal(summary?.calculationPlan[0]?.approvalStateLabel, "待研究确认");
+  assert.equal(summary?.calculationPlan[0]?.originLabel, "AI 建议");
   assert.equal(summary?.executionOutline.length, 2);
-  assert.equal(summary?.executionOutline[0]?.status, "in_progress");
+  assert.equal(summary?.executionOutline[0]?.status, "进行中");
   assert.deepEqual(summary?.executionOutline[0]?.targetSkills, [
     "submarine-design-brief",
   ]);
   assert.equal(summary?.requestedOutputs.length, 2);
   assert.equal(summary?.requestedOutputs[0]?.outputId, "drag_coefficient");
-  assert.equal(summary?.requestedOutputs[1]?.supportLevel, "not_yet_supported");
+  assert.equal(summary?.requestedOutputs[1]?.supportLevel, "暂不支持");
   assert.equal(summary?.requestedOutputs[0]?.specSummary, "--");
   assert.equal(
     summary?.requestedOutputs[1]?.specSummary,
-    "field=U; selector=plane[x/Lref=1.25; normal=(1, 0, 0)]; time=latest; formats=csv,png,report",
+    "字段=U; 选择器=截面[x/Lref=1.25; normal=(1, 0, 0)]; 时序=latest; 格式=csv,png,report",
   );
   assert.equal(summary?.requirementPairs[0]?.label, "来流速度");
   assert.equal(summary?.requirementPairs[0]?.value, "7.50 m/s");
-  assert.equal(summary?.requirementPairs.at(-1)?.value, "20");
+  assert.equal(summary?.requirementPairs.at(-1)?.value, "20 步");
+});
+
+void test("localizes english submarine brief content for runtime workbench views", () => {
+  const summary = buildSubmarineDesignBriefSummary({
+    confirmation_status: "draft",
+    expected_outputs: ["requested outputs", "pre-solver checklist"],
+    requested_outputs: [
+      {
+        output_id: "baseline_case",
+        label: "recommended baseline case/template mapping",
+        requested_label: "requested outputs",
+        support_level: "needs_clarification",
+        notes: "pre-solver checklist",
+      },
+    ],
+    user_constraints: ["brief stays in draft"],
+    open_questions: [
+      "Should requested outputs stay limited to resistance baseline preparation?",
+    ],
+    execution_outline: [
+      {
+        role_id: "task-intelligence",
+        owner: "DeerFlow task-intelligence",
+        goal: "Match candidate cases, understand the task, and select the most relevant submarine CFD workflow template.",
+        status: "in_progress",
+      },
+    ],
+  });
+
+  assert.deepEqual(summary?.expectedOutputs, ["输出范围", "求解前检查清单"]);
+  assert.equal(summary?.requestedOutputs[0]?.requestedLabel, "输出范围");
+  assert.equal(summary?.requestedOutputs[0]?.supportLevel, "待澄清");
+  assert.equal(summary?.requestedOutputs[0]?.notes, "求解前检查清单");
+  assert.equal(summary?.userConstraints[0], "简报保持草稿状态");
+  assert.match(
+    summary?.openQuestions[0] ?? "",
+    /输出范围|阻力基线准备/u,
+  );
+  assert.equal(summary?.executionOutline[0]?.owner, "DeerFlow 任务理解");
+  assert.equal(summary?.executionOutline[0]?.status, "进行中");
+  assert.match(
+    summary?.executionOutline[0]?.goal ?? "",
+    /匹配候选案例/u,
+  );
+});
+
+void test("localizes requested result card fields from backend english payloads", () => {
+  const cards = buildSubmarineResultCards({
+    requestedOutputs: [
+      {
+        outputId: "baseline_case",
+        label: "recommended baseline case/template mapping",
+        requestedLabel: "requested outputs",
+        supportLevel: "needs_clarification",
+        specSummary: "--",
+        notes: "pre-solver checklist",
+      },
+    ],
+    outputDelivery: [
+      {
+        outputId: "baseline_case",
+        label: "recommended baseline case/template mapping",
+        deliveryStatus: "pending",
+        specSummary: "--",
+        detail: "pre-solver checklist",
+        artifactPaths: [],
+      },
+    ],
+    figureDelivery: null,
+    artifactPaths: [],
+  });
+
+  assert.equal(cards[0]?.label, "推荐基线案例/模板映射");
+  assert.equal(cards[0]?.requestedLabel, "输出范围");
+  assert.equal(cards[0]?.supportLevel, "待澄清");
+  assert.equal(cards[0]?.deliveryStatus, "待处理");
+  assert.equal(cards[0]?.detail, "求解前检查清单");
+});
+
+void test("localizes mixed-language submarine brief outputs before panel rendering", () => {
+  const summary = buildSubmarineDesignBriefSummary({
+    confirmation_status: "draft",
+    expected_outputs: ["推荐 基线 case 映射"],
+    requested_outputs: [
+      {
+        output_id: "baseline_case",
+        label: "推荐 基线 case 映射",
+        requested_label: "推荐 基线 case 映射",
+        support_level: "needs_clarification",
+        notes: "生成可审计的预检 artifact",
+      },
+    ],
+  });
+
+  assert.deepEqual(summary?.expectedOutputs, ["推荐基线案例映射"]);
+  assert.equal(summary?.requestedOutputs[0]?.label, "推荐基线案例映射");
+  assert.equal(summary?.requestedOutputs[0]?.requestedLabel, "推荐基线案例映射");
+  assert.equal(summary?.requestedOutputs[0]?.notes, "生成可审计的预检产物");
 });
 
 void test("builds a reproducibility summary from parity-aware report payloads", () => {
@@ -289,8 +387,8 @@ void test("builds a reproducibility summary from parity-aware report payloads", 
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
   );
   assert.equal(summary?.profileLabel, "Docker Compose Dev");
-  assert.equal(summary?.parityStatusLabel, "Drifted But Runnable");
-  assert.equal(summary?.reproducibilityStatusLabel, "Drifted But Runnable");
+  assert.equal(summary?.parityStatusLabel, "环境漂移但仍可运行");
+  assert.equal(summary?.reproducibilityStatusLabel, "环境漂移但仍可运行");
   assert.deepEqual(summary?.driftReasons, [
     "Host mount strategy `workspace_path` does not match expectations.",
   ]);
@@ -314,9 +412,9 @@ void test("builds a report overview summary from final report payloads", () => {
     summary?.currentConclusion,
     "当前结论可以用于交付说明，但仍需补齐外部验证证据。",
   );
-  assert.equal(summary?.allowedClaimLevelLabel, "Validated With Gaps");
-  assert.equal(summary?.reviewStatusLabel, "Ready For Supervisor");
-  assert.equal(summary?.reproducibilityStatusLabel, "Drifted But Runnable");
+  assert.equal(summary?.allowedClaimLevelLabel, "已校核但仍有缺口");
+  assert.equal(summary?.reviewStatusLabel, "待主管复核");
+  assert.equal(summary?.reproducibilityStatusLabel, "环境漂移但仍可运行");
   assert.equal(
     summary?.recommendedNextStep,
     "优先补齐外部基准对照，再决定是否提升结论等级。",
@@ -347,7 +445,7 @@ void test("builds conclusion section summaries from final report payloads", () =
   assert.equal(sections.length, 1);
   assert.equal(sections[0]?.conclusionId, "current_conclusion");
   assert.equal(sections[0]?.title, "当前研究结论");
-  assert.equal(sections[0]?.claimLevelLabel, "Verified But Not Validated");
+  assert.equal(sections[0]?.claimLevelLabel, "已验证但未外部校核");
   assert.deepEqual(sections[0]?.inlineSourceRefs, [
     "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
     "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
@@ -420,7 +518,7 @@ void test("prefers runtime execution plan over stale design brief outline", () =
 
   assert.equal(outline.length, 2);
   assert.equal(outline[1]?.roleId, "solver-dispatch");
-  assert.equal(outline[1]?.status, "in_progress");
+  assert.equal(outline[1]?.status, "进行中");
   assert.deepEqual(outline[1]?.targetSkills, [
     "submarine-solver-dispatch",
     "submarine-geometry-check",
@@ -490,10 +588,10 @@ void test(
         "supervisor-review",
       ],
     );
-    assert.equal(track[4]?.label, "Scientific Study");
-    assert.equal(track[6]?.label, "Scientific Verification");
+    assert.equal(track[4]?.label, "科研研究");
+    assert.equal(track[6]?.label, "科研校验");
     assert.equal(track[6]?.status, "ready");
-    assert.equal(track[8]?.label, "Scientific Follow-Up");
+    assert.equal(track[8]?.label, "科研跟进");
   },
 );
 
@@ -533,7 +631,7 @@ void test("adds an explicit user-confirmation step to the legacy stage track whe
       "supervisor-review",
     ],
   );
-  assert.equal(track[2]?.label, "Researcher Confirmation");
+  assert.equal(track[2]?.label, "用户确认");
   assert.equal(track[2]?.status, "ready");
 });
 
@@ -555,7 +653,7 @@ void test("returns stable labels for scientific verification artifacts", () => {
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-domain-sensitivity.json",
   ]);
 
-  assert.equal(meta.label, "Scientific Verification - Mesh Independence JSON");
+  assert.equal(meta.label, "科研校验 - 网格无关性 JSON");
   assert.equal(groups[0]?.id, "results");
 });
 
@@ -567,10 +665,10 @@ void test("returns stable labels for scientific supervisor gate artifacts", () =
     "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
   ]);
 
-  assert.equal(meta.label, "Scientific Supervisor Gate JSON");
+  assert.equal(meta.label, "科研主管闸门 JSON");
   assert.equal(
     meta.externalLinkLabel,
-    "Open scientific supervisor gate JSON in a new window",
+    "在新窗口打开科研主管闸门 JSON",
   );
   assert.equal(groups[0]?.id, "report");
 });
@@ -583,10 +681,10 @@ void test("classifies stability evidence artifacts as result outputs", () => {
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/stability-evidence.json",
   ]);
 
-  assert.equal(meta.label, "Stability Evidence JSON");
+  assert.equal(meta.label, "稳定性证据 JSON");
   assert.equal(
     meta.externalLinkLabel,
-    "Open stability evidence JSON in a new window",
+    "在新窗口打开稳定性证据 JSON",
   );
   assert.equal(groups[0]?.id, "results");
 });
@@ -600,10 +698,10 @@ void test("returns stable labels for scientific remediation handoff artifacts", 
     "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
   ]);
 
-  assert.equal(meta.label, "Scientific Remediation Handoff JSON");
+  assert.equal(meta.label, "科研补救交接 JSON");
   assert.equal(
     meta.externalLinkLabel,
-    "Open scientific remediation handoff JSON in a new window",
+    "在新窗口打开科研补救交接 JSON",
   );
   assert.equal(groups[0]?.id, "report");
   assert.equal(groups[0]?.count, 2);
@@ -617,10 +715,10 @@ void test("classifies scientific followup history artifacts as report outputs", 
     "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json",
   ]);
 
-  assert.equal(meta.label, "Scientific Follow-Up History JSON");
+  assert.equal(meta.label, "科研跟进历史 JSON");
   assert.equal(
     meta.externalLinkLabel,
-    "Open scientific follow-up history JSON in a new window",
+    "在新窗口打开科研跟进历史 JSON",
   );
   assert.equal(groups[0]?.id, "report");
   assert.equal(groups[0]?.count, 1);
@@ -681,10 +779,10 @@ void test("builds runtime output delivery summaries with explicit artifact point
   });
 
   assert.equal(summary.length, 1);
-  assert.equal(summary[0]?.deliveryStatus, "delivered");
+  assert.equal(summary[0]?.deliveryStatus, "已交付");
   assert.equal(
     summary[0]?.specSummary,
-    "field=p; selector=patch[hull]; time=latest; formats=csv,png,report",
+    "字段=p; 选择器=边界 patch[hull]; 时序=latest; 格式=csv,png,report",
   );
   assert.deepEqual(summary[0]?.artifactPaths, [
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.png",
@@ -756,7 +854,7 @@ void test("keeps benchmark comparisons in the acceptance summary", () => {
   assert.equal(summary?.benchmarkComparisons.length, 1);
   assert.equal(summary?.benchmarkComparisons[0]?.metricId, "cd_at_3_05_mps");
   assert.equal(summary?.benchmarkComparisons[0]?.status, "passed");
-  assert.equal(summary?.benchmarkComparisons[0]?.statusLabel, "Passed");
+  assert.equal(summary?.benchmarkComparisons[0]?.statusLabel, "已通过");
   assert.equal(summary?.benchmarkComparisons[0]?.quantity, "Cd");
   assert.equal(summary?.benchmarkComparisons[0]?.absoluteError, "0.00004");
   assert.equal(summary?.benchmarkComparisons[0]?.relativeTolerance, "10.00%");
@@ -768,16 +866,16 @@ void test("keeps benchmark comparisons in the acceptance summary", () => {
   );
   assert.equal(summary?.outputDelivery.length, 2);
   assert.equal(summary?.outputDelivery[0]?.outputId, "drag_coefficient");
-  assert.equal(summary?.outputDelivery[1]?.deliveryStatus, "not_yet_supported");
+  assert.equal(summary?.outputDelivery[1]?.deliveryStatus, "暂不支持");
   assert.equal(
     summary?.outputDelivery[1]?.specSummary,
-    "field=p; selector=patch[hull]; time=latest; formats=csv,png,report",
+    "字段=p; 选择器=边界 patch[hull]; 时序=latest; 格式=csv,png,report",
   );
   assert.equal(
     formatSubmarineBenchmarkComparisonSummaryLine(
       summary!.benchmarkComparisons[0]!,
     ),
-    "cd_at_3_05_mps | Passed | Cd 0.00310 / 0.00314 | error 1.27% / tol 10.00% | velocity 3.05 vs 3.05 m/s | source Mushtaque et al. (2025) Table 6, EFD bare hull",
+    "cd_at_3_05_mps | 已通过 | Cd 0.00310 / 0.00314 | 误差 1.27% / 容差 10.00% | 速度 3.05 对比 3.05 m/s | 来源 Mushtaque et al. (2025) Table 6, EFD bare hull",
   );
 });
 
@@ -890,7 +988,7 @@ void test(
 
     assert.equal(cards.length, 2);
     assert.equal(cards[0]?.outputId, "surface_pressure_contour");
-    assert.equal(cards[0]?.deliveryStatus, "delivered");
+    assert.equal(cards[0]?.deliveryStatus, "已交付");
     assert.equal(
       cards[0]?.previewArtifactPath,
       "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.png",
@@ -906,14 +1004,14 @@ void test(
     );
     assert.equal(
       cards[0]?.specSummary,
-      "field=p; selector=patch[hull]; time=latest; formats=csv,png,report",
+      "字段=p; 选择器=边界 patch[hull]; 时序=latest; 格式=csv,png,report",
     );
     assert.equal(
       cards[0]?.figureCaption,
       "Surface pressure contour over the selected hull patches, colored by p.",
     );
     assert.equal(cards[0]?.selectorSummary, "Patch selection: hull");
-    assert.equal(cards[0]?.figureRenderStatus, "Rendered");
+    assert.equal(cards[0]?.figureRenderStatus, "已渲染");
     assert.deepEqual(cards[0]?.figureArtifactPaths, [
       "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.png",
       "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
@@ -1020,7 +1118,7 @@ void test("builds a figure delivery summary from the final report payload", () =
     summary?.manifestPath,
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/figure-manifest.json",
   );
-  assert.equal(summary?.figures[0]?.renderStatusLabel, "Rendered");
+  assert.equal(summary?.figures[0]?.renderStatusLabel, "已渲染");
   assert.equal(
     summary?.figures[1]?.selectorSummary,
     "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)",
@@ -1110,7 +1208,7 @@ void test("keeps scientific verification requirements in design brief summary", 
   );
   assert.equal(
     summary?.scientificVerificationRequirements[1]?.detail,
-    "force_coefficient=Cd; min_samples=5; max_tail_relative_spread=0.0200",
+    "力系数=Cd; 最小样本数=5; 尾段最大相对波动=0.0200",
   );
 });
 
@@ -1143,12 +1241,16 @@ void test("builds a scientific verification summary from the final report payloa
     },
   });
 
-  assert.equal(summary?.statusLabel, "Needs More Verification");
-  assert.equal(summary?.confidenceLabel, "Medium");
+  assert.equal(summary?.statusLabel, "仍需更多校验");
+  assert.equal(summary?.confidenceLabel, "中");
   assert.equal(summary?.requirements.length, 2);
-  assert.equal(summary?.requirements[1]?.status, "Missing Evidence");
+  assert.equal(summary?.requirements[1]?.status, "缺少证据");
+  assert.equal(summary?.requirements[0]?.label, "最终残差阈值");
+  assert.match(summary?.requirements[0]?.detail ?? "", /最终残差阈值/u);
   assert.equal(summary?.missingEvidence.length, 1);
   assert.equal(summary?.passedRequirements.length, 1);
+  assert.match(summary?.missingEvidence[0] ?? "", /网格无关性研究/u);
+  assert.match(summary?.passedRequirements[0] ?? "", /最终残差阈值/u);
 });
 
 void test("builds a stability evidence summary from the final report payload", () => {
@@ -1197,16 +1299,17 @@ void test("builds a stability evidence summary from the final report payload", (
     },
   });
 
-  assert.equal(summary?.statusLabel, "Missing Evidence");
+  assert.equal(summary?.statusLabel, "缺少证据");
   assert.equal(summary?.residualMaxFinalValue, "0.000500");
   assert.equal(summary?.tailCoefficientLabel, "Cd");
-  assert.equal(summary?.tailStatusLabel, "Missing Evidence");
+  assert.equal(summary?.tailStatusLabel, "缺少证据");
   assert.equal(summary?.tailSampleCountLabel, "2/5");
   assert.deepEqual(summary?.passedRequirements, [
-    "Final residual threshold: observed 0.000500 <= 0.001000.",
+    "最终残差阈值：观测值 0.000500 <= 0.001000.",
   ]);
   assert.equal(summary?.requirementLines.length, 2);
-  assert.match(summary?.requirementLines[1] ?? "", /Missing Evidence/);
+  assert.match(summary?.requirementLines[1] ?? "", /缺少证据/);
+  assert.match(summary?.requirementLines[0] ?? "", /最终残差阈值/u);
 });
 
 void test("builds a scientific study summary from the final report payload", () => {
@@ -1279,9 +1382,9 @@ void test("builds a scientific study summary from the final report payload", () 
     },
   });
 
-  assert.equal(summary?.executionStatusLabel, "Planned");
-  assert.equal(summary?.workflowStatusLabel, "Planned");
-  assert.deepEqual(summary?.studyStatusCountLines, ["Planned: 2"]);
+  assert.equal(summary?.executionStatusLabel, "已规划");
+  assert.equal(summary?.workflowStatusLabel, "已规划");
+  assert.deepEqual(summary?.studyStatusCountLines, ["已规划: 2"]);
   assert.equal(
     summary?.manifestPath,
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
@@ -1289,21 +1392,21 @@ void test("builds a scientific study summary from the final report payload", () 
   assert.equal(summary?.artifactPaths.length, 2);
   assert.equal(summary?.studies.length, 2);
   assert.equal(summary?.studies[0]?.studyType, "mesh_independence");
-  assert.equal(summary?.studies[0]?.studyExecutionStatusLabel, "Completed");
-  assert.equal(summary?.studies[0]?.workflowStatusLabel, "Completed");
+  assert.equal(summary?.studies[0]?.studyExecutionStatusLabel, "已完成");
+  assert.equal(summary?.studies[0]?.workflowStatusLabel, "已完成");
   assert.equal(
     summary?.studies[0]?.workflowDetail,
-    "All planned variants completed with compare coverage.",
+    "全部计划变体均已完成，并具备对比覆盖。",
   );
-  assert.deepEqual(summary?.studies[0]?.variantStatusCountLines, ["Completed: 3"]);
-  assert.deepEqual(summary?.studies[0]?.compareStatusCountLines, ["Completed: 2"]);
-  assert.equal(summary?.studies[0]?.verificationStatus, "Passed");
+  assert.deepEqual(summary?.studies[0]?.variantStatusCountLines, ["已完成: 3"]);
+  assert.deepEqual(summary?.studies[0]?.compareStatusCountLines, ["已完成: 2"]);
+  assert.equal(summary?.studies[0]?.verificationStatus, "已通过");
   assert.deepEqual(summary?.studies[0]?.expectedVariantRunIds, [
     "mesh_independence:coarse",
     "mesh_independence:fine",
   ]);
-  assert.equal(summary?.studies[1]?.verificationStatus, "Missing Evidence");
-  assert.equal(summary?.studies[1]?.workflowStatusLabel, "Partial");
+  assert.equal(summary?.studies[1]?.verificationStatus, "缺少证据");
+  assert.equal(summary?.studies[1]?.workflowStatusLabel, "部分完成");
   assert.deepEqual(summary?.studies[1]?.plannedVariantRunIds, [
     "domain_sensitivity:compact",
     "domain_sensitivity:expanded",
@@ -1321,7 +1424,7 @@ void test("labels blocked scientific study execution explicitly", () => {
     },
   });
 
-  assert.equal(summary?.executionStatusLabel, "Blocked");
+  assert.equal(summary?.executionStatusLabel, "已阻塞");
 });
 
 void test("builds an experiment summary from the final report payload", () => {
@@ -1382,11 +1485,11 @@ void test("builds an experiment summary from the final report payload", () => {
     summary?.experimentId,
     "darpa-suboff-bare-hull-resistance-study-compare-demo-resistance",
   );
-  assert.equal(summary?.experimentStatusLabel, "Completed");
-  assert.equal(summary?.workflowStatusLabel, "Partial");
+  assert.equal(summary?.experimentStatusLabel, "已完成");
+  assert.equal(summary?.workflowStatusLabel, "部分完成");
   assert.equal(
     summary?.workflowDetail,
-    "Pending variant execution: domain_sensitivity:compact, domain_sensitivity:expanded",
+    "待执行变体：domain_sensitivity:compact, domain_sensitivity:expanded",
   );
   assert.equal(summary?.baselineRunId, "baseline");
   assert.equal(summary?.runCount, 7);
@@ -1403,8 +1506,8 @@ void test("builds an experiment summary from the final report payload", () => {
     summary?.comparePath,
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
   );
-  assert.deepEqual(summary?.runStatusCountLines, ["Completed: 2", "Planned: 2"]);
-  assert.deepEqual(summary?.compareStatusCountLines, ["Completed: 1", "Planned: 1"]);
+  assert.deepEqual(summary?.runStatusCountLines, ["已完成: 2", "已规划: 2"]);
+  assert.deepEqual(summary?.compareStatusCountLines, ["已完成: 1", "已规划: 1"]);
   assert.equal(summary?.linkageStatus, "incomplete");
   assert.equal(summary?.linkageIssueCount, 2);
   assert.deepEqual(summary?.registeredCustomVariantRunIds, [
@@ -1484,8 +1587,8 @@ void test("builds an experiment compare summary from the final report payload", 
 
   assert.equal(summary?.compareCount, 1);
   assert.equal(summary?.baselineRunId, "baseline");
-  assert.equal(summary?.workflowStatusLabel, "Partial");
-  assert.deepEqual(summary?.compareStatusCountLines, ["Completed: 1", "Planned: 1"]);
+  assert.equal(summary?.workflowStatusLabel, "部分完成");
+  assert.deepEqual(summary?.compareStatusCountLines, ["已完成: 1", "已规划: 1"]);
   assert.deepEqual(summary?.plannedCandidateRunIds, [
     "domain_sensitivity:expanded",
   ]);
@@ -1500,12 +1603,12 @@ void test("builds an experiment compare summary from the final report payload", 
   assert.equal(summary?.comparisons.length, 1);
   assert.equal(summary?.comparisons[0]?.candidateRunId, "mesh_independence:coarse");
   assert.equal(summary?.comparisons[0]?.compareStatus, "completed");
-  assert.equal(summary?.comparisons[0]?.compareStatusLabel, "Completed");
-  assert.equal(summary?.comparisons[0]?.candidateExecutionStatusLabel, "Completed");
+  assert.equal(summary?.comparisons[0]?.compareStatusLabel, "已完成");
+  assert.equal(summary?.comparisons[0]?.candidateExecutionStatusLabel, "已完成");
   assert.equal(summary?.comparisons[0]?.studyLabel, "mesh_independence / coarse");
   assert.deepEqual(summary?.comparisons[0]?.metricDeltaLines, [
-    "Cd: baseline=0.12 | candidate=0.1212 | delta=0.0012 | relative=1.00%",
-    "mesh_cells: baseline=1200000 | candidate=840000 | delta=-360000 | relative=-30.00%",
+    "Cd: 基线=0.12 | 候选=0.1212 | 差值=0.0012 | 相对变化=1.00%",
+    "mesh_cells: 基线=1200000 | 候选=840000 | 差值=-360000 | 相对变化=-30.00%",
   ]);
   assert.deepEqual(summary?.comparisons[0]?.artifactPaths, [
     "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json",
@@ -1550,10 +1653,10 @@ void test("formats custom variant compare summaries with custom lineage labels",
   assert.equal(summary?.comparisons[0]?.runRole, "custom_variant");
   assert.equal(summary?.comparisons[0]?.variantOrigin, "custom_variant");
   assert.equal(summary?.comparisons[0]?.variantLabel, "Pressure Sweep");
-  assert.equal(summary?.comparisons[0]?.studyLabel, "custom / pressure-sweep");
+  assert.equal(summary?.comparisons[0]?.studyLabel, "自定义 / pressure-sweep");
   assert.equal(
     summary?.comparisons[0]?.lineageLabel,
-    "Custom Variant | Pressure Sweep",
+    "自定义变体 | Pressure Sweep",
   );
   assert.equal(summary?.comparisons[0]?.baselineReferenceRunId, "baseline");
   assert.equal(summary?.comparisons[0]?.compareTargetRunId, "baseline");
@@ -1587,11 +1690,11 @@ void test("builds a research evidence summary from the final report payload", ()
 
   assert.equal(summary?.readinessStatus, "verified_but_not_validated");
   assert.equal(summary?.validationStatus, "missing_validation_reference");
-  assert.equal(summary?.readinessLabel, "Verified But Not Validated");
-  assert.equal(summary?.verificationStatusLabel, "Passed");
-  assert.equal(summary?.validationStatusLabel, "Missing Validation Reference");
-  assert.equal(summary?.provenanceStatusLabel, "Traceable");
-  assert.equal(summary?.confidenceLabel, "Medium");
+  assert.equal(summary?.readinessLabel, "已验证但未外部校核");
+  assert.equal(summary?.verificationStatusLabel, "已通过");
+  assert.equal(summary?.validationStatusLabel, "缺少校核参考");
+  assert.equal(summary?.provenanceStatusLabel, "可追溯");
+  assert.equal(summary?.confidenceLabel, "中");
   assert.deepEqual(summary?.blockingIssues, [
     "Benchmark cd_at_3_05_mps is not applicable to the current run condition.",
   ]);
@@ -1627,17 +1730,17 @@ void test("builds a scientific supervisor gate summary from the final report pay
 
   assert.equal(summary?.gateStatus, "claim_limited");
   assert.equal(summary?.allowedClaimLevel, "verified_but_not_validated");
-  assert.equal(summary?.gateStatusLabel, "Claim Limited");
+  assert.equal(summary?.gateStatusLabel, "结论受限");
   assert.equal(
     summary?.allowedClaimLevelLabel,
-    "Verified But Not Validated",
+    "已验证但未外部校核",
   );
   assert.equal(
     summary?.sourceReadinessLabel,
-    "Verified But Not Validated",
+    "已验证但未外部校核",
   );
-  assert.equal(summary?.recommendedStageLabel, "Supervisor Review");
-  assert.equal(summary?.remediationStageLabel, "Solver Dispatch");
+  assert.equal(summary?.recommendedStageLabel, "主管复核");
+  assert.equal(summary?.remediationStageLabel, "求解派发");
   assert.deepEqual(summary?.advisoryNotes, [
     "External validation evidence is still missing for this run.",
   ]);
@@ -1675,18 +1778,18 @@ void test("builds a scientific remediation summary from the final report payload
     },
   });
 
-  assert.equal(summary?.planStatusLabel, "Recommended");
-  assert.equal(summary?.currentClaimLevelLabel, "Verified But Not Validated");
-  assert.equal(summary?.targetClaimLevelLabel, "Research Ready");
-  assert.equal(summary?.recommendedStageLabel, "Supervisor Review");
+  assert.equal(summary?.planStatusLabel, "建议执行");
+  assert.equal(summary?.currentClaimLevelLabel, "已验证但未外部校核");
+  assert.equal(summary?.targetClaimLevelLabel, "可用于科研结论");
+  assert.equal(summary?.recommendedStageLabel, "主管复核");
   assert.deepEqual(summary?.artifactPaths, [
     "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-plan.json",
   ]);
   assert.equal(summary?.actions.length, 1);
   assert.equal(summary?.actions[0]?.actionId, "attach-validation-reference");
-  assert.equal(summary?.actions[0]?.ownerStageLabel, "Supervisor Review");
-  assert.equal(summary?.actions[0]?.executionModeLabel, "Manual Required");
-  assert.equal(summary?.actions[0]?.statusLabel, "Pending");
+  assert.equal(summary?.actions[0]?.ownerStageLabel, "主管复核");
+  assert.equal(summary?.actions[0]?.executionModeLabel, "需要人工处理");
+  assert.equal(summary?.actions[0]?.statusLabel, "待处理");
   assert.deepEqual(summary?.actions[0]?.requiredArtifacts, [
     "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json",
   ]);
@@ -1722,7 +1825,7 @@ void test(
       },
     });
 
-    assert.equal(summary?.handoffStatusLabel, "Ready For Auto Follow-Up");
+    assert.equal(summary?.handoffStatusLabel, "可自动跟进");
     assert.equal(summary?.recommendedActionId, "execute-scientific-studies");
     assert.equal(summary?.toolName, "submarine_solver_dispatch");
     assert.equal(summary?.toolArgs.length, 3);
@@ -1736,7 +1839,7 @@ void test(
     });
     assert.equal(
       summary?.manualActions[0]?.ownerStageLabel,
-      "Supervisor Review",
+      "主管复核",
     );
     assert.deepEqual(summary?.artifactPaths, [
       "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json",
@@ -1778,7 +1881,7 @@ void test(
     });
 
     assert.equal(summary?.decisionStatus, "needs_more_evidence");
-    assert.equal(summary?.decisionStatusLabel, "Needs More Evidence");
+    assert.equal(summary?.decisionStatusLabel, "需要更多证据");
     assert.equal(
       summary?.question,
       "当前结论可以交付，但仍有证据缺口。请在聊天中确认下一步。",
@@ -1792,7 +1895,7 @@ void test(
       label: "补充证据",
       summary: "优先补齐缺失证据，再决定是否提升 claim level。",
       followupKind: "evidence_supplement",
-      followupKindLabel: "Evidence Supplement",
+      followupKindLabel: "补充证据",
       requiresAdditionalExecution: true,
     });
     assert.deepEqual(summary?.options[1], {
@@ -1800,7 +1903,7 @@ void test(
       label: "完成任务",
       summary: "接受当前结论作为本次任务终点，并在聊天中确认收口。",
       followupKind: "task_complete",
-      followupKindLabel: "Task Complete",
+      followupKindLabel: "任务完成",
       requiresAdditionalExecution: false,
     });
     assert.deepEqual(summary?.blockingReasons, [
@@ -1851,8 +1954,8 @@ void test(
     const summary = buildSubmarineScientificFollowupSummary(payload);
 
     assert.equal(summary?.entryCount, 2);
-    assert.equal(summary?.latestOutcomeLabel, "Dispatch Refreshed Report");
-    assert.equal(summary?.latestHandoffStatusLabel, "Ready For Auto Follow-Up");
+    assert.equal(summary?.latestOutcomeLabel, "派发后已刷新报告");
+    assert.equal(summary?.latestHandoffStatusLabel, "可自动跟进");
     assert.equal(summary?.latestRecommendedActionId, "execute-scientific-studies");
     assert.equal(summary?.latestToolName, "submarine_solver_dispatch");
     assert.equal(summary?.latestFollowupKind, "evidence_supplement");
@@ -1862,8 +1965,8 @@ void test(
     assert.deepEqual(summary?.latestSourceEvidenceGapIds, [
       "missing_validation_reference",
     ]);
-    assert.equal(summary?.latestDispatchStageStatusLabel, "Executed");
-    assert.equal(summary?.reportRefreshedLabel, "Yes");
+    assert.equal(summary?.latestDispatchStageStatusLabel, "已执行");
+    assert.equal(summary?.reportRefreshedLabel, "是");
     assert.equal(
       summary?.historyPath,
       "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json",
@@ -1962,24 +2065,24 @@ void test(
 
     assert.equal(
       formatSubmarineRuntimeStageLabel("scientific-study"),
-      "Scientific Study",
+      "科研研究",
     );
     assert.equal(
       formatSubmarineExecutionRoleLabel("experiment-compare"),
-      "Experiment Compare",
+      "实验对比",
     );
-    assert.equal(outline[0]?.roleLabel, "Scientific Study");
-    assert.equal(outline[1]?.roleLabel, "Scientific Follow-Up");
-    assert.equal(gateSummary?.recommendedStageLabel, "Scientific Verification");
-    assert.equal(gateSummary?.remediationStageLabel, "Scientific Follow-Up");
-    assert.equal(remediationSummary?.recommendedStageLabel, "Scientific Follow-Up");
+    assert.equal(outline[0]?.roleLabel, "科研研究");
+    assert.equal(outline[1]?.roleLabel, "科研跟进");
+    assert.equal(gateSummary?.recommendedStageLabel, "科研校验");
+    assert.equal(gateSummary?.remediationStageLabel, "科研跟进");
+    assert.equal(remediationSummary?.recommendedStageLabel, "科研跟进");
     assert.equal(
       remediationSummary?.actions[0]?.ownerStageLabel,
-      "Scientific Follow-Up",
+      "科研跟进",
     );
     assert.equal(
       handoffSummary?.manualActions[0]?.ownerStageLabel,
-      "Scientific Verification",
+      "科研校验",
     );
   },
 );

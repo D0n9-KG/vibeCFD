@@ -36,6 +36,13 @@ export type ToolEndEvent = {
   data: unknown;
 };
 
+export type ThreadStreamMeta = {
+  persistedMessageCount: number;
+};
+
+const THREAD_STREAM_REBIND_TIMEOUT_MS = 1500;
+const THREAD_STREAM_REBIND_POLL_MS = 16;
+
 export type ThreadStreamOptions = {
   threadId?: string | null | undefined;
   isNewThread?: boolean;
@@ -313,8 +320,11 @@ export function useThreadStream({
 
       let submitTarget = thread;
       if (sendState.shouldUseReboundThreadAfterCreate) {
-        for (let attempt = 0; attempt < 5; attempt += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 0));
+        const rebindDeadline = Date.now() + THREAD_STREAM_REBIND_TIMEOUT_MS;
+        while (Date.now() <= rebindDeadline) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, THREAD_STREAM_REBIND_POLL_MS),
+          );
           if (threadStreamRef.current !== thread) {
             submitTarget = threadStreamRef.current;
             break;
@@ -459,7 +469,14 @@ export function useThreadStream({
         } as typeof thread)
       : thread;
 
-  return [mergedThread, sendMessage, isUploading] as const;
+  return [
+    mergedThread,
+    sendMessage,
+    isUploading,
+    {
+      persistedMessageCount: thread.messages.length,
+    } satisfies ThreadStreamMeta,
+  ] as const;
 }
 
 export function useThreads(

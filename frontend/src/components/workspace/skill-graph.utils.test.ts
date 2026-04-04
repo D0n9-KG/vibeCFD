@@ -97,7 +97,7 @@ void test("workbench model keeps the focus node and filters to similar relations
   const model = buildSkillGraphWorkbenchModel(graph, "similar");
 
   assert.equal(model.focusSkillName, "submarine-result-acceptance");
-  assert.equal(model.nodes[0]?.skillName, "submarine-result-acceptance");
+  assert.equal(model.nodes[0]?.skillName, "潜艇结果验收");
   assert.equal(model.nodes.length, 2);
   assert.equal(model.nodes[1]?.skillName, "submarine-report");
   assert.equal(model.edges.length, 1);

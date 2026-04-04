@@ -25,6 +25,11 @@ import { CodeBlock } from "@/components/ai-elements/code-block";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/core/i18n/hooks";
 import {
+  localizeWorkspaceToolDescription,
+  localizeWorkspaceDisplayText,
+  localizeWorkspaceToolName,
+} from "@/core/i18n/workspace-display";
+import {
   extractReasoningContentFromMessage,
   findToolCallResult,
 } from "@/core/messages/utils";
@@ -117,7 +122,7 @@ export function MessageGroup({
                   key={step.id}
                   label={
                     <MarkdownContent
-                      content={step.reasoning ?? ""}
+                      content={localizeWorkspaceDisplayText(step.reasoning ?? "")}
                       isLoading={isLoading}
                       rehypePlugins={rehypePlugins}
                     />
@@ -169,7 +174,9 @@ export function MessageGroup({
                 key={lastReasoningStep.id}
                 label={
                   <MarkdownContent
-                    content={lastReasoningStep.reasoning ?? ""}
+                    content={localizeWorkspaceDisplayText(
+                      lastReasoningStep.reasoning ?? "",
+                    )}
                     isLoading={isLoading}
                     rehypePlugins={rehypePlugins}
                   />
@@ -380,7 +387,7 @@ function ToolCall({
     return (
       <ChainOfThoughtStep
         key={id}
-        label={description}
+        label={localizeWorkspaceToolDescription(description)}
         icon={SquareTerminalIcon}
       >
         {command && (
@@ -412,10 +419,15 @@ function ToolCall({
   } else {
     const description: string | undefined = (args as { description: string })
       ?.description;
+    const localizedName = localizeWorkspaceToolName(name);
     return (
       <ChainOfThoughtStep
         key={id}
-        label={description ?? t.toolCalls.useTool(name)}
+        label={
+          description
+            ? localizeWorkspaceToolDescription(description)
+            : t.toolCalls.useTool(localizedName)
+        }
         icon={WrenchIcon}
       ></ChainOfThoughtStep>
     );

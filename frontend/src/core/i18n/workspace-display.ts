@@ -2,6 +2,8 @@ const DISPLAY_TEXT_REPLACEMENTS: ReadonlyArray<readonly [string, string]> = [
   ["Submarine Result Acceptance Draft", "潜艇结果验收草稿"],
   ["submarine-result-acceptance", "潜艇结果验收"],
   ["submarine result acceptance", "潜艇结果验收"],
+  ["draft-only", "仅草稿"],
+  ["draft only", "仅草稿"],
   ["潜艇 Skill Studio 演示", "潜艇技能工作台演示"],
   ["OpenFOAM CFD for STL Model", "STL 模型 OpenFOAM CFD 分析"],
   ["STL CFD Drag Coefficient Analysis", "STL CFD 阻力系数分析"],

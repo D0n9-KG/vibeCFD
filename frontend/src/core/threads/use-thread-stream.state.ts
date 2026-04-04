@@ -69,6 +69,23 @@ export function deriveOptimisticMessagesAfterUpload({
   ];
 }
 
+export function shouldPromoteStartedThreadRoute({
+  pendingThreadId,
+  isLoading,
+  persistedMessageCount,
+}: {
+  pendingThreadId?: string | null | undefined;
+  isLoading: boolean;
+  persistedMessageCount: number;
+}) {
+  return (
+    pendingThreadId != null &&
+    pendingThreadId.length > 0 &&
+    !isLoading &&
+    persistedMessageCount > 0
+  );
+}
+
 export function deriveThreadsAfterWorkbenchStart({
   threads,
   threadId,

@@ -23,7 +23,7 @@ void test("workspace surfaces expose the four locked top-level entries", () => {
       },
       {
         id: "skill-studio",
-        label: "Skill Studio",
+        label: "技能工作台",
         href: "/workspace/skill-studio",
       },
       {

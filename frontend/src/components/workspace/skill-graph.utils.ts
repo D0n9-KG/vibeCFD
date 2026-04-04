@@ -1,3 +1,5 @@
+import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.ts";
+
 type SkillGraphRelationshipCounts = Record<string, number>;
 
 export type SkillGraphWorkbenchFilter = 
@@ -151,15 +153,17 @@ export function buildFocusedSkillGraphItems(graph?: {
         left.skill_name.localeCompare(right.skill_name),
     )
     .map((item) => ({
-      skillName: item.skill_name,
+      skillName: localizeWorkspaceDisplayText(item.skill_name),
       category: item.category,
       enabled: item.enabled,
-      description: item.description,
+      description: localizeWorkspaceDisplayText(item.description),
       relationshipLabels: [...item.relationship_types]
         .map(formatRelationshipLabel)
         .sort((left, right) => left.localeCompare(right)),
       strongestScore: item.strongest_score,
-      reasons: item.reasons,
+      reasons: (item.reasons ?? []).map((reason) =>
+        localizeWorkspaceDisplayText(reason),
+      ),
     }));
 }
 
@@ -196,10 +200,10 @@ export function buildSkillGraphWorkbenchModel(
 
   const focusNode: SkillGraphWorkbenchNode = {
     id: focusSkillName,
-    skillName: focusSkillName,
+    skillName: localizeWorkspaceDisplayText(focusSkillName),
     category: "焦点",
     enabled: true,
-    description: "来自当前 Skill Studio 线程的焦点技能。",
+    description: "来自当前技能工作台线程的焦点技能。",
     relationshipLabels: [],
     strongestScore: 1,
     reasons: ["当前工作台焦点"],
@@ -213,9 +217,9 @@ export function buildSkillGraphWorkbenchModel(
     const x = total === 1 ? 50 : 14 + (72 / (total - 1)) * index;
     const y = 72;
 
-    return {
-      id: item.skillName,
-      skillName: item.skillName,
+      return {
+        id: item.skillName,
+        skillName: item.skillName,
       category: item.category,
       enabled: item.enabled,
       description: item.description,

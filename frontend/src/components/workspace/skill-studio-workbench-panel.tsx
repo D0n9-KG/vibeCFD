@@ -25,6 +25,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { useArtifactContent } from "@/core/artifacts/hooks";
 import { urlOfArtifact } from "@/core/artifacts/utils";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import { usePublishSkill, useSkillGraph } from "@/core/skills/hooks";
 import { cn } from "@/lib/utils";
 
@@ -194,19 +195,65 @@ function getStatusTone(status?: string | null) {
   }
 }
 
+const LOCALIZED_SKILL_STUDIO_LINES: Record<string, string> = {
+  "Run a dry-run conversation using one of the prepared scenarios.":
+    "使用已准备好的一个场景先跑一轮试运行对话。",
+  "Review the generated SKILL.md, domain rules, and UI metadata together.":
+    "把生成的 SKILL.md、领域规则和界面元数据一起审阅一遍。",
+  "Publish only after the expert signs off on the dry-run result.":
+    "只有在专家确认试运行结果后，再执行正式发布。",
+};
+
+function localizeSkillStudioLine(line: string) {
+  return localizeWorkspaceDisplayText(LOCALIZED_SKILL_STUDIO_LINES[line] ?? line);
+}
+
 function deriveNextActionLines(args: {
   publishNextActions: string[];
   validationErrors: string[];
   validationWarnings: string[];
   blockingCount: number;
 }) {
-  if (args.publishNextActions.length > 0) return args.publishNextActions;
-  if (args.validationErrors.length > 0) return args.validationErrors.slice(0, 3);
-  if (args.validationWarnings.length > 0) return args.validationWarnings.slice(0, 3);
+  if (args.publishNextActions.length > 0) {
+    return args.publishNextActions.map(localizeSkillStudioLine);
+  }
+  if (args.validationErrors.length > 0) {
+    return args.validationErrors.slice(0, 3).map(localizeSkillStudioLine);
+  }
+  if (args.validationWarnings.length > 0) {
+    return args.validationWarnings.slice(0, 3).map(localizeSkillStudioLine);
+  }
   if (args.blockingCount > 0) {
     return ["发布前先处理阻塞中的校验、测试或发布门槛。"];
   }
   return ["当前技能包已经可以进入试运行或最终发布审阅。"];
+}
+
+const LOCALIZED_PUBLISH_GATE_LABELS: Record<string, string> = {
+  "Skill structure is valid": "技能结构有效",
+  "Trigger description is discoverable": "触发描述可发现",
+  "Scenario tests are prepared": "场景测试已准备",
+  "Dry-run handoff is ready": "试运行交接已就绪",
+  "UI metadata has been generated": "界面元数据已生成",
+};
+
+const GRAPH_FILTER_LABELS: Record<SkillGraphWorkbenchFilter, string> = {
+  all: "全部",
+  upstream: "上游",
+  downstream: "下游",
+  similar: "相似",
+  "high-impact": "高影响",
+};
+
+function localizePublishGateLabel(label?: string | null) {
+  if (!label) {
+    return "未命名门槛";
+  }
+  return LOCALIZED_PUBLISH_GATE_LABELS[label] ?? label;
+}
+
+function formatGraphFilterLabel(filter: SkillGraphWorkbenchFilter) {
+  return GRAPH_FILTER_LABELS[filter];
 }
 
 export function SkillStudioWorkbenchPanel({
@@ -323,6 +370,11 @@ export function SkillStudioWorkbenchPanel({
     draft?.builtin_skills ?? skillPackage?.builtin_skills ?? studioState?.builtin_skills ?? [];
   const skillName = draft?.skill_name ?? studioState?.skill_name ?? "pending-skill";
   const skillTitle = draft?.skill_title ?? skillName;
+  const displayBuiltinSkills = builtinSkills.map((skill) =>
+    localizeWorkspaceDisplayText(skill),
+  );
+  const displaySkillName = localizeWorkspaceDisplayText(skillName);
+  const displaySkillTitle = localizeWorkspaceDisplayText(skillTitle);
   const archiveVirtualPath =
     skillPackage?.package_archive_virtual_path ??
     skillPackage?.archive_virtual_path ??
@@ -411,10 +463,10 @@ export function SkillStudioWorkbenchPanel({
   const data: WorkbenchData = {
     threadId,
     assistantLabel,
-    assistantMode,
-    builtinSkills,
-    skillName,
-    skillTitle,
+    assistantMode: assistantLabel,
+    builtinSkills: displayBuiltinSkills,
+    skillName: displaySkillName,
+    skillTitle: displaySkillTitle,
     archiveVirtualPath,
     draft,
     validation,
@@ -437,10 +489,10 @@ export function SkillStudioWorkbenchPanel({
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
                 <WandSparklesIcon className="size-4" />
-                专属 Skill Studio
+                专属技能工作台
               </div>
               <div className="space-y-2">
-                <CardTitle className="text-2xl">{skillTitle}</CardTitle>
+                <CardTitle className="text-2xl">{displaySkillTitle}</CardTitle>
                 <CardDescription className="max-w-3xl text-sm leading-6">
                   {assistantLabel} 会把技能包审阅、校验、测试、发布就绪和图谱审阅分成独立的生命周期界面来处理。
                 </CardDescription>
@@ -514,7 +566,7 @@ function OverviewSection({ data }: { data: WorkbenchData }) {
         <StudioStat
           icon={SparklesIcon}
           label="当前技能"
-          value={data.skillName}
+          value={localizeWorkspaceDisplayText(data.skillName)}
           note="当前生命周期审阅所对应的技能包标识。"
         />
         <StudioStat
@@ -569,12 +621,17 @@ function OverviewSection({ data }: { data: WorkbenchData }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <KeyValueRow label="技能名称" value={data.skillName} />
+            <KeyValueRow
+              label="技能名称"
+              value={localizeWorkspaceDisplayText(data.skillName)}
+            />
             <KeyValueRow
               label="用途"
-              value={data.draft?.skill_purpose ?? "等待补充专家用途说明"}
+              value={localizeWorkspaceDisplayText(
+                data.draft?.skill_purpose ?? "等待补充专家用途说明",
+              )}
             />
-            <KeyValueRow label="代理模式" value={data.assistantMode} />
+            <KeyValueRow label="代理模式" value={data.assistantLabel} />
             <KeyValueRow label="产物" value={`共 ${data.studioArtifacts.length} 份`} />
           </CardContent>
         </Card>
@@ -599,7 +656,7 @@ function BuildSection({
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">专属 Skill Creator 代理</CardTitle>
+            <CardTitle className="text-base">专属技能创建器代理</CardTitle>
             <CardDescription>
               这个线程会固定一个创建代理身份，确保技能包在多轮修订中保持一致。
             </CardDescription>
@@ -608,13 +665,13 @@ function BuildSection({
             <div className="space-y-1">
               <div className="text-sm font-medium">{data.assistantLabel}</div>
               <div className="text-sm text-muted-foreground">
-                代理模式：{data.assistantMode}
+                代理模式：{data.assistantLabel}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {data.builtinSkills.map((skill) => (
                 <Badge key={skill} variant="outline">
-                  {skill}
+                  {localizeWorkspaceDisplayText(skill)}
                 </Badge>
               ))}
             </div>
@@ -637,14 +694,21 @@ function BuildSection({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <KeyValueRow label="技能名称" value={data.skillName} />
+            <KeyValueRow
+              label="技能名称"
+              value={localizeWorkspaceDisplayText(data.skillName)}
+            />
             <KeyValueRow
               label="用途"
-              value={data.draft?.skill_purpose ?? "等待补充专家用途说明"}
+              value={localizeWorkspaceDisplayText(
+                data.draft?.skill_purpose ?? "等待补充专家用途说明",
+              )}
             />
             <KeyValueRow
               label="描述"
-              value={data.draft?.description ?? "等待补充触发描述"}
+              value={localizeWorkspaceDisplayText(
+                data.draft?.description ?? "等待补充触发描述",
+              )}
             />
             <KeyValueRow label="界面元数据" value={uiMetadataPath} />
           </CardContent>
@@ -761,18 +825,21 @@ function TestSection({
                   </Badge>
                 </div>
                 <div className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {scenario.expected_outcome}
+                  {localizeWorkspaceDisplayText(scenario.expected_outcome ?? "")}
                 </div>
                 {(scenario.blocking_reasons ?? []).length > 0 ? (
                   <div className="mt-2 text-xs text-muted-foreground">
-                    阻塞原因：{(scenario.blocking_reasons ?? []).join(", ")}
+                    阻塞原因：
+                    {localizeWorkspaceDisplayText(
+                      (scenario.blocking_reasons ?? []).join(", "),
+                    )}
                   </div>
                 ) : null}
               </div>
             ))
           ) : (
             <div className="rounded-xl border border-dashed bg-background/60 p-4 text-sm text-muted-foreground">
-              专家和 Skill Creator 整理出试运行场景后，这里会显示对应测试矩阵。
+              专家和技能创建器整理出试运行场景后，这里会显示对应测试矩阵。
             </div>
           )}
         </CardContent>
@@ -847,7 +914,9 @@ function PublishSection({
                   key={gate.id}
                   className="flex items-center justify-between gap-3 rounded-xl border bg-muted/10 p-3"
                 >
-                  <div className="text-sm text-foreground">{gate.label}</div>
+                  <div className="text-sm text-foreground">
+                    {localizePublishGateLabel(gate.label)}
+                  </div>
                   <Badge variant={getStatusTone(gate.status)}>
                     {formatSkillStudioStatus(gate.status)}
                   </Badge>
@@ -928,7 +997,7 @@ function GraphSection({
             <MiniMetric label="技能" value={String(data.graphOverview.skillCount)} />
             <MiniMetric label="边" value={String(data.graphOverview.edgeCount)} />
             <MiniMetric label="聚焦节点" value={String(data.graphModel.nodes.length)} />
-            <MiniMetric label="筛选" value={graphFilter.replaceAll("-", " ")} />
+            <MiniMetric label="筛选" value={formatGraphFilterLabel(graphFilter)} />
           </div>
 
           {data.graphModel.nodes.length > 0 ? (
@@ -996,7 +1065,7 @@ function GraphSection({
               <div>
                 <div className="text-lg font-semibold text-foreground">{selectedNode.skillName}</div>
                 <div className="mt-1 text-sm leading-6 text-muted-foreground">
-                  {selectedNode.description}
+                  {localizeWorkspaceDisplayText(selectedNode.description)}
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1097,7 +1166,9 @@ function StudioStat({
         {label}
       </div>
       <div className="text-base font-semibold text-foreground">{value}</div>
-      <div className="mt-1 text-sm text-muted-foreground">{note}</div>
+      <div className="mt-1 text-sm text-muted-foreground">
+        {localizeWorkspaceDisplayText(note)}
+      </div>
     </div>
   );
 }
@@ -1117,7 +1188,7 @@ function BulletList({ items }: { items: string[] }) {
       {items.map((item) => (
         <li key={item} className="flex gap-2">
           <span className="mt-[9px] size-1.5 shrink-0 rounded-full bg-primary" />
-          <span>{item}</span>
+          <span>{localizeWorkspaceDisplayText(item)}</span>
         </li>
       ))}
     </ul>

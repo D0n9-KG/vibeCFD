@@ -148,10 +148,10 @@ void test("surfaces immediate pre-compute clarification without reusing scientif
   });
 
   assert.equal(status.tone, "ready");
-  assert.equal(status.agentLabel, "Research plan ready");
-  assert.equal(status.runLabel, "Needs clarification");
-  assert.equal(status.outputStatus, "Immediate clarification required");
-  assert.match(status.summaryText, /Immediate researcher clarification/);
+  assert.equal(status.agentLabel, "研究计划已就绪");
+  assert.equal(status.runLabel, "需要补充确认");
+  assert.equal(status.outputStatus, "需要立即补充确认");
+  assert.match(status.summaryText, /需要研究人员立即补充确认/);
   assert.doesNotMatch(
     status.summaryText,
     /validated_with_gaps|claim_limited|research_ready/,
@@ -174,11 +174,35 @@ void test("surfaces pending researcher confirmation before solver dispatch", () 
   });
 
   assert.equal(status.tone, "ready");
-  assert.equal(status.agentLabel, "Research plan ready");
-  assert.equal(status.runLabel, "Awaiting confirmation");
-  assert.equal(status.outputStatus, "Pending researcher confirmation");
-  assert.match(status.summaryText, /3 calculation-plan item\(s\)/);
+  assert.equal(status.agentLabel, "研究计划已就绪");
+  assert.equal(status.runLabel, "等待确认");
+  assert.equal(status.outputStatus, "等待研究人员确认");
+  assert.match(status.summaryText, /仍有 3 条计算计划项等待研究人员确认/);
   assert.equal(status.errorBanner, null);
+});
+
+void test("localizes mixed-language clarification detail in the pipeline summary", () => {
+  const status = getSubmarinePipelineStatus({
+    threadError: null,
+    threadIsLoading: false,
+    isNewThread: false,
+    hasMessages: true,
+    hasDesignBrief: true,
+    hasFinalReport: false,
+    designBriefSummary:
+      "基于上传的 STL 几何做 SUBOFF bare hull 阻力研究的几何可用性预检，并输出 baseline CFD 准备计划；只做预检和准备，不启动求解。",
+    runtimeTaskSummary: null,
+    runtimeStatus: "ready",
+    reviewStatus: "needs_user_confirmation",
+    nextRecommendedStage: "user-confirmation",
+    requiresImmediateConfirmation: true,
+    pendingCalculationPlanCount: 1,
+  });
+
+  assert.equal(status.tone, "ready");
+  assert.doesNotMatch(status.summaryText, /bare hull|baseline CFD/);
+  assert.match(status.summaryText, /SUBOFF 裸艇 阻力研究/u);
+  assert.match(status.summaryText, /基线 CFD 准备计划/u);
 });
 
 void test("surfaces completed scientific gate blockers instead of looking fully ready", () => {
@@ -201,7 +225,7 @@ void test("surfaces completed scientific gate blockers instead of looking fully 
   assert.equal(status.runLabel, "科学受阻");
   assert.equal(status.outputStatus, "结果已完成，但科研声明已阻塞");
   assert.match(status.summaryText, /仅交付原始结果/);
-  assert.equal(status.errorBanner?.title, "Scientific Gate Blocked");
+  assert.equal(status.errorBanner?.title, "科研门禁已阻塞");
 });
 
 void test("routes blocked delivery decisions back to chat before scientific gate fallback copy", () => {
@@ -222,10 +246,10 @@ void test("routes blocked delivery decisions back to chat before scientific gate
   });
 
   assert.equal(status.tone, "error");
-  assert.equal(status.runLabel, "Blocked by setup");
+  assert.equal(status.runLabel, "受环境阻塞");
   assert.equal(status.outputStatus, "请在聊天中确认下一步。");
-  assert.match(status.summaryText, /Current scientific gate:/);
-  assert.equal(status.errorBanner?.title, "Chat Decision Required");
+  assert.match(status.summaryText, /当前科研闸门：/);
+  assert.equal(status.errorBanner?.title, "需要聊天确认");
 });
 
 void test("routes evidence-gap delivery decisions back to chat", () => {
@@ -246,10 +270,10 @@ void test("routes evidence-gap delivery decisions back to chat", () => {
   });
 
   assert.equal(status.tone, "ready");
-  assert.equal(status.runLabel, "Needs more evidence");
+  assert.equal(status.runLabel, "需要更多证据");
   assert.equal(status.outputStatus, "请在聊天中确认下一步。");
-  assert.match(status.summaryText, /Current scientific gate:/);
-  assert.match(status.summaryText, /Allowed claim level:/);
+  assert.match(status.summaryText, /当前科研闸门：/);
+  assert.match(status.summaryText, /允许结论级别：/);
   assert.equal(status.errorBanner, null);
 });
 
@@ -271,10 +295,10 @@ void test("routes ready delivery decisions back to chat instead of scientific-cl
   });
 
   assert.equal(status.tone, "ready");
-  assert.equal(status.runLabel, "Awaiting chat decision");
+  assert.equal(status.runLabel, "等待聊天确认");
   assert.equal(status.outputStatus, "请在聊天中确认下一步。");
-  assert.match(status.summaryText, /Current scientific gate:/);
-  assert.match(status.summaryText, /Allowed claim level:/);
+  assert.match(status.summaryText, /当前科研闸门：/);
+  assert.match(status.summaryText, /允许结论级别：/);
   assert.equal(status.errorBanner, null);
 });
 
@@ -319,7 +343,7 @@ void test("surfaces reproducibility drift with parity-specific copy instead of s
   });
 
   assert.equal(status.tone, "ready");
-  assert.equal(status.runLabel, "Drifted but runnable");
+  assert.equal(status.runLabel, "环境漂移但仍可运行");
   assert.match(status.summaryText, /Docker Compose Dev/);
   assert.doesNotMatch(
     status.summaryText,

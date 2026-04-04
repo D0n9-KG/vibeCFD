@@ -1,3 +1,4 @@
+import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.ts";
 import { getThreadErrorMessage } from "../../core/threads/error.ts";
 
 export type SubmarinePipelineTone = "ready" | "streaming" | "error";
@@ -76,9 +77,9 @@ const SCIENTIFIC_CLAIM_LEVEL_LABELS: Record<string, string> = {
 };
 
 const DELIVERY_DECISION_STATUS_LABELS: Record<string, string> = {
-  ready_for_user_decision: "Awaiting chat decision",
-  needs_more_evidence: "Needs more evidence",
-  blocked_by_setup: "Blocked by setup",
+  ready_for_user_decision: "等待聊天确认",
+  needs_more_evidence: "需要更多证据",
+  blocked_by_setup: "受环境阻塞",
 };
 
 const SCIENTIFIC_VERIFICATION_STATUS_LABELS: Record<string, string> = {
@@ -88,10 +89,10 @@ const SCIENTIFIC_VERIFICATION_STATUS_LABELS: Record<string, string> = {
 };
 
 const RUNTIME_PARITY_STATUS_LABELS: Record<string, string> = {
-  matched: "Matched",
-  drifted_but_runnable: "Drifted but runnable",
-  unknown: "Unknown environment profile",
-  blocked: "Blocked runtime parity",
+  matched: "环境一致",
+  drifted_but_runnable: "环境漂移但仍可运行",
+  unknown: "环境画像未知",
+  blocked: "运行环境一致性受阻",
 };
 
 function normalizeRuntimeStatus(
@@ -200,22 +201,22 @@ function buildCompletedScientificStatus({
   const parityState = reproducibilityStatus ?? environmentParityStatus ?? null;
   const parityLabel =
     RUNTIME_PARITY_STATUS_LABELS[parityState ?? ""] ?? parityState ?? null;
-  const profileLabel = environmentProfileLabel ?? "the active runtime profile";
+  const profileLabel = environmentProfileLabel ?? "当前运行环境";
 
   if (parityState === "blocked") {
     return {
       tone: "error",
       agentLabel: "CFD runtime 已完成",
-      runLabel: "Blocked runtime parity",
+      runLabel: "运行环境一致性受阻",
       outputStatus: "结果已完成，但可复现运行环境被阻塞",
       summaryText:
         runtimeSummary ??
-        `${parityLabel ?? "Blocked runtime parity"} for ${profileLabel}. Restore the required runtime prerequisites before treating this run as reproducible.`,
+        `${profileLabel} 当前处于${parityLabel ?? "运行环境一致性受阻"}状态。在恢复必要的运行前提之前，不应将本次结果视为可复现实验。`,
       errorBanner: {
-        title: "Runtime Parity Blocked",
-        message: parityLabel ?? "Blocked runtime parity",
+        title: "运行环境一致性受阻",
+        message: parityLabel ?? "运行环境一致性受阻",
         guidance:
-          "Restore the required runtime profile, mounts, and Docker socket access before relying on reproducible reruns.",
+          "请先恢复所需的运行画像、挂载配置和 Docker Socket 访问，再把这次运行作为可复现实验依据。",
       },
     };
   }
@@ -224,14 +225,14 @@ function buildCompletedScientificStatus({
     return {
       tone: "ready",
       agentLabel: "CFD runtime 已完成",
-      runLabel: parityLabel ?? "Reproducibility limited",
+        runLabel: parityLabel ?? "复现性受限",
       outputStatus:
         parityState === "drifted_but_runnable"
           ? "结果已完成，但运行环境与复现配置发生漂移"
           : "结果已完成，但当前运行环境配置无法确认",
       summaryText:
         runtimeSummary ??
-        `${parityLabel ?? "Reproducibility limited"} for ${profileLabel}. Scientific evidence is preserved, but reproducibility is limited until runtime parity is restored.`,
+        `${profileLabel} 当前处于${parityLabel ?? "复现性受限"}状态。科学证据已保留，但在恢复运行环境一致性前，复现性仍受限制。`,
       errorBanner: null,
     };
   }
@@ -240,16 +241,16 @@ function buildCompletedScientificStatus({
     return {
       tone: "error",
       agentLabel: "CFD runtime 已完成",
-      runLabel: decisionLabel ?? "Blocked by setup",
+        runLabel: decisionLabel ?? "受环境阻塞",
       outputStatus: "请在聊天中确认下一步。",
       summaryText:
         runtimeSummary ??
-        `请在聊天中确认下一步。Current scientific gate: ${gateLabel ?? "Blocked"}. Allowed claim level: ${claimLabel ?? "Delivery Only"}.`,
+        `请在聊天中确认下一步。当前科研闸门：${gateLabel ?? "已阻塞"}；允许结论级别：${claimLabel ?? "仅可交付"}。`,
       errorBanner: {
-        title: "Chat Decision Required",
-        message: gateLabel ?? "Scientific gate is blocked",
-        guidance:
-          "Use the main chat to decide whether to fix setup, correct inputs, or restore the missing evidence chain before refreshing the report.",
+          title: "需要聊天确认",
+          message: gateLabel ?? "科研闸门已阻塞",
+          guidance:
+            "请在主聊天里决定是修复环境、校正输入，还是先补回缺失的证据链，再刷新报告。",
       },
     };
   }
@@ -258,11 +259,11 @@ function buildCompletedScientificStatus({
     return {
       tone: "ready",
       agentLabel: "CFD runtime 已完成",
-      runLabel: decisionLabel ?? "Needs more evidence",
+        runLabel: decisionLabel ?? "需要更多证据",
       outputStatus: "请在聊天中确认下一步。",
       summaryText:
         runtimeSummary ??
-        `请在聊天中确认下一步。Current scientific gate: ${gateLabel ?? "Claim Limited"}. Allowed claim level: ${claimLabel ?? "Pending"}.`,
+        `请在聊天中确认下一步。当前科研闸门：${gateLabel ?? "结论受限"}；允许结论级别：${claimLabel ?? "待判定"}。`,
       errorBanner: null,
     };
   }
@@ -271,11 +272,11 @@ function buildCompletedScientificStatus({
     return {
       tone: "ready",
       agentLabel: "CFD runtime 已完成",
-      runLabel: decisionLabel ?? "Awaiting chat decision",
+        runLabel: decisionLabel ?? "等待聊天确认",
       outputStatus: "请在聊天中确认下一步。",
       summaryText:
         runtimeSummary ??
-        `请在聊天中确认下一步。Current scientific gate: ${gateLabel ?? "Ready For Claim"}. Allowed claim level: ${claimLabel ?? "Research Ready"}.`,
+        `请在聊天中确认下一步。当前科研闸门：${gateLabel ?? "可声明"}；允许结论级别：${claimLabel ?? "可用于科研结论"}。`,
       errorBanner: null,
     };
   }
@@ -291,7 +292,7 @@ function buildCompletedScientificStatus({
       outputStatus: "结果已完成，但科研声明已阻塞",
       summaryText: summary,
       errorBanner: {
-        title: "Scientific Gate Blocked",
+        title: "科研门禁已阻塞",
         message: gateLabel ?? "科学门禁阻塞",
         guidance: claimLabel
           ? `当前仅允许 ${claimLabel}，补齐验证证据后再刷新报告。`
@@ -316,8 +317,8 @@ function buildCompletedScientificStatus({
   if (scientificGateStatus === "ready_for_claim") {
     return {
       tone: "ready",
-      agentLabel: "CFD runtime 已完成",
-      runLabel: "科研就绪",
+        agentLabel: "CFD runtime 已完成",
+        runLabel: "科研就绪",
       outputStatus: hasFinalReport
         ? "结果报告已生成，可支持更强科研声明"
         : "求解已完成，具备更强科研声明条件",
@@ -338,9 +339,9 @@ function buildCompletedScientificStatus({
         runtimeSummary ??
         `${verificationLabel ?? "SCI-01 已阻塞"}，需要回到验证链路补齐证据后再推进报告。`,
       errorBanner: {
-        title: "Scientific Verification Blocked",
+        title: "科研校验已阻塞",
         message: verificationLabel ?? "SCI-01 已阻塞",
-        guidance: "优先检查 stability evidence、残差阈值和力系数尾段稳定性结论。",
+        guidance: "优先检查稳定性证据、残差阈值和力系数尾段稳定性结论。",
       },
     };
   }
@@ -353,7 +354,7 @@ function buildCompletedScientificStatus({
       outputStatus: "求解已完成，仍需补齐科学验证",
       summaryText:
         runtimeSummary ??
-        `${verificationLabel ?? "SCI-01 仍需补证"}，建议先查看 stability evidence 与验证要求。`,
+        `${verificationLabel ?? "SCI-01 仍需补证"}，建议先查看稳定性证据与验证要求。`,
       errorBanner: null,
     };
   }
@@ -409,22 +410,23 @@ function buildPrecomputeApprovalStatus({
   }
 
   const baseSummary = needsImmediateClarification
-    ? "Immediate researcher clarification is required before any real computation can begin."
+    ? "在开始任何真实计算前，还需要研究人员立即补充确认。"
     : pendingCount > 0
-      ? `${pendingCount} calculation-plan item(s) are still waiting for researcher confirmation before solver dispatch.`
-      : "The calculation plan is ready for researcher confirmation before solver dispatch.";
-  const detail =
-    runtimeSummary ?? runtimeTaskSummary ?? designBriefSummary ?? null;
+      ? `仍有 ${pendingCount} 条计算计划项等待研究人员确认，然后才能进入求解派发。`
+      : "计算计划已经整理完成，等待研究人员确认后进入求解派发。";
+  const detail = localizeWorkspaceDisplayText(
+    runtimeSummary ?? runtimeTaskSummary ?? designBriefSummary ?? null,
+  );
 
   return {
     tone: "ready",
-    agentLabel: "Research plan ready",
+    agentLabel: "研究计划已就绪",
     runLabel: needsImmediateClarification
-      ? "Needs clarification"
-      : "Awaiting confirmation",
+      ? "需要补充确认"
+      : "等待确认",
     outputStatus: needsImmediateClarification
-      ? "Immediate clarification required"
-      : "Pending researcher confirmation",
+      ? "需要立即补充确认"
+      : "等待研究人员确认",
     summaryText: detail ? `${baseSummary} ${detail}` : baseSummary,
     errorBanner: null,
   };
@@ -565,7 +567,7 @@ export function getSubmarinePipelineStatus({
     outputStatus: hasFinalReport
       ? "结果报告已生成"
       : hasDesignBrief
-        ? "已形成 design brief"
+        ? "已形成设计简报"
         : "等待用户输入任务",
     summaryText:
       runtimeSummary ??

@@ -1,6 +1,7 @@
 import {
   DEFAULT_SKILL_STUDIO_AGENT,
   labelOfSkillStudioAgentName,
+  normalizeSkillStudioAgentLabel,
 } from "./skill-studio-agent-options.ts";
 
 export type SkillStudioArtifactGroup = {
@@ -47,14 +48,18 @@ const STATUS_LABELS: Record<string, string> = {
   draft_only: "仅有草稿",
   ready_for_dry_run: "可试运行",
   blocked: "已阻塞",
+  passed: "已通过",
+  failed: "未通过",
+  pending: "待处理",
 };
 
 export function formatSkillStudioStatus(value?: string | null) {
   if (!value) {
     return "未知";
   }
-  if (STATUS_LABELS[value]) {
-    return STATUS_LABELS[value];
+  const normalizedValue = value.trim().toLowerCase();
+  if (STATUS_LABELS[normalizedValue]) {
+    return STATUS_LABELS[normalizedValue];
   }
   return value
     .split("_")
@@ -167,7 +172,8 @@ export function buildSkillStudioReadinessSummary(
   return {
     progress: Math.max(0, baseProgress - warningPenalty - errorPenalty),
     blockingCount:
-      input.errorCount + getBlockingCount([
+      input.errorCount +
+      getBlockingCount([
         input.validationStatus,
         input.testStatus,
         input.publishStatus,
@@ -188,11 +194,13 @@ export function resolveSkillStudioAssistantIdentity(
     input.stateAssistantMode ??
     DEFAULT_SKILL_STUDIO_AGENT;
 
-  const assistantLabel =
+  const assistantLabel = normalizeSkillStudioAgentLabel(
     input.draftAssistantLabel ??
-    input.packageAssistantLabel ??
-    input.stateAssistantLabel ??
-    labelOfSkillStudioAgentName(assistantMode);
+      input.packageAssistantLabel ??
+      input.stateAssistantLabel ??
+      labelOfSkillStudioAgentName(assistantMode),
+    assistantMode,
+  );
 
   return {
     assistantMode,

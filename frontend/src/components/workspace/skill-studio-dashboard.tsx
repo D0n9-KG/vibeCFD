@@ -16,6 +16,8 @@ import {
   buildFocusedSkillGraphItems,
   buildSkillGraphOverview,
 } from "@/components/workspace/skill-graph.utils";
+import { useI18n } from "@/core/i18n/hooks";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import { useSkillGraph } from "@/core/skills/hooks";
 import { useThreads } from "@/core/threads/hooks";
 import { env } from "@/env";
@@ -47,8 +49,12 @@ function formatUpdatedAt(value: string | null) {
 export function SkillStudioDashboard() {
   const searchParams = useSearchParams();
   const isMock = searchParams.get("mock") === "true";
+  const { t } = useI18n();
   const { data: threads = [], isLoading } = useThreads(undefined, isMock);
-  const entries = buildSkillStudioEntries(threads);
+  const entries = buildSkillStudioEntries(
+    threads,
+    `${t.pages.untitled}技能工作台`,
+  );
   const featured = entries[0] ?? null;
   const { data: globalSkillGraph } = useSkillGraph({ isMock });
   const { data: featuredSkillGraph } = useSkillGraph({
@@ -65,16 +71,16 @@ export function SkillStudioDashboard() {
     <div className="flex size-full flex-col">
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div>
-          <h1 className="text-xl font-semibold">Skill Studio</h1>
+          <h1 className="text-xl font-semibold">技能工作台</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            为领域专家提供独立的 Skill Creator 工作台，在 DeerFlow 内完成技能起草、校验、测试和发布前复核。
+            为领域专家提供独立的技能创建工作台，在 DeerFlow 内完成技能起草、校验、测试和发布前复核。
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline">
             <Link href={withMock("/workspace/skill-studio/new", isMock)}>
               <MessageSquareIcon className="size-4" />
-              新建 Skill Studio 线程
+              新建技能工作台线程
             </Link>
           </Button>
           {featured ? (
@@ -104,15 +110,15 @@ export function SkillStudioDashboard() {
               <div className="grid gap-4 lg:grid-cols-3">
                 <WorkflowCard
                   title="专家输入规则"
-                  description="领域专家只需要把触发条件、工作流程、阈值、反例和验收要求告诉右侧的 Skill Creator 代理。"
+                  description="领域专家只需要把触发条件、工作流程、阈值、反例和验收要求告诉右侧的技能创建器代理。"
                 />
                 <WorkflowCard
-                  title="Claude 整理技能包"
+                  title="整理技能包"
                   description="系统会沉淀 SKILL.md、界面元数据、领域规则、测试矩阵和发布就绪信息，而不是只返回一段聊天回复。"
                 />
                 <WorkflowCard
                   title="直接验证与测试"
-                  description="同一工作台内查看结构校验、场景测试准备度和发布门槛，不再跳回 VibeCFD 工作台。"
+                  description="同一工作台内查看结构校验、场景测试准备度和发布门槛，不再跳回主工作区。"
                 />
               </div>
             </div>
@@ -127,7 +133,7 @@ export function SkillStudioDashboard() {
               ) : entries.length === 0 ? (
                 <div className="rounded-xl border border-dashed bg-background/50 p-4">
                   <div className="text-sm text-muted-foreground">
-                    当前还没有 Skill Studio 线程。你可以先开一个新线程，让专属 Skill Creator 代理与领域专家一起起草第一份专业技能。
+                    当前还没有技能工作台线程。你可以先开一个新线程，让专属技能创建器代理与领域专家一起起草第一份专业技能。
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button asChild size="sm">
@@ -171,10 +177,10 @@ export function SkillStudioDashboard() {
                 <div className="space-y-4">
                   <div>
                     <div className="text-lg font-semibold text-foreground">
-                      {featured.skillName}
+                      {localizeWorkspaceDisplayText(featured.skillName)}
                     </div>
                     <div className="mt-1 text-sm text-muted-foreground">
-                      {featured.title}
+                      {localizeWorkspaceDisplayText(featured.title)}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -194,10 +200,7 @@ export function SkillStudioDashboard() {
                     <MiniStat label="警告" value={String(featured.warningCount)} />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <MiniStat
-                      label="产物"
-                      value={String(featured.artifactCount)}
-                    />
+                    <MiniStat label="产物" value={String(featured.artifactCount)} />
                     <MiniStat
                       label="最近更新"
                       value={formatUpdatedAt(featured.updatedAt)}
@@ -211,7 +214,7 @@ export function SkillStudioDashboard() {
                           isMock,
                         )}
                       >
-                        进入 Skill Creator 工作台
+                        进入技能创建工作台
                       </Link>
                     </Button>
                     <Button asChild variant="outline" className="flex-1 sm:flex-none">
@@ -225,7 +228,7 @@ export function SkillStudioDashboard() {
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground">
-                  创建第一条 Skill Studio 线程后，这里会高亮最近的技能包和测试状态。
+                  创建第一条技能工作台线程后，这里会高亮最近的技能包和测试状态。
                 </div>
               )}
             </div>
@@ -233,19 +236,16 @@ export function SkillStudioDashboard() {
             <div className="rounded-2xl border bg-muted/20 p-5">
               <div className="mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
                 <SparklesIcon className="size-4" />
-                技能图谱治理
+                技能图谱速览
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <MiniStat label="技能" value={String(graphOverview.skillCount)} />
-                <MiniStat label="边" value={String(graphOverview.edgeCount)} />
+                <MiniStat label="关系" value={String(graphOverview.edgeCount)} />
                 <MiniStat
                   label="已启用"
                   value={String(graphOverview.enabledCount)}
                 />
-                <MiniStat
-                  label="自定义"
-                  value={String(graphOverview.customCount)}
-                />
+                <MiniStat label="自定义" value={String(graphOverview.customCount)} />
               </div>
               <div className="mt-4 space-y-3">
                 <div className="text-sm font-medium text-foreground">
@@ -279,7 +279,7 @@ export function SkillStudioDashboard() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-sm font-medium text-foreground">
-                          {item.skillName}
+                          {localizeWorkspaceDisplayText(item.skillName)}
                         </div>
                         <Badge variant="outline">
                           {item.strongestScore.toFixed(2)}
@@ -300,12 +300,12 @@ export function SkillStudioDashboard() {
 
             <div className="rounded-2xl border bg-muted/20 p-5">
               <div className="mb-4 text-sm font-medium text-foreground">
-                这块和 VibeCFD 的区别
+                这里和主工作区的区别
               </div>
               <ul className="space-y-2 text-sm leading-6 text-muted-foreground">
-                <li>中间工作台只看技能包、校验、测试和发布，不混入 CFD run 结果。</li>
-                <li>右侧聊天只服务专属 Skill Creator 代理，而不是主工作区的通用协作聊天。</li>
-                <li>目标是让领域专家持续生产专业技能，而不是临时生成一段提示词。</li>
+                <li>中间工作台只看技能包、校验、测试和发布，不混入 CFD 运行结果。</li>
+                <li>右侧对话只服务专属技能创建器代理，而不是主工作区的通用协作聊天。</li>
+                <li>目标是让领域专家持续沉淀专业技能，而不是临时生成一段提示词。</li>
               </ul>
             </div>
           </aside>
@@ -344,9 +344,11 @@ function SkillStudioEntryCard({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="text-sm font-medium text-foreground">
-            {entry.skillName}
+            {localizeWorkspaceDisplayText(entry.skillName)}
           </div>
-          <div className="mt-1 text-sm text-muted-foreground">{entry.title}</div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            {localizeWorkspaceDisplayText(entry.title)}
+          </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge variant="outline">{entry.assistantLabel}</Badge>
             <Badge variant="outline">

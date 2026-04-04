@@ -19,7 +19,7 @@ void test("extracts skill-studio entries from thread search results", () => {
         submarine_skill_studio: {
           skill_name: "submarine-result-acceptance",
           assistant_mode: "claude-code-skill-creator",
-          assistant_label: "Claude Code · Skill Creator",
+          assistant_label: "Claude Code 技能创建器",
           validation_status: "ready_for_review",
           test_status: "ready_for_dry_run",
           publish_status: "ready_for_review",
@@ -48,13 +48,35 @@ void test("extracts skill-studio entries from thread search results", () => {
 
   assert.equal(entries.length, 1);
   assert.equal(entries[0]?.threadId, "submarine-skill-studio-demo");
-  assert.equal(entries[0]?.skillName, "submarine-result-acceptance");
+  assert.equal(entries[0]?.title, "潜艇技能工作台演示");
+  assert.equal(entries[0]?.skillName, "潜艇结果验收");
   assert.equal(entries[0]?.assistantMode, "claude-code-skill-creator");
-  assert.equal(entries[0]?.assistantLabel, "Claude Code · Skill Creator");
+  assert.equal(entries[0]?.assistantLabel, "Claude Code 技能创建器");
   assert.equal(entries[0]?.validationStatus, "ready_for_review");
   assert.equal(entries[0]?.testStatus, "ready_for_dry_run");
   assert.equal(entries[0]?.publishStatus, "ready_for_review");
   assert.equal(entries[0]?.artifactCount, 2);
+});
+
+void test("normalizes legacy persisted assistant labels", () => {
+  const entries = buildSkillStudioEntries([
+    {
+      thread_id: "legacy-label",
+      updated_at: "2026-03-27T00:00:00+00:00",
+      values: {
+        title: "旧标签线程",
+        artifacts: [
+          "/mnt/user-data/outputs/submarine/skill-studio/legacy-label/skill-draft.json",
+        ],
+        submarine_skill_studio: {
+          assistant_mode: "codex-skill-creator",
+          assistant_label: "Codex · Skill Creator",
+        },
+      },
+    },
+  ]);
+
+  assert.equal(entries[0]?.assistantLabel, "Codex 技能创建器");
 });
 
 void test("falls back to skill-studio artifacts even when structured state is missing", () => {
@@ -73,7 +95,7 @@ void test("falls back to skill-studio artifacts even when structured state is mi
   ]);
 
   assert.equal(entries.length, 1);
-  assert.equal(entries[0]?.skillName, "draft-only");
+  assert.equal(entries[0]?.skillName, "仅草稿");
   assert.equal(entries[0]?.artifactCount, 2);
   assert.equal(entries[0]?.validationStatus, "draft_only");
 });
@@ -106,4 +128,24 @@ void test("sorts newest skill-studio threads first", () => {
     entries.map((entry) => entry.threadId),
     ["newer", "older"],
   );
+});
+
+void test("uses the provided untitled label for placeholder thread titles", () => {
+  const entries = buildSkillStudioEntries(
+    [
+      {
+        thread_id: "untitled-skill",
+        updated_at: "2026-03-27T01:00:00+00:00",
+        values: {
+          title: "Untitled",
+          artifacts: [
+            "/mnt/user-data/outputs/submarine/skill-studio/untitled-skill/validation-report.md",
+          ],
+        },
+      },
+    ],
+    "未命名技能工作台",
+  );
+
+  assert.equal(entries[0]?.title, "未命名技能工作台");
 });

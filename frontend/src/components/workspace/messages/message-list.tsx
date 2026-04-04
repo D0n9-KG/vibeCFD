@@ -14,6 +14,7 @@ import {
   hasPresentFiles,
   hasReasoning,
 } from "@/core/messages/utils";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import type { Subtask } from "@/core/tasks";
 import { useUpdateSubtask } from "@/core/tasks/context";
@@ -66,13 +67,15 @@ export function MessageList({
           } else if (group.type === "assistant:clarification") {
             const message = group.messages[0];
             if (message && hasContent(message)) {
-              return (
-                <MarkdownContent
-                  key={group.id}
-                  content={extractContentFromMessage(message)}
-                  isLoading={thread.isLoading}
-                  rehypePlugins={rehypePlugins}
-                />
+                return (
+                  <MarkdownContent
+                    key={group.id}
+                    content={localizeWorkspaceDisplayText(
+                      extractContentFromMessage(message),
+                    )}
+                    isLoading={thread.isLoading}
+                    rehypePlugins={rehypePlugins}
+                  />
               );
             }
             return null;
@@ -88,7 +91,9 @@ export function MessageList({
               <div className="w-full" key={group.id}>
                 {group.messages[0] && hasContent(group.messages[0]) && (
                   <MarkdownContent
-                    content={extractContentFromMessage(group.messages[0])}
+                    content={localizeWorkspaceDisplayText(
+                      extractContentFromMessage(group.messages[0]),
+                    )}
                     isLoading={thread.isLoading}
                     rehypePlugins={rehypePlugins}
                     className="mb-4"

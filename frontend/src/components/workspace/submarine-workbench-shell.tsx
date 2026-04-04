@@ -14,6 +14,10 @@ import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
 import { useArtifactContent } from "@/core/artifacts/hooks";
 import { useI18n } from "@/core/i18n/hooks";
+import {
+  localizeThreadDisplayTitle,
+  localizeWorkspaceDisplayText,
+} from "@/core/i18n/workspace-display";
 import { cn } from "@/lib/utils";
 
 import { useThread } from "./messages/context";
@@ -236,6 +240,10 @@ export function SubmarineWorkbenchShell({
       typeof runtime.task_summary === "string" &&
       runtime.task_summary) ||
     "运行推进后，这里会持续汇总实时求解信号、阶段状态和复核信息。";
+  const localizedRunSummary = localizeWorkspaceDisplayText(runSummary);
+  const localizedThreadTitle = localizeThreadDisplayTitle(
+    thread.values.title ?? "潜艇工作台",
+  );
 
   return (
     <div className={cn("min-h-0", className)}>
@@ -245,9 +253,11 @@ export function SubmarineWorkbenchShell({
             任务驾驶舱
           </div>
           <div className="mt-2 text-lg font-semibold tracking-tight text-stone-900">
-            {thread.values.title ?? "潜艇工作台"}
+            {localizedThreadTitle}
           </div>
-          <p className="mt-2 text-sm leading-6 text-stone-600">{runSummary}</p>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            {localizedRunSummary}
+          </p>
         </div>
 
         <div className="mt-4 grid gap-3">
@@ -408,7 +418,7 @@ export function SubmarineWorkbenchShell({
                     保持运行驾驶舱可见，同时不丢失真实的阶段上下文。
                   </h2>
                   <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">
-                    {runSummary}
+                    {localizedRunSummary}
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -495,7 +505,7 @@ export function SubmarineWorkbenchShell({
             <FocusedWorkbenchPanel
               eyebrow="产物"
               title="在专用工作台里查看分组产物"
-              body="不用退回对话视图，也能直接审阅导出的 JSON、Markdown、图表和求解载荷。"
+              body="不用退回对话视图，也能直接审阅导出的数据文件、说明文档、图表和求解载荷。"
             >
             <SubmarineRuntimePanel threadId={threadId} />
           </FocusedWorkbenchPanel>
@@ -505,7 +515,7 @@ export function SubmarineWorkbenchShell({
             <FocusedWorkbenchPanel
               eyebrow="报告"
               title="报告审阅与实时运行驾驶舱保持分离"
-              body="在这个界面集中检查交付 framing、证据轨迹和最终判断，不打断实时运行视图。"
+              body="在这个界面集中检查交付定稿口径、证据轨迹和最终判断，不打断实时运行视图。"
             >
             <SubmarineRuntimePanel threadId={threadId} />
           </FocusedWorkbenchPanel>

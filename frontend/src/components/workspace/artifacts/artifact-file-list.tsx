@@ -90,7 +90,7 @@ export function ArtifactFileList({
               </div>
             </CardTitle>
             <CardDescription className="pl-8 text-xs">
-              {getFileExtensionDisplayName(file)} file
+              {getFileExtensionDisplayName(file)} 文件
             </CardDescription>
             <CardAction>
               {file.endsWith(".skill") && (

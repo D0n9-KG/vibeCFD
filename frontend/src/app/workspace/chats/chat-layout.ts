@@ -33,6 +33,7 @@ export function getChatPageLayout({
     contentClassName: [
       "relative",
       "flex",
+      "flex-col",
       "min-h-[32rem]",
       "min-w-0",
       "flex-1",
@@ -52,7 +53,7 @@ export function getChatPageLayout({
     inputShellClassName: [
       "relative",
       "w-full",
-      isNewThread ? "-translate-y-[calc(50vh-96px)]" : "",
+      isNewThread ? "translate-y-[calc(50vh-96px)]" : "",
       isNewThread
         ? "max-w-(--container-width-sm)"
         : "max-w-(--container-width-md)",

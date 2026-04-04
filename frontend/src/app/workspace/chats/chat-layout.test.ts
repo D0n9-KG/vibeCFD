@@ -13,6 +13,7 @@ void test("reserves bottom safe area when the submarine runtime panel is shown",
   });
 
   assert.match(layout.contentClassName, /\bpb-40\b/);
+  assert.match(layout.contentClassName, /\bflex-col\b/);
   assert.match(layout.messageListClassName, /\bpt-10\b/);
   assert.match(
     layout.shellClassName,
@@ -28,7 +29,11 @@ void test("keeps the centered composer treatment for a new thread", () => {
     supportPanelOpen: false,
   });
 
-  assert.match(layout.inputShellClassName, /-translate-y-\[calc\(50vh-96px\)\]/);
+  assert.match(layout.inputShellClassName, /\btranslate-y-\[calc\(50vh-96px\)\]/);
+  assert.doesNotMatch(
+    layout.inputShellClassName,
+    /-translate-y-\[calc\(50vh-96px\)\]/,
+  );
   assert.match(layout.messageListClassName, /\bpt-6\b/);
   assert.match(layout.supportPanelClassName, /\bhidden\b/);
 });

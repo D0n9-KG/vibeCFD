@@ -20,12 +20,11 @@ type AgentGalleryProps = {
   surfaceLabel?: string;
 };
 
-export function AgentGallery({
-  surfaceLabel = "智能体",
-}: AgentGalleryProps) {
+export function AgentGallery({ surfaceLabel }: AgentGalleryProps) {
   const { t } = useI18n();
   const { agents, isLoading, error } = useAgents();
   const router = useRouter();
+  const resolvedSurfaceLabel = surfaceLabel ?? t.agents.title;
 
   useEffect(() => {
     document.title = `${t.agents.title} - ${t.pages.appName}`;
@@ -38,14 +37,14 @@ export function AgentGallery({
   return (
     <WorkspaceSurfacePage
       className="workspace-agent-gallery"
-      data-surface-label={surfaceLabel}
+      data-surface-label={resolvedSurfaceLabel}
     >
       <WorkspaceSurfaceMain className="max-w-[1840px]">
         <WorkspaceSurfaceCard className="overflow-hidden">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
-                {surfaceLabel}
+                {resolvedSurfaceLabel}
               </div>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-stone-900">
                 {t.agents.title}

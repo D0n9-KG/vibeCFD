@@ -38,7 +38,7 @@ export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
   const [open, setOpen] = useState(
     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
   );
-  const [autoOpen, setAutoOpen] = useState(true);
+  const [autoOpen, setAutoOpen] = useState(false);
   const { setOpen: setSidebarOpen } = useSidebar();
 
   const select = useCallback(
