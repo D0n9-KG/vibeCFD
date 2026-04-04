@@ -52,6 +52,7 @@ class SubmarineRuntimeState(TypedDict):
 
 class SubmarineSkillStudioState(TypedDict):
     skill_name: NotRequired[str]
+    skill_asset_id: NotRequired[str]
     assistant_mode: NotRequired[str]
     assistant_label: NotRequired[str]
     builtin_skills: NotRequired[list[str] | None]
@@ -63,9 +64,15 @@ class SubmarineSkillStudioState(TypedDict):
     report_virtual_path: NotRequired[str]
     package_virtual_path: NotRequired[str]
     package_archive_virtual_path: NotRequired[str]
+    draft_virtual_path: NotRequired[str]
+    lifecycle_virtual_path: NotRequired[str]
     test_virtual_path: NotRequired[str]
     publish_virtual_path: NotRequired[str]
     ui_metadata_virtual_path: NotRequired[str]
+    active_revision_id: NotRequired[str | None]
+    published_revision_id: NotRequired[str | None]
+    version_note: NotRequired[str]
+    bindings: NotRequired[list[dict] | None]
     artifact_virtual_paths: NotRequired[list[str] | None]
 
 
