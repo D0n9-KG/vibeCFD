@@ -1,9 +1,9 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 
 import { applyMockThreadAction } from "./mock-thread-store.ts";
 
-test("applyMockThreadAction appends action messages and updates runtime summary", () => {
+void test("applyMockThreadAction appends action messages and updates runtime summary", () => {
   const nextState = applyMockThreadAction(
     {
       values: {

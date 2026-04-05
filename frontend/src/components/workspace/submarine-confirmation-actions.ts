@@ -123,10 +123,10 @@ export function buildConfirmExecutionMessage(
   const calculationPlanSnapshot = stringifyCalculationPlanSnapshot(designBrief);
 
   return [
-    "Please continue from the current CFD calculation-plan draft instead of re-planning from scratch.",
+    "Please continue from the current CFD planning snapshot instead of restarting the task from scratch.",
     "",
     "Control contract:",
-    "- Reuse the current design brief.",
+    "- Reuse the current design brief as the active planning snapshot.",
     "- Call `submarine_design_brief_tool` to update the current brief.",
     '- Set `confirmation_status=\"confirmed\"`.',
     '- Set `execution_preference=\"preflight_then_execute\"`.',
@@ -134,9 +134,9 @@ export function buildConfirmExecutionMessage(
     `- brief_snapshot=${snapshot}`,
     `- calculation_plan_snapshot=${calculationPlanSnapshot}`,
     "- Keep pre-compute approval separate from post-compute scientific claim levels.",
-    "- Continue with `geometry-preflight` first, and only then proceed with `submarine_solver_dispatch_tool`.",
-    "- If geometry preflight produces new pending or immediate-confirmation items, stop for researcher review before solver dispatch.",
-    "- If preflight reveals a hard conflict or a missing prerequisite, stop and explain it to me first; do not silently change the plan.",
+    "- Use geometry inspection only if it is still needed for execution readiness, scale validation, or geometry quality review.",
+    "- Choose the next tool dynamically after reviewing geometry findings, user constraints, requested outputs, and execution evidence.",
+    "- If a hard conflict or missing prerequisite is found, stop and explain it to me first; do not silently change the plan.",
   ].join("\n");
 }
 
@@ -148,7 +148,7 @@ export function buildClarificationRequestMessage(
   const openQuestions = normalizeStringList(designBrief?.open_questions);
   const pendingCalculationPlanLabels = listPendingCalculationPlanLabels(designBrief);
   const lines = [
-    "Please keep refining the current CFD calculation plan with me and do not start execution yet.",
+    "Please refine the current planning snapshot with me and do not start execution yet.",
     "",
     "Control contract:",
     "- Reuse the current design brief.",

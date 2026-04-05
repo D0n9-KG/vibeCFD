@@ -1,8 +1,8 @@
-import type { PromptInputMessage } from "../ai-elements/prompt-input.tsx";
 import {
   preparePromptInputSubmitFiles,
   type PromptInputAttachment,
 } from "../ai-elements/prompt-input.files.ts";
+import type { PromptInputMessage } from "../ai-elements/prompt-input.tsx";
 
 export function resolvePromptInputSubmission({
   message,

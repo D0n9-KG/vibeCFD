@@ -25,8 +25,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useArtifactContent } from "@/core/artifacts/hooks";
-import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import { urlOfArtifact } from "@/core/artifacts/utils";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import { cn } from "@/lib/utils";
 
 import { useArtifacts } from "./artifacts";

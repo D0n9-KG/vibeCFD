@@ -102,11 +102,11 @@ export async function createStoredAgent(
   const customAgents = await readCustomAgents();
   const agent: Agent = {
     name: normalizedName,
-    description: request.description?.trim() || "Custom workspace agent.",
-    display_name: request.display_name?.trim() || normalizedName,
-    model: request.model?.trim() || null,
+    description: request.description?.trim() ?? "Custom workspace agent.",
+    display_name: request.display_name?.trim() ?? normalizedName,
+    model: request.model?.trim() ?? null,
     tool_groups: request.tool_groups ?? null,
-    soul: request.soul?.trim() || null,
+    soul: request.soul?.trim() ?? null,
   };
 
   customAgents.push(agent);

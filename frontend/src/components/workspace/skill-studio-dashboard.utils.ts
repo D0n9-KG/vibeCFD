@@ -1,4 +1,5 @@
 import type { AgentThread } from "@/core/threads/types";
+
 import {
   localizeThreadDisplayTitle,
   localizeWorkspaceDisplayText,

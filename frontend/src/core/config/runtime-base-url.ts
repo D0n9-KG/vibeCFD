@@ -17,7 +17,10 @@ type LangGraphBaseURLOptions = {
 
 function normalizeConfiguredBaseURL(url?: string): string | undefined {
   const trimmed = url?.trim();
-  return trimmed ? trimmed : undefined;
+  if (trimmed == null || trimmed === "") {
+    return undefined;
+  }
+  return trimmed;
 }
 
 function isStandaloneLocalFrontendDev(location?: BrowserLocationLike): boolean {

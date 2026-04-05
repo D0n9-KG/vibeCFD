@@ -3,8 +3,8 @@ import path from "path";
 
 import { redirect } from "next/navigation";
 
-import { env } from "@/env";
 import { getWorkspaceSurfaceHref } from "@/components/workspace/workspace-surface-config";
+import { env } from "@/env";
 
 export default function WorkspacePage() {
   if (env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true") {

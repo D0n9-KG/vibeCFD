@@ -13,13 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
+import { MessageList } from "@/components/workspace/messages";
+import { ThreadContext } from "@/components/workspace/messages/context";
 import {
   WorkspaceSurfaceCard,
   WorkspaceSurfaceMain,
   WorkspaceSurfacePage,
 } from "@/components/workspace/workspace-container";
-import { MessageList } from "@/components/workspace/messages";
-import { ThreadContext } from "@/components/workspace/messages/context";
 import type { Agent } from "@/core/agents";
 import { checkAgentName, getAgent } from "@/core/agents/api";
 import { useI18n } from "@/core/i18n/hooks";
@@ -93,7 +93,6 @@ export default function NewAgentPage() {
       files: [],
     });
   }, [
-    agentName,
     nameInput,
     sendMessage,
     t.agents.nameStepAlreadyExistsError,

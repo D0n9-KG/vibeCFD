@@ -11,9 +11,7 @@ type GlobalWithMockThreadOverrides = typeof globalThis & {
 
 function getMockThreadOverrides() {
   const globalWithOverrides = globalThis as GlobalWithMockThreadOverrides;
-  if (globalWithOverrides[MOCK_THREAD_OVERRIDES_KEY] == null) {
-    globalWithOverrides[MOCK_THREAD_OVERRIDES_KEY] = new Map();
-  }
+  globalWithOverrides[MOCK_THREAD_OVERRIDES_KEY] ??= new Map();
   return globalWithOverrides[MOCK_THREAD_OVERRIDES_KEY];
 }
 
@@ -31,33 +29,6 @@ export function readMockThread(threadId: string): MockThreadState {
 
 export function writeMockThread(threadId: string, threadState: MockThreadState) {
   getMockThreadOverrides().set(threadId, threadState);
-}
-
-function extractTextContent(content: unknown): string {
-  if (typeof content === "string") {
-    return content;
-  }
-
-  if (!Array.isArray(content)) {
-    return "";
-  }
-
-  return content
-    .map((item) => {
-      if (
-        item &&
-        typeof item === "object" &&
-        "type" in item &&
-        item.type === "text" &&
-        "text" in item &&
-        typeof item.text === "string"
-      ) {
-        return item.text;
-      }
-      return "";
-    })
-    .join("")
-    .trim();
 }
 
 function buildActionAcknowledgement(actionText: string) {

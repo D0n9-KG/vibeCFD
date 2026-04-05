@@ -26,7 +26,7 @@ function makeThread(
   } as AgentThread;
 }
 
-test("classifyThreadsForSidebar keeps persisted submarine threads out of the generic chat bucket", () => {
+void test("classifyThreadsForSidebar keeps persisted submarine threads out of the generic chat bucket", () => {
   const groups = classifyThreadsForSidebar([
     makeThread("new-submarine", {
       workspace_kind: "submarine",

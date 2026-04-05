@@ -21,8 +21,8 @@ function stripInlineComment(line: string) {
     if ((char === '"' || char === "'") && previous !== "\\") {
       if (quotedBy === char) {
         quotedBy = null;
-      } else if (quotedBy === null) {
-        quotedBy = char;
+      } else {
+        quotedBy ??= char;
       }
     }
 
@@ -98,7 +98,7 @@ function parseModelsBlock(source: string): RawConfigModel[] {
       continue;
     }
 
-    const indent = rawLine.match(/^ */)?.[0].length ?? 0;
+    const indent = (/^ */.exec(rawLine))?.[0].length ?? 0;
     if (indent === 0) {
       flush();
       break;
@@ -161,7 +161,7 @@ async function loadOpenAICredential() {
   }
 
   const authPath =
-    process.env.CODEX_AUTH_PATH?.trim() ||
+    process.env.CODEX_AUTH_PATH?.trim() ??
     path.join(os.homedir(), ".codex", "auth.json");
   const authData = await readJSONFile(authPath);
   if (!authData) {
@@ -184,7 +184,7 @@ async function loadClaudeCredential() {
   }
 
   const credentialsPath =
-    process.env.CLAUDE_CODE_CREDENTIALS_PATH?.trim() ||
+    process.env.CLAUDE_CODE_CREDENTIALS_PATH?.trim() ??
     path.join(os.homedir(), ".claude", ".credentials.json");
   const credentials = await readJSONFile(credentialsPath);
   const oauth =

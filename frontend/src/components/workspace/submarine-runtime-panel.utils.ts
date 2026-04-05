@@ -1,3 +1,5 @@
+import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.ts";
+
 import type {
   SubmarineDeliveryDecisionSummaryPayload,
   SubmarineDesignBriefPayload,
@@ -8,7 +10,6 @@ import type {
   SubmarineRuntimeSnapshotPayload,
 } from "./submarine-runtime-panel.contract";
 
-import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.ts";
 
 export type SubmarineArtifactGroupId =
   | "planning"
@@ -1997,7 +1998,7 @@ export function buildSubmarineStabilityEvidenceSummary(
   const residualSummary = evidence.residual_summary;
   const residualMaxValue =
     residualSummary && typeof residualSummary === "object"
-      ? (residualSummary as Record<string, unknown>).max_final_residual
+      ? (residualSummary).max_final_residual
       : null;
   const residualMax =
     typeof residualMaxValue === "number" && Number.isFinite(residualMaxValue)

@@ -76,7 +76,7 @@ function makeBrief(
   };
 }
 
-void test("buildConfirmExecutionMessage emits an explicit brief-locking contract", () => {
+void test("buildConfirmExecutionMessage emits a dynamic planning contract", () => {
   const message = buildConfirmExecutionMessage(
     makeBrief({
       open_questions: [],
@@ -86,17 +86,18 @@ void test("buildConfirmExecutionMessage emits an explicit brief-locking contract
   assert.match(message, /submarine_design_brief_tool/);
   assert.match(message, /confirmation_status="confirmed"/);
   assert.match(message, /execution_preference="preflight_then_execute"/);
-  assert.match(message, /submarine_solver_dispatch_tool/);
   assert.match(message, /brief_snapshot=/);
   assert.match(message, /calculation_plan_snapshot=/);
   assert.match(message, /selected_case_id":"darpa_suboff_bare_hull_resistance"/);
   assert.match(message, /"item_id":"reference-length"/);
   assert.match(message, /"requested_outputs":\["drag_coefficient","surface_pressure_contour"\]/);
   assert.match(message, /"scientific_verification_requirements":\["mesh_independence_study"\]/);
-  assert.match(message, /do not silently change the plan/i);
+  assert.match(message, /planning snapshot/i);
+  assert.match(message, /use geometry inspection only if it is still needed/i);
+  assert.doesNotMatch(message, /Continue with `geometry-preflight` first/i);
 });
 
-void test("buildClarificationRequestMessage keeps the brief in draft and lists open questions", () => {
+void test("buildClarificationRequestMessage keeps the brief in draft and asks for refinement", () => {
   const message = buildClarificationRequestMessage(makeBrief());
 
   assert.match(message, /submarine_design_brief_tool/);
@@ -106,4 +107,5 @@ void test("buildClarificationRequestMessage keeps the brief in draft and lists o
   assert.match(message, /Do not call `submarine_solver_dispatch_tool`/);
   assert.match(message, /Should we add a 7 m\/s comparison case\?/);
   assert.match(message, /do not fabricate missing operating conditions/i);
+  assert.match(message, /refine the current planning snapshot/i);
 });

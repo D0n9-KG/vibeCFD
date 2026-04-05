@@ -49,7 +49,7 @@ export type SubmarinePipelineStatusInput = {
 };
 
 const DEFAULT_SUMMARY =
-  "在右侧聊天中说明研究目标、工况、对比对象和交付件，工作台会把它整理成可确认的 CFD brief，并继续推进几何预检、求解、结果整理与复核。";
+  "在右侧聊天中说明研究目标、工况、对比对象和交付件，主智能体会把它整理成可迭代的 CFD 计划快照，并按需要调用几何检查、求解、报告和验证能力。";
 
 const DEFAULT_ERROR_GUIDANCE =
   "当前研究状态未能推进，可以在当前潜艇工作台中补充条件或调整配置后直接重试。";
@@ -420,13 +420,13 @@ function buildPrecomputeApprovalStatus({
 
   return {
     tone: "ready",
-    agentLabel: "研究计划已就绪",
+    agentLabel: "当前计划待确认",
     runLabel: needsImmediateClarification
-      ? "需要补充确认"
+      ? "补充确认"
       : "等待确认",
     outputStatus: needsImmediateClarification
-      ? "需要立即补充确认"
-      : "等待研究人员确认",
+      ? "计划仍需立即补充确认"
+      : "计划仍待研究人员确认",
     summaryText: detail ? `${baseSummary} ${detail}` : baseSummary,
     errorBanner: null,
   };

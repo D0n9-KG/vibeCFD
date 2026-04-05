@@ -393,10 +393,8 @@ export function SkillStudioWorkbenchPanel({
     () => findSkillLifecycleSummary(lifecycleSummaries, currentSkillName),
     [currentSkillName, lifecycleSummaries],
   );
-
-  if (!studioState && studioArtifacts.length === 0) {
-    return null;
-  }
+  const hasSkillStudioSurface =
+    studioState != null || studioArtifacts.length > 0;
 
   const { assistantMode, assistantLabel } = resolveSkillStudioAssistantIdentity({
     draftAssistantMode: draft?.assistant_mode,
@@ -503,6 +501,10 @@ export function SkillStudioWorkbenchPanel({
       return graphModel.focusSkillName ?? graphModel.nodes[0]?.id ?? null;
     });
   }, [graphModel]);
+
+  if (!hasSkillStudioSurface) {
+    return null;
+  }
 
   const selectedNode =
     graphModel.nodes.find((node) => node.id === selectedNodeId) ??
@@ -683,7 +685,6 @@ export function SkillStudioWorkbenchPanel({
               currentSkillName={currentSkillName ?? skillName}
               enableOnPublish={enableOnPublish}
               versionNote={versionNote}
-              bindingTargets={bindingTargets}
               explicitBindingRoleIds={explicitBindingRoleIds}
               revisionCount={publishPanelModel.revisionCount}
               bindingCount={publishPanelModel.bindingCount}
@@ -1051,7 +1052,6 @@ function PublishSection({
   currentSkillName,
   enableOnPublish,
   versionNote,
-  bindingTargets,
   explicitBindingRoleIds,
   revisionCount,
   bindingCount,
@@ -1084,11 +1084,6 @@ function PublishSection({
   currentSkillName: string;
   enableOnPublish: boolean;
   versionNote: string;
-  bindingTargets: Array<{
-    role_id: string;
-    mode: string;
-    target_skills: string[];
-  }>;
   explicitBindingRoleIds: string[];
   revisionCount: number;
   bindingCount: number;

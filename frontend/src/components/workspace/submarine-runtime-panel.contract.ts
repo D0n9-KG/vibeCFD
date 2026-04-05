@@ -117,6 +117,8 @@ export type SubmarineDesignBriefPayload = {
   task_description?: string;
   task_type?: string;
   confirmation_status?: "draft" | "confirmed" | string;
+  approval_state?: string | null;
+  goal_status?: string | null;
   geometry_virtual_path?: string | null;
   geometry_family_hint?: string | null;
   selected_case_id?: string | null;
@@ -132,6 +134,7 @@ export type SubmarineDesignBriefPayload = {
   calculation_plan?: SubmarineCalculationPlanItem[] | null;
   requires_immediate_confirmation?: boolean | null;
   review_status?: string | null;
+  stage_hints?: Record<string, string | null> | null;
   next_recommended_stage?: string | null;
 };
 
@@ -296,6 +299,7 @@ export type SubmarineDispatchPayload = {
   requested_outputs?: SubmarineRequestedOutputPayload[] | null;
   custom_variants?: SubmarineCustomExperimentVariantPayload[] | null;
   output_delivery_plan?: SubmarineOutputDeliveryPlanItem[] | null;
+  recommended_actions?: string[] | null;
   artifact_virtual_paths?: string[] | null;
   request_virtual_path?: string | null;
   report_virtual_path?: string | null;
@@ -316,6 +320,7 @@ export type SubmarineGeometryPayload = {
   clarification_required?: boolean | null;
   calculation_plan?: SubmarineCalculationPlanItem[] | null;
   requires_immediate_confirmation?: boolean | null;
+  recommended_actions?: string[] | null;
 };
 
 export type SubmarineOutputDeliveryPlanItem = {
@@ -366,6 +371,8 @@ export type SubmarineRuntimeSnapshotPayload = {
   current_stage?: string | null;
   task_summary?: string | null;
   confirmation_status?: string | null;
+  approval_state?: string | null;
+  goal_status?: string | null;
   execution_preference?: string | null;
   task_type?: string | null;
   geometry_virtual_path?: string | null;
@@ -382,6 +389,7 @@ export type SubmarineRuntimeSnapshotPayload = {
   selected_case_id?: string | null;
   simulation_requirements?: SubmarineSimulationRequirements | null;
   requested_outputs?: SubmarineRequestedOutputPayload[] | null;
+  recommended_actions?: string[] | null;
   custom_variants?: SubmarineCustomExperimentVariantPayload[] | null;
   output_delivery_plan?: SubmarineOutputDeliveryPlanItem[] | null;
   stage_status?: string | null;
@@ -414,6 +422,7 @@ export type SubmarineRuntimeSnapshotPayload = {
   scientific_gate_virtual_path?: string | null;
   decision_status?: string | null;
   delivery_decision_summary?: SubmarineDeliveryDecisionSummaryPayload | null;
+  stage_hints?: Record<string, string | null> | null;
   next_recommended_stage?: string | null;
   report_virtual_path?: string | null;
   artifact_virtual_paths?: string[] | null;

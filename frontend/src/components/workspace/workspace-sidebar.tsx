@@ -1,7 +1,7 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import { usePathname } from "next/navigation";
+import type { CSSProperties } from "react";
 
 import {
   Sidebar,
@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils";
 import { WorkspaceActivityBar } from "./workspace-activity-bar";
 import { WorkspaceHeader } from "./workspace-header";
 import { WorkspaceNavChatList } from "./workspace-nav-chat-list";
-import { matchWorkspaceSurface } from "./workspace-surface-config";
 import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
+import { matchWorkspaceSurface } from "./workspace-surface-config";
 
 const WORKSPACE_SIDEBAR_STYLE = {
   "--sidebar-width": "18.5rem",

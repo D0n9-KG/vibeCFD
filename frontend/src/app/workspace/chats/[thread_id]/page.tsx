@@ -1,8 +1,8 @@
 "use client";
 
+import { LayoutPanelLeftIcon, WavesIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LayoutPanelLeftIcon, WavesIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
@@ -26,6 +26,7 @@ import { useI18n } from "@/core/i18n/hooks";
 import { localizeThreadDisplayTitle } from "@/core/i18n/workspace-display";
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings } from "@/core/settings";
+import { getThreadErrorMessage } from "@/core/threads/error";
 import { useThreadStream } from "@/core/threads/hooks";
 import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
 import { textOfMessage } from "@/core/threads/utils";
@@ -146,12 +147,9 @@ export default function ChatPage() {
   const todoCount = Array.isArray(thread.values.todos)
     ? thread.values.todos.length
     : 0;
-  const threadErrorMessage =
-    thread.error instanceof Error
-      ? thread.error.message
-      : thread.error
-        ? String(thread.error)
-        : null;
+  const threadErrorMessage = thread.error
+    ? getThreadErrorMessage(thread.error, "线程发生未知错误。")
+    : null;
   const threadLabel =
     isNewThread && (!thread.values.title || thread.values.title === "Untitled")
       ? t.pages.newChat

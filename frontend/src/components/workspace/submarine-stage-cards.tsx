@@ -4,6 +4,7 @@
 import { useCallback, useState } from "react";
 
 import { cn } from "@/lib/utils";
+
 import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.ts";
 
 import {
@@ -11,16 +12,6 @@ import {
   buildConfirmExecutionMessage,
 } from "./submarine-confirmation-actions";
 import { SubmarineConvergenceChart } from "./submarine-convergence-chart";
-import {
-  buildSubmarineAcceptanceSummary,
-  buildSubmarineDeliveryDecisionSummary,
-  buildSubmarineExperimentCompareSummary,
-  buildSubmarineExperimentSummary,
-  buildSubmarineResearchEvidenceSummary,
-  buildSubmarineScientificGateSummary,
-  buildSubmarineScientificStudySummary,
-  formatSubmarineBenchmarkComparisonSummaryLine,
-} from "./submarine-runtime-panel.utils";
 import type {
   SubmarineCalculationPlanItem,
   SubmarineDeliveryDecisionSummaryPayload,
@@ -33,6 +24,16 @@ import type {
   SubmarineSimulationRequirements,
   SubmarineSolverMetrics,
 } from "./submarine-runtime-panel.contract";
+import {
+  buildSubmarineAcceptanceSummary,
+  buildSubmarineDeliveryDecisionSummary,
+  buildSubmarineExperimentCompareSummary,
+  buildSubmarineExperimentSummary,
+  buildSubmarineResearchEvidenceSummary,
+  buildSubmarineScientificGateSummary,
+  buildSubmarineScientificStudySummary,
+  formatSubmarineBenchmarkComparisonSummaryLine,
+} from "./submarine-runtime-panel.utils";
 import { type StageCardState, StageCard } from "./submarine-stage-card";
 import { buildTaskIntelligenceViewModel } from "./submarine-task-intelligence-view";
 
@@ -235,11 +236,11 @@ function LegacyTaskIntelligenceCard({
 
   const handleConfirm = useCallback(() => {
     setConfirming(true);
-    onConfirm(threadId, { role: "human", content: "确认方案，开始执行" });
+    void onConfirm(threadId, { role: "human", content: "确认方案，开始执行" });
   }, [threadId, onConfirm]);
 
   const handleModify = useCallback(() => {
-    onConfirm(threadId, {
+    void onConfirm(threadId, {
       role: "human",
       content: "我需要调整计算方案，请稍等",
     });
@@ -385,14 +386,14 @@ export function TaskIntelligenceCard({
 
   const handleConfirm = useCallback(() => {
     setConfirming(true);
-    onConfirm(threadId, {
+    void onConfirm(threadId, {
       role: "human",
       content: buildConfirmExecutionMessage(designBrief),
     });
   }, [designBrief, threadId, onConfirm]);
 
   const handleModify = useCallback(() => {
-    onConfirm(threadId, {
+    void onConfirm(threadId, {
       role: "human",
       content: buildClarificationRequestMessage(designBrief),
     });
@@ -760,7 +761,7 @@ export function GeometryPreflightCard({
         <div className="text-[11px] text-stone-600">{geometry.summary_zh}</div>
       )}
       {(geometryFindings.length > 0 ||
-        scaleAssessment ||
+        scaleAssessment != null ||
         referenceValueSuggestions.length > 0 ||
         pendingPlanItems.length > 0) && (
         <div className="mt-4 grid gap-3 xl:grid-cols-2">
@@ -1052,7 +1053,7 @@ export function ResultReportingCard({
   const scientificGateSummary = buildSubmarineScientificGateSummary(
     finalReport?.scientific_supervisor_gate
       ? finalReport
-      : snapshot?.scientific_gate_status || snapshot?.allowed_claim_level
+      : snapshot?.scientific_gate_status ?? snapshot?.allowed_claim_level
         ? {
             scientific_supervisor_gate: {
               gate_status: snapshot?.scientific_gate_status,
@@ -1092,8 +1093,8 @@ export function ResultReportingCard({
         </div>
       )}
 
-      {(scientificGateSummary ||
-        researchEvidenceSummary ||
+      {(scientificGateSummary != null ||
+        researchEvidenceSummary != null ||
         (acceptanceSummary?.benchmarkComparisons.length ?? 0) > 0) && (
         <div className="mt-4 space-y-3">
           <SectionLabel color="amber">科研结论门控</SectionLabel>
@@ -1234,7 +1235,11 @@ export function ResultReportingCard({
         </div>
       )}
 
-      {(experimentSummary || experimentCompareSummary || scientificStudySummary) && (
+      {(
+        experimentSummary != null ||
+        experimentCompareSummary != null ||
+        scientificStudySummary != null
+      ) && (
         <div className="mt-4 space-y-3">
           <SectionLabel color="sky">验证流程</SectionLabel>
           <div className="grid gap-3 xl:grid-cols-3">
@@ -1505,7 +1510,7 @@ export function SupervisorReviewCard({
   const scientificGateSummary = buildSubmarineScientificGateSummary(
     finalReport?.scientific_supervisor_gate
       ? finalReport
-      : snapshot?.scientific_gate_status || snapshot?.allowed_claim_level
+      : snapshot?.scientific_gate_status ?? snapshot?.allowed_claim_level
         ? {
             scientific_supervisor_gate: {
               gate_status: snapshot?.scientific_gate_status,
@@ -1520,7 +1525,7 @@ export function SupervisorReviewCard({
   const deliveryDecisionSummary = buildSubmarineDeliveryDecisionSummary(
     finalReport?.delivery_decision_summary
       ? finalReport
-      : snapshot?.delivery_decision_summary || snapshot?.decision_status
+      : snapshot?.delivery_decision_summary ?? snapshot?.decision_status
         ? {
             delivery_decision_summary: snapshot?.delivery_decision_summary,
             decision_status: snapshot?.decision_status,

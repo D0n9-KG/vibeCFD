@@ -148,9 +148,9 @@ void test("surfaces immediate pre-compute clarification without reusing scientif
   });
 
   assert.equal(status.tone, "ready");
-  assert.equal(status.agentLabel, "研究计划已就绪");
-  assert.equal(status.runLabel, "需要补充确认");
-  assert.equal(status.outputStatus, "需要立即补充确认");
+  assert.equal(status.agentLabel, "当前计划待确认");
+  assert.equal(status.runLabel, "补充确认");
+  assert.equal(status.outputStatus, "计划仍需立即补充确认");
   assert.match(status.summaryText, /需要研究人员立即补充确认/);
   assert.doesNotMatch(
     status.summaryText,
@@ -174,9 +174,9 @@ void test("surfaces pending researcher confirmation before solver dispatch", () 
   });
 
   assert.equal(status.tone, "ready");
-  assert.equal(status.agentLabel, "研究计划已就绪");
+  assert.equal(status.agentLabel, "当前计划待确认");
   assert.equal(status.runLabel, "等待确认");
-  assert.equal(status.outputStatus, "等待研究人员确认");
+  assert.equal(status.outputStatus, "计划仍待研究人员确认");
   assert.match(status.summaryText, /仍有 3 条计算计划项等待研究人员确认/);
   assert.equal(status.errorBanner, null);
 });

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { prepareThreadUploadFiles } from "./thread-upload-files.ts";
 
-test("prepareThreadUploadFiles prefers the original File object when available", async () => {
+void test("prepareThreadUploadFiles prefers the original File object when available", async () => {
   const file = new File(["solid"], "suboff_solid.stl", {
     type: "application/sla",
   });

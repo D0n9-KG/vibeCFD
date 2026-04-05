@@ -15,13 +15,13 @@ import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
 import { WorkspaceNavMenu } from "./workspace-nav-menu";
+import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
 import {
   getWorkspaceSurfaceHref,
   isWorkspaceSurfaceActive,
   type WorkspaceSurface,
   WORKSPACE_SURFACES,
 } from "./workspace-surface-config";
-import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
 
 const SURFACE_ICONS: Record<
   WorkspaceSurface["id"],

@@ -118,6 +118,44 @@ void test("pending calculation-plan approval also routes the UI to user confirma
   assert.equal(displayedNextStage, "user-confirmation");
 });
 
+void test("display helpers prefer planning-memory stage hints when approval is still pending", () => {
+  const displayedStage = getSubmarineDisplayedStage(
+    {
+      current_stage: "geometry-preflight",
+      next_recommended_stage: "solver-dispatch",
+      approval_state: "needs_confirmation",
+      stage_hints: {
+        current: "task-intelligence",
+        suggested_next: "user-confirmation",
+      },
+    },
+    {
+      confirmation_status: "draft",
+      open_questions: [],
+      approval_state: "needs_confirmation",
+    },
+  );
+  const displayedNextStage = getSubmarineDisplayedNextStage(
+    {
+      current_stage: "geometry-preflight",
+      next_recommended_stage: "solver-dispatch",
+      approval_state: "needs_confirmation",
+      stage_hints: {
+        current: "task-intelligence",
+        suggested_next: "user-confirmation",
+      },
+    },
+    {
+      confirmation_status: "draft",
+      open_questions: [],
+      approval_state: "needs_confirmation",
+    },
+  );
+
+  assert.equal(displayedStage, "task-intelligence");
+  assert.equal(displayedNextStage, "user-confirmation");
+});
+
 void test("formats baseline-to-custom lineage with a custom run label", () => {
   const label = formatSubmarineRunLineage({
     compare_target_run_id: "baseline",

@@ -5,7 +5,9 @@ import type { SidebarRunItem } from "./submarine-pipeline-sidebar";
 type SubmarineRuntimeLike = {
   current_stage?: string | null;
   next_recommended_stage?: string | null;
+  approval_state?: string | null;
   review_status?: string | null;
+  stage_hints?: Record<string, string | null> | null;
   calculation_plan?:
     | Array<{
         approval_state?: string | null;
@@ -19,7 +21,9 @@ type SubmarineRuntimeLike = {
 
 type SubmarineDesignBriefLike = {
   confirmation_status?: string | null;
+  approval_state?: string | null;
   open_questions?: string[] | null;
+  stage_hints?: Record<string, string | null> | null;
   calculation_plan?:
     | Array<{
         approval_state?: string | null;
@@ -115,10 +119,10 @@ export function getSubmarineDisplayedStage(
   }
 
   if (needsUserConfirmation(runtime, designBrief)) {
-    return "task-intelligence";
+    return runtime.stage_hints?.current ?? designBrief?.stage_hints?.current ?? "task-intelligence";
   }
 
-  return runtime.current_stage ?? null;
+  return runtime.stage_hints?.current ?? runtime.current_stage ?? null;
 }
 
 export function getSubmarineDisplayedNextStage(
@@ -126,10 +130,14 @@ export function getSubmarineDisplayedNextStage(
   designBrief?: SubmarineDesignBriefLike | null,
 ): string | null {
   if (needsUserConfirmation(runtime, designBrief)) {
-    return "user-confirmation";
+    return (
+      runtime?.stage_hints?.suggested_next ??
+      designBrief?.stage_hints?.suggested_next ??
+      "user-confirmation"
+    );
   }
 
-  return runtime?.next_recommended_stage ?? null;
+  return runtime?.stage_hints?.suggested_next ?? runtime?.next_recommended_stage ?? null;
 }
 
 function needsUserConfirmation(
@@ -150,10 +158,12 @@ function needsUserConfirmation(
   const hasPendingCalculationPlanApproval = calculationPlan.some(
     (item) => item?.approval_state !== "researcher_confirmed",
   );
+  const approvalState =
+    runtime?.approval_state ?? designBrief?.approval_state ?? null;
 
   if (
+    approvalState === "needs_confirmation" ||
     runtime?.review_status === "needs_user_confirmation" ||
-    runtime?.next_recommended_stage === "user-confirmation" ||
     hasImmediateCalculationPlanClarification ||
     hasPendingCalculationPlanApproval
   ) {

@@ -813,11 +813,11 @@ function PipelineCenterPane({
 
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 <WorkbenchFocusTile
-                  label="当前阶段"
+                  label="当前焦点"
                   value={currentStageLabel}
                 />
                 <WorkbenchFocusTile
-                  label="下一步"
+                  label="建议动作"
                   value={nextStageLabel}
                 />
                 <WorkbenchFocusTile
@@ -877,11 +877,11 @@ function PipelineCenterPane({
                 Rehydrating Thread
               </div>
               <h3 className="mt-3 text-xl font-semibold text-stone-900">
-                正在恢复已有仿真任务
-              </h3>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-                已进入创建完成的潜艇线程，当前正在重新加载首条消息、上传附件和研究产物。恢复完成后，工作台会自动回到对应阶段，而不是回退成新的空白任务。
-              </p>
+                    正在恢复已有仿真任务
+                  </h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
+                    已进入创建完成的潜艇线程，当前正在重新加载首条消息、上传附件和研究产物。恢复完成后，工作台会自动回到对应的计划上下文，而不是回退成新的空白任务。
+                  </p>
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 <WorkbenchFocusTile
                   label="线程身份"

@@ -5,6 +5,7 @@ import {
   ConversationContent,
 } from "@/components/ai-elements/conversation";
 import { useI18n } from "@/core/i18n/hooks";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import {
   extractContentFromMessage,
   extractPresentFilesFromMessage,
@@ -14,7 +15,6 @@ import {
   hasPresentFiles,
   hasReasoning,
 } from "@/core/messages/utils";
-import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import type { Subtask } from "@/core/tasks";
 import { useUpdateSubtask } from "@/core/tasks/context";

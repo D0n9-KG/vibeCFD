@@ -873,7 +873,7 @@ void test("keeps benchmark comparisons in the acceptance summary", () => {
   );
   assert.equal(
     formatSubmarineBenchmarkComparisonSummaryLine(
-      summary!.benchmarkComparisons[0]!,
+      summary!.benchmarkComparisons[0],
     ),
     "cd_at_3_05_mps | 已通过 | Cd 0.00310 / 0.00314 | 误差 1.27% / 容差 10.00% | 速度 3.05 对比 3.05 m/s | 来源 Mushtaque et al. (2025) Table 6, EFD bare hull",
   );

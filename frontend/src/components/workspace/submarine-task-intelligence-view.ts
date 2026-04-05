@@ -1,3 +1,5 @@
+import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.ts";
+
 import type {
   SubmarineCalculationPlanItem,
   SubmarineDesignBriefPayload,
@@ -6,7 +8,6 @@ import type {
   SubmarineScientificVerificationRequirementPayload,
   SubmarineSimulationRequirements,
 } from "./submarine-runtime-panel.contract";
-import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.ts";
 
 type TaskIntelligenceSnapshot = {
   review_status?: string | null;

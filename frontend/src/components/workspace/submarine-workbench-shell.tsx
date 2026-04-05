@@ -67,10 +67,10 @@ const SUBMARINE_WORKBENCH_VIEWS: Array<{
   },
   {
     id: "runtime",
-    label: "阶段",
-    shortLabel: "阶段",
+    label: "执行",
+    shortLabel: "执行",
     icon: GaugeIcon,
-    note: "查看完整阶段卡片、运行状态、阻塞项和推进路径。",
+    note: "查看当前任务的执行建议、运行状态、阻塞项和推进路径。",
   },
   {
     id: "artifacts",
@@ -239,10 +239,10 @@ export function SubmarineWorkbenchShell({
 
   const currentStageLabel = displayedStage
     ? STAGE_LABELS[displayedStage] ?? displayedStage
-    : "等待任务简报";
+    : "等待计划快照";
   const nextStageLabel = displayedNextStage
     ? STAGE_LABELS[displayedNextStage] ?? displayedNextStage
-    : "等待运行态更新";
+    : "等待主智能体建议";
   const artifactCount = submarineArtifacts.length;
   const reportSummary = summarizeReport(finalReport);
   const reviewStatus = formatReviewStatus(
@@ -278,7 +278,7 @@ export function SubmarineWorkbenchShell({
   const runSummary =
     runtimeSummaryText ??
     taskSummaryText ??
-    "任务启动后，这里会持续汇总阶段状态、求解上下文与主管复核信号。";
+    "任务启动后，这里会持续汇总当前计划、风险、证据和主智能体建议动作。";
   const localizedRunSummary = localizeWorkspaceDisplayText(runSummary);
   const localizedThreadTitle = localizeThreadDisplayTitle(
     thread.values.title ?? "潜艇仿真任务",
@@ -397,14 +397,14 @@ export function SubmarineWorkbenchShell({
             {localizedThreadTitle}
           </div>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            把当前阶段、下一步和复核状态固定在同一条轨道里，避免被次要信息打散。
+            把当前焦点、建议动作和复核状态固定在同一条轨道里，避免被次要信息打散。
           </p>
         </div>
 
         <div className="mt-4 grid gap-3">
-          <RailStat label="Current" value={currentStageLabel} tone="sky" />
-          <RailStat label="Next" value={nextStageLabel} />
-          <RailStat label="Review" value={reviewStatus} />
+            <RailStat label="Focus" value={currentStageLabel} tone="sky" />
+            <RailStat label="Suggested" value={nextStageLabel} />
+            <RailStat label="Review" value={reviewStatus} />
         </div>
 
         <nav className="mt-4 flex-1 space-y-2">
@@ -450,15 +450,15 @@ export function SubmarineWorkbenchShell({
         <div className="mb-4 rounded-[32px] border border-slate-200/80 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_88%_18%,rgba(251,146,60,0.10),transparent_14%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(245,248,252,0.98))] p-5 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
           <div className="workspace-kicker text-sky-700">Submarine Cockpit</div>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950 xl:text-[2.05rem]">
-            先确认当前阶段，再决定要不要进入细节面板
+            先确认当前计划焦点，再决定要不要进入细节面板
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-700">
             这块区域只保留最重要的判断信息，不再把阶段、证据、报告和协作状态同时平铺成一整面仪表盘。
           </p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <OverviewStat label="当前阶段" value={currentStageLabel} />
-            <OverviewStat label="下一步" value={nextStageLabel} />
+            <OverviewStat label="当前焦点" value={currentStageLabel} />
+            <OverviewStat label="建议动作" value={nextStageLabel} />
             <OverviewStat label="复核状态" value={reviewStatus} />
             <OverviewStat label="证据等级" value={claimLevel} />
           </div>
@@ -498,12 +498,12 @@ export function SubmarineWorkbenchShell({
                     先看判断，再看细节
                   </h3>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
-                    当前工作台优先回答三个问题：现在在哪个阶段、下一步是什么、证据是否足够继续推进。
+                    当前工作台优先回答三个问题：当前计划焦点是什么、下一步建议是什么、证据是否足够继续推进。
                   </p>
 
                   <div className="mt-4 space-y-3">
-                    <RailStat label="Current stage" value={currentStageLabel} tone="sky" />
-                    <RailStat label="Next move" value={nextStageLabel} />
+                    <RailStat label="Current focus" value={currentStageLabel} tone="sky" />
+                    <RailStat label="Suggested action" value={nextStageLabel} />
                     <RailStat label="Review gate" value={reviewStatus} />
                   </div>
                 </div>
@@ -514,7 +514,7 @@ export function SubmarineWorkbenchShell({
                       中央只保留主问题区
                     </h3>
                     <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-700">
-                      先确认任务目标、阶段摘要和复核门槛，只有确实需要深入时，再跳到阶段面板、产物面板或报告面板。
+                      先确认任务目标、当前计划摘要和复核门槛，只有确实需要深入时，再跳到执行面板、产物面板或报告面板。
                     </p>
                   </div>
 
@@ -529,7 +529,7 @@ export function SubmarineWorkbenchShell({
                       icon={ActivityIcon}
                       title="运行摘要"
                       body={localizedRunSummary}
-                      note="把当前阶段说明浓缩在这一块，不让用户到处找状态。"
+                      note="把当前计划说明浓缩在这一块，不让用户到处找状态。"
                     />
                     <FocusCard
                       icon={ShieldCheckIcon}
@@ -567,9 +567,9 @@ export function SubmarineWorkbenchShell({
                   onAction={onOpenChat}
                 />
                 <OperationRow
-                  label="阶段面板"
-                  title="查看完整阶段卡片与阻塞项"
-                  cta="打开阶段视图"
+                  label="执行面板"
+                  title="查看当前任务的执行建议、阻塞项和能力边界"
+                  cta="打开执行视图"
                   onAction={() => setActiveView("runtime")}
                 />
                 <OperationRow
@@ -602,8 +602,8 @@ export function SubmarineWorkbenchShell({
 
         {activeView === "runtime" ? (
           <WorkbenchViewFrame
-            title="阶段视图"
-            note="这里保留完整阶段信息，用于深挖状态、阻塞和执行细节。"
+            title="执行视图"
+            note="这里保留执行建议、阻塞原因和证据边界，用于深挖当前任务该怎么推进。"
           >
             <SubmarinePipeline
               threadId={threadId}
