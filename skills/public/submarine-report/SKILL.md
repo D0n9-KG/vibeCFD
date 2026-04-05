@@ -1,11 +1,11 @@
 ---
 name: submarine-report
-description: Turn submarine CFD run artifacts into a Chinese delivery summary and report narrative. Use when geometry checks or solver outputs already exist and the user needs a traceable, presentation-ready result instead of raw logs.
+description: Turn submarine CFD artifacts into a Chinese delivery summary and report narrative. Use when geometry checks, solver outputs, or other evidence already exist and the user needs a traceable, presentation-ready result instead of raw logs.
 ---
 
 # Submarine Report
 
-Use this skill after geometry preflight or later solver/postprocess steps have already produced artifacts.
+Use this skill when the current thread already contains enough artifact-backed evidence to support a report. The primary agent should decide whether the task is ready for reporting.
 
 ## Workflow
 
@@ -29,3 +29,4 @@ Artifacts and report content must stay first-class so the run can be shown, trac
 - If the source stage already produced `workspace_case_dir_virtual_path`, `run_script_virtual_path`, or `supervisor_handoff_virtual_path`, carry them into the final report context.
 - Prefer report narratives that point back to artifact paths instead of retelling raw tool output.
 - If only geometry preflight exists, say so clearly and keep the report bounded to preflight conclusions.
+- Keep scientific-claim language proportional to the available evidence; do not imply a stronger conclusion just because a report was requested.

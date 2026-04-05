@@ -1,4 +1,5 @@
 import importlib
+from pathlib import Path
 
 from deerflow.agents.lead_agent.prompt import apply_prompt_template
 from deerflow.domain.submarine.roles import get_subagent_role_boundaries
@@ -35,7 +36,7 @@ def test_subagent_prompt_mentions_submarine_roles():
     assert "submarine-scientific-followup" in prompt
 
 
-def test_submarine_workflow_prompt_section_requires_confirmed_brief_before_execution():
+def test_submarine_workflow_prompt_section_requires_approval_before_high_risk_execution():
     section = prompt_module.get_submarine_workflow_prompt_section()
 
     assert "submarine_design_brief" in section
@@ -43,7 +44,17 @@ def test_submarine_workflow_prompt_section_requires_confirmed_brief_before_execu
     assert "submarine_geometry_check" in section
     assert "submarine_solver_dispatch" in section
     assert "Do NOT answer submarine CFD requests directly" in section
-    assert "wait for explicit user confirmation" in section
+    assert "approved execution" in section
+    assert "high-risk execution" in section
+
+
+def test_submarine_workflow_prompt_section_is_guidance_first_not_stage_mandatory():
+    section = prompt_module.get_submarine_workflow_prompt_section()
+
+    assert "primary agent" in section.lower()
+    assert "recommended" in section.lower()
+    assert "follow this protocol strictly" not in section.lower()
+    assert "always capture or refresh the structured plan" not in section.lower()
 
 
 def test_apply_prompt_template_includes_submarine_workflow_protocol(monkeypatch):
@@ -85,3 +96,18 @@ def test_submarine_role_boundaries_include_scientific_capability_roles():
         "scientific-verification",
         "scientific-followup",
     } <= boundaries.keys()
+
+
+def test_submarine_orchestrator_skill_guides_judgment_without_fixed_tool_order():
+    skill_path = (
+        Path(__file__).resolve().parents[2]
+        / "skills"
+        / "public"
+        / "submarine-orchestrator"
+        / "SKILL.md"
+    )
+    content = skill_path.read_text(encoding="utf-8")
+
+    assert "when the primary agent should" in content.lower()
+    assert "use the built-in tools in this order" not in content.lower()
+    assert "required orchestration path" not in content.lower()

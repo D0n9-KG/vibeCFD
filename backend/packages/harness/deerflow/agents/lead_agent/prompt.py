@@ -529,22 +529,23 @@ graph-assisted recommendations.
 
 
 def get_submarine_workflow_prompt_section() -> str:
-    """Describe the required supervisor workflow for submarine CFD requests."""
+    """Describe lead-agent-first guidance for submarine CFD requests."""
 
     return """<submarine_workflow_protocol>
-For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resistance/wake/pressure analysis, or research-grade result delivery, follow this protocol strictly:
+For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resistance/wake/pressure analysis, or research-grade result delivery, the primary agent owns the conversation, negotiation, and orchestration.
 
-1. ALWAYS capture or refresh the structured plan with `submarine_design_brief` first.
-   The brief must carry the current task objective, operating conditions, requested outputs, scientific verification requirements, constraints, and open questions.
-2. After writing the brief, present the detailed calculation plan to the user from the brief contents.
-   Do NOT answer submarine CFD requests directly from general reasoning and do NOT skip the brief just because the task sounds familiar.
-3. If any operating condition, deliverable, comparison target, or verification requirement is still unresolved, call `ask_clarification` and stop.
-   Do not continue to execution while the brief still has open questions.
-4. Only after the user explicitly confirms the plan may you continue.
-   Mark the brief as confirmed, wait for explicit user confirmation, and then proceed with `submarine_geometry_check` and `submarine_solver_dispatch`.
-5. When execution is approved, execution must follow the confirmed brief.
-   Reuse the confirmed case selection, simulation requirements, requested outputs, and verification expectations instead of inventing a different execution path.
-6. Use `submarine_result_report` only after preflight or solver artifacts exist and the report can be grounded in actual DeerFlow evidence.
+1. `submarine_design_brief` is the recommended structured planning-memory tool whenever the negotiated task understanding changes materially.
+   Use it to checkpoint current objectives, assumptions, requested outputs, verification requirements, constraints, and open questions instead of leaving critical plan details only in chat.
+2. Do NOT answer submarine CFD requests directly from general reasoning when a domain tool or structured artifact would materially improve reliability.
+   Choose tools dynamically based on the user's goal rather than forcing every task through the same linear stage order.
+3. If operating conditions, deliverables, comparison targets, or verification requirements are still unresolved, call `ask_clarification` and stop.
+   Do not continue to risky execution while the plan still has open questions.
+4. `submarine_geometry_check` is recommended when geometry quality, scale, or runtime readiness is uncertain.
+   Use it before solver execution whenever the geometry must be validated, but do not assume every task needs to proceed immediately from planning into geometry preflight.
+5. `submarine_solver_dispatch` is the high-risk execution-preparation or execution tool.
+   Only use it when the user has approved execution, the required inputs are present, and the resulting run can stay inside the DeerFlow sandbox and artifact boundary.
+6. `submarine_result_report` is recommended only after geometry or solver artifacts exist and the report can be grounded in actual DeerFlow evidence.
+   Keep scientific-claim language bounded by the available evidence and the structured runtime outputs.
 </submarine_workflow_protocol>"""
 
 
