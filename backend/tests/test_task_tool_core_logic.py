@@ -225,10 +225,107 @@ def test_task_tool_prefers_explicit_target_skills_over_graph_recommendations(mon
 
     assert isinstance(output, Command)
     assert output.update["messages"][0].content == "Task Succeeded. Result: done"
-    assert "Skills Appendix: ['submarine-report']" in captured["executor_kwargs"]["config"].system_prompt
+    assert captured["executor_kwargs"]["config"].system_prompt == "Base system prompt"
     assert output.update["submarine_runtime"]["activity_timeline"][-1]["skill_names"] == [
         "submarine-report"
     ]
+
+
+def test_task_tool_does_not_append_skill_appendix_for_specialized_submarine_subagents(
+    monkeypatch,
+):
+    config = _make_subagent_config()
+    config.name = "submarine-task-intelligence"
+    config.system_prompt = "Specialized submarine prompt"
+    captured = {}
+
+    class DummyExecutor:
+        def __init__(self, **kwargs):
+            captured["executor_kwargs"] = kwargs
+
+        def execute_async(self, prompt, task_id=None):
+            return task_id or "generated-task-id"
+
+    monkeypatch.setattr(task_tool_module, "SubagentStatus", FakeSubagentStatus)
+    monkeypatch.setattr(task_tool_module, "SubagentExecutor", DummyExecutor)
+    monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: config)
+    monkeypatch.setattr(
+        task_tool_module,
+        "_resolve_target_skills",
+        lambda target_skills: set(target_skills) if target_skills else None,
+    )
+    monkeypatch.setattr(
+        task_tool_module,
+        "get_skills_prompt_section",
+        lambda available_skills=None: "Skills Appendix: should not be injected",
+    )
+    monkeypatch.setattr(
+        task_tool_module,
+        "get_background_task_result",
+        lambda *_args, **_kwargs: _make_result(FakeSubagentStatus.COMPLETED, result="done"),
+    )
+    monkeypatch.setattr(task_tool_module, "get_stream_writer", lambda: lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(task_tool_module.time, "sleep", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [])
+
+    output = task_tool_module.task_tool.func(
+        runtime=_make_runtime(),
+        description="案例理解",
+        prompt="analyze baseline task",
+        subagent_type="submarine-task-intelligence",
+        tool_call_id="tc-subagent-skip-skill-appendix",
+        target_skills=["submarine-case-search"],
+    )
+
+    assert isinstance(output, Command)
+    assert output.update["messages"][0].content == "Task Succeeded. Result: done"
+    assert (
+        captured["executor_kwargs"]["config"].system_prompt
+        == "Specialized submarine prompt"
+    )
+
+
+def test_task_tool_keeps_specialized_subagent_turn_budget_above_builtin_floor(monkeypatch):
+    config = _make_subagent_config()
+    config.name = "submarine-task-intelligence"
+    config.max_turns = 30
+    captured = {}
+
+    class DummyExecutor:
+        def __init__(self, **kwargs):
+            captured["executor_kwargs"] = kwargs
+
+        def execute_async(self, prompt, task_id=None):
+            return task_id or "generated-task-id"
+
+    monkeypatch.setattr(task_tool_module, "SubagentStatus", FakeSubagentStatus)
+    monkeypatch.setattr(task_tool_module, "SubagentExecutor", DummyExecutor)
+    monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: config)
+    monkeypatch.setattr(
+        task_tool_module,
+        "get_skills_prompt_section",
+        lambda available_skills=None: "",
+    )
+    monkeypatch.setattr(
+        task_tool_module,
+        "get_background_task_result",
+        lambda *_args, **_kwargs: _make_result(FakeSubagentStatus.COMPLETED, result="done"),
+    )
+    monkeypatch.setattr(task_tool_module, "get_stream_writer", lambda: lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(task_tool_module.time, "sleep", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [])
+
+    output = task_tool_module.task_tool.func(
+        runtime=_make_runtime(),
+        description="案例理解",
+        prompt="analyze baseline task",
+        subagent_type="submarine-task-intelligence",
+        tool_call_id="tc-subagent-floor",
+        max_turns=8,
+    )
+
+    assert output == "Task Succeeded. Result: done"
+    assert captured["executor_kwargs"]["config"].max_turns == 30
 
 
 def test_task_tool_persists_target_skills_into_execution_plan(monkeypatch):

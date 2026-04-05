@@ -68,6 +68,9 @@ _SUBMARINE_SUBAGENT_ROUTING: dict[str, dict[str, str]] = {
     },
 }
 
+_MIN_TURN_BUDGET_SUBAGENT_PREFIXES = ("submarine-",)
+_SKIP_SKILL_APPENDIX_SUBAGENT_PREFIXES = ("submarine-",)
+
 
 def _resolve_target_skills(target_skills: list[str] | None) -> set[str] | None:
     if target_skills is None:
@@ -280,12 +283,26 @@ def task_tool(
         else None
     )
     available_skills = resolved_target_skills
-    skills_section = get_skills_prompt_section(available_skills)
+    inject_skills_appendix = not any(
+        subagent_type.startswith(prefix)
+        for prefix in _SKIP_SKILL_APPENDIX_SUBAGENT_PREFIXES
+    )
+    skills_section = (
+        get_skills_prompt_section(available_skills)
+        if inject_skills_appendix
+        else ""
+    )
     if skills_section:
         overrides["system_prompt"] = config.system_prompt + "\n\n" + skills_section
 
     if max_turns is not None:
-        overrides["max_turns"] = max_turns
+        effective_max_turns = max_turns
+        if any(
+            subagent_type.startswith(prefix)
+            for prefix in _MIN_TURN_BUDGET_SUBAGENT_PREFIXES
+        ):
+            effective_max_turns = max(config.max_turns, max_turns)
+        overrides["max_turns"] = effective_max_turns
 
     if overrides:
         config = replace(config, **overrides)

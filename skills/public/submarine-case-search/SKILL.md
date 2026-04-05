@@ -12,7 +12,7 @@ Use this skill when a task is about submarine CFD workflow planning rather than 
 1. Read `references/case-library.md` before making recommendations.
 2. Use the uploaded geometry filename, task type, and user goal to identify the most relevant case family.
 3. If geometry has not been inspected yet, read and use the `submarine-geometry-check` skill first.
-4. Prefer benchmark families already present in `domain/submarine/cases/index.json`.
+4. Prefer the benchmark families and case facts already surfaced through the current DeerFlow thread artifacts or the domain case library, instead of trying to browse raw repository paths from the sandbox.
 5. In your response, explain which case is recommended, which cases are backups, and why.
 
 ## Output Contract
