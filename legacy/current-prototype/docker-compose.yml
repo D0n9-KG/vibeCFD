@@ -1,0 +1,77 @@
+name: submarine-demo
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      SUBMARINE_DEMO_ROOT: /workspace
+      SUBMARINE_EXECUTION_ENGINE: agent_executor
+      SUBMARINE_EXECUTION_DELAY: "0.05"
+      SUBMARINE_EXECUTOR_BASE_URL: http://agent-executor:8020
+    ports:
+      - "8010:8010"
+    volumes:
+      - ./data:/workspace/data
+      - ./runs:/workspace/runs
+      - ./uploads:/workspace/uploads
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - backend
+    environment:
+      VITE_API_BASE: http://backend:8010
+    ports:
+      - "5173:5173"
+
+  agent-executor:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command:
+      - python
+      - -m
+      - uvicorn
+      - app.claude_executor_main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8020"
+    environment:
+      SUBMARINE_DEMO_ROOT: /workspace
+      SUBMARINE_AGENT_PROVIDER: ${SUBMARINE_AGENT_PROVIDER:-compatible_api}
+      SUBMARINE_AGENT_BASE_URL: ${SUBMARINE_AGENT_BASE_URL:-}
+      SUBMARINE_AGENT_MODEL: ${SUBMARINE_AGENT_MODEL:-}
+      SUBMARINE_AGENT_API_KEY: ${SUBMARINE_AGENT_API_KEY:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      GLM_API_KEY: ${GLM_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    ports:
+      - "8020:8020"
+    volumes:
+      - ./runs:/workspace/runs
+      - ./uploads:/workspace/uploads
+
+  openfoam-adapter:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command:
+      - python
+      - -c
+      - |
+        import time
+        print("openfoam adapter boundary ready")
+        time.sleep(3600)
+    environment:
+      SUBMARINE_DEMO_ROOT: /workspace
+      SUBMARINE_EXECUTION_ENGINE: openfoam
+    volumes:
+      - ./data:/workspace/data
+      - ./runs:/workspace/runs
+      - ./uploads:/workspace/uploads

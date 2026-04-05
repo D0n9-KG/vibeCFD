@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>潜艇求解派发摘要</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 32px;
+        font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif;
+        background: linear-gradient(135deg, #08131f 0%, #102640 60%, #1d425e 100%);
+        color: #edf4fb;
+      }
+      .panel {
+        background: rgba(8, 21, 34, 0.78);
+        border: 1px solid rgba(122, 173, 219, 0.2);
+        border-radius: 20px;
+        padding: 20px 24px;
+        margin-bottom: 18px;
+      }
+      pre {
+        overflow: auto;
+        padding: 16px;
+        border-radius: 14px;
+        background: rgba(19, 44, 68, 0.92);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="panel">
+      <h1>潜艇求解派发摘要</h1>
+      <p>已为 `live-forces-suboff.stl` 生成 OpenFOAM 派发方案，几何家族识别为 `DARPA SUBOFF`。当前优先采用案例模板“DARPA SUBOFF Bare Hull Resistance Baseline”。已执行 sandbox 内求解派发命令。本轮请求要求立即执行。</p>
+    </section>
+    <section class="panel">
+      <h2>状态</h2>
+      <p><strong>派发状态:</strong> executed</p>
+      <p><strong>任务类型:</strong> resistance</p>
+      <p><strong>执行日志:</strong> /mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log</p>
+    </section>
+    <section class="panel">
+      <h2>案例与命令</h2>
+      <p><strong>DARPA SUBOFF Bare Hull Resistance Baseline</strong> (darpa_suboff_bare_hull_resistance)</p><p>任务类型完全匹配；几何家族高度接近；任务描述关键词重合 3 项；输入格式可复用现有模板</p>
+      <pre>bash /mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case/Allrun</pre>
+    </section>
+  </body>
+</html>

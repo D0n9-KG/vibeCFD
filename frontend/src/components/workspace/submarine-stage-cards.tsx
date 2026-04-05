@@ -1,0 +1,1952 @@
+// src/components/workspace/submarine-stage-cards.tsx
+"use client";
+
+import { useCallback, useState } from "react";
+
+import { cn } from "@/lib/utils";
+
+import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.ts";
+
+import {
+  buildClarificationRequestMessage,
+  buildConfirmExecutionMessage,
+} from "./submarine-confirmation-actions";
+import { SubmarineConvergenceChart } from "./submarine-convergence-chart";
+import type {
+  SubmarineCalculationPlanItem,
+  SubmarineDeliveryDecisionSummaryPayload,
+  SubmarineDesignBriefPayload,
+  SubmarineFinalReportPayload,
+  SubmarineGeometryPayload,
+  SubmarineGeometryFinding,
+  SubmarineGeometryReferenceValueSuggestion,
+  SubmarineGeometryScaleAssessment,
+  SubmarineSimulationRequirements,
+  SubmarineSolverMetrics,
+} from "./submarine-runtime-panel.contract";
+import {
+  buildSubmarineAcceptanceSummary,
+  buildSubmarineDeliveryDecisionSummary,
+  buildSubmarineExperimentCompareSummary,
+  buildSubmarineExperimentSummary,
+  buildSubmarineResearchEvidenceSummary,
+  buildSubmarineScientificGateSummary,
+  buildSubmarineScientificStudySummary,
+  formatSubmarineBenchmarkComparisonSummaryLine,
+} from "./submarine-runtime-panel.utils";
+import { type StageCardState, StageCard } from "./submarine-stage-card";
+import { buildTaskIntelligenceViewModel } from "./submarine-task-intelligence-view";
+
+// ── Shared runtime snapshot type (re-declared locally to avoid coupling) ──────
+export type StageRuntimeSnapshot = {
+  current_stage?: string | null;
+  next_recommended_stage?: string | null;
+  task_summary?: string | null;
+  simulation_requirements?: SubmarineSimulationRequirements | null;
+  geometry_findings?: SubmarineGeometryFinding[] | null;
+  scale_assessment?: SubmarineGeometryScaleAssessment | null;
+  reference_value_suggestions?: SubmarineGeometryReferenceValueSuggestion[] | null;
+  clarification_required?: boolean | null;
+  calculation_plan?: SubmarineCalculationPlanItem[] | null;
+  requires_immediate_confirmation?: boolean | null;
+  stage_status?: string | null;
+  runtime_status?: string | null;
+  runtime_summary?: string | null;
+  recovery_guidance?: string | null;
+  blocker_detail?: string | null;
+  review_status?: string | null;
+  scientific_gate_status?: string | null;
+  allowed_claim_level?: string | null;
+  decision_status?: string | null;
+  delivery_decision_summary?: SubmarineDeliveryDecisionSummaryPayload | null;
+  report_virtual_path?: string | null;
+  execution_plan?: Array<{
+    role_id?: string | null;
+    owner?: string | null;
+    goal?: string | null;
+    status?: string | null;
+  }> | null;
+  activity_timeline?: Array<{
+    stage?: string;
+    actor?: string;
+    title?: string;
+    summary?: string;
+    status?: string | null;
+    timestamp?: string | null;
+  }> | null;
+};
+
+export type StageTrendValues = number[];
+
+const STAGE_ORDER = [
+  "task-intelligence",
+  "geometry-preflight",
+  "solver-dispatch",
+  "result-reporting",
+  "supervisor-review",
+] as const;
+
+type RuntimeStage = (typeof STAGE_ORDER)[number];
+type RuntimeStatus =
+  | "ready"
+  | "running"
+  | "blocked"
+  | "failed"
+  | "completed";
+
+function normalizeStage(value?: string | null): RuntimeStage | null {
+  return STAGE_ORDER.includes(value as RuntimeStage)
+    ? (value as RuntimeStage)
+    : null;
+}
+
+function normalizeRuntimeStatus(value?: string | null): RuntimeStatus | null {
+  switch (value) {
+    case "ready":
+    case "running":
+    case "blocked":
+    case "failed":
+    case "completed":
+      return value;
+    default:
+      return null;
+  }
+}
+
+function getPendingCalculationPlanItems(
+  items?: SubmarineCalculationPlanItem[] | null,
+) {
+  return (items ?? []).filter(
+    (item): item is SubmarineCalculationPlanItem =>
+      Boolean(item) && item.approval_state !== "researcher_confirmed",
+  );
+}
+
+function getImmediateClarificationItems(
+  items?: SubmarineCalculationPlanItem[] | null,
+) {
+  return getPendingCalculationPlanItems(items).filter((item) =>
+    Boolean(item.requires_immediate_confirmation),
+  );
+}
+
+function resolveStageState(
+  stageId: RuntimeStage,
+  snapshot: StageRuntimeSnapshot | null,
+): StageCardState {
+  const currentStage = normalizeStage(snapshot?.current_stage);
+  const nextStage = normalizeStage(snapshot?.next_recommended_stage);
+  const runtimeStatus = normalizeRuntimeStatus(snapshot?.runtime_status);
+  const stageIdx = STAGE_ORDER.indexOf(stageId);
+  const currentIdx = currentStage ? STAGE_ORDER.indexOf(currentStage) : -1;
+  const nextIdx = nextStage ? STAGE_ORDER.indexOf(nextStage) : -1;
+
+  if (runtimeStatus === "blocked" && currentIdx >= 0) {
+    if (stageIdx < currentIdx) return "done";
+    if (stageIdx === currentIdx) return "blocked";
+    return "pending";
+  }
+
+  if (runtimeStatus === "failed" && currentIdx >= 0) {
+    if (stageIdx < currentIdx) return "done";
+    if (stageIdx === currentIdx) return "failed";
+    return "pending";
+  }
+
+  if (runtimeStatus === "completed") {
+    if (nextIdx >= 0) {
+      if (stageIdx < nextIdx) return "done";
+      if (stageIdx === nextIdx) return "active";
+      return "pending";
+    }
+    if (currentIdx >= 0) {
+      return stageIdx <= currentIdx ? "done" : "pending";
+    }
+    return "pending";
+  }
+
+  if (currentIdx < 0) return "pending";
+  if (stageIdx < currentIdx) return "done";
+  if (stageIdx === currentIdx) return "active";
+  return "pending";
+}
+
+function RuntimeStateNotice({
+  snapshot,
+  state,
+}: {
+  snapshot: StageRuntimeSnapshot | null;
+  state: StageCardState;
+}) {
+  if (state !== "blocked" && state !== "failed") {
+    return null;
+  }
+
+  const title = state === "blocked" ? "恢复提示" : "失败提示";
+  const borderClassName =
+    state === "blocked"
+      ? "border-amber-200 bg-amber-50 text-amber-900"
+      : "border-red-200 bg-red-50 text-red-900";
+  const detailClassName =
+    state === "blocked" ? "text-amber-800" : "text-red-800";
+  const summary =
+    localizeWorkspaceDisplayText(snapshot?.runtime_summary) ??
+    (state === "blocked" ? "当前运行已阻塞。" : "当前运行已失败。");
+
+  return (
+    <div className={cn("mb-3 rounded-xl border px-3.5 py-3", borderClassName)}>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+        {title}
+      </div>
+      <div className="mt-1 text-[11px] leading-5">{summary}</div>
+      {snapshot?.blocker_detail && (
+        <div className={cn("mt-2 text-[11px] leading-5", detailClassName)}>
+          {localizeWorkspaceDisplayText(snapshot.blocker_detail)}
+        </div>
+      )}
+      {snapshot?.recovery_guidance && (
+        <div className={cn("mt-2 text-[11px] leading-5", detailClassName)}>
+          {localizeWorkspaceDisplayText(snapshot.recovery_guidance)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── TaskIntelligenceCard ──────────────────────────────────────────────────────
+
+interface TaskIntelligenceCardProps {
+  threadId: string;
+  snapshot: StageRuntimeSnapshot | null;
+  designBrief: SubmarineDesignBriefPayload | null;
+  onConfirm: (
+    threadId: string,
+    message: { role: "human"; content: string },
+  ) => Promise<void> | void;
+}
+
+function LegacyTaskIntelligenceCard({
+  threadId,
+  snapshot,
+  designBrief,
+  onConfirm,
+}: TaskIntelligenceCardProps) {
+  const state = resolveStageState("task-intelligence", snapshot);
+  const [confirming, setConfirming] = useState(false);
+
+  const handleConfirm = useCallback(() => {
+    setConfirming(true);
+    void onConfirm(threadId, { role: "human", content: "确认方案，开始执行" });
+  }, [threadId, onConfirm]);
+
+  const handleModify = useCallback(() => {
+    void onConfirm(threadId, {
+      role: "human",
+      content: "我需要调整计算方案，请稍等",
+    });
+  }, [threadId, onConfirm]);
+
+  const brief = designBrief;
+  const simReq = brief?.simulation_requirements ?? snapshot?.simulation_requirements;
+  const caseId = brief?.selected_case_id ?? null;
+  const openQuestions = brief?.open_questions ?? [];
+
+  const descriptionText =
+    state === "done"
+      ? brief?.task_description?.slice(0, 60) ?? "已确认方案"
+      : state === "active"
+        ? brief?.confirmation_status !== "confirmed" ||
+            openQuestions.length > 0 ||
+            snapshot?.review_status === "needs_user_confirmation" ||
+            snapshot?.stage_status === "waiting_user"
+          ? "方案待确认"
+          : "正在分析任务…"
+        : "等待开始";
+
+  return (
+    <StageCard
+      state={state}
+      index={1}
+      name="任务理解"
+      description={descriptionText}
+      defaultExpanded={state !== "done"}
+    >
+      {/* Case retrieval */}
+      {caseId && (
+        <div className="mb-3">
+          <SectionLabel color="sky">检索到相似案例</SectionLabel>
+          <div className="space-y-1.5">
+            <div className="flex items-start gap-2.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
+              <span className="shrink-0 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                案例
+              </span>
+              <div>
+                <div className="text-[12px] font-semibold text-stone-800">
+                  {caseId}
+                </div>
+                {simReq?.inlet_velocity_mps != null && (
+                  <div className="mt-0.5 text-[10px] text-stone-500">
+                    入口速度 {simReq.inlet_velocity_mps} m/s
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Proposed plan */}
+      {simReq && (
+        <div className="mb-3">
+          <SectionLabel color="amber">建议计算方案</SectionLabel>
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {simReq.inlet_velocity_mps != null && (
+                <PlanItem label="入口速度" value={`${simReq.inlet_velocity_mps} m/s`} />
+              )}
+              {simReq.fluid_density_kg_m3 != null && (
+                <PlanItem label="流体密度" value={`${simReq.fluid_density_kg_m3} kg/m³`} />
+              )}
+              {simReq.kinematic_viscosity_m2ps != null && (
+                <PlanItem
+                  label="运动黏度"
+                  value={`${simReq.kinematic_viscosity_m2ps.toExponential(2)} m²/s`}
+                />
+              )}
+              {simReq.end_time_seconds != null && (
+                <PlanItem label="模拟时长" value={`${simReq.end_time_seconds} s`} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Open questions */}
+      {openQuestions.length > 0 && (
+        <div className="mb-3">
+          <SectionLabel color="red">待确认问题</SectionLabel>
+          <ul className="space-y-1">
+            {openQuestions.map((q, i) => (
+              <li key={i} className="flex gap-1.5 text-[11px] text-stone-600">
+                <span className="shrink-0 text-amber-500">⚠</span>
+                {q}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!caseId && !simReq && openQuestions.length === 0 && (
+        <StageHintList
+          title="这一步会先形成可确认的研究简报"
+          items={[
+            "抽取研究目标、关键工况、对比对象和交付要求",
+            "整理基线方案与后续科研研究的切入点",
+            "如果信息不足，会在聊天区追问缺失条件而不是硬编码推进",
+          ]}
+        />
+      )}
+
+      {/* Confirm actions — only when active and waiting for user */}
+      {state === "active" && (
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            disabled={confirming}
+            className="rounded-md bg-green-500 px-4 py-1.5 text-[12px] font-semibold text-white hover:bg-green-600 disabled:opacity-60"
+            onClick={handleConfirm}
+          >
+            {confirming ? "发送中…" : "✓ 确认方案，开始执行"}
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-stone-200 bg-white px-4 py-1.5 text-[12px] text-stone-700 hover:bg-stone-50"
+            onClick={handleModify}
+          >
+            调整参数…
+          </button>
+        </div>
+      )}
+    </StageCard>
+  );
+}
+
+// ── GeometryPreflightCard ─────────────────────────────────────────────────────
+
+void LegacyTaskIntelligenceCard;
+
+export function TaskIntelligenceCard({
+  threadId,
+  snapshot,
+  designBrief,
+  onConfirm,
+}: TaskIntelligenceCardProps) {
+  const state = resolveStageState("task-intelligence", snapshot);
+  const [confirming, setConfirming] = useState(false);
+
+  const handleConfirm = useCallback(() => {
+    setConfirming(true);
+    void onConfirm(threadId, {
+      role: "human",
+      content: buildConfirmExecutionMessage(designBrief),
+    });
+  }, [designBrief, threadId, onConfirm]);
+
+  const handleModify = useCallback(() => {
+    void onConfirm(threadId, {
+      role: "human",
+      content: buildClarificationRequestMessage(designBrief),
+    });
+  }, [designBrief, threadId, onConfirm]);
+
+  const brief = designBrief;
+  const simReq = brief?.simulation_requirements ?? snapshot?.simulation_requirements;
+  const caseId = brief?.selected_case_id ?? null;
+  const viewModel = buildTaskIntelligenceViewModel({
+    designBrief,
+    snapshot,
+  });
+
+  const descriptionText =
+    state === "blocked"
+      ? snapshot?.runtime_summary ?? "任务理解暂时受阻"
+      : state === "failed"
+        ? snapshot?.runtime_summary ?? "任务理解失败"
+        : state === "done"
+      ? brief?.task_description?.slice(0, 60) ?? "方案已确认"
+      : state === "active"
+        ? viewModel.confirmationState === "needs_clarification"
+          ? "仍有关键工况待确认"
+          : viewModel.confirmationState === "ready_to_confirm"
+            ? "详细方案已生成，等待用户确认"
+            : viewModel.confirmationState === "confirmed"
+              ? "方案已确认，等待进入预检或执行"
+              : "正在分析任务..."
+        : "等待开始";
+
+  return (
+    <StageCard
+      state={state}
+      index={1}
+      name="任务理解"
+      description={descriptionText}
+      defaultExpanded={state !== "done"}
+    >
+      <RuntimeStateNotice snapshot={snapshot} state={state} />
+      {caseId && (
+        <div className="mb-4">
+          <SectionLabel color="sky">匹配案例</SectionLabel>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                基线案例
+              </span>
+              <div className="text-[12px] font-semibold text-stone-800">
+                {localizeWorkspaceDisplayText(caseId)}
+              </div>
+            </div>
+            {simReq?.inlet_velocity_mps != null && (
+              <div className="mt-1 text-[11px] text-stone-500">
+                入口速度 {simReq.inlet_velocity_mps} m/s
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {viewModel.confirmationState !== "idle" && (
+        <div
+          className={cn(
+            "mb-4 rounded-xl border px-3.5 py-3 text-[11px] leading-5 shadow-sm",
+            viewModel.confirmationState === "confirmed"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+              : viewModel.confirmationState === "needs_clarification"
+                ? "border-amber-200 bg-amber-50 text-amber-900"
+                : "border-sky-200 bg-sky-50 text-sky-900",
+          )}
+        >
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+            {viewModel.confirmationState === "confirmed"
+              ? "方案已锁定"
+              : viewModel.confirmationState === "needs_clarification"
+                ? "需要补充澄清"
+                : "等待确认"}
+          </div>
+          <div className="mt-1">
+            {viewModel.confirmationState === "confirmed"
+              ? "当前计算方案已经确认，后续预检与求解应严格沿用这一版简报中的工况、输出和验证要求。"
+              : viewModel.confirmationState === "needs_clarification"
+                ? "当前简报仍有待确认条件，主智能体应先和用户协商补齐，再进入执行。"
+                : "当前已经形成可审阅的计算方案，请先确认方案，再启动后续预检与求解。"}
+          </div>
+        </div>
+      )}
+
+      {(viewModel.pendingApprovalCount > 0 ||
+        viewModel.immediateClarificationCount > 0) && (
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700">
+              待审阅
+            </div>
+            <div className="mt-1 text-sm font-medium text-sky-900">
+              {viewModel.pendingApprovalCount} 项计算计划待审阅
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+              立即澄清
+            </div>
+            <div className="mt-1 text-sm font-medium text-amber-900">
+              {viewModel.immediateClarificationCount} 项需要立即澄清
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewModel.planItems.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="amber">计算方案</SectionLabel>
+          <div className="grid gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 sm:grid-cols-2 xl:grid-cols-3">
+            {viewModel.planItems.map((item) => (
+              <PlanItem key={item.label} label={item.label} value={item.value} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {viewModel.requestedOutputs.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="sky">预期输出</SectionLabel>
+          <div className="space-y-2">
+            {viewModel.requestedOutputs.map((output) => (
+              <div
+                key={output.outputId}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-[12px] font-semibold text-stone-800">
+                    {localizeWorkspaceDisplayText(output.label)}
+                  </div>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-stone-600">
+                    {localizeWorkspaceDisplayText(output.supportLevel)}
+                  </span>
+                </div>
+                <div className="mt-1 text-[11px] text-stone-600">
+                  用户请求：{localizeWorkspaceDisplayText(output.requestedLabel)}
+                </div>
+                {output.selectorSummary && (
+                  <div className="mt-1 text-[10px] font-mono text-stone-500">
+                    选择器={localizeWorkspaceDisplayText(output.selectorSummary)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {viewModel.verificationRequirements.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="sky">科研验证要求</SectionLabel>
+          <div className="space-y-2">
+            {viewModel.verificationRequirements.map((requirement) => (
+              <div
+                key={requirement.requirementId}
+                className="rounded-xl border border-slate-200 bg-white px-3.5 py-3"
+              >
+                <div className="text-[12px] font-semibold text-stone-800">
+                  {requirement.label}
+                </div>
+                <div className="mt-1 font-mono text-[10px] text-stone-500">
+                  {requirement.checkType}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {viewModel.userConstraints.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="sky">用户约束</SectionLabel>
+          <div className="rounded-xl border border-stone-200 bg-white px-3.5 py-3">
+            <ul className="space-y-1.5">
+              {viewModel.userConstraints.map((constraint) => (
+                <li
+                  key={constraint}
+                  className="flex gap-1.5 text-[11px] text-stone-600"
+                >
+                  <span className="shrink-0 text-sky-500">•</span>
+                  {constraint}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {viewModel.openQuestions.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="red">待确认问题</SectionLabel>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+            <ul className="space-y-1.5">
+              {viewModel.openQuestions.map((question) => (
+                <li
+                  key={question}
+                  className="flex gap-1.5 text-[11px] text-stone-700"
+                >
+                  <span className="shrink-0 text-amber-500">?</span>
+                  {question}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {viewModel.executionSteps.length > 0 && (
+        <div className="mb-4">
+          <SectionLabel color="sky">执行分工</SectionLabel>
+          <div className="space-y-2">
+            {viewModel.executionSteps.map((step) => (
+              <div
+                key={step.roleId}
+                className="rounded-xl border border-stone-200 bg-white px-3.5 py-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-[12px] font-semibold text-stone-800">
+                    {step.owner}
+                  </div>
+                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600">
+                    {step.status}
+                  </span>
+                </div>
+                <div className="mt-1 text-[11px] text-stone-600">{step.goal}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!caseId &&
+        !simReq &&
+        viewModel.openQuestions.length === 0 &&
+        viewModel.requestedOutputs.length === 0 && (
+          <StageHintList
+            title="这一步会先形成可确认的研究简报"
+            items={[
+              "抽取研究目标、关键工况、对比对象和交付要求",
+              "整理基线方案与后续科研研究的切入点",
+              "如果信息不足，会在聊天区继续协商缺失条件，而不是硬编码推进",
+            ]}
+          />
+        )}
+
+      {state === "active" && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {viewModel.canConfirmExecution && (
+            <button
+              type="button"
+              disabled={confirming}
+              className="rounded-xl bg-emerald-600 px-4 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+              onClick={handleConfirm}
+            >
+              {confirming ? "发送中..." : "确认方案，开始执行"}
+            </button>
+          )}
+          <button
+            type="button"
+            className="rounded-xl border border-stone-200 bg-white px-4 py-2 text-[12px] text-stone-700 transition hover:bg-stone-50"
+            onClick={handleModify}
+          >
+            {viewModel.openQuestions.length > 0 ? "补充待确认条件" : "调整参数"}
+          </button>
+        </div>
+      )}
+    </StageCard>
+  );
+}
+
+interface GeometryPreflightCardProps {
+  snapshot: StageRuntimeSnapshot | null;
+  geometry: SubmarineGeometryPayload | null;
+}
+
+export function GeometryPreflightCard({
+  snapshot,
+  geometry,
+}: GeometryPreflightCardProps) {
+  const state = resolveStageState("geometry-preflight", snapshot);
+  const geometryFindings =
+    geometry?.geometry_findings ?? snapshot?.geometry_findings ?? [];
+  const scaleAssessment =
+    geometry?.scale_assessment ?? snapshot?.scale_assessment ?? null;
+  const referenceValueSuggestions =
+    geometry?.reference_value_suggestions ??
+    snapshot?.reference_value_suggestions ??
+    [];
+  const calculationPlan = snapshot?.calculation_plan ?? geometry?.calculation_plan;
+  const pendingPlanItems = getPendingCalculationPlanItems(calculationPlan);
+  const immediateClarificationItems =
+    getImmediateClarificationItems(calculationPlan);
+  const needsImmediateClarification =
+    Boolean(
+      snapshot?.requires_immediate_confirmation ??
+        geometry?.requires_immediate_confirmation ??
+        geometry?.clarification_required ??
+        snapshot?.clarification_required,
+    ) || immediateClarificationItems.length > 0;
+  const requiresResearcherConfirmation =
+    needsImmediateClarification ||
+    pendingPlanItems.length > 0 ||
+    snapshot?.review_status === "needs_user_confirmation" ||
+    snapshot?.next_recommended_stage === "user-confirmation";
+
+  // SubmarineGeometryPayload has: summary_zh, candidate_cases (no geometry_family_hint)
+  const description =
+    state === "done"
+      ? geometry?.summary_zh?.slice(0, 60) ?? "几何预检通过"
+      : state === "active"
+        ? "正在检查几何…"
+        : requiresResearcherConfirmation
+          ? needsImmediateClarification
+            ? "等待研究人员澄清"
+            : "等待研究人员确认"
+          : "等待任务理解完成";
+
+  const resolvedDescription =
+    state === "blocked"
+      ? snapshot?.runtime_summary ?? "几何预检受阻"
+      : state === "failed"
+        ? snapshot?.runtime_summary ?? "几何预检失败"
+        : description;
+
+  return (
+    <StageCard
+      state={state}
+      index={2}
+      name="几何预检"
+      description={resolvedDescription}
+      defaultExpanded={state !== "done"}
+    >
+      <RuntimeStateNotice snapshot={snapshot} state={state} />
+      {requiresResearcherConfirmation && state !== "done" && (
+        <div
+          className={cn(
+            "mb-4 rounded-xl border px-3.5 py-3 text-[11px] leading-5 shadow-sm",
+            needsImmediateClarification
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-sky-200 bg-sky-50 text-sky-900",
+          )}
+        >
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+            {needsImmediateClarification
+              ? "需要立即澄清"
+              : "待研究人员确认"}
+          </div>
+          <div className="mt-1">
+            {needsImmediateClarification
+              ? "当前几何可信度仍有歧义，研究人员需要先澄清被标记的假设，预计算审批才能继续。"
+              : "几何预检已经完成，但求解执行仍在等待研究人员确认这份计算计划。"}
+          </div>
+          {pendingPlanItems.length > 0 && (
+            <div className="mt-2 text-[10px] font-medium">
+              还有 {pendingPlanItems.length} 项计算计划待审阅。
+            </div>
+          )}
+        </div>
+      )}
+      {geometry?.summary_zh && (
+        <div className="text-[11px] text-stone-600">{geometry.summary_zh}</div>
+      )}
+      {(geometryFindings.length > 0 ||
+        scaleAssessment != null ||
+        referenceValueSuggestions.length > 0 ||
+        pendingPlanItems.length > 0) && (
+        <div className="mt-4 grid gap-3 xl:grid-cols-2">
+          {scaleAssessment ? (
+            <div className="rounded-xl border border-stone-200 bg-white px-3.5 py-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                尺度评估
+              </div>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <StageInfoPair
+                  label="严重程度"
+                  value={scaleAssessment.severity ?? "--"}
+                />
+                <StageInfoPair
+                  label="应用缩放"
+                  value={
+                    scaleAssessment.applied_scale_factor != null
+                      ? `${scaleAssessment.applied_scale_factor}`
+                      : "--"
+                  }
+                />
+                <StageInfoPair
+                  label="归一化长度"
+                  value={
+                    scaleAssessment.normalized_length_m != null
+                      ? `${scaleAssessment.normalized_length_m} m`
+                      : "--"
+                  }
+                />
+                <StageInfoPair
+                  label="类型默认长度"
+                  value={
+                    scaleAssessment.family_default_length_m != null
+                      ? `${scaleAssessment.family_default_length_m} m`
+                      : "--"
+                  }
+                />
+              </div>
+              {scaleAssessment.summary_zh && (
+                <div className="mt-3 text-[11px] text-stone-600">
+                  {scaleAssessment.summary_zh}
+                </div>
+              )}
+            </div>
+          ) : null}
+          {pendingPlanItems.length > 0 ? (
+            <StageListCard
+              title="计算计划审阅"
+              items={pendingPlanItems.map((item) =>
+                `${item.label ?? item.category ?? "计算计划项"} | ${item.approval_state ?? "待处理"}${item.requires_immediate_confirmation ? " | 需要立即澄清" : ""}`,
+              )}
+              emptyText="当前没有待审阅的计算计划项。"
+            />
+          ) : null}
+          <StageListCard
+            title="几何发现"
+            items={geometryFindings.map((item) =>
+              `${item.severity ?? "提示"} | ${item.summary_zh ?? item.finding_id ?? "待补充几何发现"}`,
+            )}
+            emptyText="当前没有记录结构化几何发现。"
+          />
+          <StageListCard
+            title="参考建议"
+            items={referenceValueSuggestions.map((item) =>
+              [
+                item.quantity ?? "参考值",
+                item.value != null
+                  ? `${item.value}${item.unit ? ` ${item.unit}` : ""}`
+                  : "--",
+                item.confidence ?? "--",
+                item.source ?? item.summary_zh ?? "--",
+              ].join(" | "),
+            )}
+            emptyText="当前没有记录结构化参考建议。"
+          />
+        </div>
+      )}
+      {!geometry && state === "active" && (
+        <div className="text-[11px] text-stone-400">几何检查运行中…</div>
+      )}
+      {!geometry && state !== "done" && (
+        <StageHintList
+          title="预检会收敛几何与网格可用性"
+          items={[
+            "检查几何来源是否完整、是否需要转换或清理",
+            "确认边界命名、候选案例与求解设定是否匹配",
+            "为后续求解派发提供可追溯的几何依据",
+          ]}
+        />
+      )}
+    </StageCard>
+  );
+}
+
+// ── SolverDispatchCard ────────────────────────────────────────────────────────
+
+interface SolverDispatchCardProps {
+  snapshot: StageRuntimeSnapshot | null;
+  solverMetrics: SubmarineSolverMetrics | null;
+  trendValues: StageTrendValues;
+}
+
+export function SolverDispatchCard({
+  snapshot,
+  solverMetrics,
+  trendValues,
+}: SolverDispatchCardProps) {
+  const state = resolveStageState("solver-dispatch", snapshot);
+  const pendingPlanItems = getPendingCalculationPlanItems(snapshot?.calculation_plan);
+  const immediateClarificationItems = getImmediateClarificationItems(
+    snapshot?.calculation_plan,
+  );
+  const needsImmediateClarification =
+    Boolean(snapshot?.requires_immediate_confirmation) ||
+    immediateClarificationItems.length > 0;
+  const isWaitingForResearcherApproval =
+    needsImmediateClarification ||
+    pendingPlanItems.length > 0 ||
+    snapshot?.review_status === "needs_user_confirmation" ||
+    snapshot?.next_recommended_stage === "user-confirmation";
+
+  // Compute progress from execution_plan
+  const plan = snapshot?.execution_plan ?? [];
+  const totalSteps = plan.length;
+  const completedSteps = plan.filter((s) => s.status === "completed").length;
+  const progressPct = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
+
+  // Latest log line from activity_timeline
+  const lastEvent = snapshot?.activity_timeline?.at(-1);
+
+  // Metrics — SubmarineSolverMetrics exposes latest_force_coefficients.Cd
+  const cd = solverMetrics?.latest_force_coefficients?.Cd ?? null;
+  const fx = solverMetrics?.latest_force_coefficients?.Fx ?? null;
+  const runtimeStateDescription =
+    state === "blocked"
+      ? snapshot?.runtime_summary ?? "求解派发已阻断"
+      : state === "failed"
+        ? snapshot?.runtime_summary ?? "求解派发失败"
+        : null;
+
+  const description =
+    state === "done"
+      ? cd != null ? `Cd=${cd.toFixed(5)} · 求解完成` : "求解完成"
+      : state === "active"
+        ? "simpleFoam 运行中"
+        : isWaitingForResearcherApproval
+          ? needsImmediateClarification
+            ? "等待研究人员澄清"
+            : "等待研究人员审批"
+          : "等待几何预检完成";
+
+  return (
+    <StageCard
+      state={state}
+      index={3}
+      name="求解执行"
+      description={runtimeStateDescription ?? description}
+      rightLabel={
+        state === "active" ? (
+          <span className="text-[11px] font-medium text-blue-500">运行中</span>
+        ) : undefined
+      }
+      defaultExpanded={state !== "done"}
+    >
+      <RuntimeStateNotice snapshot={snapshot} state={state} />
+      {isWaitingForResearcherApproval && state !== "done" && (
+        <div
+          className={cn(
+            "mb-3 rounded-xl border px-3.5 py-3 text-[11px] leading-5 shadow-sm",
+            needsImmediateClarification
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-sky-200 bg-sky-50 text-sky-900",
+          )}
+        >
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em]">
+            {needsImmediateClarification
+              ? "需要立即澄清"
+              : "待研究人员审批"}
+          </div>
+          <div className="mt-1">
+            求解派发会暂停到研究人员完成计算计划审阅为止。这个关口只授权执行，不会改变任何后计算阶段的科研结论标签。
+          </div>
+          {pendingPlanItems.length > 0 && (
+            <div className="mt-2 text-[10px] font-medium">
+              {pendingPlanItems.length} item(s) remain pending before execution.
+            </div>
+          )}
+        </div>
+      )}
+      {/* Progress */}
+      {totalSteps > 0 && (
+        <div className="mb-2.5 flex items-center gap-2.5">
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-stone-200">
+            <div
+              className="h-1 rounded-full bg-blue-500 transition-all"
+              style={{ width: `${progressPct.toFixed(0)}%` }}
+            />
+          </div>
+          <span className="text-[11px] font-semibold text-blue-500">
+            {completedSteps}/{totalSteps}
+          </span>
+        </div>
+      )}
+
+      {/* Metric chips */}
+      <div className="mb-2.5 flex gap-2">
+        <MetricChip label="Cd" value={cd != null ? cd.toFixed(5) : "--"} color="green" />
+        <MetricChip
+          label="Fx"
+          value={fx != null ? `${fx.toFixed(2)} N` : "--"}
+          color="blue"
+        />
+      </div>
+
+      {/* Convergence chart */}
+      {trendValues.length >= 2 && (
+        <div className="mb-2 overflow-hidden rounded-md border border-slate-200 bg-slate-50 p-2">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            Cd 收敛历史
+          </div>
+          <SubmarineConvergenceChart values={trendValues} height={48} />
+        </div>
+      )}
+
+      {/* Latest log */}
+      {lastEvent && (
+        <div className="rounded bg-stone-100 px-2 py-1 font-mono text-[10px] text-stone-500">
+          <span className="text-green-500">▶</span>{" "}
+          {lastEvent.actor
+            ? `${localizeWorkspaceDisplayText(lastEvent.actor)} · `
+            : ""}
+          {localizeWorkspaceDisplayText(lastEvent.title ?? lastEvent.summary ?? "…")}
+        </div>
+      )}
+      {!solverMetrics && totalSteps === 0 && trendValues.length < 2 && (
+        <StageHintList
+          title="求解阶段会保留完整的派发与数值证据"
+          items={[
+            "生成可审计的执行计划，而不是直接跳到硬编码求解",
+            "记录求解产物、关键系数和收敛历史",
+            "为后续比较研究、报告和科研跟进提供基础数据",
+          ]}
+        />
+      )}
+    </StageCard>
+  );
+}
+
+// ── ResultReportingCard ───────────────────────────────────────────────────────
+
+interface ResultReportingCardProps {
+  snapshot: StageRuntimeSnapshot | null;
+  finalReport: SubmarineFinalReportPayload | null;
+  solverMetrics: SubmarineSolverMetrics | null;
+  reportVirtualPath?: string | null;
+}
+
+export function ResultReportingCard({
+  snapshot,
+  finalReport,
+  solverMetrics,
+  reportVirtualPath,
+}: ResultReportingCardProps) {
+  const state = resolveStageState("result-reporting", snapshot);
+
+  // Cd from solver metrics (latest_force_coefficients["Cd"]) or final report solver_metrics
+  const reportSolverMetrics = finalReport?.solver_metrics ?? solverMetrics;
+  const cd = reportSolverMetrics?.latest_force_coefficients?.Cd ?? null;
+  const runtimeStateDescription =
+    state === "blocked"
+      ? snapshot?.runtime_summary ?? "结果整理已阻断"
+      : state === "failed"
+        ? snapshot?.runtime_summary ?? "结果整理失败"
+        : null;
+  const description =
+    state === "done"
+      ? cd != null ? `Cd = ${cd.toFixed(5)}` : "报告已生成"
+      : state === "active"
+        ? "结果整理中…"
+        : "等待求解完成";
+  const experimentSummary = buildSubmarineExperimentSummary(finalReport);
+  const experimentCompareSummary =
+    buildSubmarineExperimentCompareSummary(finalReport);
+  const scientificStudySummary =
+    buildSubmarineScientificStudySummary(finalReport);
+  const acceptanceSummary = buildSubmarineAcceptanceSummary(finalReport);
+  const researchEvidenceSummary =
+    buildSubmarineResearchEvidenceSummary(finalReport);
+  const scientificGateSummary = buildSubmarineScientificGateSummary(
+    finalReport?.scientific_supervisor_gate
+      ? finalReport
+      : snapshot?.scientific_gate_status ?? snapshot?.allowed_claim_level
+        ? {
+            scientific_supervisor_gate: {
+              gate_status: snapshot?.scientific_gate_status,
+              allowed_claim_level: snapshot?.allowed_claim_level,
+              source_readiness_status: snapshot?.allowed_claim_level,
+              recommended_stage: snapshot?.next_recommended_stage,
+            },
+          }
+        : null,
+  );
+
+  return (
+    <StageCard
+      state={state}
+      index={4}
+      name="结果整理"
+      description={runtimeStateDescription ?? description}
+      defaultExpanded={state !== "done"}
+    >
+      <RuntimeStateNotice snapshot={snapshot} state={state} />
+      {/* Big Cd display */}
+      {cd != null && (
+        <div className="mb-3">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">
+            阻力系数 Cd
+          </div>
+          <div className="font-mono text-4xl font-extrabold text-stone-900">
+            {cd.toFixed(5)}
+          </div>
+        </div>
+      )}
+
+      {/* Report summary */}
+      {finalReport && (
+        <div className="mb-2 text-[12px] text-stone-600">
+          {finalReport.summary_zh ?? ""}
+        </div>
+      )}
+
+      {(scientificGateSummary != null ||
+        researchEvidenceSummary != null ||
+        (acceptanceSummary?.benchmarkComparisons.length ?? 0) > 0) && (
+        <div className="mt-4 space-y-3">
+          <SectionLabel color="amber">科研结论门控</SectionLabel>
+          <div className="grid gap-3 xl:grid-cols-3">
+            {scientificGateSummary && (
+              <WorkflowSummaryCard
+                title="科研结论门控"
+                badge={scientificGateSummary.gateStatusLabel}
+                stats={[
+                  {
+                    label: "结论级别",
+                    value: scientificGateSummary.allowedClaimLevelLabel,
+                  },
+                  {
+                    label: "下一阶段",
+                    value: scientificGateSummary.recommendedStageLabel,
+                  },
+                  {
+                    label: "补救阶段",
+                    value: scientificGateSummary.remediationStageLabel,
+                  },
+                ]}
+                sections={[
+                  {
+                    title: "判定依据",
+                    items: compactTextItems([
+                      `准备度 | ${scientificGateSummary.sourceReadinessLabel}`,
+                    ]),
+                    emptyText: "当前还没有记录科研结论依据。"
+                  },
+                  {
+                    title: "阻断原因",
+                    items: compactTextItems(scientificGateSummary.blockingReasons),
+                    emptyText: "当前没有记录结论阻断原因。",
+                  },
+                  {
+                    title: "建议说明",
+                    items: compactTextItems(scientificGateSummary.advisoryNotes),
+                    emptyText: "当前没有记录结论建议说明。",
+                  },
+                ]}
+              />
+            )}
+
+            {researchEvidenceSummary && (
+              <WorkflowSummaryCard
+                title="科研证据"
+                badge={researchEvidenceSummary.readinessLabel}
+                stats={[
+                  {
+                    label: "校核状态",
+                    value: researchEvidenceSummary.validationStatusLabel,
+                  },
+                  {
+                    label: "验证状态",
+                    value: researchEvidenceSummary.verificationStatusLabel,
+                  },
+                  {
+                    label: "可信度",
+                    value: researchEvidenceSummary.confidenceLabel,
+                  },
+                ]}
+                sections={[
+                  {
+                    title: "基准亮点",
+                    items: compactTextItems(
+                      researchEvidenceSummary.benchmarkHighlights,
+                    ),
+                    emptyText: "当前还没有基准亮点记录。",
+                  },
+                  {
+                    title: "阻断问题",
+                    items: compactTextItems(
+                      researchEvidenceSummary.blockingIssues,
+                    ),
+                    emptyText: "当前没有科研证据阻断问题。",
+                  },
+                  {
+                    title: "证据缺口",
+                    items: compactTextItems(researchEvidenceSummary.evidenceGaps),
+                    emptyText: "当前没有科研证据缺口。",
+                  },
+                ]}
+              />
+            )}
+
+            {acceptanceSummary &&
+              acceptanceSummary.benchmarkComparisons.length > 0 && (
+                <WorkflowSummaryCard
+                  title="基准对比"
+                  badge={`已记录 ${acceptanceSummary.benchmarkComparisons.length} 条`}
+                  stats={[
+                    {
+                      label: "验收状态",
+                      value: acceptanceSummary.statusLabel,
+                    },
+                    {
+                      label: "可信度",
+                      value: acceptanceSummary.confidenceLabel,
+                    },
+                    {
+                      label: "警告数",
+                      value: `${acceptanceSummary.warnings.length}`,
+                    },
+                  ]}
+                  sections={[
+                    {
+                      title: "参考检查",
+                      items: compactTextItems(
+                        acceptanceSummary.benchmarkComparisons.map((item) =>
+                          formatSubmarineBenchmarkComparisonSummaryLine(item),
+                        ),
+                      ),
+                      emptyText: "当前还没有基准对比记录。",
+                    },
+                    {
+                      title: "详细发现",
+                      items: compactTextItems(
+                        acceptanceSummary.benchmarkComparisons.map(
+                          (item) => item.detail,
+                        ),
+                      ),
+                      emptyText: "当前还没有基准对比详情。",
+                    },
+                    {
+                      title: "参考来源",
+                      items: compactTextItems(
+                        acceptanceSummary.benchmarkComparisons.flatMap((item) =>
+                          [item.sourceLabel, item.sourceUrl].filter(Boolean),
+                        ),
+                      ),
+                      emptyText: "当前没有基准来源元数据。",
+                    },
+                  ]}
+                />
+              )}
+          </div>
+        </div>
+      )}
+
+      {(
+        experimentSummary != null ||
+        experimentCompareSummary != null ||
+        scientificStudySummary != null
+      ) && (
+        <div className="mt-4 space-y-3">
+          <SectionLabel color="sky">验证流程</SectionLabel>
+          <div className="grid gap-3 xl:grid-cols-3">
+            {experimentSummary && (
+              <WorkflowSummaryCard
+                title="实验登记"
+                badge={experimentSummary.workflowStatusLabel}
+                stats={[
+                  {
+                    label: "登记状态",
+                    value: experimentSummary.experimentStatusLabel,
+                  },
+                  {
+                    label: "运行数",
+                    value: `${experimentSummary.runCount}`,
+                  },
+                  {
+                    label: "对比数",
+                    value: `${experimentSummary.compareCount}`,
+                  },
+                ]}
+                sections={[
+                  {
+                    title: "流程明细",
+                    items: compactTextItems([
+                      experimentSummary.workflowDetail,
+                      ...experimentSummary.runStatusCountLines,
+                      ...experimentSummary.compareStatusCountLines,
+                    ]),
+                    emptyText: "当前还没有实验流程明细。",
+                  },
+                  {
+                    title: "联动覆盖",
+                    items: compactTextItems([
+                      `状态 | ${experimentSummary.linkageStatus}`,
+                      `问题数 | ${experimentSummary.linkageIssueCount}`,
+                      ...experimentSummary.linkageIssues,
+                      ...experimentSummary.missingVariantRunRecordIds.map(
+                        (item) => `缺少运行记录 | ${item}`,
+                      ),
+                      ...experimentSummary.missingCompareEntryIds.map(
+                        (item) => `缺少对比条目 | ${item}`,
+                      ),
+                    ]),
+                    emptyText: "当前没有实验联动问题。",
+                  },
+                  {
+                    title: "待补齐缺口",
+                    items: compactTextItems([
+                      ...experimentSummary.plannedVariantRunIds.map(
+                        (item) => `已规划 | ${item}`,
+                      ),
+                      ...experimentSummary.blockedVariantRunIds.map(
+                        (item) => `已阻断 | ${item}`,
+                      ),
+                      ...experimentSummary.missingMetricsVariantRunIds.map(
+                        (item) => `缺少指标 | ${item}`,
+                      ),
+                      ...experimentSummary.compareNotes,
+                    ]),
+                    emptyText: "当前没有待补齐的实验流程缺口。",
+                  },
+                ]}
+              />
+            )}
+
+            {experimentCompareSummary && (
+              <WorkflowSummaryCard
+                title="实验对比"
+                badge={experimentCompareSummary.workflowStatusLabel}
+                stats={[
+                  {
+                    label: "基线运行",
+                    value: experimentCompareSummary.baselineRunId,
+                  },
+                  {
+                    label: "对比数量",
+                    value: `${experimentCompareSummary.compareCount}`,
+                  },
+                  {
+                    label: "产物",
+                    value: experimentCompareSummary.comparePath,
+                  },
+                ]}
+                sections={[
+                  {
+                    title: "流程覆盖",
+                    items: compactTextItems([
+                      ...experimentCompareSummary.compareStatusCountLines,
+                      ...experimentCompareSummary.plannedCandidateRunIds.map(
+                        (item) => `已规划 | ${item}`,
+                      ),
+                      ...experimentCompareSummary.completedCandidateRunIds.map(
+                        (item) => `已完成 | ${item}`,
+                      ),
+                      ...experimentCompareSummary.blockedCandidateRunIds.map(
+                        (item) => `已阻断 | ${item}`,
+                      ),
+                      ...experimentCompareSummary.missingMetricsCandidateRunIds.map(
+                        (item) => `缺少指标 | ${item}`,
+                      ),
+                    ]),
+                    emptyText: "当前还没有实验对比流程明细。",
+                  },
+                  {
+                    title: "对比运行",
+                    items: compactTextItems(
+                      experimentCompareSummary.comparisons.map(
+                        (item) =>
+                          `${experimentCompareSummary.baselineRunId} -> ${item.candidateRunId} | ${item.compareStatusLabel} | ${item.candidateExecutionStatusLabel}`,
+                      ),
+                    ),
+                    emptyText: "当前还没有记录实验对比。",
+                  },
+                  {
+                    title: "对比说明",
+                    items: compactTextItems(
+                      experimentCompareSummary.comparisons.flatMap((item) => [
+                        item.notes,
+                        ...item.metricDeltaLines,
+                      ]),
+                    ),
+                    emptyText: "当前还没有记录对比说明。",
+                  },
+                ]}
+              />
+            )}
+
+            {scientificStudySummary && (
+              <WorkflowSummaryCard
+                title="科研研究"
+                badge={scientificStudySummary.workflowStatusLabel}
+                stats={[
+                  {
+                    label: "执行状态",
+                    value: scientificStudySummary.executionStatusLabel,
+                  },
+                  {
+                    label: "研究数量",
+                    value: `${scientificStudySummary.studies.length}`,
+                  },
+                  {
+                    label: "清单文件",
+                    value: scientificStudySummary.manifestPath,
+                  },
+                ]}
+                sections={[
+                  {
+                    title: "流程概览",
+                    items: compactTextItems([
+                      ...scientificStudySummary.studyStatusCountLines,
+                      ...scientificStudySummary.studies.map(
+                        (item) =>
+                          `${item.summaryLabel} | ${item.workflowStatusLabel} | ${item.studyExecutionStatusLabel} | ${item.verificationStatus}`,
+                      ),
+                    ]),
+                    emptyText: "当前还没有科研研究流程明细。"
+                  },
+                  {
+                    title: "后续运行",
+                    items: compactTextItems(
+                      scientificStudySummary.studies.flatMap((item) => [
+                        item.workflowDetail,
+                        ...item.expectedVariantRunIds.map(
+                          (runId) => `expected | ${runId}`,
+                        ),
+                        ...item.plannedVariantRunIds.map(
+                          (runId) => `planned | ${runId}`,
+                        ),
+                        ...item.inProgressVariantRunIds.map(
+                          (runId) => `running | ${runId}`,
+                        ),
+                        ...item.blockedVariantRunIds.map(
+                          (runId) => `blocked | ${runId}`,
+                        ),
+                      ]),
+                    ),
+                    emptyText: "当前没有记录待处理的研究运行项。"
+                  },
+                  {
+                    title: "对比覆盖情况",
+                    items: compactTextItems(
+                      scientificStudySummary.studies.flatMap((item) => [
+                        item.verificationDetail,
+                        ...item.completedVariantRunIds.map(
+                            (runId) => `已完成 | ${runId}`,
+                        ),
+                        ...item.plannedCompareVariantRunIds.map(
+                            (runId) => `已规划对比 | ${runId}`,
+                        ),
+                        ...item.completedCompareVariantRunIds.map(
+                            (runId) => `对比已完成 | ${runId}`,
+                        ),
+                        ...item.blockedCompareVariantRunIds.map(
+                            (runId) => `对比受阻 | ${runId}`,
+                        ),
+                        ...item.missingMetricsVariantRunIds.map(
+                            (runId) => `缺少指标 | ${runId}`,
+                        ),
+                      ]),
+                    ),
+                    emptyText: "暂未记录已完成运行或对比覆盖明细。",
+                  },
+                ]}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Download report */}
+      {reportVirtualPath && (
+        <div className="mt-2">
+          <span className="inline-block rounded-md border border-stone-200 bg-white px-3 py-1.5 text-[11px] font-medium text-stone-700 hover:bg-stone-50 cursor-pointer">
+            ⬇ 下载报告
+          </span>
+        </div>
+      )}
+
+      {state === "active" && !cd && (
+        <div className="text-[11px] text-stone-400">正在整理计算结果…</div>
+      )}
+      {!finalReport && cd == null && (
+        <StageHintList
+          title="报告阶段会把数值结果转成科研交付物"
+          items={[
+            "汇总关键系数、验证结论与结论级别",
+            "沉淀对比、图表、报告路径和后续跟进入口",
+            "确保结果不是只有终值，而是带证据链的可复查结论",
+          ]}
+        />
+      )}
+    </StageCard>
+  );
+}
+
+// ── SupervisorReviewCard ──────────────────────────────────────────────────────
+
+const REVIEW_STATUS_LABELS: Record<string, string> = {
+  ready_for_supervisor: "待复核",
+  needs_user_confirmation: "待用户确认",
+  blocked: "已阻塞",
+};
+
+const REVIEW_STATUS_COLORS: Record<string, string> = {
+  ready_for_supervisor: "bg-amber-100 text-amber-700",
+  needs_user_confirmation: "bg-blue-100 text-blue-700",
+  blocked: "bg-red-100 text-red-700",
+};
+
+interface SupervisorReviewCardProps {
+  threadId: string;
+  snapshot: StageRuntimeSnapshot | null;
+  finalReport?: SubmarineFinalReportPayload | null;
+  onConfirm: (
+    threadId: string,
+    message: { role: "human"; content: string },
+  ) => Promise<void> | void;
+}
+
+export function SupervisorReviewCard({
+  snapshot,
+  finalReport,
+}: SupervisorReviewCardProps) {
+  const state = resolveStageState("supervisor-review", snapshot);
+  const reviewStatus = snapshot?.review_status ?? null;
+  const gateStatus = snapshot?.scientific_gate_status ?? null;
+  const scientificGateSummary = buildSubmarineScientificGateSummary(
+    finalReport?.scientific_supervisor_gate
+      ? finalReport
+      : snapshot?.scientific_gate_status ?? snapshot?.allowed_claim_level
+        ? {
+            scientific_supervisor_gate: {
+              gate_status: snapshot?.scientific_gate_status,
+              allowed_claim_level: snapshot?.allowed_claim_level,
+              source_readiness_status: snapshot?.allowed_claim_level,
+              recommended_stage: snapshot?.next_recommended_stage,
+            },
+          }
+        : null,
+  );
+  const researchEvidenceSummary = buildSubmarineResearchEvidenceSummary(finalReport);
+  const deliveryDecisionSummary = buildSubmarineDeliveryDecisionSummary(
+    finalReport?.delivery_decision_summary
+      ? finalReport
+      : snapshot?.delivery_decision_summary ?? snapshot?.decision_status
+        ? {
+            delivery_decision_summary: snapshot?.delivery_decision_summary,
+            decision_status: snapshot?.decision_status,
+          }
+        : null,
+  );
+
+  const description =
+    state === "done"
+      ? "复核已完成"
+      : state === "active"
+        ? reviewStatus
+          ? REVIEW_STATUS_LABELS[reviewStatus] ?? reviewStatus
+          : "复核中…"
+        : "等待结果整理";
+
+  const runtimeStateDescription =
+    state === "blocked"
+      ? snapshot?.runtime_summary ?? "主管复核已阻断"
+      : state === "failed"
+        ? snapshot?.runtime_summary ?? "主管复核失败"
+        : null;
+
+  return (
+    <StageCard
+      state={state}
+      index={5}
+      name="主管复核"
+      description={runtimeStateDescription ?? description}
+      defaultExpanded={state !== "done"}
+    >
+      <RuntimeStateNotice snapshot={snapshot} state={state} />
+      {/* Review status badge */}
+      {reviewStatus && (
+        <div className="mb-2">
+          <span
+            className={cn(
+              "inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+              REVIEW_STATUS_COLORS[reviewStatus] ?? "bg-stone-100 text-stone-600",
+            )}
+          >
+            {REVIEW_STATUS_LABELS[reviewStatus] ?? reviewStatus}
+          </span>
+        </div>
+      )}
+
+      {/* Scientific gate */}
+      {gateStatus && (
+        <div className="mb-2 text-[11px] text-stone-500">
+          科学门控：{gateStatus}
+        </div>
+      )}
+
+      {scientificGateSummary && (
+        <div className="mt-4 grid gap-3 xl:grid-cols-3">
+          <WorkflowSummaryCard
+            title="主管结论门控"
+            badge={scientificGateSummary.gateStatusLabel}
+            stats={[
+              {
+                label: "结论级别",
+                value: scientificGateSummary.allowedClaimLevelLabel,
+              },
+              {
+                label: "推荐阶段",
+                value: scientificGateSummary.recommendedStageLabel,
+              },
+              {
+                label: "补救阶段",
+                value: scientificGateSummary.remediationStageLabel,
+              },
+            ]}
+            sections={[
+              {
+                title: "阻断原因",
+                items: compactTextItems(scientificGateSummary.blockingReasons),
+                emptyText: "当前没有记录主管门控阻断原因。",
+              },
+              {
+                title: "建议说明",
+                items: compactTextItems(scientificGateSummary.advisoryNotes),
+                emptyText: "当前没有记录主管建议说明。",
+              },
+              {
+                title: "结论依据",
+                items: compactTextItems([
+                  `准备度 | ${scientificGateSummary.sourceReadinessLabel}`,
+                ]),
+                emptyText: "当前还没有记录结论依据。",
+              },
+            ]}
+          />
+
+          {researchEvidenceSummary && (
+            <WorkflowSummaryCard
+              title="科研证据快照"
+              badge={researchEvidenceSummary.validationStatusLabel}
+              stats={[
+                {
+                  label: "准备度",
+                  value: researchEvidenceSummary.readinessLabel,
+                },
+                {
+                  label: "验证状态",
+                  value: researchEvidenceSummary.verificationStatusLabel,
+                },
+                {
+                  label: "溯源状态",
+                  value: researchEvidenceSummary.provenanceStatusLabel,
+                },
+              ]}
+              sections={[
+                {
+                  title: "阻断问题",
+                  items: compactTextItems(researchEvidenceSummary.blockingIssues),
+                  emptyText: "当前没有科研证据阻断问题。",
+                },
+                {
+                  title: "证据缺口",
+                  items: compactTextItems(researchEvidenceSummary.evidenceGaps),
+                  emptyText: "当前没有科研证据缺口。",
+                },
+                {
+                  title: "基准亮点",
+                  items: compactTextItems(
+                    researchEvidenceSummary.benchmarkHighlights,
+                  ),
+                  emptyText: "当前没有基准亮点记录。",
+                },
+              ]}
+            />
+          )}
+        </div>
+      )}
+
+      {deliveryDecisionSummary ? (
+        <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 text-sky-950">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700">
+            回到聊天确认
+          </div>
+          <div className="mt-1 text-sm font-medium">请在聊天中确认下一步。</div>
+          {deliveryDecisionSummary.question !== deliveryDecisionSummary.chatPrompt ? (
+            <div className="mt-1 text-[11px] leading-5 text-sky-800">
+              {deliveryDecisionSummary.question}
+            </div>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+            <span className="rounded-full bg-white/80 px-2.5 py-1 font-medium text-sky-800">
+              {deliveryDecisionSummary.decisionStatusLabel}
+            </span>
+            <span className="rounded-full bg-white/80 px-2.5 py-1 font-medium text-sky-800">
+              推荐：{deliveryDecisionSummary.recommendedOptionLabel}
+            </span>
+          </div>
+          {deliveryDecisionSummary.options.length > 0 ? (
+            <div className="mt-3 space-y-2">
+              {deliveryDecisionSummary.options.map((item) => (
+                <div
+                  key={item.optionId}
+                  className="rounded-xl border border-sky-200 bg-white/80 px-3 py-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-sky-950">
+                      {item.label}
+                    </span>
+                    {item.optionId === deliveryDecisionSummary.recommendedOptionId ? (
+                        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-700">
+                        推荐
+                        </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-1 text-[11px] leading-5 text-sky-900">
+                    {item.summary}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {(deliveryDecisionSummary.blockingReasons.length > 0 ||
+            deliveryDecisionSummary.advisoryNotes.length > 0) && (
+            <div className="mt-3 grid gap-3 xl:grid-cols-2">
+              <StageListCard
+                title="阻断背景"
+                items={deliveryDecisionSummary.blockingReasons}
+                emptyText="当前没有记录阻断背景。"
+              />
+              <StageListCard
+                title="建议说明"
+                items={deliveryDecisionSummary.advisoryNotes}
+                emptyText="当前没有记录建议说明。"
+              />
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {state === "active" && !reviewStatus && (
+        <div className="text-[11px] text-stone-400">主管正在复核…</div>
+      )}
+      {!reviewStatus && !gateStatus && (
+        <StageHintList
+          title="复核阶段负责收口科研闭环"
+          items={[
+            "检查结论级别、验证状态与证据缺口",
+            "整理下一步选项，并提示用户回到主聊天确认",
+            "把用户确认与科研门控串成完整交付闭环",
+          ]}
+        />
+      )}
+    </StageCard>
+  );
+}
+
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+function SectionLabel({
+  color,
+  children,
+}: {
+  color: "sky" | "amber" | "red";
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.5px]",
+        color === "sky" && "text-stone-500",
+        color === "amber" && "text-amber-800",
+        color === "red" && "text-red-600",
+      )}
+    >
+      <span
+        className={cn(
+          "inline-block h-3 w-[3px] shrink-0 rounded-sm",
+          color === "sky" && "bg-stone-400",
+          color === "amber" && "bg-amber-500",
+          color === "red" && "bg-red-500",
+        )}
+      />
+      {children}
+    </div>
+  );
+}
+
+function StageHintList({
+  title,
+  items,
+}: {
+  title: string;
+  items: string[];
+}) {
+  return (
+    <div className="mt-auto rounded-xl border border-dashed border-stone-200 bg-stone-50/80 p-3">
+      <div className="text-[11px] font-semibold text-stone-700">{title}</div>
+      <ul className="mt-2 space-y-1.5">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2 text-[11px] leading-5 text-stone-500">
+            <span className="mt-[5px] inline-block size-1.5 shrink-0 rounded-full bg-sky-500" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function StageInfoPair({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+        {label}
+      </div>
+      <div className="mt-1 text-[12px] font-medium text-stone-800">{value}</div>
+    </div>
+  );
+}
+
+function StageListCard({
+  title,
+  items,
+  emptyText,
+}: {
+  title: string;
+  items: string[];
+  emptyText: string;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-200 bg-white px-3.5 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+        {title}
+      </div>
+      {items.length > 0 ? (
+        <ul className="mt-2 space-y-1.5">
+          {items.map((item) => (
+            <li key={`${title}-${item}`} className="text-[11px] leading-5 text-stone-600">
+              {item}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-2 text-[11px] leading-5 text-stone-400">{emptyText}</div>
+      )}
+    </div>
+  );
+}
+
+function compactTextItems(items: Array<string | null | undefined>): string[] {
+  const deduped: string[] = [];
+  for (const item of items) {
+    const value = item?.trim();
+    if (!value || value === "--" || deduped.includes(value)) {
+      continue;
+    }
+    deduped.push(value);
+  }
+  return deduped;
+}
+
+function WorkflowSummaryCard({
+  title,
+  badge,
+  stats,
+  sections,
+}: {
+  title: string;
+  badge: string;
+  stats: Array<{ label: string; value: string }>;
+  sections: Array<{ title: string; items: string[]; emptyText: string }>;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+          {title}
+        </div>
+        <span className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-stone-700">
+          {badge}
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        {stats.map((item) => (
+          <div
+            key={`${title}-${item.label}`}
+            className="rounded-lg border border-white/90 bg-white/90 px-2.5 py-2 shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
+          >
+            <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+              {item.label}
+            </div>
+            <div className="mt-1 break-all text-[11px] font-medium leading-5 text-stone-700">
+              {item.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 space-y-3">
+        {sections.map((section) => (
+          <div key={`${title}-${section.title}`}>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">
+              {section.title}
+            </div>
+            {section.items.length > 0 ? (
+              <ul className="mt-2 space-y-1.5">
+                {section.items.map((item) => (
+                  <li
+                    key={`${title}-${section.title}-${item}`}
+                    className="flex gap-2 text-[11px] leading-5 text-stone-600"
+                  >
+                    <span className="mt-[6px] inline-block size-1.5 shrink-0 rounded-full bg-sky-500" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-2 text-[11px] leading-5 text-stone-400">
+                {section.emptyText}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PlanItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-[110px] flex-1">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+        {label}
+      </div>
+      <div className="text-[12px] font-bold text-stone-900">{value}</div>
+    </div>
+  );
+}
+
+function MetricChip({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: "green" | "blue" | "neutral";
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.5px] text-slate-400">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "font-mono text-[18px] font-extrabold leading-tight tracking-tight",
+          color === "green" && "text-green-500",
+          color === "blue" && "text-blue-500",
+          color === "neutral" && "text-stone-800",
+        )}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,214 @@
+{
+  "values": {
+    "messages": [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "我上传了 DARPA SUBOFF 裸艇 STL，请帮我完成几何检查、OpenFOAM 烟测，并整理结果。"
+          }
+        ],
+        "additional_kwargs": {},
+        "response_metadata": {},
+        "type": "human",
+        "name": null,
+        "id": "submarine-human-1"
+      },
+      {
+        "content": "<uploaded_files>\nThe following files have been uploaded and are available for use:\n\n- live-forces-suboff.stl (243 B)\n  Path: /mnt/user-data/uploads/live-forces-suboff.stl\n\nYou can read these files using the `read_file` tool with the paths shown above.\n</uploaded_files>",
+        "additional_kwargs": {},
+        "response_metadata": {},
+        "type": "system",
+        "name": null,
+        "id": "submarine-system-1"
+      },
+      {
+        "content": "已完成潜艇 CFD 最小闭环演示：几何识别为 DARPA SUBOFF，案例匹配为 bare hull resistance，OpenFOAM 烟测成功跑到 Time=200，当前 Cd 为 0.003295。详情见下方运行面板和 artifacts。",
+        "additional_kwargs": {},
+        "response_metadata": {
+          "finish_reason": "stop",
+          "model_name": "claude-code-supervisor"
+        },
+        "type": "ai",
+        "name": null,
+        "id": "submarine-ai-1",
+        "tool_calls": [],
+        "invalid_tool_calls": [],
+        "usage_metadata": null
+      }
+    ],
+    "title": "潜艇 CFD 最小闭环演示",
+    "artifacts": [
+      "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.md",
+      "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.html",
+      "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.html",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-request.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/supervisor-handoff.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.md",
+      "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+      "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.html",
+      "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.json"
+    ],
+    "submarine_runtime": {
+      "current_stage": "result-reporting",
+      "task_summary": "基于上传的 DARPA SUBOFF 几何完成 DeerFlow + OpenFOAM 阻力烟测，并输出可审阅报告。",
+      "task_type": "resistance",
+      "geometry_virtual_path": "/mnt/user-data/uploads/live-forces-suboff.stl",
+      "geometry_family": "DARPA SUBOFF",
+      "selected_case_id": "darpa_suboff_bare_hull_resistance",
+      "simulation_requirements": {
+        "inlet_velocity_mps": 5.0,
+        "fluid_density_kg_m3": 1000.0,
+        "kinematic_viscosity_m2ps": 0.000001,
+        "end_time_seconds": 200.0,
+        "delta_t_seconds": 1.0,
+        "write_interval_steps": 50
+      },
+      "execution_plan": [
+        {
+          "role_id": "claude-code-supervisor",
+          "owner": "Claude Code",
+          "goal": "与用户澄清 CFD 目标、约束和交付物，并持续收敛当前方案。",
+          "status": "completed",
+          "target_skills": [
+            "submarine-case-search",
+            "submarine-orchestrator"
+          ]
+        },
+        {
+          "role_id": "task-intelligence",
+          "owner": "DeerFlow task-intelligence",
+          "goal": "完成任务理解、案例匹配和工作流选择。",
+          "status": "completed",
+          "target_skills": [
+            "submarine-geometry-check"
+          ]
+        },
+        {
+          "role_id": "geometry-preflight",
+          "owner": "DeerFlow geometry-preflight",
+          "goal": "完成 STL 几何预检并给出前处理结论。",
+          "status": "completed",
+          "target_skills": [
+            "submarine-solver-dispatch",
+            "submarine-geometry-check"
+          ]
+        },
+        {
+          "role_id": "solver-dispatch",
+          "owner": "DeerFlow solver-dispatch",
+          "goal": "执行 OpenFOAM case 组装和受控求解。",
+          "status": "completed",
+          "target_skills": [
+            "submarine-report",
+            "submarine-result-acceptance"
+          ]
+        },
+        {
+          "role_id": "result-reporting",
+          "owner": "DeerFlow result-reporting",
+          "goal": "整理结果、日志和最终报告供用户与 Supervisor 审阅。",
+          "status": "completed"
+        }
+      ],
+      "stage_status": "executed",
+      "review_status": "ready_for_supervisor",
+      "scientific_gate_status": "claim_limited",
+      "allowed_claim_level": "verified_but_not_validated",
+      "scientific_gate_virtual_path": "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/supervisor-scientific-gate.json",
+      "next_recommended_stage": "supervisor-review",
+      "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+      "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case",
+      "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case/Allrun",
+      "activity_timeline": [
+        {
+          "stage": "task-intelligence",
+          "actor": "claude-code-supervisor",
+          "title": "更新 CFD 设计简报",
+          "summary": "已与用户确认基线阻力工况、交付物和待确认项，形成第一版设计简报。",
+          "status": "draft",
+          "timestamp": "2026-03-26T10:10:00+00:00"
+        },
+        {
+          "stage": "geometry-preflight",
+          "actor": "geometry-preflight",
+          "role_id": "geometry-preflight",
+          "title": "完成潜艇几何预检",
+          "summary": "已识别为 DARPA SUBOFF 裸艇几何，支持继续进入 OpenFOAM 基线求解。",
+          "status": "ready_for_supervisor",
+          "skill_names": [
+            "submarine-geometry-check"
+          ],
+          "timestamp": "2026-03-26T10:15:00+00:00"
+        },
+        {
+          "stage": "solver-dispatch",
+          "actor": "solver-dispatch",
+          "role_id": "solver-dispatch",
+          "title": "更新 OpenFOAM 求解派发",
+          "summary": "已生成 OpenFOAM case scaffold 并完成一次真实烟测，写回 solver-results 与 handoff。",
+          "status": "executed",
+          "skill_names": [
+            "submarine-solver-dispatch",
+            "submarine-geometry-check"
+          ],
+          "timestamp": "2026-03-26T10:22:00+00:00"
+        },
+        {
+          "stage": "result-reporting",
+          "actor": "result-reporting",
+          "role_id": "result-reporting",
+          "title": "生成中文结果报告",
+          "summary": "已完成结果指标整理和中文阶段报告，可交由 Supervisor 继续复核。",
+          "status": "ready_for_supervisor",
+          "skill_names": [
+            "submarine-report",
+            "submarine-result-acceptance"
+          ],
+          "timestamp": "2026-03-26T10:25:00+00:00"
+        }
+      ],
+      "artifact_virtual_paths": [
+        "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.md",
+        "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.html",
+        "/mnt/user-data/outputs/submarine/design-brief/live-forces-suboff/cfd-design-brief.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.html",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-request.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/supervisor-handoff.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+        "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.md",
+        "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+        "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.html",
+        "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.json"
+      ]
+    }
+  },
+  "next": [],
+  "tasks": [],
+  "metadata": {
+    "model_name": "claude-code-supervisor",
+    "graph_id": "lead_agent",
+    "thread_id": "submarine-cfd-demo",
+    "source": "mock"
+  },
+  "created_at": "2026-03-26T00:00:00+00:00",
+  "checkpoint": {
+    "checkpoint_id": "submarine-cfd-demo-checkpoint",
+    "thread_id": "submarine-cfd-demo",
+    "checkpoint_ns": ""
+  },
+  "parent_checkpoint": {
+    "checkpoint_id": "submarine-cfd-demo-parent",
+    "thread_id": "submarine-cfd-demo",
+    "checkpoint_ns": ""
+  },
+  "interrupts": [],
+  "checkpoint_id": "submarine-cfd-demo-checkpoint",
+  "parent_checkpoint_id": "submarine-cfd-demo-parent"
+}

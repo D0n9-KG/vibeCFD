@@ -1,0 +1,288 @@
+{
+  "values": {
+    "messages": [
+      {
+        "content": [
+          {
+            "type": "text",
+            "text": "我上传了一份潜艇 STL，请先做几何可信度检查，并在真正开始 CFD 计算前把案例与尺度假设整理成可确认的方案。"
+          }
+        ],
+        "additional_kwargs": {},
+        "response_metadata": {},
+        "type": "human",
+        "name": null,
+        "id": "phase4-human-1"
+      },
+      {
+        "content": "<uploaded_files>\nThe following files have been uploaded and are available for use:\n\n- ambiguous-submarine.stl (2.1 MB)\n  Path: /mnt/user-data/uploads/ambiguous-submarine.stl\n\nYou can read these files using the `read_file` tool with the paths shown above.\n</uploaded_files>",
+        "additional_kwargs": {},
+        "response_metadata": {},
+        "type": "system",
+        "name": null,
+        "id": "phase4-system-1"
+      },
+      {
+        "content": "已完成第 1 轮几何与案例预检：当前几何可能存在毫米/米尺度歧义，案例推荐和参考长度已整理成 calculation plan，等待研究者确认后才会进入真实求解。",
+        "additional_kwargs": {},
+        "response_metadata": {
+          "finish_reason": "stop",
+          "model_name": "claude-code-supervisor"
+        },
+        "type": "ai",
+        "name": null,
+        "id": "phase4-ai-1",
+        "tool_calls": [],
+        "invalid_tool_calls": [],
+        "usage_metadata": null
+      }
+    ],
+    "title": "Phase 4 计算前审批演示",
+    "artifacts": [
+      "/mnt/user-data/outputs/submarine/design-brief/phase4-review/cfd-design-brief.json",
+      "/mnt/user-data/outputs/submarine/geometry-check/phase4-review/geometry-check.json"
+    ],
+    "submarine_runtime": {
+      "current_stage": "task-intelligence",
+      "task_summary": "已完成几何和案例初筛，但尺度、参考长度与案例适用条件仍需研究者确认。",
+      "task_type": "resistance",
+      "confirmation_status": "draft",
+      "geometry_virtual_path": "/mnt/user-data/uploads/ambiguous-submarine.stl",
+      "geometry_family": "DARPA SUBOFF-like hull",
+      "execution_readiness": "needs_review",
+      "geometry_findings": [
+        {
+          "finding_id": "scale-guess-mm",
+          "category": "scale",
+          "severity": "warning",
+          "summary_zh": "检测到原始包围盒长度约为 4356，结合家族模板更像毫米尺度导入。",
+          "evidence": {
+            "raw_length_value": 4356.0,
+            "normalized_length_m": 4.356,
+            "applied_scale_factor": 0.001
+          }
+        },
+        {
+          "finding_id": "family-mismatch",
+          "category": "reference_length",
+          "severity": "warning",
+          "summary_zh": "归一化后的长度与 SUBOFF 裸艇基线接近，但仍需研究者确认是否可直接沿用该参考长度。",
+          "evidence": {
+            "family_default_length_m": 4.356,
+            "relative_difference": 0.0
+          }
+        }
+      ],
+      "scale_assessment": {
+        "raw_length_value": 4356.0,
+        "normalized_length_m": 4.356,
+        "applied_scale_factor": 0.001,
+        "heuristic": "divide_by_1000",
+        "severity": "warning",
+        "summary_zh": "几何很可能以毫米导出后直接上传，系统按 0.001 比例换算为米制建议值。",
+        "family_default_length_m": 4.356,
+        "relative_difference": 0.0,
+        "evidence": {
+          "triangle_count": 142000
+        }
+      },
+      "reference_value_suggestions": [
+        {
+          "suggestion_id": "reference-length",
+          "quantity": "reference_length_m",
+          "value": 4.356,
+          "unit": "m",
+          "confidence": "medium",
+          "source": "geometry-preflight",
+          "justification": "毫米转米后与 SUBOFF 裸艇基线一致",
+          "summary_zh": "建议参考长度为 4.356 m，但仍需确认原始 STL 单位。",
+          "is_low_risk": false,
+          "requires_confirmation": true,
+          "evidence": {
+            "normalized_length_m": 4.356
+          }
+        },
+        {
+          "suggestion_id": "reference-area",
+          "quantity": "reference_area_m2",
+          "value": 0.42,
+          "unit": "m^2",
+          "confidence": "low",
+          "source": "case-library",
+          "justification": "基于 SUBOFF 裸艇阻力案例的默认参考截面积",
+          "summary_zh": "参考面积来自推荐案例模板，仅可作为草案输入。",
+          "is_low_risk": false,
+          "requires_confirmation": true,
+          "evidence": {
+            "case_id": "darpa_suboff_bare_hull_resistance"
+          }
+        }
+      ],
+      "clarification_required": true,
+      "calculation_plan": [
+        {
+          "item_id": "geometry-reference-length",
+          "category": "geometry",
+          "label": "Reference length",
+          "proposed_value": 4.356,
+          "unit": "m",
+          "source_label": "Geometry preflight",
+          "source_url": null,
+          "confidence": "medium",
+          "applicability_conditions": [
+            "Only valid if the uploaded STL was exported in millimetres.",
+            "Assumes the hull is intended to match the DARPA SUBOFF bare-hull family."
+          ],
+          "evidence_gap_note": "STL source unit has not been explicitly confirmed by the researcher.",
+          "origin": "ai_suggestion",
+          "approval_state": "pending_researcher_confirmation",
+          "requires_immediate_confirmation": true,
+          "researcher_note": null
+        },
+        {
+          "item_id": "selected-case",
+          "category": "case",
+          "label": "Selected baseline case",
+          "proposed_value": "darpa_suboff_bare_hull_resistance",
+          "unit": null,
+          "source_label": "Case library",
+          "source_url": "https://pure.port.ac.uk/en/publications/a-comprehensive-validation-study-on-the-darpa-suboff-bare-hull-mo",
+          "confidence": "high",
+          "applicability_conditions": [
+            "Use only for fully submerged, straight-ahead, bare-hull resistance studies."
+          ],
+          "evidence_gap_note": null,
+          "origin": "ai_suggestion",
+          "approval_state": "pending_researcher_confirmation",
+          "requires_immediate_confirmation": false,
+          "researcher_note": null
+        },
+        {
+          "item_id": "inlet-velocity",
+          "category": "operating_condition",
+          "label": "Inlet velocity",
+          "proposed_value": 5.0,
+          "unit": "m/s",
+          "source_label": "User input",
+          "source_url": null,
+          "confidence": "high",
+          "applicability_conditions": [
+            "Single-condition baseline run for the first review pass."
+          ],
+          "evidence_gap_note": null,
+          "origin": "user_input",
+          "approval_state": "researcher_confirmed",
+          "requires_immediate_confirmation": false,
+          "researcher_note": "先用 5 m/s 跑通基线。"
+        }
+      ],
+      "requires_immediate_confirmation": true,
+      "selected_case_id": "darpa_suboff_bare_hull_resistance",
+      "simulation_requirements": {
+        "inlet_velocity_mps": 5.0,
+        "fluid_density_kg_m3": 1000.0,
+        "kinematic_viscosity_m2ps": 1e-6,
+        "end_time_seconds": 200.0,
+        "delta_t_seconds": 1.0,
+        "write_interval_steps": 50
+      },
+      "requested_outputs": [
+        {
+          "output_id": "drag_coefficient",
+          "label": "阻力系数 Cd",
+          "requested_label": "阻力系数 Cd",
+          "status": "requested",
+          "support_level": "supported"
+        },
+        {
+          "output_id": "surface_pressure_contour",
+          "label": "表面压力云图",
+          "requested_label": "表面压力云图",
+          "status": "requested",
+          "support_level": "supported"
+        }
+      ],
+      "stage_status": "waiting_user",
+      "runtime_status": "ready",
+      "runtime_summary": "当前几何尺度与案例模板仍待研究者确认，系统不会在未批准 calculation plan 的情况下启动真实求解。",
+      "recovery_guidance": "请先确认 STL 单位、参考长度和案例适用性，再进入 solver dispatch。",
+      "blocker_detail": "Pending researcher confirmation for geometry reference length and case applicability.",
+      "review_status": "needs_user_confirmation",
+      "next_recommended_stage": "user-confirmation",
+      "artifact_virtual_paths": [
+        "/mnt/user-data/outputs/submarine/design-brief/phase4-review/cfd-design-brief.json",
+        "/mnt/user-data/outputs/submarine/geometry-check/phase4-review/geometry-check.json"
+      ],
+      "execution_plan": [
+        {
+          "role_id": "claude-code-supervisor",
+          "owner": "Claude Code",
+          "goal": "与研究者确认计算前假设与交付物。",
+          "status": "in_progress"
+        },
+        {
+          "role_id": "task-intelligence",
+          "owner": "DeerFlow task-intelligence",
+          "goal": "整理 calculation plan 并等待研究者确认。",
+          "status": "in_progress"
+        },
+        {
+          "role_id": "geometry-preflight",
+          "owner": "DeerFlow geometry-preflight",
+          "goal": "完成几何可信度分析并给出尺度建议。",
+          "status": "completed"
+        },
+        {
+          "role_id": "solver-dispatch",
+          "owner": "DeerFlow solver-dispatch",
+          "goal": "在研究者批准后再启动 OpenFOAM 求解。",
+          "status": "pending"
+        }
+      ],
+      "activity_timeline": [
+        {
+          "stage": "task-intelligence",
+          "actor": "claude-code-supervisor",
+          "title": "形成 calculation plan 草案",
+          "summary": "已整理待确认的尺度、案例和工况假设。",
+          "status": "draft",
+          "timestamp": "2026-04-02T13:50:00+08:00"
+        },
+        {
+          "stage": "geometry-preflight",
+          "actor": "geometry-preflight",
+          "role_id": "geometry-preflight",
+          "title": "完成几何可信度预检",
+          "summary": "检测到毫米/米尺度歧义，建议研究者先确认参考长度。",
+          "status": "waiting_user",
+          "skill_names": [
+            "submarine-geometry-check"
+          ],
+          "timestamp": "2026-04-02T13:55:00+08:00"
+        }
+      ]
+    }
+  },
+  "next": [],
+  "tasks": [],
+  "metadata": {
+    "model_name": "claude-code-supervisor",
+    "graph_id": "lead_agent",
+    "thread_id": "submarine-phase4-review-demo",
+    "source": "mock"
+  },
+  "created_at": "2026-04-02T13:45:00+08:00",
+  "checkpoint": {
+    "checkpoint_id": "submarine-phase4-review-demo-checkpoint",
+    "thread_id": "submarine-phase4-review-demo",
+    "checkpoint_ns": ""
+  },
+  "parent_checkpoint": {
+    "checkpoint_id": "submarine-phase4-review-demo-parent",
+    "thread_id": "submarine-phase4-review-demo",
+    "checkpoint_ns": ""
+  },
+  "interrupts": [],
+  "checkpoint_id": "submarine-phase4-review-demo-checkpoint",
+  "parent_checkpoint_id": "submarine-phase4-review-demo-parent"
+}

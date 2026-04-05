@@ -1,0 +1,3 @@
+display_name: Submarine Result Acceptance
+short_description: Use when a submarine CFD workflow needs an explicit acceptance decision before delivery.
+default_prompt: Help me draft, validate, and prepare the submarine-result-acceptance skill for publishing.

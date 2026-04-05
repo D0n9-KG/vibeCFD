@@ -1,0 +1,291 @@
+{
+  "task_description": "对上传的 DARPA SUBOFF 几何执行 OpenFOAM 烟测并整理结果",
+  "task_type": "resistance",
+  "geometry": {
+    "file_name": "live-forces-suboff.stl",
+    "file_size_bytes": 243,
+    "input_format": "stl",
+    "geometry_family": "DARPA SUBOFF",
+    "source_application": "stl-mesh",
+    "parasolid_key": null,
+    "estimated_length_m": 4.0,
+    "triangle_count": 2,
+    "bounding_box": {
+      "min_x": 0.0,
+      "max_x": 4.0,
+      "min_y": 0.0,
+      "max_y": 1.0,
+      "min_z": 0.0,
+      "max_z": 0.0
+    },
+    "notes": [
+      "检测到 STL 网格几何。",
+      "已统计三角面数量并计算包围盒。"
+    ],
+    "metadata": {}
+  },
+  "candidate_cases": [
+    {
+      "case_id": "darpa_suboff_bare_hull_resistance",
+      "title": "DARPA SUBOFF Bare Hull Resistance Baseline",
+      "geometry_family": "DARPA SUBOFF",
+      "task_type": "resistance",
+      "score": 8.55,
+      "rationale": "任务类型完全匹配；几何家族高度接近；任务描述关键词重合 3 项；输入格式可复用现有模板",
+      "recommended_solver": "OpenFOAM simpleFoam",
+      "expected_outputs": [
+        "drag coefficient",
+        "pressure distribution",
+        "streamlines"
+      ],
+      "linked_skills": [
+        "case-search",
+        "geometry-check",
+        "solver-openfoam",
+        "postprocess",
+        "report"
+      ]
+    },
+    {
+      "case_id": "type209_engineering_drag",
+      "title": "Type 209 Engineering Drag Workflow",
+      "geometry_family": "Type 209",
+      "task_type": "resistance",
+      "score": 4.85,
+      "rationale": "任务类型完全匹配；任务描述关键词重合 1 项；输入格式可复用现有模板",
+      "recommended_solver": "OpenFOAM simpleFoam",
+      "expected_outputs": [
+        "drag coefficient",
+        "pressure distribution",
+        "report"
+      ],
+      "linked_skills": [
+        "case-search",
+        "geometry-check",
+        "solver-openfoam",
+        "postprocess",
+        "report"
+      ]
+    },
+    {
+      "case_id": "joubert_bb2_drag_pressure_combo",
+      "title": "Joubert BB2 Drag and Pressure Combo",
+      "geometry_family": "Joubert BB2",
+      "task_type": "resistance",
+      "score": 4.85,
+      "rationale": "任务类型完全匹配；任务描述关键词重合 1 项；输入格式可复用现有模板",
+      "recommended_solver": "OpenFOAM simpleFoam",
+      "expected_outputs": [
+        "drag coefficient",
+        "pressure distribution",
+        "wake field"
+      ],
+      "linked_skills": [
+        "case-search",
+        "geometry-check",
+        "solver-openfoam",
+        "postprocess",
+        "report"
+      ]
+    }
+  ],
+  "selected_case": {
+    "case_id": "darpa_suboff_bare_hull_resistance",
+    "title": "DARPA SUBOFF Bare Hull Resistance Baseline",
+    "geometry_family": "DARPA SUBOFF",
+    "task_type": "resistance",
+    "score": 8.55,
+    "rationale": "任务类型完全匹配；几何家族高度接近；任务描述关键词重合 3 项；输入格式可复用现有模板",
+    "recommended_solver": "OpenFOAM simpleFoam",
+    "expected_outputs": [
+      "drag coefficient",
+      "pressure distribution",
+      "streamlines"
+    ],
+    "linked_skills": [
+      "case-search",
+      "geometry-check",
+      "solver-openfoam",
+      "postprocess",
+      "report"
+    ]
+  },
+  "dispatch_status": "executed",
+  "solver_command": "bash /mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case/Allrun",
+  "request_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-request.json",
+  "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
+  "execution_log_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log",
+  "solver_results": {
+    "solver_completed": true,
+    "final_time_seconds": 200.0,
+    "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case/postProcessing",
+    "latest_force_coefficients": {
+      "Time": 200.0,
+      "Cm": -1.38590176e-06,
+      "Cd": 0.00329517365,
+      "Cl": 5.08813363e-06,
+      "Cl(f)": 1.15816505e-06,
+      "Cl(r)": 3.92996858e-06
+    },
+    "latest_forces": {
+      "Time": 200.0,
+      "pressure_force": [
+        0.0,
+        0.0,
+        0.0101773276
+      ],
+      "viscous_force": [
+        6.59034731,
+        -6.51951387e-07,
+        -1.06035943e-06
+      ],
+      "total_force": [
+        6.59034731,
+        -6.51951e-07,
+        0.010176267241
+      ],
+      "pressure_moment": [
+        0.00509619054,
+        -0.0110891882,
+        0.0
+      ],
+      "viscous_moment": [
+        -5.3088681e-07,
+        1.97406259e-06,
+        -3.29517521
+      ],
+      "total_moment": [
+        0.005095659653,
+        -0.011087214137,
+        -3.29517521
+      ]
+    },
+    "reference_values": {
+      "reference_length_m": 4.0,
+      "reference_area_m2": 0.16,
+      "inlet_velocity_mps": 5.0,
+      "fluid_density_kg_m3": 1000.0
+    },
+    "force_coefficients_history": [
+      {
+        "Time": 0.0,
+        "Cd": 0.0112,
+        "Cl": 0.00021,
+        "Cs": 0.0,
+        "CmPitch": 0.0019
+      },
+      {
+        "Time": 50.0,
+        "Cd": 0.0064,
+        "Cl": 9e-05,
+        "Cs": 0.0,
+        "CmPitch": 0.0008
+      },
+      {
+        "Time": 100.0,
+        "Cd": 0.0043,
+        "Cl": 3e-05,
+        "Cs": 0.0,
+        "CmPitch": 0.0002
+      },
+      {
+        "Time": 150.0,
+        "Cd": 0.0036,
+        "Cl": 1e-05,
+        "Cs": 0.0,
+        "CmPitch": 5e-05
+      },
+      {
+        "Time": 200.0,
+        "Cd": 0.00329517365,
+        "Cl": 5.08813363e-06,
+        "Cs": 0.0,
+        "CmPitch": 0.0
+      }
+    ],
+    "forces_history": [
+      {
+        "Time": 0.0,
+        "total_force": [
+          22.4,
+          0.0,
+          0.08
+        ],
+        "total_moment": [
+          0.03,
+          -0.08,
+          -11.2
+        ]
+      },
+      {
+        "Time": 50.0,
+        "total_force": [
+          12.6,
+          0.0,
+          0.03
+        ],
+        "total_moment": [
+          0.012,
+          -0.032,
+          -6.3
+        ]
+      },
+      {
+        "Time": 100.0,
+        "total_force": [
+          8.9,
+          0.0,
+          0.015
+        ],
+        "total_moment": [
+          0.007,
+          -0.019,
+          -4.45
+        ]
+      },
+      {
+        "Time": 150.0,
+        "total_force": [
+          7.1,
+          0.0,
+          0.011
+        ],
+        "total_moment": [
+          0.0058,
+          -0.013,
+          -3.55
+        ]
+      },
+      {
+        "Time": 200.0,
+        "total_force": [
+          6.59034731,
+          -6.51951e-07,
+          0.010176267241
+        ],
+        "total_moment": [
+          0.005095659653,
+          -0.011087214137,
+          -3.29517521
+        ]
+      }
+    ]
+  },
+  "review_status": "ready_for_supervisor",
+  "next_recommended_stage": "result-reporting",
+  "artifact_virtual_paths": [
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.html",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-request.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/supervisor-handoff.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.md"
+  ],
+  "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case",
+  "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case/Allrun",
+  "solver_application": "simpleFoam",
+  "requires_geometry_conversion": false,
+  "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/supervisor-handoff.json",
+  "summary_zh": "已为 `live-forces-suboff.stl` 生成 OpenFOAM 派发方案，几何家族识别为 `DARPA SUBOFF`。当前优先采用案例模板“DARPA SUBOFF Bare Hull Resistance Baseline”。已执行 sandbox 内求解派发命令。本轮请求要求立即执行。"
+}

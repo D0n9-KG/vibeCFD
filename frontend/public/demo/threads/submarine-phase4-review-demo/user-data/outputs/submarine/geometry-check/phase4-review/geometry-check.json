@@ -1,0 +1,99 @@
+{
+  "summary_zh": "几何预检已完成，当前主要风险来自 STL 单位不明以及参考长度仍待研究者确认。",
+  "candidate_cases": [
+    {
+      "case_id": "darpa_suboff_bare_hull_resistance",
+      "title": "DARPA SUBOFF bare hull resistance",
+      "score": 0.91,
+      "rationale": "几何外形和任务类型都接近 SUBOFF 裸艇阻力基线，但参考长度仍需确认。",
+      "geometry_family": "DARPA SUBOFF-like hull",
+      "task_type": "resistance",
+      "source_label": "Mushtaque et al. (2025) Table 6, EFD bare hull",
+      "source_url": "https://pure.port.ac.uk/en/publications/a-comprehensive-validation-study-on-the-darpa-suboff-bare-hull-mo",
+      "source_type": "paper",
+      "applicability_conditions": [
+        "Fully submerged bare hull.",
+        "Straight-ahead resistance only."
+      ],
+      "confidence_note": "Case family match is strong after the mm->m normalization guess.",
+      "is_placeholder": false,
+      "evidence_gap_note": "The uploaded STL unit has not been researcher-confirmed yet.",
+      "acceptance_profile_summary_zh": "可作为阻力基线案例，但必须先确认尺度和参考长度。"
+    }
+  ],
+  "geometry_findings": [
+    {
+      "finding_id": "scale-guess-mm",
+      "category": "scale",
+      "severity": "warning",
+      "summary_zh": "系统推断该 STL 可能以毫米导出，需要研究者确认后才能沿用 4.356 m 参考长度。"
+    },
+    {
+      "finding_id": "reference-area-draft",
+      "category": "reference_area",
+      "severity": "warning",
+      "summary_zh": "参考面积来自案例模板建议值，只能作为 calculation plan 草案。"
+    }
+  ],
+  "scale_assessment": {
+    "raw_length_value": 4356.0,
+    "normalized_length_m": 4.356,
+    "applied_scale_factor": 0.001,
+    "heuristic": "divide_by_1000",
+    "severity": "warning",
+    "summary_zh": "按 0.001 比例换算后与 SUBOFF 裸艇长度吻合，但原始 STL 单位仍待确认。",
+    "family_default_length_m": 4.356,
+    "relative_difference": 0.0
+  },
+  "reference_value_suggestions": [
+    {
+      "suggestion_id": "reference-length",
+      "quantity": "reference_length_m",
+      "value": 4.356,
+      "unit": "m",
+      "confidence": "medium",
+      "source": "geometry-preflight",
+      "summary_zh": "建议参考长度 4.356 m。",
+      "is_low_risk": false,
+      "requires_confirmation": true
+    },
+    {
+      "suggestion_id": "reference-area",
+      "quantity": "reference_area_m2",
+      "value": 0.42,
+      "unit": "m^2",
+      "confidence": "low",
+      "source": "case-library",
+      "summary_zh": "建议参考面积 0.42 m^2。",
+      "is_low_risk": false,
+      "requires_confirmation": true
+    }
+  ],
+  "clarification_required": true,
+  "calculation_plan": [
+    {
+      "item_id": "geometry-reference-length",
+      "category": "geometry",
+      "label": "Reference length",
+      "proposed_value": 4.356,
+      "unit": "m",
+      "source_label": "Geometry preflight",
+      "confidence": "medium",
+      "origin": "ai_suggestion",
+      "approval_state": "pending_researcher_confirmation",
+      "requires_immediate_confirmation": true
+    },
+    {
+      "item_id": "selected-case",
+      "category": "case",
+      "label": "Selected baseline case",
+      "proposed_value": "darpa_suboff_bare_hull_resistance",
+      "source_label": "Case library",
+      "confidence": "high",
+      "origin": "ai_suggestion",
+      "approval_state": "pending_researcher_confirmation",
+      "requires_immediate_confirmation": false
+    }
+  ],
+  "requires_immediate_confirmation": true
+}

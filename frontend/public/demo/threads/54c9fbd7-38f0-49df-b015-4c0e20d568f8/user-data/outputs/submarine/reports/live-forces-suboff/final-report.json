@@ -1,0 +1,546 @@
+{
+  "report_title": "潜艇 CFD 阶段报告",
+  "summary_zh": "已生成《潜艇 CFD 阶段报告》，来源阶段为 `result-reporting`。几何家族识别为 `DARPA SUBOFF`。选定案例 `darpa_suboff_bare_hull_resistance`。当前结果已经进入报告整理阶段，可直接交由 Supervisor 做质量复核。 已提取 CFD 指标，最终时间步 `200.0`，Cd `0.00329517365`。",
+  "source_runtime_stage": "result-reporting",
+  "task_summary": "基于上传的 DARPA SUBOFF 几何完成 DeerFlow + OpenFOAM 阻力烟测，并输出可审阅报告。",
+  "task_type": "resistance",
+  "geometry_virtual_path": "/mnt/user-data/uploads/live-forces-suboff.stl",
+  "geometry_family": "DARPA SUBOFF",
+  "selected_case_id": "darpa_suboff_bare_hull_resistance",
+  "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case",
+  "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case/Allrun",
+  "supervisor_handoff_virtual_path": null,
+  "source_report_virtual_path": "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+  "source_artifact_virtual_paths": [
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.html",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-request.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/supervisor-handoff.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.md",
+    "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+    "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.html",
+    "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.json"
+  ],
+  "solver_metrics": {
+    "solver_completed": true,
+    "final_time_seconds": 200.0,
+    "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case/postProcessing",
+    "latest_force_coefficients": {
+      "Time": 200.0,
+      "Cm": -1.38590176e-06,
+      "Cd": 0.00329517365,
+      "Cl": 5.08813363e-06,
+      "Cl(f)": 1.15816505e-06,
+      "Cl(r)": 3.92996858e-06
+    },
+    "latest_forces": {
+      "Time": 200.0,
+      "pressure_force": [
+        0.0,
+        0.0,
+        0.0101773276
+      ],
+      "viscous_force": [
+        6.59034731,
+        -6.51951387e-07,
+        -1.06035943e-06
+      ],
+      "total_force": [
+        6.59034731,
+        -6.51951e-07,
+        0.010176267241
+      ],
+      "pressure_moment": [
+        0.00509619054,
+        -0.0110891882,
+        0.0
+      ],
+      "viscous_moment": [
+        -5.3088681e-07,
+        1.97406259e-06,
+        -3.29517521
+      ],
+      "total_moment": [
+        0.005095659653,
+        -0.011087214137,
+        -3.29517521
+      ]
+    },
+    "reference_values": {
+      "reference_length_m": 4.0,
+      "reference_area_m2": 0.16,
+      "inlet_velocity_mps": 5.0,
+      "fluid_density_kg_m3": 1000.0
+    },
+    "force_coefficients_history": [
+      {
+        "Time": 0.0,
+        "Cd": 0.0112,
+        "Cl": 0.00021,
+        "Cs": 0.0,
+        "CmPitch": 0.0019
+      },
+      {
+        "Time": 50.0,
+        "Cd": 0.0064,
+        "Cl": 9e-05,
+        "Cs": 0.0,
+        "CmPitch": 0.0008
+      },
+      {
+        "Time": 100.0,
+        "Cd": 0.0043,
+        "Cl": 3e-05,
+        "Cs": 0.0,
+        "CmPitch": 0.0002
+      },
+      {
+        "Time": 150.0,
+        "Cd": 0.0036,
+        "Cl": 1e-05,
+        "Cs": 0.0,
+        "CmPitch": 5e-05
+      },
+      {
+        "Time": 200.0,
+        "Cd": 0.00329517365,
+        "Cl": 5.08813363e-06,
+        "Cs": 0.0,
+        "CmPitch": 0.0
+      }
+    ],
+    "forces_history": [
+      {
+        "Time": 0.0,
+        "total_force": [
+          22.4,
+          0.0,
+          0.08
+        ],
+        "total_moment": [
+          0.03,
+          -0.08,
+          -11.2
+        ]
+      },
+      {
+        "Time": 50.0,
+        "total_force": [
+          12.6,
+          0.0,
+          0.03
+        ],
+        "total_moment": [
+          0.012,
+          -0.032,
+          -6.3
+        ]
+      },
+      {
+        "Time": 100.0,
+        "total_force": [
+          8.9,
+          0.0,
+          0.015
+        ],
+        "total_moment": [
+          0.007,
+          -0.019,
+          -4.45
+        ]
+      },
+      {
+        "Time": 150.0,
+        "total_force": [
+          7.1,
+          0.0,
+          0.011
+        ],
+        "total_moment": [
+          0.0058,
+          -0.013,
+          -3.55
+        ]
+      },
+      {
+        "Time": 200.0,
+        "total_force": [
+          6.59034731,
+          -6.51951e-07,
+          0.010176267241
+        ],
+        "total_moment": [
+          0.005095659653,
+          -0.011087214137,
+          -3.29517521
+        ]
+      }
+    ]
+  },
+  "stage_status": "executed",
+  "review_status": "ready_for_supervisor",
+  "next_recommended_stage": "supervisor-review",
+  "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+  "final_artifact_virtual_paths": [
+    "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+    "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.html",
+    "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.json"
+  ],
+  "experiment_summary": {
+    "experiment_id": "darpa-suboff-bare-hull-live-forces-suboff-resistance-study-compare",
+    "experiment_status": "completed",
+    "workflow_status": "partial",
+    "workflow_detail": "Baseline and mesh-independence compares are complete, but domain and time-step follow-up runs still limit the verification claim.",
+    "baseline_run_id": "live-forces-suboff",
+    "run_count": 7,
+    "compare_count": 2,
+    "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/experiment-manifest.json",
+    "study_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/study-manifest.json",
+    "compare_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/run-compare-summary.json",
+    "artifact_virtual_paths": [
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/experiment-manifest.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/study-manifest.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/run-compare-summary.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/verification-mesh-independence.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/verification-domain-sensitivity.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/verification-time-step-sensitivity.json"
+    ],
+    "linkage_status": "incomplete",
+    "linkage_issue_count": 3,
+    "linkage_issues": [
+      "Domain sensitivity still lacks the expanded-domain run record.",
+      "Time-step sensitivity variants remain blocked before compare generation.",
+      "The compact-domain rerun is executing but has not produced compare metrics yet."
+    ],
+    "run_status_counts": {
+      "completed": 3,
+      "in_progress": 1,
+      "planned": 1,
+      "blocked": 2
+    },
+    "compare_status_counts": {
+      "completed": 2,
+      "planned": 2,
+      "blocked": 2
+    },
+    "expected_variant_run_ids": [
+      "mesh_independence:coarse",
+      "mesh_independence:fine",
+      "domain_sensitivity:compact",
+      "domain_sensitivity:expanded",
+      "time_step_sensitivity:dt_0p5",
+      "time_step_sensitivity:dt_0p25"
+    ],
+    "missing_variant_run_record_ids": [
+      "domain_sensitivity:expanded",
+      "time_step_sensitivity:dt_0p5",
+      "time_step_sensitivity:dt_0p25"
+    ],
+    "missing_compare_entry_ids": [
+      "domain_sensitivity:compact",
+      "domain_sensitivity:expanded",
+      "time_step_sensitivity:dt_0p5",
+      "time_step_sensitivity:dt_0p25"
+    ],
+    "planned_variant_run_ids": [
+      "domain_sensitivity:expanded"
+    ],
+    "blocked_variant_run_ids": [
+      "time_step_sensitivity:dt_0p5",
+      "time_step_sensitivity:dt_0p25"
+    ],
+    "missing_metrics_variant_run_ids": [
+      "domain_sensitivity:compact"
+    ],
+    "compare_notes": [
+      "mesh_independence:coarse | completed | Cd shift remained below 1.0%",
+      "mesh_independence:fine | completed | Cd shift remained below 0.4%",
+      "domain_sensitivity:compact | metrics pending after rerun completion"
+    ]
+  },
+  "experiment_compare_summary": {
+    "experiment_id": "darpa-suboff-bare-hull-live-forces-suboff-resistance-study-compare",
+    "baseline_run_id": "live-forces-suboff",
+    "compare_count": 2,
+    "workflow_status": "partial",
+    "compare_status_counts": {
+      "completed": 2,
+      "planned": 2,
+      "blocked": 2
+    },
+    "planned_candidate_run_ids": [
+      "domain_sensitivity:compact",
+      "domain_sensitivity:expanded"
+    ],
+    "completed_candidate_run_ids": [
+      "mesh_independence:coarse",
+      "mesh_independence:fine"
+    ],
+    "blocked_candidate_run_ids": [
+      "time_step_sensitivity:dt_0p5",
+      "time_step_sensitivity:dt_0p25"
+    ],
+    "missing_metrics_candidate_run_ids": [
+      "domain_sensitivity:compact"
+    ],
+    "compare_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/run-compare-summary.json",
+    "artifact_virtual_paths": [
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/experiment-manifest.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/run-compare-summary.json"
+    ],
+    "comparisons": [
+      {
+        "candidate_run_id": "mesh_independence:coarse",
+        "study_type": "mesh_independence",
+        "variant_id": "coarse",
+        "compare_status": "completed",
+        "candidate_execution_status": "completed",
+        "notes": "Coarse mesh stayed within the accepted Cd tolerance band relative to the baseline.",
+        "metric_deltas": {
+          "Cd": {
+            "baseline_value": 0.00329517365,
+            "candidate_value": 0.003318,
+            "absolute_delta": 0.00002282635,
+            "relative_delta": 0.0069271
+          },
+          "mesh_cells": {
+            "baseline_value": 1200000,
+            "candidate_value": 840000,
+            "absolute_delta": -360000,
+            "relative_delta": -0.3
+          }
+        },
+        "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+        "candidate_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/studies/mesh-independence/coarse/solver-results.json",
+        "baseline_run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/run-record.json",
+        "candidate_run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/studies/mesh-independence/coarse/run-record.json"
+      },
+      {
+        "candidate_run_id": "mesh_independence:fine",
+        "study_type": "mesh_independence",
+        "variant_id": "fine",
+        "compare_status": "completed",
+        "candidate_execution_status": "completed",
+        "notes": "Fine mesh changed Cd by less than half a percent versus the baseline.",
+        "metric_deltas": {
+          "Cd": {
+            "baseline_value": 0.00329517365,
+            "candidate_value": 0.003307,
+            "absolute_delta": 0.00001182635,
+            "relative_delta": 0.0035889
+          },
+          "mesh_cells": {
+            "baseline_value": 1200000,
+            "candidate_value": 1680000,
+            "absolute_delta": 480000,
+            "relative_delta": 0.4
+          }
+        },
+        "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+        "candidate_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/studies/mesh-independence/fine/solver-results.json",
+        "baseline_run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/run-record.json",
+        "candidate_run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/studies/mesh-independence/fine/run-record.json"
+      }
+    ]
+  },
+  "scientific_study_summary": {
+    "study_execution_status": "in_progress",
+    "workflow_status": "partial",
+    "study_status_counts": {
+      "completed": 1,
+      "in_progress": 1,
+      "blocked": 1
+    },
+    "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/study-manifest.json",
+    "artifact_virtual_paths": [
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/study-manifest.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/verification-mesh-independence.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/verification-domain-sensitivity.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/verification-time-step-sensitivity.json"
+    ],
+    "studies": [
+      {
+        "study_type": "mesh_independence",
+        "summary_label": "Mesh Independence",
+        "monitored_quantity": "Cd",
+        "variant_count": 3,
+        "study_execution_status": "completed",
+        "workflow_status": "completed",
+        "workflow_detail": "Coarse and fine mesh variants finished and both compare entries are available.",
+        "variant_status_counts": {
+          "completed": 3
+        },
+        "compare_status_counts": {
+          "completed": 2
+        },
+        "expected_variant_run_ids": [
+          "mesh_independence:coarse",
+          "mesh_independence:fine"
+        ],
+        "completed_variant_run_ids": [
+          "mesh_independence:coarse",
+          "mesh_independence:fine"
+        ],
+        "completed_compare_variant_run_ids": [
+          "mesh_independence:coarse",
+          "mesh_independence:fine"
+        ],
+        "verification_status": "passed",
+        "verification_detail": "Three-grid sweep kept the drag coefficient change within the current tolerance."
+      },
+      {
+        "study_type": "domain_sensitivity",
+        "summary_label": "Domain Sensitivity",
+        "monitored_quantity": "Cd",
+        "variant_count": 3,
+        "study_execution_status": "in_progress",
+        "workflow_status": "partial",
+        "workflow_detail": "The compact-domain rerun is executing and the expanded domain is still planned.",
+        "variant_status_counts": {
+          "completed": 1,
+          "in_progress": 1,
+          "planned": 1
+        },
+        "compare_status_counts": {
+          "planned": 2
+        },
+        "expected_variant_run_ids": [
+          "domain_sensitivity:compact",
+          "domain_sensitivity:expanded"
+        ],
+        "in_progress_variant_run_ids": [
+          "domain_sensitivity:compact"
+        ],
+        "planned_variant_run_ids": [
+          "domain_sensitivity:expanded"
+        ],
+        "planned_compare_variant_run_ids": [
+          "domain_sensitivity:compact",
+          "domain_sensitivity:expanded"
+        ],
+        "verification_status": "missing_evidence",
+        "verification_detail": "Only the baseline domain configuration is complete, so the study cannot yet downgrade or confirm sensitivity."
+      },
+      {
+        "study_type": "time_step_sensitivity",
+        "summary_label": "Time-Step Sensitivity",
+        "monitored_quantity": "Cd",
+        "variant_count": 3,
+        "study_execution_status": "blocked",
+        "workflow_status": "blocked",
+        "workflow_detail": "Smaller time-step variants are blocked until transient write controls are expanded for the reruns.",
+        "variant_status_counts": {
+          "completed": 1,
+          "blocked": 2
+        },
+        "compare_status_counts": {
+          "blocked": 2
+        },
+        "expected_variant_run_ids": [
+          "time_step_sensitivity:dt_0p5",
+          "time_step_sensitivity:dt_0p25"
+        ],
+        "blocked_variant_run_ids": [
+          "time_step_sensitivity:dt_0p5",
+          "time_step_sensitivity:dt_0p25"
+        ],
+        "blocked_compare_variant_run_ids": [
+          "time_step_sensitivity:dt_0p5",
+          "time_step_sensitivity:dt_0p25"
+        ],
+        "verification_status": "blocked",
+        "verification_detail": "The reduced time-step reruns are intentionally blocked until the transient control package is widened."
+      }
+    ]
+  },
+  "acceptance_assessment": {
+    "status": "ready_for_review",
+    "confidence": "medium",
+    "blocking_issues": [],
+    "warnings": [
+      "Current run used 5.0 m/s, so the cited SUBOFF 3.05 m/s drag benchmark is not directly applicable."
+    ],
+    "passed_checks": [
+      "Residual and force-history evidence support a stable baseline drag estimate.",
+      "Mesh-independence verification completed within the accepted Cd tolerance band."
+    ],
+    "benchmark_comparisons": [
+      {
+        "metric_id": "cd_at_3_05_mps",
+        "quantity": "Cd",
+        "status": "not_applicable",
+        "summary_zh": "当前基线速度为 5.00 m/s，不能直接对照 3.05 m/s 的 SUBOFF 阻力基准。",
+        "detail": "Benchmark cd_at_3_05_mps is not applicable to the current run condition because the observed inlet velocity is 5.00 m/s while the cited benchmark target is 3.05 m/s.",
+        "observed_value": 0.00329517365,
+        "reference_value": 0.00314,
+        "absolute_error": 0.00015517365,
+        "relative_error": 0.04941835987261141,
+        "relative_tolerance": 0.03,
+        "target_inlet_velocity_mps": 3.05,
+        "observed_inlet_velocity_mps": 5.0,
+        "source_label": "Mushtaque et al. (2025) Table 6, EFD bare hull",
+        "source_url": "https://pure.port.ac.uk/en/publications/a-comprehensive-validation-study-on-the-darpa-suboff-bare-hull-mo"
+      }
+    ]
+  },
+  "research_evidence_summary": {
+    "readiness_status": "verified_but_not_validated",
+    "verification_status": "passed",
+    "validation_status": "missing_validation_reference",
+    "provenance_status": "partial",
+    "confidence": "medium",
+    "blocking_issues": [],
+    "evidence_gaps": [
+      "Benchmark cd_at_3_05_mps is not applicable to the current run condition.",
+      "No applicable benchmark target was available for this 5.0 m/s run."
+    ],
+    "passed_evidence": [
+      "Residual and coefficient-stability checks passed for the baseline run.",
+      "Mesh-independence study outputs are complete and traceable."
+    ],
+    "benchmark_highlights": [
+      "Mushtaque et al. (2025) Table 6, EFD bare hull is available, but only for 3.05 m/s SUBOFF validation."
+    ],
+    "provenance_highlights": [
+      "Experiment manifest, study manifest, and compare summary are persisted in thread outputs.",
+      "Domain and time-step follow-up runs are still incomplete."
+    ],
+    "artifact_virtual_paths": [
+      "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/research-evidence-summary.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/experiment-manifest.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/study-manifest.json",
+      "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/run-compare-summary.json"
+    ]
+  },
+  "scientific_supervisor_gate": {
+    "gate_status": "claim_limited",
+    "allowed_claim_level": "verified_but_not_validated",
+    "source_readiness_status": "verified_but_not_validated",
+    "recommended_stage": "supervisor-review",
+    "remediation_stage": "solver-dispatch",
+    "blocking_reasons": [],
+    "advisory_notes": [
+      "External validation evidence is still missing for this 5.0 m/s run.",
+      "Return to solver-dispatch if you need a benchmark-matched 3.05 m/s rerun or a cited 5.0 m/s reference."
+    ],
+    "artifact_virtual_paths": [
+      "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/supervisor-scientific-gate.json"
+    ]
+  },
+  "scientific_gate_status": "claim_limited",
+  "allowed_claim_level": "verified_but_not_validated",
+  "artifact_virtual_paths": [
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.html",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-request.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/supervisor-handoff.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.md",
+    "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.md",
+    "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.html",
+    "/mnt/user-data/outputs/submarine/reports/live-forces-suboff/final-report.json"
+  ]
+}

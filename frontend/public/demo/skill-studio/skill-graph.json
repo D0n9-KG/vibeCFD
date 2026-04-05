@@ -1,0 +1,182 @@
+{
+  "summary": {
+    "skill_count": 6,
+    "enabled_skill_count": 6,
+    "public_skill_count": 5,
+    "custom_skill_count": 1,
+    "edge_count": 8,
+    "relationship_counts": {
+      "similar_to": 2,
+      "compose_with": 4,
+      "depend_on": 2
+    }
+  },
+  "skills": [
+    {
+      "name": "submarine-report",
+      "description": "Use when synthesizing submarine CFD artifacts into concise Chinese reports.",
+      "category": "public",
+      "enabled": true,
+      "related_count": 4,
+      "stage": "report"
+    },
+    {
+      "name": "submarine-geometry-check",
+      "description": "Use when checking submarine STL geometry before solver dispatch.",
+      "category": "public",
+      "enabled": true,
+      "related_count": 2,
+      "stage": "geometry"
+    },
+    {
+      "name": "submarine-solver-dispatch",
+      "description": "Use when turning a checked submarine case into an OpenFOAM-ready dispatch plan.",
+      "category": "public",
+      "enabled": true,
+      "related_count": 3,
+      "stage": "solver"
+    },
+    {
+      "name": "submarine-result-acceptance",
+      "description": "Use when reviewing submarine CFD result acceptance and final report trustworthiness.",
+      "category": "custom",
+      "enabled": true,
+      "related_count": 4,
+      "stage": "report"
+    },
+    {
+      "name": "skill-creator",
+      "description": "Use when creating new skills from expert rules and reusable workflows.",
+      "category": "public",
+      "enabled": true,
+      "related_count": 1,
+      "stage": "creator"
+    },
+    {
+      "name": "writing-skills",
+      "description": "Use when editing, validating, and pressure-testing skills before deployment.",
+      "category": "public",
+      "enabled": true,
+      "related_count": 2,
+      "stage": "creator"
+    }
+  ],
+  "relationships": [
+    {
+      "source": "submarine-result-acceptance",
+      "target": "submarine-report",
+      "relationship_type": "depend_on",
+      "score": 1,
+      "reason": "Skill package explicitly references submarine-report."
+    },
+    {
+      "source": "submarine-result-acceptance",
+      "target": "submarine-report",
+      "relationship_type": "similar_to",
+      "score": 0.714,
+      "reason": "Shared task language: cfd, final, report, result, submarine"
+    },
+    {
+      "source": "submarine-result-acceptance",
+      "target": "submarine-solver-dispatch",
+      "relationship_type": "compose_with",
+      "score": 0.5,
+      "reason": "Shared domain (cfd, submarine) with complementary stages report → solver"
+    },
+    {
+      "source": "submarine-geometry-check",
+      "target": "submarine-solver-dispatch",
+      "relationship_type": "compose_with",
+      "score": 0.5,
+      "reason": "Shared domain (submarine) with complementary stages geometry → solver"
+    },
+    {
+      "source": "submarine-geometry-check",
+      "target": "submarine-report",
+      "relationship_type": "compose_with",
+      "score": 0.25,
+      "reason": "Shared domain (submarine) with complementary stages geometry → report"
+    },
+    {
+      "source": "writing-skills",
+      "target": "skill-creator",
+      "relationship_type": "compose_with",
+      "score": 0.5,
+      "reason": "Shared domain (skill) with complementary stages creator → creator"
+    },
+    {
+      "source": "submarine-result-acceptance",
+      "target": "writing-skills",
+      "relationship_type": "depend_on",
+      "score": 1,
+      "reason": "Skill package explicitly references writing-skills."
+    },
+    {
+      "source": "submarine-result-acceptance",
+      "target": "submarine-geometry-check",
+      "relationship_type": "compose_with",
+      "score": 0.25,
+      "reason": "Shared domain (submarine) with complementary stages report → geometry"
+    }
+  ],
+  "focus": {
+    "skill_name": "submarine-result-acceptance",
+    "related_skill_count": 4,
+    "related_skills": [
+      {
+        "skill_name": "submarine-report",
+        "category": "public",
+        "enabled": true,
+        "description": "Use when synthesizing submarine CFD artifacts into concise Chinese reports.",
+        "relationship_types": [
+          "depend_on",
+          "similar_to"
+        ],
+        "strongest_score": 1,
+        "reasons": [
+          "Skill package explicitly references submarine-report.",
+          "Shared task language: cfd, final, report, result, submarine"
+        ]
+      },
+      {
+        "skill_name": "writing-skills",
+        "category": "public",
+        "enabled": true,
+        "description": "Use when editing, validating, and pressure-testing skills before deployment.",
+        "relationship_types": [
+          "depend_on"
+        ],
+        "strongest_score": 1,
+        "reasons": [
+          "Skill package explicitly references writing-skills."
+        ]
+      },
+      {
+        "skill_name": "submarine-solver-dispatch",
+        "category": "public",
+        "enabled": true,
+        "description": "Use when turning a checked submarine case into an OpenFOAM-ready dispatch plan.",
+        "relationship_types": [
+          "compose_with"
+        ],
+        "strongest_score": 0.5,
+        "reasons": [
+          "Shared domain (cfd, submarine) with complementary stages report → solver"
+        ]
+      },
+      {
+        "skill_name": "submarine-geometry-check",
+        "category": "public",
+        "enabled": true,
+        "description": "Use when checking submarine STL geometry before solver dispatch.",
+        "relationship_types": [
+          "compose_with"
+        ],
+        "strongest_score": 0.25,
+        "reasons": [
+          "Shared domain (submarine) with complementary stages report → geometry"
+        ]
+      }
+    ]
+  }
+}

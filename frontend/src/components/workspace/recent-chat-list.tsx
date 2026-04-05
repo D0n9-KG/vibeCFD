@@ -1,0 +1,278 @@
+"use client";
+
+import {
+  Download,
+  FileJson,
+  FileText,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import Link from "next/link";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuAction,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar";
+import { getAPIClient } from "@/core/api";
+import { useI18n } from "@/core/i18n/hooks";
+import {
+  exportThreadAsJSON,
+  exportThreadAsMarkdown,
+} from "@/core/threads/export";
+import {
+  useDeleteThread,
+  useRenameThread,
+  useThreads,
+} from "@/core/threads/hooks";
+import type { AgentThread, AgentThreadState } from "@/core/threads/types";
+import {
+  pathAfterThreadDeletion,
+  pathOfThreadByState,
+  titleOfThread,
+} from "@/core/threads/utils";
+import { env } from "@/env";
+
+import {
+  classifyThreadsForSidebar,
+  labelOfSidebarThreadGroup,
+} from "./recent-chat-list.state";
+import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
+
+export function RecentChatList() {
+  const { t } = useI18n();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { thread_id: threadIdFromPath } = useParams<{ thread_id: string }>();
+  const { data: threads = [] } = useThreads();
+  const { mutate: deleteThread } = useDeleteThread();
+  const { mutate: renameThread } = useRenameThread();
+
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameThreadId, setRenameThreadId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const chrome = getWorkspaceSidebarChrome();
+
+  const groups = useMemo(() => classifyThreadsForSidebar(threads), [threads]);
+
+  const handleDelete = useCallback(
+    (threadId: string) => {
+      deleteThread({ threadId });
+      if (threadId === threadIdFromPath) {
+        void router.push(pathAfterThreadDeletion(threads, threadId));
+      }
+    },
+    [deleteThread, router, threadIdFromPath, threads],
+  );
+
+  const handleRenameClick = useCallback(
+    (threadId: string, currentTitle: string) => {
+      setRenameThreadId(threadId);
+      setRenameValue(currentTitle);
+      setRenameDialogOpen(true);
+    },
+    [],
+  );
+
+  const handleRenameSubmit = useCallback(() => {
+    if (renameThreadId && renameValue.trim()) {
+      renameThread({ threadId: renameThreadId, title: renameValue.trim() });
+      setRenameDialogOpen(false);
+      setRenameThreadId(null);
+      setRenameValue("");
+    }
+  }, [renameThread, renameThreadId, renameValue]);
+
+  const handleExport = useCallback(
+    async (thread: AgentThread, format: "markdown" | "json") => {
+      try {
+        const apiClient = getAPIClient();
+        const state = await apiClient.threads.getState<AgentThreadState>(
+          thread.thread_id,
+        );
+        const messages = state.values?.messages ?? [];
+        if (messages.length === 0) {
+          toast.error(t.conversation.noMessages);
+          return;
+        }
+        if (format === "markdown") {
+          exportThreadAsMarkdown(thread, messages);
+        } else {
+          exportThreadAsJSON(thread, messages);
+        }
+        toast.success(t.common.exportSuccess);
+      } catch {
+        toast.error("导出会话失败");
+      }
+    },
+    [t],
+  );
+
+  if (threads.length === 0) {
+    return null;
+  }
+
+  return (
+    <>
+      {groups.map((group) => (
+        <SidebarGroup key={group.kind} className={chrome.historyGroupClassName}>
+          <SidebarGroupLabel className={chrome.groupLabelClassName}>
+            {labelOfSidebarThreadGroup(group.kind)}
+          </SidebarGroupLabel>
+          <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
+            <SidebarMenu>
+              <div className="flex w-full flex-col gap-1">
+                {group.threads.map((thread) => {
+                  const href = pathOfThreadByState(thread);
+                  const isActive = href === pathname;
+                  return (
+                    <SidebarMenuItem
+                      key={thread.thread_id}
+                      className="group/side-menu-item"
+                    >
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        className={chrome.historyButtonClassName}
+                        asChild
+                      >
+                        <div>
+                          <Link
+                            className="block w-full whitespace-nowrap text-inherit group-hover/side-menu-item:overflow-hidden"
+                            href={href}
+                          >
+                            {titleOfThread(thread, t.pages.untitled)}
+                          </Link>
+                          {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true" && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <SidebarMenuAction
+                                  showOnHover
+                                  className="bg-background/50 hover:bg-background"
+                                >
+                                  <MoreHorizontal />
+                                  <span className="sr-only">
+                                    {t.common.more}
+                                  </span>
+                                </SidebarMenuAction>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                className="w-48 rounded-lg"
+                                side="right"
+                                align="start"
+                              >
+                                <DropdownMenuItem
+                                  onSelect={() =>
+                                    handleRenameClick(
+                                      thread.thread_id,
+                                      titleOfThread(thread, t.pages.untitled),
+                                    )
+                                  }
+                                >
+                                  <Pencil className="text-muted-foreground" />
+                                  <span>{t.common.rename}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger>
+                                    <Download className="text-muted-foreground" />
+                                    <span>{t.common.export}</span>
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent>
+                                    <DropdownMenuItem
+                                      onSelect={() =>
+                                        handleExport(thread, "markdown")
+                                      }
+                                    >
+                                      <FileText className="text-muted-foreground" />
+                                      <span>{t.common.exportAsMarkdown}</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={() =>
+                                        handleExport(thread, "json")
+                                      }
+                                    >
+                                      <FileJson className="text-muted-foreground" />
+                                      <span>{t.common.exportAsJSON}</span>
+                                    </DropdownMenuItem>
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onSelect={() =>
+                                    handleDelete(thread.thread_id)
+                                  }
+                                >
+                                  <Trash2 className="text-muted-foreground" />
+                                  <span>{t.common.delete}</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </div>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
+
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t.common.rename}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder={t.common.rename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleRenameSubmit();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRenameDialogOpen(false)}
+            >
+              {t.common.cancel}
+            </Button>
+            <Button onClick={handleRenameSubmit}>{t.common.save}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

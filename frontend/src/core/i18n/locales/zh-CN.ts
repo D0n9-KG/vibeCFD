@@ -1,0 +1,465 @@
+import {
+  CompassIcon,
+  GraduationCapIcon,
+  ImageIcon,
+  MicroscopeIcon,
+  PenLineIcon,
+  ShapesIcon,
+  SparklesIcon,
+  VideoIcon,
+} from "lucide-react";
+
+import type { Translations } from "./types";
+
+export const zhCN: Translations = {
+  // Locale meta
+  locale: {
+    localName: "中文",
+  },
+
+  // Common
+  common: {
+    home: "首页",
+    settings: "设置",
+    delete: "删除",
+    rename: "重命名",
+    open: "打开",
+    share: "分享",
+    openInNewWindow: "在新窗口打开",
+    close: "关闭",
+    more: "更多",
+    search: "搜索",
+    download: "下载",
+    thinking: "思考",
+    artifacts: "文件",
+    public: "公共",
+    custom: "自定义",
+    notAvailableInDemoMode: "在演示模式下不可用",
+    loading: "加载中...",
+    version: "版本",
+    lastUpdated: "最后更新",
+    code: "代码",
+    preview: "预览",
+    cancel: "取消",
+    save: "保存",
+    install: "安装",
+    create: "创建",
+    export: "导出",
+    exportAsMarkdown: "导出为 Markdown",
+    exportAsJSON: "导出为 JSON",
+    exportSuccess: "对话已导出",
+    messages: "消息",
+    todos: "待办",
+    status: "状态",
+    panel: "面板",
+    active: "进行中",
+    waiting: "等待中",
+    ready: "就绪",
+    running: "运行中",
+    interrupted: "已中断",
+    done: "完成",
+    messageCount: (count: number) => `${count} 条消息`,
+    artifactCount: (count: number) => `${count} 个产物`,
+    todoCount: (count: number) => `${count} 条待办`,
+    threadCount: (count: number) => `${count} 条会话`,
+    agentCount: (count: number) => `${count} 个智能体`,
+    toolGroupCount: (count: number) => `${count} 组工具`,
+  },
+
+  // Welcome
+  welcome: {
+    greeting: "你好，欢迎回来！",
+    description:
+      "欢迎来到 VibeCFD，一套面向工业科研任务的工作区，用于组织仿真流程、证据交付和技能驱动的工程协作。",
+
+    createYourOwnSkill: "创建你自己的智能体技能",
+    createYourOwnSkillDescription:
+      "通过 Skill Studio 创建你的专业技能，把规则、验证方式和发布门槛沉淀成可复用的领域资产。",
+  },
+
+  // Clipboard
+  clipboard: {
+    copyToClipboard: "复制到剪贴板",
+    copiedToClipboard: "已复制到剪贴板",
+    failedToCopyToClipboard: "复制到剪贴板失败",
+    linkCopied: "链接已复制到剪贴板",
+  },
+
+  // Input Box
+  inputBox: {
+    placeholder: "请输入任务说明、约束条件或协作指令",
+    createSkillPrompt:
+      "我们一起用 skill-creator 技能来创建一个技能吧。先问问我希望这个技能能做什么。",
+    addAttachments: "添加附件",
+    mode: "模式",
+    flashMode: "闪速",
+    flashModeDescription: "快速且高效的完成任务，但可能不够精准",
+    reasoningMode: "思考",
+    reasoningModeDescription: "思考后再行动，在时间与准确性之间取得平衡",
+    proMode: "专业",
+    proModeDescription: "先思考、再规划、再执行，结果更稳，更适合复杂任务",
+    ultraMode: "旗舰",
+    ultraModeDescription:
+      "继承自专业模式，可调用子代理分工协作，适合复杂多步骤任务，能力最强",
+    reasoningEffort: "推理深度",
+    reasoningEffortMinimal: "最低",
+    reasoningEffortMinimalDescription: "检索 + 直接输出",
+    reasoningEffortLow: "低",
+    reasoningEffortLowDescription: "简单逻辑校验 + 浅层推演",
+    reasoningEffortMedium: "中",
+    reasoningEffortMediumDescription: "多层逻辑分析 + 基础验证",
+    reasoningEffortHigh: "高",
+    reasoningEffortHighDescription: "全维度逻辑推演 + 多路径验证 + 反推校验",
+    searchModels: "搜索模型...",
+    surpriseMe: "小惊喜",
+    surpriseMePrompt: "给我一个小惊喜吧",
+    followupLoading: "正在生成可能的后续问题...",
+    followupConfirmTitle: "发送建议问题？",
+    followupConfirmDescription: "当前输入框已有内容，选择发送方式。",
+    followupConfirmAppend: "追加并发送",
+    followupConfirmReplace: "替换并发送",
+    suggestions: [
+      {
+        suggestion: "写作",
+        prompt: "撰写一篇关于[主题]的博客文章",
+        icon: PenLineIcon,
+      },
+      {
+        suggestion: "研究",
+        prompt: "深入浅出的研究一下[主题]，并总结发现。",
+        icon: MicroscopeIcon,
+      },
+      {
+        suggestion: "收集",
+        prompt: "从[来源]收集数据并创建报告。",
+        icon: ShapesIcon,
+      },
+      {
+        suggestion: "学习",
+        prompt: "学习关于[主题]并创建教程。",
+        icon: GraduationCapIcon,
+      },
+    ],
+    suggestionsCreate: [
+      {
+        suggestion: "网页",
+        prompt: "生成一个关于[主题]的网页",
+        icon: CompassIcon,
+      },
+      {
+        suggestion: "图片",
+        prompt: "生成一个关于[主题]的图片",
+        icon: ImageIcon,
+      },
+      {
+        suggestion: "视频",
+        prompt: "生成一个关于[主题]的视频",
+        icon: VideoIcon,
+      },
+      {
+        type: "separator",
+      },
+      {
+        suggestion: "技能",
+        prompt:
+          "我们一起用 skill-creator 技能来创建一个技能吧。先问问我希望这个技能能做什么。",
+        icon: SparklesIcon,
+      },
+    ],
+  },
+
+  // Sidebar
+  sidebar: {
+    newChat: "新对话",
+    chats: "对话",
+    recentChats: "最近的对话",
+    demoChats: "演示对话",
+    agents: "智能体",
+    skillStudio: "技能工作台",
+  },
+
+  // Agents
+  agents: {
+    title: "智能体",
+    description: "创建和管理具有专属 Prompt 与能力的自定义智能体。",
+    newAgent: "新建智能体",
+    listDescription: "打开专属智能体对话，或继续整理当前智能体目录。",
+    catalogLabel: "工作区目录",
+    emptyTitle: "还没有自定义智能体",
+    emptyDescription: "创建你的第一个自定义智能体，设置专属系统提示词。",
+    chat: "对话",
+    delete: "删除",
+    deleteConfirm: "确定要删除该智能体吗？此操作不可撤销。",
+    deleteSuccess: "智能体已删除",
+    newChat: "新对话",
+    createPageTitle: "设计你的智能体",
+    createPageDescription:
+      "从命名到引导对话都保持在统一工作区节奏内，而不是掉进割裂的创建向导。",
+    buildPathLabel: "创建路径",
+    createPageSubtitle: "描述你想要的智能体，我来帮你通过对话创建。",
+    nameStepTitle: "给新智能体起个名字",
+    nameStepHint:
+      "只允许字母、数字和连字符，存储时自动转为小写（例如 code-reviewer）",
+    nameStepPlaceholder: "例如 code-reviewer",
+    nameStepContinue: "继续",
+    nameStepInvalidError: "名称无效，只允许字母、数字和连字符",
+    nameStepAlreadyExistsError: "已存在同名智能体",
+    nameStepCheckError: "无法验证名称可用性，请稍后重试",
+    nameStepBootstrapMessage:
+      "新智能体的名称是 {name}，现在开始为它生成 **SOUL**。",
+    chatStepNote: "在对话中引导创建智能体，然后检查生成结果。",
+    plannedIdentityLabel: "计划中的身份",
+    waitingForConfirmedName: "等待确认智能体名称。",
+    bootstrapThreadLabel: "引导线程",
+    agentCreated: "智能体已创建！",
+    startChatting: "开始对话",
+    backToGallery: "返回智能体总览",
+    collaborationDescription:
+      "将智能体专属协作保持在主线程中，同时让能力、状态和恢复操作通过共享支持面板可达。",
+    profileLabel: "智能体档案",
+    profileFallbackDescription:
+      "这个专属智能体对话会把协作界面聚焦在单一角色和能力边界上。",
+    actionsLabel: "工作区操作",
+    sessionSnapshotLabel: "会话快照",
+    toolGroupsLabel: "工具组",
+    capabilitiesLabel: "能力",
+    agentProfileRefreshError: "智能体档案刷新失败。",
+  },
+
+  // Breadcrumb
+  breadcrumb: {
+    workspace: "工作区",
+    chats: "对话",
+  },
+
+  // Workspace
+  workspace: {
+    officialWebsite: "访问 VibeCFD 官方网站",
+    githubTooltip: "访问 DeerFlow runtime 的 Github 仓库",
+    settingsAndMore: "设置和更多",
+    visitGithub: "在 Github 上查看 DeerFlow runtime",
+    reportIssue: "报告问题",
+    contactUs: "联系我们",
+    about: "关于 VibeCFD",
+    toggleChatRail: "切换聊天侧栏",
+    toggleWorkspacePanel: "切换工作区面板",
+    showWorkspaceViews: "展开工作台视图",
+    hideWorkspaceViews: "收起工作台视图",
+    openGraphFilters: "打开图谱筛选",
+    backToOverview: "返回总览",
+    retryUpdate: "重试刷新",
+    openRuntimeWorkbench: "打开运行工作台",
+    noArtifactSelectedTitle: "未选择产物",
+    noArtifactSelectedDescription: "选择一个产物以查看详情",
+  },
+
+  workspaceStates: {
+    "first-run": {
+      label: "首次进入",
+      title: "还没有可恢复的工作上下文",
+      message:
+        "从统一工作区启动新的仿真、技能工作台线程，或直接发起对话，系统就会开始沉淀可恢复的上下文。",
+    },
+    "permissions-error": {
+      label: "权限不足",
+      title: "当前工作区缺少必要权限",
+      message:
+        "请先检查浏览器、文件访问或本地运行环境的权限设置，再继续当前工作流。",
+    },
+    "data-interrupted": {
+      label: "数据中断",
+      title: "最新工作区数据暂时不可用",
+      message:
+        "先保留当前上下文，再重试刷新，或回到总览确认最近一次已经落盘的可用结果。",
+    },
+    "update-failed": {
+      label: "更新失败",
+      title: "工作区暂时无法刷新当前视图",
+      message:
+        "上一次可用状态仍然保留。你可以重试刷新，或先回到总览确认对象是否仍在运行。",
+    },
+  },
+
+  // Conversation
+  conversation: {
+    noMessages: "还没有消息",
+    startConversation: "开始新的对话以查看消息",
+  },
+
+  // Chats
+  chats: {
+    searchChats: "搜索对话",
+    overviewDescription: "在统一工作区壳层中搜索、恢复并继续进行中的对话。",
+    emptySearchTitle: "没有匹配的对话",
+    emptySearchDescription: "换个关键词，或清空筛选后查看最近的工作区会话。",
+    listDescription: "从统一工作区中继续对话，或打开带工作台上下文的线程。",
+    recentlyUpdated: "最近更新",
+    threadMetaLabel: "工作区会话",
+    threadSummaryDescription:
+      "保持消息流为主视角，同时让上下文和恢复操作通过共享支持面板可达。",
+    workspaceContextLabel: "工作区上下文",
+    workspaceContextDescription:
+      "共享对话控制、运行时跳转和恢复动作集中放在这里，不再散落在另一个独立小壳层中。",
+    runtimeHandoffLabel: "运行时跳转",
+    runtimeHandoffDescription:
+      "当前线程已经带有 submarine 运行时数据或产物，需要实时驾驶舱视角时可直接跳转到专用工作台。",
+    conversationFirstTitle: "以对话为主的协作面",
+    conversationFirstDescription:
+      "当线程成长为带运行时的工作流时，对应工作台入口会出现在这里，而不是让聊天页硬塞下所有控制。",
+    sessionSnapshotLabel: "会话快照",
+  },
+
+  // Page titles (document title)
+  pages: {
+    appName: "VibeCFD",
+    chats: "对话",
+    newChat: "新对话",
+    untitled: "未命名",
+  },
+
+  // Tool calls
+  toolCalls: {
+    moreSteps: (count: number) => `查看其他 ${count} 个步骤`,
+    lessSteps: "隐藏步骤",
+    executeCommand: "执行命令",
+    presentFiles: "展示文件",
+    needYourHelp: "需要你的协助",
+    useTool: (toolName: string) => `使用 “${toolName}” 工具`,
+    searchFor: (query: string) => `搜索 “${query}”`,
+    searchForRelatedInfo: "搜索相关信息",
+    searchForRelatedImages: "搜索相关图片",
+    searchForRelatedImagesFor: (query: string) => `搜索相关图片 “${query}”`,
+    searchOnWebFor: (query: string) => `在网络上搜索 “${query}”`,
+    viewWebPage: "查看网页",
+    listFolder: "列出文件夹",
+    readFile: "读取文件",
+    writeFile: "写入文件",
+    clickToViewContent: "点击查看文件内容",
+    writeTodos: "更新待办列表",
+    skillInstallTooltip: "安装技能并使其可在 DeerFlow 中使用",
+  },
+
+  uploads: {
+    uploading: "上传中...",
+    uploadingFiles: "文件上传中，请稍候...",
+  },
+
+  subtasks: {
+    subtask: "子任务",
+    executing: (count: number) =>
+      `${count > 1 ? "并行" : ""}执行 ${count} 个子任务`,
+    in_progress: "子任务运行中",
+    completed: "子任务已完成",
+    failed: "子任务失败",
+  },
+
+  // Token Usage
+  tokenUsage: {
+    title: "Token 用量",
+    input: "输入",
+    output: "输出",
+    total: "总计",
+  },
+  
+  // Shortcuts
+  shortcuts: {
+    searchActions: "搜索操作...",
+    noResults: "未找到结果。",
+    actions: "操作",
+    keyboardShortcuts: "键盘快捷键",
+    keyboardShortcutsDescription: "使用键盘快捷键更快地操作 DeerFlow。",
+    openCommandPalette: "打开命令面板",
+    toggleSidebar: "切换侧边栏",
+  },
+
+  // Settings
+  settings: {
+    title: "设置",
+    description: "根据你的偏好调整 VibeCFD 的界面和行为。",
+    sections: {
+      appearance: "外观",
+      memory: "记忆",
+      tools: "工具",
+      skills: "技能",
+      notification: "通知",
+      about: "关于",
+    },
+    memory: {
+      title: "记忆",
+      description:
+        "VibeCFD 会在后台维护可恢复的工作区上下文，让仿真、技能和对话 surface 能围绕同一条任务持续推进。",
+      empty: "暂无可展示的记忆数据。",
+      rawJson: "原始 JSON",
+      markdown: {
+        overview: "概览",
+        userContext: "用户上下文",
+        work: "工作",
+        personal: "个人",
+        topOfMind: "近期关注（Top of mind）",
+        historyBackground: "历史背景",
+        recentMonths: "近几个月",
+        earlierContext: "更早上下文",
+        longTermBackground: "长期背景",
+        updatedAt: "更新于",
+        facts: "事实",
+        empty: "（空）",
+        table: {
+          category: "类别",
+          confidence: "置信度",
+          confidenceLevel: {
+            veryHigh: "极高",
+            high: "较高",
+            normal: "一般",
+            unknown: "未知",
+          },
+          content: "内容",
+          source: "来源",
+          createdAt: "创建时间",
+          view: "查看",
+        },
+      },
+    },
+    appearance: {
+      themeTitle: "主题",
+      themeDescription: "跟随系统或选择固定的界面模式。",
+      system: "系统",
+      light: "浅色",
+      dark: "深色",
+      systemDescription: "自动跟随系统主题。",
+      lightDescription: "更明亮的配色，适合日间使用。",
+      darkDescription: "更暗的配色，减少眩光方便专注。",
+      languageTitle: "语言",
+      languageDescription: "在不同语言之间切换。",
+    },
+    tools: {
+      title: "工具",
+      description: "管理 MCP 工具的配置和启用状态。",
+    },
+    skills: {
+      title: "技能",
+      description: "管理 Agent Skill 配置和启用状态。",
+      createSkill: "新建技能",
+      emptyTitle: "还没有技能",
+      emptyDescription:
+        "将你的 Agent Skill 文件夹放在 VibeCFD 根目录下的 `/skills/custom` 文件夹中，以便在 Skill Studio 中继续审阅和验证。",
+      emptyButton: "创建你的第一个技能",
+    },
+    notification: {
+      title: "通知",
+      description:
+        "VibeCFD 只会在窗口不活跃时发送完成通知，更适合长时间仿真、复核或技能整理任务。",
+      requestPermission: "请求通知权限",
+      deniedHint:
+        "通知权限已被拒绝。可在浏览器的网站设置中重新开启，以接收完成提醒。",
+      testButton: "发送测试通知",
+      testTitle: "VibeCFD",
+      testBody: "这是一条测试通知。",
+      notSupported: "当前浏览器不支持通知功能。",
+      disableNotification: "关闭通知",
+    },
+    acknowledge: {
+      emptyTitle: "致谢",
+      emptyDescription: "相关的致谢信息会展示在这里。",
+    },
+  },
+};

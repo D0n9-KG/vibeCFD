@@ -1,0 +1,22 @@
+{
+  "skill_name": "submarine-result-acceptance",
+  "status": "ready_for_dry_run",
+  "scenario_test_count": 2,
+  "blocking_count": 0,
+  "scenario_tests": [
+    {
+      "id": "scenario-1",
+      "scenario": "baseline steady-state bare-hull case with stable Cd and residual decay",
+      "status": "ready_for_dry_run",
+      "expected_outcome": "Claude Code should trigger the drafted skill and produce a reviewable output.",
+      "blocking_reasons": []
+    },
+    {
+      "id": "scenario-2",
+      "scenario": "report generated despite residuals staying high and force history oscillating",
+      "status": "ready_for_dry_run",
+      "expected_outcome": "Claude Code should trigger the drafted skill and produce a reviewable output.",
+      "blocking_reasons": []
+    }
+  ]
+}

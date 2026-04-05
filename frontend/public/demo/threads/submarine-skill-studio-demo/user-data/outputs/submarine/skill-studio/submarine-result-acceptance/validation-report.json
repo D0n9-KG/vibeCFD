@@ -1,0 +1,34 @@
+{
+  "report_title": "submarine-result-acceptance validation report",
+  "status": "ready_for_review",
+  "error_count": 0,
+  "warning_count": 1,
+  "checks": {
+    "skill_name_slug_format": "passed",
+    "description_starts_with_use_when": "passed",
+    "has_overview_section": "passed",
+    "has_workflow_section": "passed",
+    "has_acceptance_section": "passed",
+    "has_validation_section": "passed",
+    "trigger_conditions_present": "passed",
+    "workflow_steps_present": "passed",
+    "acceptance_criteria_present": "passed",
+    "test_scenarios_present": "passed"
+  },
+  "passed_checks": [
+    "skill_name_slug_format",
+    "description_starts_with_use_when",
+    "has_overview_section",
+    "has_workflow_section",
+    "has_acceptance_section",
+    "has_validation_section",
+    "trigger_conditions_present",
+    "workflow_steps_present",
+    "acceptance_criteria_present",
+    "test_scenarios_present"
+  ],
+  "errors": [],
+  "warnings": [
+    "description_too_long"
+  ]
+}

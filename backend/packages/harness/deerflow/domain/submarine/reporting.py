@@ -1,0 +1,629 @@
+"""Submarine result reporting and final artifact generation."""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+from .artifact_store import load_canonical_stability_evidence_payload
+from .contracts import (
+    SubmarineDeliveryDecisionOption,
+    SubmarineDeliveryDecisionSummary,
+    SubmarineRuntimeSnapshot,
+    build_supervisor_review_contract,
+)
+from .evidence import build_research_evidence_summary
+from .followup import build_scientific_followup_summary, load_scientific_followup_history
+from .handoff import build_scientific_remediation_handoff
+from .output_contract import build_output_delivery_plan
+from .remediation import build_scientific_remediation_summary
+from .reporting_acceptance import build_acceptance_assessment
+from .reporting_render import (
+    render_delivery_readiness_markdown,
+    render_html,
+    render_markdown,
+)
+from .reporting_summaries import (
+    build_conclusion_sections,
+    build_delivery_highlights,
+    build_evidence_index,
+    build_experiment_compare_summary,
+    build_experiment_summary,
+    build_figure_delivery_summary,
+    build_provenance_summary,
+    build_report_overview,
+    build_reproducibility_summary,
+    build_selected_case_provenance_summary,
+    build_scientific_study_summary,
+    resolve_outputs_artifact,
+    resolve_selected_case,
+)
+from .supervision import build_scientific_supervisor_gate
+from .verification import (
+    build_effective_scientific_verification_requirements,
+    build_scientific_verification_assessment,
+)
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", value.strip().lower())
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+    return slug or "submarine-report"
+
+
+def _artifact_virtual_path(run_dir_name: str, filename: str) -> str:
+    return f"/mnt/user-data/outputs/submarine/reports/{run_dir_name}/{filename}"
+
+
+def _merge_artifact_paths(*groups: list[str]) -> list[str]:
+    merged: list[str] = []
+    for group in groups:
+        for path in group:
+            if path not in merged:
+                merged.append(path)
+    return merged
+
+
+def _is_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _string_list(value: object | None) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    deduped: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        normalized = item.strip()
+        if normalized and normalized not in deduped:
+            deduped.append(normalized)
+    return deduped
+
+
+def _first_remediation_gap(scientific_remediation_summary: dict[str, Any]) -> str | None:
+    actions = scientific_remediation_summary.get("actions")
+    if not isinstance(actions, list):
+        return None
+    for action in actions:
+        if not isinstance(action, dict):
+            continue
+        evidence_gap = action.get("evidence_gap")
+        if isinstance(evidence_gap, str) and evidence_gap.strip():
+            return evidence_gap.strip()
+    return None
+
+
+def _build_delivery_decision_summary(
+    *,
+    scientific_supervisor_gate: dict[str, Any],
+    research_evidence_summary: dict[str, Any],
+    scientific_remediation_summary: dict[str, Any],
+    scientific_remediation_handoff: dict[str, Any],
+) -> dict[str, Any]:
+    gate_status = str(scientific_supervisor_gate.get("gate_status") or "blocked")
+    evidence_gaps = _string_list(research_evidence_summary.get("evidence_gaps"))
+    blocking_reasons = _string_list(scientific_supervisor_gate.get("blocking_reasons"))
+    advisory_notes = _string_list(scientific_supervisor_gate.get("advisory_notes"))
+    remediation_gap = _first_remediation_gap(scientific_remediation_summary)
+    decision_artifacts = _merge_artifact_paths(
+        _string_list(scientific_supervisor_gate.get("artifact_virtual_paths")),
+        _string_list(scientific_remediation_summary.get("artifact_virtual_paths")),
+        _string_list(scientific_remediation_handoff.get("artifact_virtual_paths")),
+    )
+
+    if gate_status == "blocked":
+        decision_status = "blocked_by_setup"
+        recommended_option_id = "fix_setup"
+        if not blocking_reasons and remediation_gap:
+            blocking_reasons = [remediation_gap]
+        if not blocking_reasons and evidence_gaps:
+            blocking_reasons = evidence_gaps
+        if not advisory_notes:
+            advisory_notes = [
+                "当前结果仍需修正设置或补齐关键证据，暂不建议直接结束任务。",
+            ]
+        option_ids = ["fix_setup"]
+        question = "当前结果仍有阻塞项。请在聊天中确认下一步。"
+    elif gate_status == "claim_limited":
+        decision_status = "needs_more_evidence"
+        recommended_option_id = "add_evidence"
+        if not blocking_reasons:
+            blocking_reasons = evidence_gaps[:]
+        option_ids = ["add_evidence", "finish_task", "extend_study"]
+        question = "当前结论可以交付，但仍有证据缺口。请在聊天中确认下一步。"
+    else:
+        decision_status = "ready_for_user_decision"
+        recommended_option_id = "finish_task"
+        if not advisory_notes:
+            advisory_notes = [
+                "当前结论已经满足当前交付要求，如需扩大研究范围，可继续安排下一轮研究。",
+            ]
+        option_ids = ["finish_task", "extend_study"]
+        question = "当前结论已经可用于任务交付。请在聊天中确认下一步。"
+
+    primary_reason = blocking_reasons[0] if blocking_reasons else None
+    options_by_id = {
+        "finish_task": SubmarineDeliveryDecisionOption(
+            option_id="finish_task",
+            label_zh="完成任务",
+            summary_zh="接受当前结论作为本次任务终点，并在聊天中确认收口。",
+            followup_kind="task_complete",
+            requires_additional_execution=False,
+        ),
+        "add_evidence": SubmarineDeliveryDecisionOption(
+            option_id="add_evidence",
+            label_zh="补充证据",
+            summary_zh=(
+                f"优先补齐缺失证据：{primary_reason}"
+                if primary_reason
+                else "补齐缺失的验证证据、基准对照或证据链后，再决定是否提升 claim level。"
+            ),
+            followup_kind="evidence_supplement",
+            requires_additional_execution=True,
+        ),
+        "fix_setup": SubmarineDeliveryDecisionOption(
+            option_id="fix_setup",
+            label_zh="修正设置",
+            summary_zh=(
+                f"先修正当前阻塞项：{primary_reason}"
+                if primary_reason
+                else "先修正当前设置、输入或关键产物，再重新执行并刷新报告。"
+            ),
+            followup_kind="parameter_correction",
+            requires_additional_execution=True,
+        ),
+        "extend_study": SubmarineDeliveryDecisionOption(
+            option_id="extend_study",
+            label_zh="扩展研究",
+            summary_zh="在当前有效结果基础上扩展更多工况、参数或敏感性研究。",
+            followup_kind="study_extension",
+            requires_additional_execution=True,
+        ),
+    }
+    options = [options_by_id[option_id] for option_id in option_ids]
+
+    summary = SubmarineDeliveryDecisionSummary(
+        decision_status=decision_status,
+        decision_question_zh=question,
+        recommended_option_id=recommended_option_id,
+        options=options,
+        blocking_reason_lines=blocking_reasons,
+        advisory_note_lines=advisory_notes,
+        artifact_virtual_paths=decision_artifacts,
+    )
+    return summary.model_dump(mode="json")
+
+
+def _recommended_actions(*, review_status: str, decision_status: str | None) -> list[str]:
+    actions = ["review_report_artifacts"]
+    if review_status == "blocked":
+        actions.append("fix_setup_and_retry")
+    elif decision_status == "needs_more_evidence":
+        actions.append("collect_more_evidence")
+    else:
+        actions.append("confirm_delivery_or_followup")
+    return actions
+
+
+_resolve_outputs_artifact = resolve_outputs_artifact
+_resolve_selected_case = resolve_selected_case
+_build_acceptance_assessment = build_acceptance_assessment
+_build_scientific_study_summary = build_scientific_study_summary
+_build_experiment_summary = build_experiment_summary
+_build_experiment_compare_summary = build_experiment_compare_summary
+_build_figure_delivery_summary = build_figure_delivery_summary
+_build_report_overview = build_report_overview
+_build_delivery_highlights = build_delivery_highlights
+_build_conclusion_sections = build_conclusion_sections
+_build_evidence_index = build_evidence_index
+_build_provenance_summary = build_provenance_summary
+_build_reproducibility_summary = build_reproducibility_summary
+_build_selected_case_provenance_summary = build_selected_case_provenance_summary
+_render_delivery_readiness_markdown = render_delivery_readiness_markdown
+_render_markdown = render_markdown
+_render_html = render_html
+
+
+def _compose_summary(
+    snapshot: SubmarineRuntimeSnapshot,
+    report_title: str,
+    solver_metrics: dict | None,
+) -> str:
+    stage_text = {
+        "geometry-preflight": "当前结果主要覆盖几何检查与案例匹配结论，尚未进入真实求解。",
+        "solver-dispatch": "当前结果覆盖求解派发与执行状态，保留给 Supervisor 后续审阅与继续执行的边界。",
+        "result-reporting": "当前结果已经进入报告整理阶段，可直接交由 Supervisor 做质量复核。",
+    }.get(snapshot.current_stage, "当前结果已整理为可审阅交付物。")
+
+    case_text = (
+        f"选定案例 `{snapshot.selected_case_id}`。"
+        if snapshot.selected_case_id
+        else "当前尚未固定单一案例模板。"
+    )
+    family_text = (
+        f"几何家族识别为 `{snapshot.geometry_family}`。"
+        if snapshot.geometry_family
+        else "几何家族仍待进一步确认。"
+    )
+    metrics_text = ""
+    if solver_metrics and solver_metrics.get("latest_force_coefficients"):
+        cd = solver_metrics["latest_force_coefficients"].get("Cd")
+        final_time = solver_metrics.get("final_time_seconds")
+        metrics_text = f" 已提取 CFD 指标，最终时间步 `{final_time}`，Cd `{cd}`。"
+
+    return (
+        f"已生成《{report_title}》，来源阶段为 `{snapshot.current_stage}`。"
+        f"{family_text}{case_text}{stage_text}{metrics_text}"
+    )
+
+
+def _load_solver_metrics(outputs_dir: Path, artifact_virtual_paths: list[str]) -> dict | None:
+    preferred_paths = [
+        virtual_path for virtual_path in artifact_virtual_paths if virtual_path.endswith("/solver-results.json")
+    ]
+    fallback_paths = [
+        virtual_path for virtual_path in artifact_virtual_paths if virtual_path.endswith("/openfoam-request.json")
+    ]
+
+    for virtual_path in [*preferred_paths, *fallback_paths]:
+        local_path = _resolve_outputs_artifact(outputs_dir, virtual_path)
+        if local_path is None or not local_path.exists():
+            continue
+        try:
+            payload = json.loads(local_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if virtual_path.endswith("/solver-results.json"):
+            return payload
+        solver_results = payload.get("solver_results")
+        if solver_results:
+            return solver_results
+    return None
+
+
+def _load_stability_evidence(outputs_dir: Path, artifact_virtual_paths: list[str]) -> tuple[str, dict] | None:
+    return load_canonical_stability_evidence_payload(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=artifact_virtual_paths,
+    )
+
+
+def run_result_report(
+    *,
+    snapshot: SubmarineRuntimeSnapshot,
+    outputs_dir: Path,
+    report_title: str | None = None,
+) -> tuple[dict, list[str]]:
+    geometry_name = Path(snapshot.geometry_virtual_path).stem or "submarine-run"
+    run_dir_name = _slugify(geometry_name)
+    artifact_dir = outputs_dir / "submarine" / "reports" / run_dir_name
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    report_title = report_title or "潜艇 CFD 阶段报告"
+    delivery_markdown_artifact = _artifact_virtual_path(run_dir_name, "delivery-readiness.md")
+    delivery_json_artifact = _artifact_virtual_path(run_dir_name, "delivery-readiness.json")
+    research_evidence_json_artifact = _artifact_virtual_path(
+        run_dir_name, "research-evidence-summary.json"
+    )
+    scientific_gate_json_artifact = _artifact_virtual_path(
+        run_dir_name, "supervisor-scientific-gate.json"
+    )
+    scientific_remediation_json_artifact = _artifact_virtual_path(
+        run_dir_name, "scientific-remediation-plan.json"
+    )
+    scientific_remediation_handoff_json_artifact = _artifact_virtual_path(
+        run_dir_name, "scientific-remediation-handoff.json"
+    )
+    json_artifact = _artifact_virtual_path(run_dir_name, "final-report.json")
+    markdown_artifact = _artifact_virtual_path(run_dir_name, "final-report.md")
+    html_artifact = _artifact_virtual_path(run_dir_name, "final-report.html")
+    new_artifacts = [
+        delivery_markdown_artifact,
+        delivery_json_artifact,
+        research_evidence_json_artifact,
+        scientific_gate_json_artifact,
+        scientific_remediation_json_artifact,
+        scientific_remediation_handoff_json_artifact,
+        markdown_artifact,
+        html_artifact,
+        json_artifact,
+    ]
+    all_artifacts = _merge_artifact_paths(snapshot.artifact_virtual_paths, new_artifacts)
+    solver_metrics = _load_solver_metrics(outputs_dir, snapshot.artifact_virtual_paths)
+    loaded_stability_evidence = _load_stability_evidence(
+        outputs_dir,
+        snapshot.artifact_virtual_paths,
+    )
+    stability_evidence_virtual_path = loaded_stability_evidence[0] if loaded_stability_evidence else None
+    stability_evidence = loaded_stability_evidence[1] if loaded_stability_evidence else None
+    selected_case = _resolve_selected_case(snapshot.selected_case_id)
+    selected_case_provenance_summary = _build_selected_case_provenance_summary(
+        selected_case
+    )
+    scientific_verification_requirements = [
+        item.model_dump(mode="json")
+        for item in build_effective_scientific_verification_requirements(
+            acceptance_profile=selected_case.acceptance_profile if selected_case else None,
+            task_type=snapshot.task_type,
+        )
+    ]
+    acceptance_assessment = _build_acceptance_assessment(
+        snapshot,
+        solver_metrics,
+        selected_case=selected_case,
+        artifact_virtual_paths=all_artifacts,
+    )
+    scientific_verification_assessment = build_scientific_verification_assessment(
+        acceptance_profile=selected_case.acceptance_profile if selected_case else None,
+        task_type=snapshot.task_type,
+        solver_metrics=solver_metrics,
+        artifact_virtual_paths=all_artifacts,
+        outputs_dir=outputs_dir,
+        stability_evidence=stability_evidence,
+    )
+    scientific_study_summary = _build_scientific_study_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+        scientific_verification_assessment=scientific_verification_assessment,
+    )
+    experiment_summary = _build_experiment_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+    )
+    experiment_compare_summary = _build_experiment_compare_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+    )
+    figure_delivery_summary = _build_figure_delivery_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+    )
+    provenance_summary = _build_provenance_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+        provenance_manifest_virtual_path=snapshot.provenance_manifest_virtual_path,
+    )
+    provenance_manifest_virtual_path = (
+        provenance_summary.get("manifest_virtual_path")
+        if isinstance(provenance_summary, dict)
+        else snapshot.provenance_manifest_virtual_path
+    )
+    reproducibility_summary = _build_reproducibility_summary(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=all_artifacts,
+        provenance_manifest_virtual_path=provenance_manifest_virtual_path,
+        environment_parity_assessment=snapshot.environment_parity_assessment,
+    )
+    output_delivery_plan = build_output_delivery_plan(
+        snapshot.requested_outputs,
+        stage="result-reporting",
+        solver_metrics=solver_metrics,
+        artifact_virtual_paths=all_artifacts,
+        acceptance_assessment=acceptance_assessment,
+    )
+    research_evidence_summary = build_research_evidence_summary(
+        acceptance_profile=selected_case.acceptance_profile if selected_case else None,
+        acceptance_assessment=acceptance_assessment,
+        scientific_verification_assessment=scientific_verification_assessment,
+        provenance_summary=provenance_summary,
+        scientific_study_summary=scientific_study_summary,
+        experiment_summary=experiment_summary,
+        output_delivery_plan=output_delivery_plan,
+        artifact_virtual_paths=all_artifacts,
+    )
+    scientific_supervisor_gate = build_scientific_supervisor_gate(
+        research_evidence_summary=research_evidence_summary,
+        artifact_virtual_paths=[scientific_gate_json_artifact],
+    )
+    scientific_remediation_summary = build_scientific_remediation_summary(
+        scientific_supervisor_gate=scientific_supervisor_gate,
+        research_evidence_summary=research_evidence_summary,
+        scientific_verification_assessment=scientific_verification_assessment,
+        scientific_study_summary=scientific_study_summary,
+        artifact_virtual_paths=[scientific_remediation_json_artifact],
+    )
+    scientific_remediation_handoff = build_scientific_remediation_handoff(
+        snapshot=snapshot,
+        scientific_remediation_summary=scientific_remediation_summary,
+        artifact_virtual_paths=[scientific_remediation_handoff_json_artifact],
+    )
+    delivery_decision_summary = _build_delivery_decision_summary(
+        scientific_supervisor_gate=scientific_supervisor_gate,
+        research_evidence_summary=research_evidence_summary,
+        scientific_remediation_summary=scientific_remediation_summary,
+        scientific_remediation_handoff=scientific_remediation_handoff,
+    )
+    scientific_followup_summary = None
+    if snapshot.scientific_followup_history_virtual_path:
+        followup_history_path = _resolve_outputs_artifact(
+            outputs_dir,
+            snapshot.scientific_followup_history_virtual_path,
+        )
+        if followup_history_path and followup_history_path.exists():
+            try:
+                followup_history = load_scientific_followup_history(
+                    artifact_path=followup_history_path,
+                    artifact_virtual_path=snapshot.scientific_followup_history_virtual_path,
+                )
+            except ValueError:
+                followup_history = None
+            if followup_history:
+                scientific_followup_summary = build_scientific_followup_summary(
+                    history=followup_history,
+                    history_virtual_path=snapshot.scientific_followup_history_virtual_path,
+                )
+    review_status = (
+        "blocked"
+        if scientific_supervisor_gate["gate_status"] == "blocked"
+        else "ready_for_supervisor"
+    )
+
+    review = build_supervisor_review_contract(
+        next_recommended_stage=scientific_supervisor_gate["recommended_stage"],
+        report_virtual_path=markdown_artifact,
+        artifact_virtual_paths=all_artifacts,
+        review_status=review_status,
+        scientific_gate_status=scientific_supervisor_gate["gate_status"],
+        allowed_claim_level=scientific_supervisor_gate["allowed_claim_level"],
+        scientific_gate_virtual_path=scientific_gate_json_artifact,
+        decision_status=delivery_decision_summary["decision_status"],
+        delivery_decision_summary=delivery_decision_summary,
+    )
+    report_overview = _build_report_overview(
+        summary_zh=_compose_summary(snapshot, report_title, solver_metrics),
+        scientific_supervisor_gate=scientific_supervisor_gate,
+        reproducibility_summary=reproducibility_summary,
+        review_status=review.review_status,
+        scientific_followup_summary=scientific_followup_summary,
+        research_evidence_summary=research_evidence_summary,
+    )
+    delivery_highlights = _build_delivery_highlights(
+        solver_metrics=solver_metrics,
+        scientific_supervisor_gate=scientific_supervisor_gate,
+        reproducibility_summary=reproducibility_summary,
+        review_status=review.review_status,
+        figure_delivery_summary=figure_delivery_summary,
+        final_artifact_virtual_paths=new_artifacts,
+        source_report_virtual_path=snapshot.report_virtual_path,
+        provenance_manifest_virtual_path=provenance_manifest_virtual_path,
+        scientific_gate_virtual_path=scientific_gate_json_artifact,
+    )
+    conclusion_sections = _build_conclusion_sections(
+        summary_zh=report_overview["current_conclusion_zh"],
+        scientific_supervisor_gate=scientific_supervisor_gate,
+        research_evidence_summary=research_evidence_summary,
+        reproducibility_summary=reproducibility_summary,
+        provenance_manifest_virtual_path=provenance_manifest_virtual_path,
+        scientific_gate_virtual_path=scientific_gate_json_artifact,
+        stability_evidence_virtual_path=stability_evidence_virtual_path,
+        source_report_virtual_path=snapshot.report_virtual_path,
+        source_artifact_virtual_paths=snapshot.artifact_virtual_paths,
+        final_artifact_virtual_paths=new_artifacts,
+        figure_delivery_summary=figure_delivery_summary,
+        scientific_followup_summary=scientific_followup_summary,
+    )
+    evidence_index = _build_evidence_index(
+        research_evidence_summary=research_evidence_summary,
+        figure_delivery_summary=figure_delivery_summary,
+        scientific_followup_summary=scientific_followup_summary,
+        source_artifact_virtual_paths=snapshot.artifact_virtual_paths,
+        final_artifact_virtual_paths=new_artifacts,
+        provenance_manifest_virtual_path=provenance_manifest_virtual_path,
+        source_report_virtual_path=snapshot.report_virtual_path,
+        scientific_gate_virtual_path=scientific_gate_json_artifact,
+        stability_evidence_virtual_path=stability_evidence_virtual_path,
+        supervisor_handoff_virtual_path=scientific_remediation_handoff_json_artifact,
+    )
+    payload = {
+        "report_title": report_title,
+        "summary_zh": report_overview["current_conclusion_zh"],
+        "source_runtime_stage": snapshot.current_stage,
+        "task_summary": snapshot.task_summary,
+        "confirmation_status": snapshot.confirmation_status,
+        "execution_preference": snapshot.execution_preference,
+        "task_type": snapshot.task_type,
+        "geometry_virtual_path": snapshot.geometry_virtual_path,
+        "geometry_family": snapshot.geometry_family,
+        "execution_readiness": snapshot.execution_readiness,
+        "selected_case_id": snapshot.selected_case_id,
+        "requested_outputs": [
+            item.model_dump(mode="json") for item in snapshot.requested_outputs
+        ],
+        "scientific_verification_requirements": scientific_verification_requirements,
+        "selected_case_acceptance_profile": (
+            selected_case.acceptance_profile.model_dump(mode="json")
+            if selected_case and selected_case.acceptance_profile
+            else None
+        ),
+        "selected_case_provenance_summary": selected_case_provenance_summary,
+        "workspace_case_dir_virtual_path": snapshot.workspace_case_dir_virtual_path,
+        "run_script_virtual_path": snapshot.run_script_virtual_path,
+        "provenance_manifest_virtual_path": provenance_manifest_virtual_path,
+        "provenance_summary": provenance_summary,
+        "environment_fingerprint": snapshot.environment_fingerprint,
+        "environment_parity_assessment": snapshot.environment_parity_assessment,
+        "reproducibility_summary": reproducibility_summary,
+        "report_overview": report_overview,
+        "delivery_highlights": delivery_highlights,
+        "conclusion_sections": conclusion_sections,
+        "evidence_index": evidence_index,
+        "stability_evidence_virtual_path": stability_evidence_virtual_path,
+        "stability_evidence": stability_evidence,
+        "supervisor_handoff_virtual_path": scientific_remediation_handoff_json_artifact,
+        "source_report_virtual_path": snapshot.report_virtual_path,
+        "source_artifact_virtual_paths": snapshot.artifact_virtual_paths,
+        "solver_metrics": solver_metrics,
+        "acceptance_assessment": acceptance_assessment,
+        "experiment_summary": experiment_summary,
+        "experiment_compare_summary": experiment_compare_summary,
+        "research_evidence_summary": research_evidence_summary,
+        "scientific_supervisor_gate": scientific_supervisor_gate,
+        "scientific_gate_status": scientific_supervisor_gate["gate_status"],
+        "allowed_claim_level": scientific_supervisor_gate["allowed_claim_level"],
+        "decision_status": review.decision_status,
+        "delivery_decision_summary": (
+            review.delivery_decision_summary.model_dump(mode="json")
+            if review.delivery_decision_summary
+            else None
+        ),
+        "recommended_actions": _recommended_actions(
+            review_status=review.review_status,
+            decision_status=review.decision_status,
+        ),
+        "scientific_remediation_summary": scientific_remediation_summary,
+        "scientific_remediation_handoff": scientific_remediation_handoff,
+        "scientific_followup_summary": scientific_followup_summary,
+        "scientific_study_summary": scientific_study_summary,
+        "figure_delivery_summary": figure_delivery_summary,
+        "scientific_verification_assessment": scientific_verification_assessment,
+        "output_delivery_plan": output_delivery_plan,
+        "stage_status": snapshot.stage_status,
+        "review_status": review.review_status,
+        "next_recommended_stage": review.next_recommended_stage,
+        "report_virtual_path": review.report_virtual_path,
+        "scientific_gate_virtual_path": review.scientific_gate_virtual_path,
+        "final_artifact_virtual_paths": new_artifacts,
+        "artifact_virtual_paths": review.artifact_virtual_paths,
+    }
+
+    (artifact_dir / "delivery-readiness.json").write_text(
+        json.dumps(acceptance_assessment, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (artifact_dir / "delivery-readiness.md").write_text(
+        _render_delivery_readiness_markdown(report_title, acceptance_assessment),
+        encoding="utf-8",
+    )
+    (artifact_dir / "research-evidence-summary.json").write_text(
+        json.dumps(research_evidence_summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (artifact_dir / "supervisor-scientific-gate.json").write_text(
+        json.dumps(scientific_supervisor_gate, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (artifact_dir / "scientific-remediation-plan.json").write_text(
+        json.dumps(scientific_remediation_summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (artifact_dir / "scientific-remediation-handoff.json").write_text(
+        json.dumps(scientific_remediation_handoff, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (artifact_dir / "final-report.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (artifact_dir / "final-report.md").write_text(
+        _render_markdown(payload),
+        encoding="utf-8",
+    )
+    (artifact_dir / "final-report.html").write_text(
+        _render_html(payload),
+        encoding="utf-8",
+    )
+
+    return payload, new_artifacts

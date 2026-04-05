@@ -1,0 +1,24 @@
+{
+  "task_summary": "??????????? OpenFOAM ????",
+  "confirmation_status": "confirmed",
+  "uploaded_geometry_path": "/mnt/user-data/uploads/live-forces-suboff.stl",
+  "task_type": "resistance",
+  "geometry_family_hint": "DARPA SUBOFF",
+  "selected_case_id": "darpa_suboff_bare_hull_resistance",
+  "review_status": "ready_for_supervisor",
+  "next_recommended_stage": "result-reporting",
+  "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
+  "artifact_virtual_paths": [
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.md",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/dispatch-summary.html",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-request.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/supervisor-handoff.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/openfoam-run.log",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.json",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/live-forces-suboff/solver-results.md"
+  ],
+  "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case",
+  "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/live-forces-suboff/openfoam-case/Allrun",
+  "solver_application": "simpleFoam",
+  "requires_geometry_conversion": false
+}

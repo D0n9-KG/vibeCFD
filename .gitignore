@@ -1,23 +1,71 @@
-.git
+# DeerFlow docker image cache
+docker/.cache/
+# oh-my-claudecode state
+.omc/
+# OS generated files
 .DS_Store
+*.local
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-.superpowers/
-runs/
-uploads/
-
-**/__pycache__/
+# Python cache
+__pycache__/
 *.pyc
 *.pyo
-*.pyd
-.pytest_cache/
-backend/.pytest_cache/
 
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/*.tsbuildinfo
-frontend/vite.config.js
-frontend/vite.config.d.ts
+# Virtual environments
+.venv
+venv/
 
+# Environment variables
+.env
+
+# Configuration files
+config.yaml
+mcp_config.json
+extensions_config.json
+
+# IDE
+.idea/
+.vscode/
+
+# Coverage report
+coverage.xml
+coverage/
+.deer-flow/
+.claude/
+skills/custom/*
+logs/
+log/
+
+# Local git hooks (keep only on this machine, do not push)
+.githooks/
+
+# pnpm
+.pnpm-store
+sandbox_image_cache.tar
+
+# ignore the legacy `web` folder
+web/
+
+# Deployment artifacts
+backend/Dockerfile.langgraph
+config.yaml.bak
+
+# Project-local archives and temp files
+tmp/
 *.log
+.worktrees/
+worktrees/
+
+# Legacy prototype runtime/cache outputs
+legacy/current-prototype/runs/
+legacy/current-prototype/uploads/
+legacy/current-prototype/.pytest_cache/
+legacy/current-prototype/**/__pycache__/
+legacy/current-prototype/frontend/node_modules/
+legacy/current-prototype/frontend/dist/
+legacy/current-prototype/frontend/.vite/
