@@ -204,6 +204,8 @@ def test_submarine_geometry_check_includes_review_fields(tmp_path, monkeypatch):
 
     assert payload["review_status"] == "needs_user_confirmation"
     assert payload["next_recommended_stage"] == "user-confirmation"
+    assert payload["recommended_actions"]
+    assert "clarify_geometry_assumptions" in payload["recommended_actions"]
     assert payload["report_virtual_path"].endswith("/geometry-check.md")
     assert payload["geometry_findings"]
     assert payload["reference_value_suggestions"]
@@ -238,6 +240,8 @@ def test_submarine_geometry_check_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["task_type"] == "resistance"
     assert runtime_state["geometry_virtual_path"] == "/mnt/user-data/uploads/runtime-demo.stl"
     assert runtime_state["next_recommended_stage"] == "user-confirmation"
+    assert runtime_state["recommended_actions"]
+    assert "clarify_geometry_assumptions" in runtime_state["recommended_actions"]
     assert runtime_state["report_virtual_path"].endswith("/geometry-check.md")
     assert runtime_state["artifact_virtual_paths"]
     assert runtime_state["geometry_findings"]
@@ -371,7 +375,7 @@ def test_submarine_geometry_check_preserves_confirmed_brief_context(
 
     assert runtime_state["confirmation_status"] == "confirmed"
     assert runtime_state["execution_preference"] == "preflight_then_execute"
-    assert runtime_state["task_summary"] == design_brief_payload["task_description"]
+    assert runtime_state["task_summary"] == "Run geometry preflight for the already confirmed brief"
     assert runtime_state["selected_case_id"] == "user-confirmed-case"
     assert runtime_state["simulation_requirements"]["inlet_velocity_mps"] == 5.0
     assert runtime_state["geometry_family"] == "DARPA SUBOFF"

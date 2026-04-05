@@ -98,6 +98,7 @@ def submarine_result_report_tool(
         selected_case_id=snapshot.selected_case_id,
         simulation_requirements=snapshot.simulation_requirements,
         requested_outputs=payload.get("requested_outputs", snapshot.requested_outputs),
+        recommended_actions=payload.get("recommended_actions"),
         output_delivery_plan=payload.get("output_delivery_plan"),
         stage_status=snapshot.stage_status,
         runtime_summary=payload["summary_zh"],

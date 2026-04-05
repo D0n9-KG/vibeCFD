@@ -257,6 +257,16 @@ def _compose_summary(
     )
 
 
+def _recommended_actions(*, dispatch_status: str, review_status: str) -> list[str]:
+    if dispatch_status == "executed":
+        return ["review_dispatch_artifacts", "generate_result_report"]
+    if dispatch_status == "failed":
+        return ["inspect_solver_failure", "revise_execution_inputs"]
+    if review_status == "needs_user_confirmation":
+        return ["review_dispatch_artifacts", "clarify_execution_readiness"]
+    return ["review_dispatch_artifacts", "decide_execute_now_or_revise"]
+
+
 def _render_markdown(payload: dict) -> str:
     geometry = payload["geometry"]
     selected_case = payload.get("selected_case")
@@ -1549,6 +1559,10 @@ def run_solver_dispatch(
         "environment_parity_assessment": environment_parity_assessment,
         "review_status": review.review_status,
         "next_recommended_stage": review.next_recommended_stage,
+        "recommended_actions": _recommended_actions(
+            dispatch_status=dispatch_status,
+            review_status=review.review_status,
+        ),
         "artifact_virtual_paths": review.artifact_virtual_paths,
         "workspace_case_dir_virtual_path": case_scaffold.get("workspace_case_dir_virtual_path"),
         "run_script_virtual_path": case_scaffold.get("run_script_virtual_path"),

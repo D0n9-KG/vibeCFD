@@ -483,6 +483,7 @@ class SubmarineGeometryCheckResult(BaseModel):
     reference_value_suggestions: list[GeometryReferenceValueSuggestion] = Field(default_factory=list)
     clarification_required: bool = False
     summary_zh: str
+    recommended_actions: list[str] = Field(default_factory=list)
     suggested_roles: list[SubmarineRoleBoundary] = Field(default_factory=list)
     review_status: Literal["ready_for_supervisor", "needs_user_confirmation", "blocked"] = "ready_for_supervisor"
     next_recommended_stage: str = "geometry-preflight"

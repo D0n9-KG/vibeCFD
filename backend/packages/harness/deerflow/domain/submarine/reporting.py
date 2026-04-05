@@ -197,6 +197,17 @@ def _build_delivery_decision_summary(
     return summary.model_dump(mode="json")
 
 
+def _recommended_actions(*, review_status: str, decision_status: str | None) -> list[str]:
+    actions = ["review_report_artifacts"]
+    if review_status == "blocked":
+        actions.append("fix_setup_and_retry")
+    elif decision_status == "needs_more_evidence":
+        actions.append("collect_more_evidence")
+    else:
+        actions.append("confirm_delivery_or_followup")
+    return actions
+
+
 _resolve_outputs_artifact = resolve_outputs_artifact
 _resolve_selected_case = resolve_selected_case
 _build_acceptance_assessment = build_acceptance_assessment
@@ -557,6 +568,10 @@ def run_result_report(
             review.delivery_decision_summary.model_dump(mode="json")
             if review.delivery_decision_summary
             else None
+        ),
+        "recommended_actions": _recommended_actions(
+            review_status=review.review_status,
+            decision_status=review.decision_status,
         ),
         "scientific_remediation_summary": scientific_remediation_summary,
         "scientific_remediation_handoff": scientific_remediation_handoff,

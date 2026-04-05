@@ -254,6 +254,7 @@ def submarine_geometry_check_tool(
         clarification_required=result.clarification_required,
         calculation_plan=calculation_plan,
         requires_immediate_confirmation=requires_immediate_confirmation,
+        recommended_actions=result.recommended_actions,
         requested_outputs=(
             (existing_runtime or {}).get("requested_outputs")
             or existing_brief.get("requested_outputs")

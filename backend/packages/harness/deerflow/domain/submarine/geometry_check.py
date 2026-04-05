@@ -437,6 +437,19 @@ def _compose_summary(result: SubmarineGeometryCheckResult) -> str:
     )
 
 
+def _recommended_actions(
+    *,
+    blocked: bool,
+    clarification_required: bool,
+    reference_value_suggestions: list[GeometryReferenceValueSuggestion],
+) -> list[str]:
+    if blocked:
+        return ["repair_geometry_input", "rerun_geometry_check"]
+    if clarification_required or reference_value_suggestions:
+        return ["clarify_geometry_assumptions", "update_planning_snapshot"]
+    return ["review_geometry_artifacts", "decide_if_execution_is_warranted"]
+
+
 def _render_markdown(result: SubmarineGeometryCheckResult) -> str:
     geometry = result.geometry
     case_lines = [
@@ -652,6 +665,11 @@ def run_geometry_check(
         reference_value_suggestions=reference_value_suggestions,
         clarification_required=clarification_required,
         summary_zh="",
+        recommended_actions=_recommended_actions(
+            blocked=blocked,
+            clarification_required=clarification_required,
+            reference_value_suggestions=reference_value_suggestions,
+        ),
         suggested_roles=get_subagent_role_boundaries(),
     )
     run_dir_name = _slugify(geometry_path.stem)
@@ -698,4 +716,3 @@ def run_geometry_check(
     html_path.write_text(_render_html(result), encoding="utf-8")
 
     return result, artifacts
-

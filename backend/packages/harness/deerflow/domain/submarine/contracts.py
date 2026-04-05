@@ -332,6 +332,7 @@ class SubmarineRuntimeSnapshot(BaseModel):
     selected_case_id: str | None = None
     simulation_requirements: dict[str, float | int] | None = None
     requested_outputs: list[SubmarineRequestedOutput] = Field(default_factory=list)
+    recommended_actions: list[str] = Field(default_factory=list)
     custom_variants: list[SubmarineCustomExperimentVariant] = Field(default_factory=list)
     output_delivery_plan: list[SubmarineOutputDeliveryItem] = Field(default_factory=list)
     stage_status: str | None = None
@@ -426,6 +427,7 @@ def build_runtime_snapshot(
     selected_case_id: str | None = None,
     simulation_requirements: dict[str, float | int] | None = None,
     requested_outputs: list[SubmarineRequestedOutput | dict] | None = None,
+    recommended_actions: list[str] | None = None,
     custom_variants: list[SubmarineCustomExperimentVariant | dict] | None = None,
     output_delivery_plan: list[SubmarineOutputDeliveryItem | dict] | None = None,
     stage_status: str | None = None,
@@ -495,6 +497,7 @@ def build_runtime_snapshot(
         selected_case_id=selected_case_id,
         simulation_requirements=simulation_requirements,
         requested_outputs=requested_outputs or [],
+        recommended_actions=recommended_actions or [],
         custom_variants=custom_variants or [],
         output_delivery_plan=output_delivery_plan or [],
         stage_status=stage_status,

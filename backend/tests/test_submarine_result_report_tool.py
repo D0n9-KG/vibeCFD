@@ -109,6 +109,8 @@ def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypat
         "fix_setup"
     ]
     assert payload["scientific_followup_summary"] is None
+    assert payload["recommended_actions"]
+    assert "review_report_artifacts" in payload["recommended_actions"]
     assert payload["report_virtual_path"].endswith("/final-report.md")
     assert payload["artifact_virtual_paths"]
     assert payload["report_overview"]["current_conclusion_zh"] == payload["summary_zh"]
@@ -132,6 +134,7 @@ def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypat
     )
     assert result.update["submarine_runtime"]["scientific_gate_status"] == "blocked"
     assert result.update["submarine_runtime"]["decision_status"] == "blocked_by_setup"
+    assert "review_report_artifacts" in result.update["submarine_runtime"]["recommended_actions"]
     assert (
         result.update["submarine_runtime"]["delivery_decision_summary"][
             "recommended_option_id"

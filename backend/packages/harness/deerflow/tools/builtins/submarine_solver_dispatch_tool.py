@@ -392,6 +392,7 @@ def submarine_solver_dispatch_tool(
         selected_case_id=selected_case.get("case_id"),
         simulation_requirements=payload.get("simulation_requirements"),
         requested_outputs=payload.get("requested_outputs"),
+        recommended_actions=payload.get("recommended_actions"),
         custom_variants=payload.get("custom_variants"),
         output_delivery_plan=payload.get("output_delivery_plan"),
         stage_status=dispatch_status,

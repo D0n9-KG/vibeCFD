@@ -316,6 +316,8 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
 
     assert payload["dispatch_status"] == "planned"
     assert payload["execution_readiness"] == "stl_ready"
+    assert payload["recommended_actions"]
+    assert "review_dispatch_artifacts" in payload["recommended_actions"]
     assert payload["geometry"]["geometry_family"] == "Type 209"
     assert payload["selected_case"]["case_id"]
     assert payload["provenance_manifest_virtual_path"].endswith("/provenance-manifest.json")
@@ -2327,6 +2329,8 @@ def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design
 
     assert fake_sandbox.commands
     assert payload["dispatch_status"] == "executed"
+    assert payload["recommended_actions"]
+    assert "generate_result_report" in payload["recommended_actions"]
     assert payload["task_description"] == design_brief_payload["task_description"]
     assert payload["solver_results"]["solver_completed"] is True
     assert payload["simulation_requirements"]["inlet_velocity_mps"] == 5.0
@@ -2337,3 +2341,4 @@ def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design
         == design_brief_payload["task_description"]
     )
     assert result.update["submarine_runtime"]["stage_status"] == "executed"
+    assert "generate_result_report" in result.update["submarine_runtime"]["recommended_actions"]
