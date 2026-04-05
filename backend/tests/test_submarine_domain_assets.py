@@ -2,7 +2,11 @@ import importlib
 
 from deerflow.domain.submarine.assets import get_submarine_domain_root
 from deerflow.domain.submarine.contracts import SubmarineRuntimeRequest
-from deerflow.domain.submarine.library import load_case_library, load_skill_registry
+from deerflow.domain.submarine.library import (
+    load_case_library,
+    load_skill_registry,
+    rank_cases,
+)
 from deerflow.domain.submarine.verification import (
     build_effective_scientific_verification_requirements,
 )
@@ -50,6 +54,27 @@ def test_submarine_case_library_exposes_provenance_disclosure_fields():
     assert primary_source.applicability_conditions
     assert primary_source.is_placeholder is True
     assert primary_source.evidence_gap_note
+    assert advisory_case.evidence_tier == "advisory_placeholder"
+
+
+def test_submarine_case_library_marks_benchmark_validated_cases():
+    library = load_case_library()
+    case = library.case_index["darpa_suboff_bare_hull_resistance"]
+
+    assert case.evidence_tier == "benchmark_validated"
+
+
+def test_rank_cases_exposes_evidence_tiers_in_case_matches():
+    ranked = rank_cases(
+        task_description="Analyze the DARPA SUBOFF resistance baseline with reviewable evidence.",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        geometry_file_name="suboff_solid.stl",
+    )
+
+    assert ranked
+    assert ranked[0].case_id == "darpa_suboff_bare_hull_resistance"
+    assert ranked[0].evidence_tier == "benchmark_validated"
 
 
 def test_submarine_case_library_exposes_effective_scientific_verification_requirements():

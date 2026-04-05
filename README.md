@@ -1,6 +1,14 @@
 # 潜艇仿真智能体系统（DeerFlow 重建基线）
 
-这个仓库已经从原来的轻量原型，切换为 **以 DeerFlow 为新底座** 的重建基线。后续主线不再继续扩展旧的自建执行器与工作台框架，而是直接建立在 DeerFlow 的 `super agent harness`、`sub-agents`、`memory`、`sandbox`、`skills`、Gateway API 和前端基础之上，再叠加潜艇仿真领域层。
+这个仓库已经从原来的轻量原型，切换为 **以 DeerFlow 为新底座** 的重建基线。当前目标不是把系统做成固定阶段的 CFD 工作流，而是做成一个 `lead-agent-first` 的 VibeCFD 系统：由 `Codex` 或 `Claude Code` 主智能体与用户协商目标、约束和交付物，再动态调用 `skills`、`sub-agents`、`tools` 和 `sandbox` 完成任务。
+
+## VibeCFD Direction
+
+- 主智能体是唯一面向用户的协作者
+- `skills` 负责提供专业判断与护栏，而不是强制固定顺序
+- `tools` 负责确定性动作，例如几何检查、求解派发、结果报告
+- `sub-agents` 只承担边界清晰的专项任务
+- `sandbox` 和 `artifacts` 是高风险执行与可追溯证据的硬边界
 
 ## 当前仓库结构
 
@@ -59,7 +67,7 @@
   - `submarine-solver-dispatch`
   - `submarine-result-reporting`
 
-现在最小闭环已经可以围绕现有 thread / upload / artifact 机制工作：
+现在最小闭环已经可以围绕现有 thread / upload / artifact 机制工作，但这些能力应该被视为主智能体可动态调用的能力边界，而不是唯一固定流程：
 
 1. 用户把 `.stl` 上传到当前 thread
 2. agent 通过 `submarine-geometry-check` skill 调用 `submarine_geometry_check`

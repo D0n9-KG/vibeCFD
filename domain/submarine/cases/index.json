@@ -3,6 +3,7 @@
     {
       "case_id": "darpa_suboff_bare_hull_resistance",
       "title": "DARPA SUBOFF Bare Hull Resistance Baseline",
+      "evidence_tier": "benchmark_validated",
       "geometry_family": "DARPA SUBOFF",
       "geometry_description": "Canonical deeply submerged benchmark hull for drag and pressure studies.",
       "task_type": "resistance",
@@ -79,6 +80,7 @@
     {
       "case_id": "darpa_suboff_pressure_distribution",
       "title": "DARPA SUBOFF Pressure Distribution Study",
+      "evidence_tier": "advisory_placeholder",
       "geometry_family": "DARPA SUBOFF",
       "geometry_description": "Benchmark setup focused on hull pressure extraction and surface diagnostics.",
       "task_type": "pressure_distribution",
@@ -119,6 +121,7 @@
     {
       "case_id": "joubert_bb2_wake_baseline",
       "title": "Joubert BB2 Wake Field Baseline",
+      "evidence_tier": "advisory_placeholder",
       "geometry_family": "Joubert BB2",
       "geometry_description": "Reference hull for wake studies and stern-flow analysis.",
       "task_type": "wake_field",
@@ -159,6 +162,7 @@
     {
       "case_id": "joubert_bb2_pressure_velocity",
       "title": "Joubert BB2 Pressure and Velocity Template",
+      "evidence_tier": "advisory_placeholder",
       "geometry_family": "Joubert BB2",
       "geometry_description": "Combined pressure and velocity workflow for benchmark-style stern analysis.",
       "task_type": "pressure_distribution",
@@ -199,6 +203,7 @@
     {
       "case_id": "type209_engineering_drag",
       "title": "Type 209 Engineering Drag Workflow",
+      "evidence_tier": "advisory_placeholder",
       "geometry_family": "Type 209",
       "geometry_description": "Engineering-style submarine hull used for template-based drag evaluation.",
       "task_type": "resistance",
@@ -239,6 +244,7 @@
     {
       "case_id": "type209_pressure_velocity_openfoam",
       "title": "Type 209 Pressure and Velocity OpenFOAM Template",
+      "evidence_tier": "advisory_placeholder",
       "geometry_family": "Type 209",
       "geometry_description": "Template workflow for mapping uploaded engineering geometry to a Type 209 family case.",
       "task_type": "pressure_distribution",
@@ -279,6 +285,7 @@
     {
       "case_id": "suboff_near_free_surface_reference",
       "title": "SUBOFF Near Free Surface Reference",
+      "evidence_tier": "advisory_placeholder",
       "geometry_family": "DARPA SUBOFF",
       "geometry_description": "Reference case retained for future free-surface expansion, used now as a non-recommended contrast.",
       "task_type": "near_free_surface",
@@ -309,6 +316,7 @@
     {
       "case_id": "joubert_bb2_drag_pressure_combo",
       "title": "Joubert BB2 Drag and Pressure Combo",
+      "evidence_tier": "advisory_placeholder",
       "geometry_family": "Joubert BB2",
       "geometry_description": "Balanced workflow for joint drag and pressure evaluation on a benchmark-like hull.",
       "task_type": "resistance",

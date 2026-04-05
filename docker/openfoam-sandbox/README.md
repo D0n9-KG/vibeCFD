@@ -5,6 +5,13 @@ This directory defines the project-local DeerFlow sandbox image used for submari
 The image extends the standard DeerFlow/Agent Infra sandbox base and installs OpenFOAM 13 so that
 DeerFlow tools can run `simpleFoam`, `blockMesh`, and `snappyHexMesh` inside the sandbox runtime.
 
+In the VibeCFD architecture, this image is a hard execution boundary:
+
+- the lead agent may decide whether execution is warranted
+- the actual OpenFOAM commands still run inside the sandbox
+- reviewable manifests, logs, and reports must be emitted as artifacts
+- server deployment should rely on this boundary instead of trusting prompt-only rules
+
 ## Build
 
 ```bash
@@ -49,3 +56,9 @@ Use the same `DEER_FLOW_RUNTIME_PROFILE` value across local runs, Docker Compose
 - `local_cli`: local Codex or CLI-driven runs outside Docker Compose
 - `docker_compose_dev`: the development stack from `docker/docker-compose-dev.yaml`
 - `docker_compose_deployed`: the deployed stack from `docker/docker-compose.yaml`
+
+## Safety Notes
+
+- Treat sandboxed execution as mandatory for risky CFD commands in server environments.
+- Keep generated case scaffolds under DeerFlow `workspace` and reviewable outputs under DeerFlow `outputs`.
+- Do not treat the sandbox as a workflow engine; it is the execution isolation layer for the lead agent and domain tools.

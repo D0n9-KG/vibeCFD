@@ -320,6 +320,9 @@ class SubmarineCaseAcceptanceProfile(BaseModel):
 class SubmarineCase(BaseModel):
     case_id: str
     title: str
+    evidence_tier: Literal["benchmark_validated", "advisory_placeholder"] = (
+        "advisory_placeholder"
+    )
     geometry_family: str
     geometry_description: str
     task_type: str
@@ -425,6 +428,9 @@ class SubmarineSkillRegistry(BaseModel):
 class SubmarineCaseMatch(BaseModel):
     case_id: str
     title: str
+    evidence_tier: Literal["benchmark_validated", "advisory_placeholder"] = (
+        "advisory_placeholder"
+    )
     geometry_family: str
     task_type: str
     score: float

@@ -69,6 +69,10 @@ def _collect_applicability_conditions(case: SubmarineCase) -> list[str]:
 
 
 def _build_confidence_note(case: SubmarineCase) -> str:
+    if case.evidence_tier == "benchmark_validated":
+        return "Case is benchmark-backed and suitable as a stronger scientific anchor."
+    if case.evidence_tier == "advisory_placeholder":
+        return "Case is advisory only until stronger provenance is curated."
     primary = _pick_primary_reference(case)
     if primary is not None and primary.confidence_note:
         return primary.confidence_note
@@ -171,6 +175,13 @@ def rank_cases(
             score += 0.2
             reasons.append("Acceptance profile is defined for this workflow")
 
+        if case.evidence_tier == "benchmark_validated":
+            score += 1.0
+            reasons.append("Evidence tier is benchmark validated")
+        elif case.evidence_tier == "advisory_placeholder":
+            score -= 1.25
+            reasons.append("Evidence tier is advisory placeholder only")
+
         if primary_reference is not None:
             if primary_reference.is_placeholder:
                 score -= 0.75
@@ -186,6 +197,7 @@ def rank_cases(
             SubmarineCaseMatch(
                 case_id=case.case_id,
                 title=case.title,
+                evidence_tier=case.evidence_tier,
                 geometry_family=case.geometry_family,
                 task_type=case.task_type,
                 score=round(score, 3),
@@ -225,4 +237,3 @@ def rank_cases(
 
     ranked.sort(key=lambda item: item.score, reverse=True)
     return ranked[:limit]
-
