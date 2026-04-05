@@ -24,7 +24,10 @@ export function WorkspaceContainer({
   ...props
 }: React.ComponentProps<"div">) {
   return (
-    <div className={cn("flex h-screen w-full flex-col", className)} {...props}>
+    <div
+      className={cn("workspace-shell-bg flex h-screen w-full flex-col", className)}
+      {...props}
+    >
       {children}
     </div>
   );
@@ -46,7 +49,7 @@ export function WorkspaceHeader({
   return (
     <header
       className={cn(
-        "top-0 right-0 left-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 border-b backdrop-blur-sm transition-[width,height] ease-out group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
+        "top-0 right-0 left-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-slate-200/80 bg-white/72 backdrop-blur-xl transition-[width,height] ease-out group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 dark:border-slate-800/80 dark:bg-slate-950/68",
         className,
       )}
       {...props}
@@ -97,6 +100,7 @@ export function WorkspaceHeader({
             target="_blank"
             rel="noopener noreferrer"
             className="opacity-75 transition hover:opacity-100"
+            aria-label={t.workspace.visitGithub}
           >
             <GithubIcon className="size-6" />
           </a>
@@ -132,7 +136,7 @@ export function WorkspaceSurfacePage({
   return (
     <div
       className={cn(
-        "workspace-surface-page flex size-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.08),_transparent_28%),linear-gradient(180deg,_rgba(247,244,238,0.96),_rgba(255,255,255,0.98))]",
+        "workspace-shell-bg workspace-surface-page flex size-full min-h-0 flex-col overflow-hidden",
         className,
       )}
       {...props}
@@ -150,7 +154,7 @@ export function WorkspaceSurfaceMain({
   return (
     <div
       className={cn(
-        "mx-auto flex w-full max-w-[1600px] flex-1 min-h-0 flex-col gap-4 overflow-y-auto px-4 py-4",
+        "mx-auto flex w-full max-w-[1680px] flex-1 min-h-0 flex-col gap-5 overflow-y-auto px-4 py-4 md:px-5 md:py-5",
         className,
       )}
       {...props}
@@ -168,7 +172,7 @@ export function WorkspaceSurfaceCard({
   return (
     <section
       className={cn(
-        "shrink-0 rounded-[28px] border border-stone-200/80 bg-white/92 p-5 shadow-[0_18px_44px_rgba(15,23,42,0.06)]",
+        "workspace-surface-card shrink-0 p-5 md:p-6",
         className,
       )}
       {...props}

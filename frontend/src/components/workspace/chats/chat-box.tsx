@@ -9,6 +9,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { useI18n } from "@/core/i18n/hooks";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +18,6 @@ import {
   ArtifactFileList,
   useArtifacts,
 } from "../artifacts";
-import { useI18n } from "@/core/i18n/hooks";
 import { useThread } from "../messages/context";
 import { WORKSPACE_RESIZABLE_IDS } from "../workspace-resizable-ids";
 
@@ -139,6 +139,8 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
                 <Button
                   size="icon-sm"
                   variant="ghost"
+                  aria-label={t.common.close}
+                  title={t.common.close}
                   onClick={() => {
                     setArtifactsOpen(false);
                   }}

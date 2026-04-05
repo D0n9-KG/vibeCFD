@@ -32,21 +32,19 @@ import {
 } from "@/core/threads/utils";
 import { env } from "@/env";
 
+import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
 import {
   getWorkspaceSurfaceById,
   getWorkspaceSurfaceHref,
   type WorkspaceSurfaceId,
   WORKSPACE_SURFACES,
 } from "./workspace-surface-config";
-import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
 
 type SurfaceQuickLink = {
   href: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
 };
-
-const RECENT_THREAD_PLACEHOLDER_COUNT = 6;
 
 function surfaceQuickLinks(
   surfaceId: WorkspaceSurfaceId,
@@ -145,10 +143,14 @@ export function WorkspaceNavChatList({
       }),
     [surfaceId, isMock],
   );
+  const isStartSurface =
+    pathname.endsWith("/new") &&
+    (surfaceId === "submarine" || surfaceId === "skill-studio");
+  const recentThreadLimit = surfaceId === "chats" ? 6 : isStartSurface ? 3 : 4;
 
   const recentThreads = useMemo(
-    () => filterThreadsForSurface(surfaceId, threads).slice(0, 6),
-    [surfaceId, threads],
+    () => filterThreadsForSurface(surfaceId, threads).slice(0, recentThreadLimit),
+    [recentThreadLimit, surfaceId, threads],
   );
 
   return (
@@ -189,7 +191,7 @@ export function WorkspaceNavChatList({
             <SidebarMenu>
               {isLoading
                 ? Array.from({
-                    length: RECENT_THREAD_PLACEHOLDER_COUNT,
+                    length: recentThreadLimit,
                   }).map((_, index) => (
                     <SidebarMenuItem key={`placeholder-${index}`}>
                       <SidebarMenuSkeleton showIcon />

@@ -93,8 +93,9 @@ export default function SkillStudioWorkbenchPage() {
   const { threadId, isNewThread, markThreadStarted, isMock } = useThreadChat();
   const { agents } = useAgents();
   const { showNotification } = useNotification();
-  const { setOpen: setArtifactsOpen } = useArtifacts();
-  const [chatOpen, setChatOpen] = useState(true);
+  const { setOpen: setArtifactsOpen, deselect: deselectArtifact } =
+    useArtifacts();
+  const [chatOpen, setChatOpen] = useState(isNewThread);
   const [pendingThreadRouteId, setPendingThreadRouteId] = useState<
     string | null
   >(null);
@@ -102,8 +103,9 @@ export default function SkillStudioWorkbenchPage() {
   useSpecificChatMode();
 
   useEffect(() => {
+    deselectArtifact();
     setArtifactsOpen(false);
-  }, [setArtifactsOpen]);
+  }, [deselectArtifact, setArtifactsOpen]);
 
   const agentOptions = useMemo(
     () => buildSkillStudioAgentOptions(agents),
@@ -128,7 +130,7 @@ export default function SkillStudioWorkbenchPage() {
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
-        let body = "技能工作台线程已结束";
+        let body = "技能工作台线程已结束。";
         const lastMessage = state.messages.at(-1);
         if (lastMessage) {
           const textContent = textOfMessage(lastMessage);
@@ -159,6 +161,7 @@ export default function SkillStudioWorkbenchPage() {
     if (nextThreadId == null) {
       return;
     }
+
     router.replace(
       buildSkillStudioThreadPath({
         threadId: nextThreadId,
@@ -264,16 +267,16 @@ export default function SkillStudioWorkbenchPage() {
   const dashboardHref = withMock("/workspace/skill-studio", isMock);
   const selectionHint = agentSelectionLocked
     ? "线程开始后会锁定代理身份，避免技能包上下文在中途漂移。"
-    : "请在第一次提交前确认技能创建器身份。";
+    : "请在第一次提交前确认技能创建代理。";
   const assistantDescription =
     activeAgentOption?.description ??
-    `${activeAssistantLabel} 负责当前技能工作台线程中的起草、校验、测试与发布收口。`;
+    `${activeAssistantLabel} 负责当前线程中的技能创建、校验、测试与发布收口。`;
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
       <ChatBox threadId={threadId}>
         <div className="relative flex size-full min-h-0 flex-col">
-          <header className="bg-background/85 absolute top-0 right-0 left-0 z-30 flex h-14 shrink-0 items-center border-b px-4 backdrop-blur">
+          <header className="absolute top-0 right-0 left-0 z-30 flex h-16 shrink-0 items-center border-b border-slate-200/80 bg-white/72 px-4 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/68">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <Button asChild size="sm" variant="ghost">
                 <Link href={dashboardHref}>
@@ -281,12 +284,15 @@ export default function SkillStudioWorkbenchPage() {
                   返回技能工作台
                 </Link>
               </Button>
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/70 bg-cyan-50/80 text-cyan-700 dark:border-cyan-900/70 dark:bg-cyan-950/35 dark:text-cyan-300">
+                <WandSparklesIcon className="size-4" />
+              </div>
               <div className="min-w-0">
-                <div className="truncate text-sm font-medium">
+                <div className="truncate text-sm font-medium text-slate-950 dark:text-slate-50">
                   <ThreadTitle threadId={threadId} thread={thread} />
                 </div>
-                <div className="text-muted-foreground text-xs">
-                  领域专家 · 技能创建工作台
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  VibeCFD · Skill Studio · 技能创建工作台
                 </div>
               </div>
             </div>
@@ -297,6 +303,7 @@ export default function SkillStudioWorkbenchPage() {
               <Button
                 size="sm"
                 variant="outline"
+                aria-label={chatOpen ? "收起对话侧栏" : "展开对话侧栏"}
                 onClick={() => setChatOpen((open) => !open)}
               >
                 <MessageSquareIcon className="size-4" />
@@ -308,8 +315,8 @@ export default function SkillStudioWorkbenchPage() {
             </div>
           </header>
 
-          <main className="min-h-0 flex-1 overflow-hidden pt-14">
-            <div className="mx-auto flex h-full min-h-0 w-full max-w-none flex-col px-4 py-4">
+          <main className="min-h-0 flex-1 overflow-y-auto pt-16">
+            <div className="mx-auto flex min-h-full w-full max-w-[1720px] flex-col px-4 py-4 md:px-5">
               <div className={layout.shellClassName}>
                 <SkillStudioWorkbenchShell
                   className={layout.workbenchPaneClassName}
@@ -320,28 +327,31 @@ export default function SkillStudioWorkbenchPage() {
                   onOpenChat={focusChatRail}
                 />
 
-                <aside id="skill-studio-chat-rail" className={layout.chatRailClassName}>
+                <aside
+                  id="skill-studio-chat-rail"
+                  className={layout.chatRailClassName}
+                >
                   <div className={layout.chatRailInnerClassName}>
-                    <div className="bg-muted/20 border-b px-4 py-4">
-                      <div className="text-foreground flex items-center gap-2 text-sm font-medium">
-                        <WandSparklesIcon className="text-muted-foreground size-4" />
+                    <div className="border-b border-slate-200/80 bg-slate-50/70 px-4 py-4 dark:border-slate-800/80 dark:bg-slate-900/50">
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-950 dark:text-slate-50">
+                        <WandSparklesIcon className="size-4 text-cyan-600 dark:text-cyan-300" />
                         {activeAssistantLabel}
                       </div>
-                      <p className="text-muted-foreground mt-2 text-sm leading-6">
-                        右侧对话轨道只服务当前技能创建线程，让中间工作台专注技能包审阅、测试、发布门槛和图谱分析。
+                      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        右侧对话轨道负责推进技能创建，中间工作台负责审阅技能包、校验结果、测试矩阵与图谱连接。
                       </p>
                       <div className="mt-3 space-y-3">
                         <div className="space-y-1">
-                          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                            技能创建器代理
+                          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            技能创建代理
                           </div>
                           <Select
                             value={activeAgentName}
                             onValueChange={setSelectedAgentName}
                             disabled={!agentSelectorEnabled || agentSelectionLocked}
                           >
-                            <SelectTrigger className="w-full bg-background/70">
-                              <SelectValue placeholder="选择技能创建器代理" />
+                            <SelectTrigger className="w-full bg-white/80 dark:bg-slate-950/60">
+                              <SelectValue placeholder="选择技能创建代理" />
                             </SelectTrigger>
                             <SelectContent>
                               {agentOptions.map((option) => (
@@ -351,10 +361,10 @@ export default function SkillStudioWorkbenchPage() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
                             {selectionHint}
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
                             {assistantDescription}
                           </div>
                         </div>
@@ -377,10 +387,11 @@ export default function SkillStudioWorkbenchPage() {
                       />
                     </div>
 
-                    <div className="bg-background border-t p-3">
+                    <div className="border-t border-slate-200/80 bg-white/82 p-3 dark:border-slate-800/80 dark:bg-slate-950/82">
                       <InputBox
-                        className="bg-background w-full"
+                        className="w-full bg-transparent"
                         isNewThread={isNewThread}
+                        showNewThreadSuggestions={false}
                         threadId={threadId}
                         autoFocus={isNewThread}
                         status={

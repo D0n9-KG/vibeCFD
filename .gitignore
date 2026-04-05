@@ -58,6 +58,8 @@ config.yaml.bak
 # Project-local archives and temp files
 tmp/
 *.log
+.worktrees/
+worktrees/
 
 # Legacy prototype runtime/cache outputs
 legacy/current-prototype/runs/

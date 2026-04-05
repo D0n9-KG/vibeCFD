@@ -27,12 +27,14 @@ export function getSubmarinePipelineChatRailClassName(): string {
     "shrink-0",
     "flex-col",
     "border-t",
-    "border-stone-200",
-    "bg-stone-50",
+    "border-slate-200/80",
+    "bg-white/82",
     "xl:h-full",
     "xl:min-h-0",
     "xl:border-t-0",
     "xl:border-l",
+    "dark:border-slate-800/80",
+    "dark:bg-slate-950/76",
   ].join(" ");
 }
 
@@ -44,7 +46,7 @@ export function getSubmarinePipelineCenterPaneConfig(): SubmarinePipelineCenterP
   return {
     scrollClassName: "min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4",
     overviewClassName:
-      "mb-4 rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-sm backdrop-blur-sm",
+      "mb-4 rounded-[28px] border border-slate-200/80 bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.10),_transparent_30%),linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.96))] p-5 shadow-[0_24px_64px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:border-slate-800/80 dark:bg-[radial-gradient(circle_at_top_right,_rgba(56,189,248,0.18),_transparent_32%),linear-gradient(180deg,_rgba(15,23,42,0.92),_rgba(2,6,23,0.94))]",
     stageGridClassName:
       "grid gap-4 xl:grid-cols-2 xl:auto-rows-[minmax(16rem,auto)]",
     stageSectionClassName: "min-h-0",

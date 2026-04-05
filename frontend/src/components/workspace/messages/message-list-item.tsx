@@ -180,7 +180,7 @@ function MessageContent_({
     return (
       <AIElementMessageContent className={className}>
         <Task defaultOpen={false}>
-          <TaskTrigger title="">
+          <TaskTrigger title={contentToDisplay || "Task status"}>
             <div className="text-muted-foreground flex w-full cursor-default items-center gap-2 text-sm select-none">
               <Loader className="size-4" />
               <span>{contentToDisplay}</span>

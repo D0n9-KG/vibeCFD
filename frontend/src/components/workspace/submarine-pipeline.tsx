@@ -369,20 +369,17 @@ export function SubmarinePipeline({
     [
       designBrief,
       finalReport,
-      finalReport?.decision_status,
       isNewThread,
       runtime?.calculation_plan,
       runtime?.allowed_claim_level,
       runtime?.blocker_detail,
-      runtime?.clarification_required,
       runtime?.decision_status,
-      runtime?.geometry_findings,
+      runtime?.environment_parity_assessment?.parity_status,
+      runtime?.environment_parity_assessment?.profile_label,
       runtime?.recovery_guidance,
-      runtime?.reference_value_suggestions,
       runtime?.requires_immediate_confirmation,
       runtime?.review_status,
       runtime?.next_recommended_stage,
-      runtime?.scale_assessment,
       runtime?.scientific_gate_status,
       runtime?.scientific_verification_assessment,
       runtime?.runtime_status,
@@ -425,32 +422,7 @@ export function SubmarinePipeline({
   const handleNewSimulation = useCallback(() => {
     router.push("/workspace/submarine/new");
   }, [router]);
-
-  if (!showSidebar && !showChatRail) {
-    return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-stone-200/80 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.08)]">
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <PipelineCenterPane
-            thread={thread}
-            isNewThread={isNewThread}
-            runtime={runtime}
-            displayedCurrentStage={displayedCurrentStage}
-            displayedNextStage={displayedNextStage}
-            pipelineStatus={pipelineStatus}
-            centerRef={centerRef}
-            threadId={threadId}
-            stageSnapshot={stageSnapshot}
-            designBrief={designBrief}
-            geometry={geometry}
-            solverMetrics={solverMetrics}
-            trendValues={trendValues}
-            finalReport={finalReport}
-            handleSend={handleSend}
-          />
-        </div>
-      </div>
-    );
-  }
+  const renderCenterOnly = !showSidebar && !showChatRail;
 
   const handleDeleteRun = useCallback(
     async (runThreadId: string) => {
@@ -526,6 +498,32 @@ export function SubmarinePipeline({
   // ── Render ────────────────────────────────────────────────────────────────
   // xl+ : 3 panes (sidebar + center + chat)
   // < xl : single column — center only; chat toggle owned by page.tsx header button
+  if (renderCenterOnly) {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-stone-200/80 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.08)]">
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <PipelineCenterPane
+            thread={thread}
+            isNewThread={isNewThread}
+            runtime={runtime}
+            displayedCurrentStage={displayedCurrentStage}
+            displayedNextStage={displayedNextStage}
+            pipelineStatus={pipelineStatus}
+            centerRef={centerRef}
+            threadId={threadId}
+            stageSnapshot={stageSnapshot}
+            designBrief={designBrief}
+            geometry={geometry}
+            solverMetrics={solverMetrics}
+            trendValues={trendValues}
+            finalReport={finalReport}
+            handleSend={handleSend}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* 3-pane resizable layout — full height on xl, flex column on mobile */}
@@ -1027,6 +1025,7 @@ export function SubmarinePipelineChatRail({
         <InputBox
           className="w-full bg-white"
           isNewThread={isNewThread}
+          showNewThreadSuggestions={false}
           threadId={threadId}
           autoFocus={isNewThread}
           status={

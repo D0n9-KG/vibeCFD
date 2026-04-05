@@ -1,6 +1,11 @@
 "use client";
 
-import { BotIcon, MessageSquareIcon, SparklesIcon, WavesIcon } from "lucide-react";
+import {
+  BotIcon,
+  MessageSquareIcon,
+  SparklesIcon,
+  WavesIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ComponentType } from "react";
@@ -9,12 +14,12 @@ import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
 import { WorkspaceActivityBar } from "./workspace-activity-bar";
+import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
 import {
   getWorkspaceSurfaceHref,
   matchWorkspaceSurface,
   type WorkspaceSurfaceId,
 } from "./workspace-surface-config";
-import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
 
 const SURFACE_ACTIONS: Record<
   WorkspaceSurfaceId,
@@ -56,12 +61,15 @@ export function WorkspaceHeader({ className }: { className?: string }) {
       <WorkspaceActivityBar orientation="horizontal" className="md:hidden" />
       <div className={cn("flex flex-col gap-3", chrome.headerPanelClassName)}>
         <div className="min-w-0 leading-tight">
-          <span className={chrome.brandEyebrowClassName}>统一工作区</span>
-          <span className="text-primary mt-1 block truncate font-serif text-base font-semibold">
+          <span className={chrome.brandEyebrowClassName}>
+            Engineering Research Workspace
+          </span>
+          <span className="text-primary mt-1 block truncate text-lg font-semibold tracking-[0.02em]">
             VibeCFD
           </span>
           <span className={cn("mt-1 block", chrome.brandMetaClassName)}>
-            当前上下文: {activeSurface.label}
+            基于 DeerFlow Runtime · 融合 SkillNet 工作流 · 当前界面：{" "}
+            {activeSurface.label}
           </span>
         </div>
         <Link

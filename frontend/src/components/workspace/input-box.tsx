@@ -99,6 +99,7 @@ export function InputBox({
   isNewThread,
   threadId,
   initialValue,
+  showNewThreadSuggestions = true,
   onContextChange,
   onSubmit,
   onStop,
@@ -118,6 +119,7 @@ export function InputBox({
   isNewThread?: boolean;
   threadId: string;
   initialValue?: string;
+  showNewThreadSuggestions?: boolean;
   onContextChange?: (
     context: Omit<
       AgentThreadContext,
@@ -856,7 +858,9 @@ export function InputBox({
           {selectedModelUnavailableReason}
         </div>
       )}
-      {isNewThread && searchParams.get("mode") !== "skill" && (
+      {isNewThread &&
+        showNewThreadSuggestions &&
+        searchParams.get("mode") !== "skill" && (
         <div className="absolute right-0 -bottom-20 left-0 z-0 flex items-center justify-center">
           <SuggestionList interactive={chromeState.interactive} />
         </div>
@@ -1018,6 +1022,8 @@ function AddAttachmentsButton({
         className={cn("px-2! pointer-events-none", className)}
         tabIndex={-1}
         type="button"
+        aria-label={t.inputBox.addAttachments}
+        title={t.inputBox.addAttachments}
       >
         <PaperclipIcon className="size-3" />
       </PromptInputButton>
@@ -1028,6 +1034,8 @@ function AddAttachmentsButton({
     <Tooltip content={t.inputBox.addAttachments}>
       <PromptInputButton
         className={cn("px-2!", className)}
+        aria-label={t.inputBox.addAttachments}
+        title={t.inputBox.addAttachments}
         onClick={() => attachments.openFileDialog()}
       >
         <PaperclipIcon className="size-3" />

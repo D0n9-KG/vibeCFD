@@ -33,8 +33,9 @@ export default function SubmarineWorkbenchPage() {
   const [settings, setSettings] = useLocalSettings();
   const { threadId, isNewThread, markThreadStarted, isMock } = useThreadChat();
   const { showNotification } = useNotification();
-  const { setOpen: setArtifactsOpen } = useArtifacts();
-  const [chatOpen, setChatOpen] = useState(false);
+  const { setOpen: setArtifactsOpen, deselect: deselectArtifact } =
+    useArtifacts();
+  const [chatOpen, setChatOpen] = useState(isNewThread);
   const [pendingThreadRouteId, setPendingThreadRouteId] = useState<
     string | null
   >(null);
@@ -42,8 +43,9 @@ export default function SubmarineWorkbenchPage() {
   useSpecificChatMode();
 
   useEffect(() => {
+    deselectArtifact();
     setArtifactsOpen(false);
-  }, [setArtifactsOpen]);
+  }, [deselectArtifact, setArtifactsOpen]);
 
   const [thread, sendMessage, isUploading, streamMeta] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
@@ -59,7 +61,7 @@ export default function SubmarineWorkbenchPage() {
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
-        let body = "对话已结束";
+        let body = "对话已结束。";
         const lastMessage = state.messages.at(-1);
         if (lastMessage) {
           const textContent = textOfMessage(lastMessage);
@@ -103,6 +105,28 @@ export default function SubmarineWorkbenchPage() {
     await thread.stop();
   }, [thread]);
 
+  const focusChatRail = useCallback(() => {
+    if (!chatOpen) {
+      setChatOpen(true);
+      window.setTimeout(() => {
+        const rail = document.getElementById("submarine-chat-rail");
+        rail?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const input = rail?.querySelector("textarea");
+        if (input instanceof HTMLTextAreaElement) {
+          input.focus();
+        }
+      }, 50);
+      return;
+    }
+
+    const rail = document.getElementById("submarine-chat-rail");
+    rail?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const input = rail?.querySelector("textarea");
+    if (input instanceof HTMLTextAreaElement) {
+      input.focus();
+    }
+  }, [chatOpen]);
+
   const layout = useMemo(
     () => getSubmarineWorkbenchLayout({ chatOpen }),
     [chatOpen],
@@ -111,22 +135,26 @@ export default function SubmarineWorkbenchPage() {
   const chatRailErrorMessage = thread.error
     ? thread.error instanceof Error
       ? thread.error.message
-      : String(thread.error)
+      : typeof thread.error === "string"
+        ? thread.error
+        : "线程发生未知错误。"
     : null;
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
       <ChatBox threadId={threadId}>
         <div className="relative flex size-full min-h-0 flex-col">
-          <header className="bg-background/85 absolute top-0 right-0 left-0 z-30 flex h-14 shrink-0 items-center border-b px-4 backdrop-blur">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <WavesIcon className="text-muted-foreground size-4 shrink-0" />
+          <header className="absolute top-0 right-0 left-0 z-30 flex h-16 shrink-0 items-center border-b border-slate-200/80 bg-white/72 px-4 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/68">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-sky-200/70 bg-sky-50/80 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/35 dark:text-sky-300">
+                <WavesIcon className="size-4 shrink-0" />
+              </div>
               <div className="min-w-0">
-                <div className="truncate text-sm font-medium">
+                <div className="truncate text-sm font-medium text-slate-950 dark:text-slate-50">
                   <ThreadTitle threadId={threadId} thread={thread} />
                 </div>
-                <div className="text-muted-foreground text-xs">
-                  VibeCFD · 仿真工作台
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  VibeCFD · Submarine Cockpit · 仿真工作台
                 </div>
               </div>
             </div>
@@ -134,7 +162,7 @@ export default function SubmarineWorkbenchPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="xl:hidden"
+                aria-label={chatOpen ? "收起对话侧栏" : "展开对话侧栏"}
                 onClick={() => setChatOpen((open) => !open)}
               >
                 <MessageSquareIcon className="size-4" />
@@ -146,8 +174,8 @@ export default function SubmarineWorkbenchPage() {
             </div>
           </header>
 
-          <main className="min-h-0 flex-1 overflow-hidden pt-14">
-            <div className="mx-auto flex h-full min-h-0 w-full max-w-none flex-col px-4 py-4">
+          <main className="min-h-0 flex-1 overflow-y-auto pt-16">
+            <div className="mx-auto flex min-h-full w-full max-w-[1720px] flex-col px-4 py-4 md:px-5">
               <div className={layout.shellClassName}>
                 <SubmarineWorkbenchShell
                   className={layout.workbenchPaneClassName}
@@ -158,9 +186,10 @@ export default function SubmarineWorkbenchPage() {
                   chatOpen={chatOpen}
                   sendMessage={sendMessage}
                   onStop={handleStop}
+                  onOpenChat={focusChatRail}
                 />
 
-                <aside className={layout.chatRailClassName}>
+                <aside id="submarine-chat-rail" className={layout.chatRailClassName}>
                   <div className={layout.chatRailInnerClassName}>
                     <SubmarinePipelineChatRail
                       thread={thread}
@@ -169,7 +198,7 @@ export default function SubmarineWorkbenchPage() {
                         outputStatus: "实时同步",
                         runLabel: thread.isLoading ? "运行中" : "就绪",
                         summaryText:
-                          "右侧保留线程对话，中间工作台继续专注当前运行视图和交付判断。",
+                          "右侧保留协作对话与消息流，中间工作台继续专注当前阶段、证据与交付判断。",
                         tone: chatRailErrorMessage
                           ? "error"
                           : thread.isLoading
@@ -179,7 +208,7 @@ export default function SubmarineWorkbenchPage() {
                           ? {
                               title: "线程出错",
                               guidance:
-                                "先查看最新消息，再在运行工作台里继续重试。",
+                                "先检查最新消息，再决定是否回到运行台继续重试或调整任务。",
                               message: chatRailErrorMessage,
                             }
                           : null,
