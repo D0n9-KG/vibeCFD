@@ -310,6 +310,8 @@ class SubmarineRuntimeSnapshot(BaseModel):
     ]
     task_summary: str
     confirmation_status: Literal["draft", "confirmed"] = "draft"
+    approval_state: Literal["needs_confirmation", "approved"] = "needs_confirmation"
+    goal_status: Literal["planning", "ready_for_execution"] = "planning"
     execution_preference: Literal[
         "plan_only",
         "execute_now",
@@ -357,6 +359,7 @@ class SubmarineRuntimeSnapshot(BaseModel):
     scientific_gate_virtual_path: str | None = None
     decision_status: SubmarineDeliveryDecisionStatus | None = None
     delivery_decision_summary: SubmarineDeliveryDecisionSummary | None = None
+    stage_hints: dict[str, str | None] = Field(default_factory=dict)
     next_recommended_stage: str
     report_virtual_path: str
     artifact_virtual_paths: list[str] = Field(default_factory=list)
@@ -399,6 +402,8 @@ def build_runtime_snapshot(
     ],
     task_summary: str,
     confirmation_status: Literal["draft", "confirmed"] = "draft",
+    approval_state: Literal["needs_confirmation", "approved"] = "needs_confirmation",
+    goal_status: Literal["planning", "ready_for_execution"] = "planning",
     execution_preference: Literal[
         "plan_only",
         "execute_now",
@@ -448,6 +453,7 @@ def build_runtime_snapshot(
     scientific_gate_virtual_path: str | None = None,
     decision_status: SubmarineDeliveryDecisionStatus | None = None,
     delivery_decision_summary: SubmarineDeliveryDecisionSummary | dict[str, Any] | None = None,
+    stage_hints: dict[str, str | None] | None = None,
     activity_timeline: list[SubmarineRuntimeEvent | dict] | None = None,
 ) -> SubmarineRuntimeSnapshot:
     from .runtime_plan import build_runtime_status_payload
@@ -473,6 +479,8 @@ def build_runtime_snapshot(
         current_stage=current_stage,
         task_summary=task_summary,
         confirmation_status=confirmation_status,
+        approval_state=approval_state,
+        goal_status=goal_status,
         execution_preference=execution_preference,
         task_type=task_type,
         geometry_virtual_path=geometry_virtual_path,
@@ -514,6 +522,7 @@ def build_runtime_snapshot(
         scientific_gate_virtual_path=scientific_gate_virtual_path,
         decision_status=decision_status,
         delivery_decision_summary=delivery_decision_summary,
+        stage_hints=stage_hints or {},
         next_recommended_stage=next_recommended_stage,
         report_virtual_path=report_virtual_path,
         artifact_virtual_paths=artifact_virtual_paths or [],

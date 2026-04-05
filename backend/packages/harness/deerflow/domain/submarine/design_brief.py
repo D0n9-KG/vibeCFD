@@ -108,6 +108,20 @@ def _compose_summary(
     )
 
 
+def _resolve_approval_state(
+    *,
+    confirmation_status: str,
+    open_questions: list[str],
+) -> str:
+    if confirmation_status == "confirmed" and not open_questions:
+        return "approved"
+    return "needs_confirmation"
+
+
+def _resolve_goal_status(*, approval_state: str) -> str:
+    return "ready_for_execution" if approval_state == "approved" else "planning"
+
+
 def _render_markdown(payload: dict) -> str:
     requested_outputs = "\n".join(
         (
@@ -588,6 +602,11 @@ def run_design_brief(
         report_virtual_path,
         _artifact_virtual_path(run_dir_name, "cfd-design-brief.html"),
     ]
+    approval_state = _resolve_approval_state(
+        confirmation_status=confirmation_status,
+        open_questions=open_questions,
+    )
+    goal_status = _resolve_goal_status(approval_state=approval_state)
     review_status = (
         "ready_for_supervisor"
         if confirmation_status == "confirmed" and not open_questions
@@ -628,6 +647,8 @@ def run_design_brief(
         "task_description": task_description,
         "task_type": task_type,
         "confirmation_status": confirmation_status,
+        "approval_state": approval_state,
+        "goal_status": goal_status,
         "execution_preference": execution_preference,
         "geometry_virtual_path": geometry_virtual_path,
         "geometry_family_hint": geometry_family_hint,
@@ -641,6 +662,14 @@ def run_design_brief(
         "calculation_plan": calculation_plan,
         "execution_outline": execution_outline,
         "review_status": review_status,
+        "stage_hints": {
+            "current": "task-intelligence",
+            "suggested_next": (
+                ready_stage_when_confirmed or next_recommended_stage
+                if review_status == "ready_for_supervisor"
+                else next_recommended_stage
+            ),
+        },
         "next_recommended_stage": (
             ready_stage_when_confirmed or next_recommended_stage
             if review_status == "ready_for_supervisor"

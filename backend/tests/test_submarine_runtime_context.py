@@ -35,10 +35,10 @@ def test_resolve_execution_preference_falls_back_to_confirm_then_execute_intent(
     )
 
 
-def test_resolve_task_summary_prefers_design_brief_contract():
+def test_resolve_task_summary_falls_back_to_design_brief_when_explicit_update_missing():
     assert (
         resolve_task_summary(
-            explicit_task_description="Run geometry preflight for the confirmed brief",
+            explicit_task_description=None,
             existing_runtime={
                 "task_summary": "Geometry preflight completed for the uploaded STL."
             },
@@ -48,6 +48,22 @@ def test_resolve_task_summary_prefers_design_brief_contract():
             fallback_task_description="Prepare a submarine CFD run",
         )
         == "Execute the confirmed 5 m/s baseline CFD study."
+    )
+
+
+def test_resolve_task_summary_prefers_latest_explicit_update_over_stale_brief():
+    assert (
+        resolve_task_summary(
+            explicit_task_description="Switch the plan from resistance baseline to wake-field comparison.",
+            existing_runtime={
+                "task_summary": "Geometry preflight completed for the uploaded STL."
+            },
+            existing_brief={
+                "task_description": "Execute the confirmed 5 m/s baseline CFD study."
+            },
+            fallback_task_description="Prepare a submarine CFD run",
+        )
+        == "Switch the plan from resistance baseline to wake-field comparison."
     )
 
 

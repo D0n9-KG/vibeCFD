@@ -133,9 +133,9 @@ def resolve_task_summary(
     explicit_task_summary = str(explicit_task_description or "").strip()
     fallback_summary = str(fallback_task_description or "").strip()
     return (
-        brief_task_description
+        explicit_task_summary
+        or brief_task_description
         or runtime_task_summary
-        or explicit_task_summary
         or fallback_summary
     )
 
@@ -164,6 +164,13 @@ def requires_user_confirmation(
     )
     if calculation_plan_requires_confirmation(calculation_plan):
         return True
+
+    approval_state = (
+        str((existing_brief or {}).get("approval_state") or "").strip()
+        or str((existing_runtime or {}).get("approval_state") or "").strip()
+    )
+    if approval_state == "approved":
+        return False
 
     if (
         resolve_confirmation_status(

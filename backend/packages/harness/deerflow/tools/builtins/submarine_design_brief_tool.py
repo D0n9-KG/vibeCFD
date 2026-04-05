@@ -272,6 +272,8 @@ def submarine_design_brief_tool(
         current_stage="task-intelligence",
         task_summary=payload["task_description"],
         confirmation_status=payload["confirmation_status"],
+        approval_state=payload.get("approval_state", "needs_confirmation"),
+        goal_status=payload.get("goal_status", "planning"),
         execution_preference=payload["execution_preference"],
         task_type=payload["task_type"],
         geometry_virtual_path=payload.get("geometry_virtual_path") or "",
@@ -312,6 +314,7 @@ def submarine_design_brief_tool(
             existing_plan=payload["execution_outline"],
         ),
         review_status=payload["review_status"],
+        stage_hints=payload.get("stage_hints"),
         activity_timeline=timeline,
     )
     detail_lines = "\n".join(f"- {artifact}" for artifact in artifacts)

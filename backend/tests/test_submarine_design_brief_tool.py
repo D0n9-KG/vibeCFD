@@ -96,6 +96,10 @@ def test_submarine_design_brief_tool_generates_deerflow_artifacts(tmp_path, monk
     assert payload["expected_outputs"] == ["阻力系数 Cd", "阻力分解", "中文结果报告"]
     assert payload["user_constraints"] == ["先做单工况稳健基线，不做参数扫描"]
     assert payload["open_questions"] == ["是否需要额外对比 5 m/s 工况"]
+    assert payload["approval_state"] == "needs_confirmation"
+    assert payload["goal_status"] == "planning"
+    assert payload["stage_hints"]["current"] == "task-intelligence"
+    assert payload["stage_hints"]["suggested_next"] == "user-confirmation"
     assert payload["execution_outline"][0]["role_id"] == "claude-code-supervisor"
     assert payload["execution_outline"][1]["role_id"] == "task-intelligence"
     assert payload["execution_outline"][0]["status"] == "in_progress"
@@ -107,6 +111,9 @@ def test_submarine_design_brief_tool_generates_deerflow_artifacts(tmp_path, monk
 
     runtime_state = result.update["submarine_runtime"]
     assert runtime_state["current_stage"] == "task-intelligence"
+    assert runtime_state["approval_state"] == "needs_confirmation"
+    assert runtime_state["goal_status"] == "planning"
+    assert runtime_state["stage_hints"]["suggested_next"] == "user-confirmation"
     assert runtime_state["report_virtual_path"].endswith("/cfd-design-brief.md")
     assert runtime_state["simulation_requirements"]["delta_t_seconds"] == 0.5
     assert runtime_state["execution_plan"][0]["status"] == "in_progress"
@@ -179,9 +186,16 @@ def test_submarine_design_brief_tool_merges_existing_brief_context(tmp_path, mon
     assert payload["simulation_requirements"]["fluid_density_kg_m3"] == 1000.0
     assert payload["user_constraints"] == ["先做单工况基线"]
     assert payload["confirmation_status"] == "confirmed"
+    assert payload["approval_state"] == "approved"
+    assert payload["goal_status"] == "ready_for_execution"
+    assert payload["stage_hints"]["current"] == "task-intelligence"
+    assert payload["stage_hints"]["suggested_next"] == "geometry-preflight"
     assert payload["open_questions"] == []
     assert payload["expected_outputs"] == ["阻力系数 Cd", "中文结果报告", "网格质量摘要"]
     assert runtime_state["review_status"] == "ready_for_supervisor"
+    assert runtime_state["approval_state"] == "approved"
+    assert runtime_state["goal_status"] == "ready_for_execution"
+    assert runtime_state["stage_hints"]["suggested_next"] == "geometry-preflight"
     assert runtime_state["next_recommended_stage"] == "geometry-preflight"
     assert len(runtime_state["activity_timeline"]) == 2
     assert runtime_state["activity_timeline"][-1]["status"] == "confirmed"
