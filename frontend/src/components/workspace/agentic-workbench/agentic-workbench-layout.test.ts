@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { getSkillStudioWorkbenchLayout } = await import(
-  new URL("./skill-studio-workbench-layout.ts", import.meta.url).href,
+const { getAgenticWorkbenchLayout } = await import(
+  new URL("./agentic-workbench-layout.ts", import.meta.url).href,
 );
 
-void test("uses a persistent desktop split layout when the chat rail is open", () => {
-  const layout = getSkillStudioWorkbenchLayout({ chatOpen: true });
+void test("builds a persistent desktop split with configurable negotiation rail width", () => {
+  const layout = getAgenticWorkbenchLayout({
+    chatOpen: true,
+    desktopNegotiationRailWidthClassName: "minmax(320px,420px)",
+    desktopWorkbenchPaddingClassName: "xl:pr-1",
+  });
 
   assert.match(layout.shellClassName, /w-full/);
   assert.match(layout.shellClassName, /grid-cols-1/);
@@ -14,7 +18,7 @@ void test("uses a persistent desktop split layout when the chat rail is open", (
   assert.match(layout.shellClassName, /xl:overflow-hidden/);
   assert.match(
     layout.shellClassName,
-    /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(340px,460px\)\]/,
+    /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(320px,420px\)\]/,
   );
   assert.match(
     layout.workbenchPaneClassName,
@@ -22,20 +26,24 @@ void test("uses a persistent desktop split layout when the chat rail is open", (
   );
   assert.match(layout.workbenchPaneClassName, /xl:min-h-0/);
   assert.match(layout.workbenchPaneClassName, /xl:overflow-hidden/);
-  assert.doesNotMatch(layout.chatRailClassName, /absolute/);
+  assert.match(layout.workbenchPaneClassName, /xl:pr-1/);
   assert.match(layout.chatRailClassName, /xl:block/);
   assert.match(layout.chatRailClassName, /xl:h-full/);
   assert.match(layout.chatRailInnerClassName, /xl:h-full/);
 });
 
-void test("keeps the desktop split layout even when the mobile chat rail is hidden", () => {
-  const layout = getSkillStudioWorkbenchLayout({ chatOpen: false });
+void test("keeps desktop negotiation rail mounted when mobile chat is hidden", () => {
+  const layout = getAgenticWorkbenchLayout({
+    chatOpen: false,
+    desktopNegotiationRailWidthClassName: "minmax(340px,460px)",
+    desktopWorkbenchPaddingClassName: "xl:pr-2",
+  });
 
-  assert.match(layout.shellClassName, /grid-cols-1/);
   assert.match(
     layout.shellClassName,
     /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(340px,460px\)\]/,
   );
   assert.match(layout.chatRailClassName, /hidden/);
   assert.match(layout.chatRailClassName, /xl:block/);
+  assert.match(layout.workbenchPaneClassName, /xl:pr-2/);
 });
