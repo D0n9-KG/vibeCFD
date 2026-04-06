@@ -38,3 +38,9 @@ void test("skill studio canvas localizes publish gate statuses", () => {
   assert.match(canvasSource, /已通过/);
   assert.match(canvasSource, /已阻塞/);
 });
+
+void test("skill studio scrolls the center canvas while keeping a larger fixed composer in the rail", () => {
+  assert.match(source, /className="min-h-0 flex-1 overflow-y-auto pr-1"/);
+  assert.match(source, /paddingBottom=\{160\}/);
+  assert.match(source, /textareaClassName="min-h-28"/);
+});

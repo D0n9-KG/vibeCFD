@@ -13,7 +13,7 @@ type FlowItem = {
 
 export function WorkbenchFlow({ items }: { items: readonly FlowItem[] }) {
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+    <div className="flex min-h-0 flex-col gap-3">
       {items.map((item) => (
         <section
           key={item.id}

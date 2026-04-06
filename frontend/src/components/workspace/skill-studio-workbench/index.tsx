@@ -467,7 +467,7 @@ export function SkillStudioAgenticWorkbench({
         interruptionVisible={session.negotiation.interruptionVisible}
         summary={session.negotiation.question ?? WORKBENCH_COPY.common.negotiationHint}
       />
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <SkillStudioLifecycleCanvas
           session={session}
           detail={detail}
@@ -536,7 +536,7 @@ export function SkillStudioAgenticWorkbench({
         </div>
       }
       body={
-        <div className="flex h-full min-h-0 flex-col gap-3">
+        <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
           <section className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3">
             <div className="text-sm font-semibold text-slate-950">{activeAssistantLabel}</div>
             <p className="mt-1 text-sm leading-6 text-slate-600">{assistantDescription}</p>
@@ -559,7 +559,7 @@ export function SkillStudioAgenticWorkbench({
           >
             <MessageList
               className="flex-1 justify-start"
-              paddingBottom={32}
+              paddingBottom={160}
               threadId={threadId}
               thread={thread}
             />
@@ -567,6 +567,7 @@ export function SkillStudioAgenticWorkbench({
 
           <InputBox
             className="w-full bg-transparent"
+            textareaClassName="min-h-28"
             isNewThread={isNewThread}
             showNewThreadSuggestions={false}
             threadId={threadId}

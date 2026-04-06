@@ -146,9 +146,9 @@ export default function SubmarineWorkbenchPage() {
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
       <ChatBox threadId={threadId}>
-        <div className="flex size-full min-h-0 flex-col">
-          <main className="min-h-0 flex-1 overflow-y-auto">
-            <div className="mx-auto flex min-h-full w-full max-w-[1720px] flex-col px-4 py-4 md:px-5">
+        <div className="flex size-full min-h-0 flex-col overflow-hidden">
+          <main className="min-h-0 flex-1 overflow-hidden">
+            <div className="mx-auto flex h-full w-full max-w-[1720px] flex-col px-4 py-4 md:px-5">
               <SubmarineAgenticWorkbench
                 threadId={threadId}
                 isNewThread={isNewThread}

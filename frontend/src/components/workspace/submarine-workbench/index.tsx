@@ -150,7 +150,7 @@ export function SubmarineAgenticWorkbench({
         interruptionVisible={session.negotiation.interruptionVisible}
         summary={session.negotiation.question ?? WORKBENCH_COPY.common.negotiationHint}
       />
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <SubmarineResearchCanvas
           session={session}
           detail={detail}
@@ -206,7 +206,7 @@ export function SubmarineAgenticWorkbench({
   );
 
   return (
-    <section data-workbench-surface="submarine">
+    <section data-workbench-surface="submarine" className="h-full min-h-0">
       <WorkbenchShell
         mobileNegotiationRailVisible={showChatRail}
         main={main}

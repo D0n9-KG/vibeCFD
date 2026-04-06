@@ -1014,7 +1014,7 @@ export function SubmarinePipelineChatRail({
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <MessageList
           className={getSubmarinePipelineChatViewportClassName()}
-          paddingBottom={32}
+          paddingBottom={160}
           threadId={threadId}
           thread={thread}
         />
@@ -1024,6 +1024,7 @@ export function SubmarinePipelineChatRail({
       <div className="shrink-0 border-t border-stone-200 bg-white p-2.5">
         <InputBox
           className="w-full bg-white"
+          textareaClassName="min-h-28"
           isNewThread={isNewThread}
           showNewThreadSuggestions={false}
           threadId={threadId}

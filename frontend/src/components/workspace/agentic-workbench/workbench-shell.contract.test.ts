@@ -19,6 +19,22 @@ void test("declares only main and negotiation shell zones for thread workbenches
   assert.equal(Object.hasOwn(classes, "nav"), false);
 });
 
+void test("locks the desktop shell to a fixed-height split so only the center pane scrolls", async () => {
+  const { getWorkbenchShellZoneClassNames } = await import(moduleUrl);
+  const classes = getWorkbenchShellZoneClassNames();
+
+  assert.match(classes.root, /\bh-full\b/);
+  assert.match(classes.root, /\boverflow-hidden\b/);
+  assert.match(
+    classes.root,
+    /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(360px,480px\)\]/,
+  );
+  assert.match(classes.main, /\bh-full\b/);
+  assert.match(classes.main, /\boverflow-hidden\b/);
+  assert.match(classes.negotiation, /\bxl:h-full\b/);
+  assert.match(classes.negotiation, /\bxl:overflow-hidden\b/);
+});
+
 void test("keeps shell contract stage-agnostic and removes the duplicated nav column", async () => {
   const source = await readFile(
     path.join(moduleDir, "workbench-shell.tsx"),

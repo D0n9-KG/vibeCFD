@@ -31,3 +31,12 @@ void test("submarine workbench folds overview and flow index back into the main 
   assert.match(canvasSource, /研究推进索引/);
   assert.match(canvasSource, /当前焦点/);
 });
+
+void test("submarine workbench scrolls the center canvas instead of the whole page", () => {
+  assert.match(source, /<section data-workbench-surface="submarine" className="h-full min-h-0">/);
+  assert.match(source, /className="min-h-0 flex-1 overflow-y-auto pr-1"/);
+  assert.match(
+    source,
+    /id="submarine-chat-rail" className="min-h-0 flex-1 overflow-hidden"/,
+  );
+});

@@ -48,7 +48,7 @@ export function NegotiationRail({
         <section
           key={slot}
           data-negotiation-slot={slot}
-          className={slot === "body" ? "min-h-0 flex-1" : undefined}
+          className={slot === "body" ? "min-h-0 flex-1 overflow-hidden" : undefined}
         >
           {slotContent[slot]}
         </section>

@@ -212,7 +212,10 @@ export function SkillStudioThreadRoute({
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
       <ChatBox threadId={threadId}>
-        <SkillStudioAgenticWorkbench
+        <div className="flex size-full min-h-0 flex-col overflow-hidden">
+          <main className="min-h-0 flex-1 overflow-hidden">
+            <div className="mx-auto flex h-full w-full max-w-[1720px] flex-col px-4 py-4 md:px-5">
+              <SkillStudioAgenticWorkbench
           threadId={threadId}
           isNewThread={isNewThread}
           activeAgentName={activeAgentName}
@@ -238,7 +241,10 @@ export function SkillStudioThreadRoute({
           onContextChange={(context) => setSettings("context", context)}
           onSubmit={handleSubmit}
           onStop={handleStop}
-        />
+              />
+            </div>
+          </main>
+        </div>
       </ChatBox>
     </ThreadContext.Provider>
   );

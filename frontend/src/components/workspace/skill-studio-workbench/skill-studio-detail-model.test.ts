@@ -263,3 +263,22 @@ void test("keeps define, evaluate, publish, and graph lifecycle detail explicit"
   assert.equal(model.graph.upstreamCount, 1);
   assert.equal(model.graph.downstreamCount, 1);
 });
+
+void test("localizes fallback skill define copy for new empty threads", () => {
+  const model = buildSkillStudioDetailModel({
+    studioState: null,
+    draft: null,
+    skillPackage: null,
+    validation: null,
+    testMatrix: null,
+    publishReadiness: null,
+    lifecycleSummary: null,
+    lifecycleDetail: null,
+    skillGraph: null,
+    studioArtifacts: [],
+  });
+
+  assert.equal(model.define.skillName, "未命名技能");
+  assert.equal(model.define.skillTitle, "未命名技能");
+  assert.equal(model.define.skillGoal, "请先定义技能目标、触发条件与评审边界。");
+});

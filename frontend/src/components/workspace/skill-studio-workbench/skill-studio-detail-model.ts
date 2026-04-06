@@ -256,16 +256,16 @@ export function buildSkillStudioDetailModel(
         input.draft?.skill_name ??
         input.studioState?.skill_name ??
         input.lifecycleDetail?.skill_name ??
-        "Unnamed skill",
+        "未命名技能",
       skillTitle:
         input.draft?.skill_title ??
         input.draft?.skill_name ??
         input.studioState?.skill_name ??
-        "Untitled skill",
+        "未命名技能",
       skillGoal:
         input.draft?.skill_purpose ??
         input.draft?.description ??
-        "Define the skill goal, trigger, and review boundary.",
+        "请先定义技能目标、触发条件与评审边界。",
       triggerCount: input.draft?.trigger_conditions?.length ?? 0,
       triggerConditions: input.draft?.trigger_conditions ?? [],
       constraintCount: input.draft?.expert_rules?.length ?? 0,
