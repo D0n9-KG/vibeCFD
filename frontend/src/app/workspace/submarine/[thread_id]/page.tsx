@@ -22,7 +22,7 @@ import {
 import { ExportTrigger } from "@/components/workspace/export-trigger";
 import { ThreadContext } from "@/components/workspace/messages/context";
 import { SubmarinePipelineChatRail } from "@/components/workspace/submarine-pipeline";
-import { SubmarineWorkbenchShell } from "@/components/workspace/submarine-workbench-shell";
+import { SubmarineAgenticWorkbench } from "@/components/workspace/submarine-workbench";
 import { ThreadTitle } from "@/components/workspace/thread-title";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { useNotification } from "@/core/notification/hooks";
@@ -202,17 +202,13 @@ export default function SubmarineWorkbenchPage() {
           <main className="min-h-0 flex-1 overflow-y-auto pt-16">
             <div className="mx-auto flex min-h-full w-full max-w-[1720px] flex-col px-4 py-4 md:px-5">
               <div className={layout.shellClassName}>
-                <SubmarineWorkbenchShell
-                  className={layout.workbenchPaneClassName}
-                  threadId={threadId}
-                  isNewThread={isNewThread}
-                  isUploading={isUploading}
-                  isMock={isMock}
-                  chatOpen={mobileNegotiationRailVisible}
-                  sendMessage={sendMessage}
-                  onStop={handleStop}
-                  onOpenChat={focusChatRail}
-                />
+                <div className={layout.workbenchPaneClassName}>
+                  <SubmarineAgenticWorkbench
+                    threadId={threadId}
+                    isNewThread={isNewThread}
+                    onOpenChat={focusChatRail}
+                  />
+                </div>
 
                 <aside id="submarine-chat-rail" className={layout.chatRailClassName}>
                   <div className={layout.chatRailInnerClassName}>
