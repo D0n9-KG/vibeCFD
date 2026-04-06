@@ -4,18 +4,17 @@ import {
 } from "../../../components/workspace/agentic-workbench/agentic-workbench-layout.ts";
 
 type SkillStudioWorkbenchLayoutOptions = {
-  chatOpen: boolean;
+  mobileNegotiationRailVisible: boolean;
 };
 
 type SkillStudioWorkbenchLayout = AgenticWorkbenchLayout;
 
 export function getSkillStudioWorkbenchLayout({
-  chatOpen,
+  mobileNegotiationRailVisible,
 }: SkillStudioWorkbenchLayoutOptions): SkillStudioWorkbenchLayout {
   return getAgenticWorkbenchLayout({
-    chatOpen,
-    desktopNegotiationRailWidthClassName: "minmax(340px,460px)",
-    desktopWorkbenchPaddingClassName: "xl:pr-2",
+    surface: "skill-studio",
+    mobileNegotiationRailVisible,
   });
 }
 

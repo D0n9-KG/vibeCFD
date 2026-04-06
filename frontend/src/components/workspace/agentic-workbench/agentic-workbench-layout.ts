@@ -1,7 +1,8 @@
+import type { AgenticWorkbenchSurface } from "./session-model.ts";
+
 export type AgenticWorkbenchLayoutOptions = {
-  chatOpen: boolean;
-  desktopNegotiationRailWidthClassName: string;
-  desktopWorkbenchPaddingClassName: string;
+  surface: AgenticWorkbenchSurface;
+  mobileNegotiationRailVisible: boolean;
 };
 
 export type AgenticWorkbenchLayout = {
@@ -12,10 +13,14 @@ export type AgenticWorkbenchLayout = {
 };
 
 export function getAgenticWorkbenchLayout({
-  chatOpen,
-  desktopNegotiationRailWidthClassName,
-  desktopWorkbenchPaddingClassName,
+  surface,
+  mobileNegotiationRailVisible,
 }: AgenticWorkbenchLayoutOptions): AgenticWorkbenchLayout {
+  const desktopNegotiationRailWidthClassName =
+    surface === "submarine" ? "minmax(320px,420px)" : "minmax(340px,460px)";
+  const desktopWorkbenchPaddingClassName =
+    surface === "submarine" ? "xl:pr-1" : "xl:pr-2";
+
   return {
     shellClassName: [
       "grid",
@@ -37,7 +42,7 @@ export function getAgenticWorkbenchLayout({
       desktopWorkbenchPaddingClassName,
     ].join(" "),
     chatRailClassName: [
-      chatOpen ? "block" : "hidden",
+      mobileNegotiationRailVisible ? "block" : "hidden",
       "min-w-0",
       "xl:block",
       "xl:h-full",

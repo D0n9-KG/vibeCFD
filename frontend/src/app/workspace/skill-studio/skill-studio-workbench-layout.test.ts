@@ -6,7 +6,9 @@ const { getSkillStudioWorkbenchLayout } = await import(
 );
 
 void test("uses a persistent desktop split layout when the chat rail is open", () => {
-  const layout = getSkillStudioWorkbenchLayout({ chatOpen: true });
+  const layout = getSkillStudioWorkbenchLayout({
+    mobileNegotiationRailVisible: true,
+  });
 
   assert.match(layout.shellClassName, /w-full/);
   assert.match(layout.shellClassName, /grid-cols-1/);
@@ -22,6 +24,7 @@ void test("uses a persistent desktop split layout when the chat rail is open", (
   );
   assert.match(layout.workbenchPaneClassName, /xl:min-h-0/);
   assert.match(layout.workbenchPaneClassName, /xl:overflow-hidden/);
+  assert.doesNotMatch(layout.chatRailClassName, /hidden/);
   assert.doesNotMatch(layout.chatRailClassName, /absolute/);
   assert.match(layout.chatRailClassName, /xl:block/);
   assert.match(layout.chatRailClassName, /xl:h-full/);
@@ -29,7 +32,9 @@ void test("uses a persistent desktop split layout when the chat rail is open", (
 });
 
 void test("keeps the desktop split layout even when the mobile chat rail is hidden", () => {
-  const layout = getSkillStudioWorkbenchLayout({ chatOpen: false });
+  const layout = getSkillStudioWorkbenchLayout({
+    mobileNegotiationRailVisible: false,
+  });
 
   assert.match(layout.shellClassName, /grid-cols-1/);
   assert.match(

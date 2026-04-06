@@ -6,6 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
+  createAgenticWorkbenchSessionModel,
+  setAgenticWorkbenchMobileNegotiationRailVisible,
+  toggleAgenticWorkbenchMobileNegotiationRailVisible,
+} from "@/components/workspace/agentic-workbench/session-model";
+import {
   ArtifactTrigger,
   useArtifacts,
 } from "@/components/workspace/artifacts";
@@ -35,10 +40,17 @@ export default function SubmarineWorkbenchPage() {
   const { showNotification } = useNotification();
   const { setOpen: setArtifactsOpen, deselect: deselectArtifact } =
     useArtifacts();
-  const [chatOpen, setChatOpen] = useState(isNewThread);
+  const [sessionModel, setSessionModel] = useState(() =>
+    createAgenticWorkbenchSessionModel({
+      surface: "submarine",
+      isNewThread,
+    }),
+  );
   const [pendingThreadRouteId, setPendingThreadRouteId] = useState<
     string | null
   >(null);
+  const mobileNegotiationRailVisible =
+    sessionModel.mobileNegotiationRailVisible;
 
   useSpecificChatMode();
 
@@ -106,8 +118,10 @@ export default function SubmarineWorkbenchPage() {
   }, [thread]);
 
   const focusChatRail = useCallback(() => {
-    if (!chatOpen) {
-      setChatOpen(true);
+    if (!mobileNegotiationRailVisible) {
+      setSessionModel((model) =>
+        setAgenticWorkbenchMobileNegotiationRailVisible(model, true),
+      );
       window.setTimeout(() => {
         const rail = document.getElementById("submarine-chat-rail");
         rail?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -125,11 +139,14 @@ export default function SubmarineWorkbenchPage() {
     if (input instanceof HTMLTextAreaElement) {
       input.focus();
     }
-  }, [chatOpen]);
+  }, [mobileNegotiationRailVisible]);
 
   const layout = useMemo(
-    () => getSubmarineWorkbenchLayout({ chatOpen }),
-    [chatOpen],
+    () =>
+      getSubmarineWorkbenchLayout({
+        mobileNegotiationRailVisible,
+      }),
+    [mobileNegotiationRailVisible],
   );
 
   const chatRailErrorMessage = thread.error
@@ -162,11 +179,19 @@ export default function SubmarineWorkbenchPage() {
               <Button
                 size="sm"
                 variant="outline"
-                aria-label={chatOpen ? "收起对话侧栏" : "展开对话侧栏"}
-                onClick={() => setChatOpen((open) => !open)}
+                aria-label={
+                  mobileNegotiationRailVisible
+                    ? "收起对话侧栏"
+                    : "展开对话侧栏"
+                }
+                onClick={() =>
+                  setSessionModel((model) =>
+                    toggleAgenticWorkbenchMobileNegotiationRailVisible(model),
+                  )
+                }
               >
                 <MessageSquareIcon className="size-4" />
-                {chatOpen ? "收起对话" : "展开对话"}
+                {mobileNegotiationRailVisible ? "收起对话" : "展开对话"}
               </Button>
               <TokenUsageIndicator messages={thread.messages} />
               <ExportTrigger threadId={threadId} />
@@ -183,7 +208,7 @@ export default function SubmarineWorkbenchPage() {
                   isNewThread={isNewThread}
                   isUploading={isUploading}
                   isMock={isMock}
-                  chatOpen={chatOpen}
+                  chatOpen={mobileNegotiationRailVisible}
                   sendMessage={sendMessage}
                   onStop={handleStop}
                   onOpenChat={focusChatRail}

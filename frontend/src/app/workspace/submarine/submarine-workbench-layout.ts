@@ -4,18 +4,17 @@ import {
 } from "../../../components/workspace/agentic-workbench/agentic-workbench-layout.ts";
 
 type SubmarineWorkbenchLayoutOptions = {
-  chatOpen: boolean;
+  mobileNegotiationRailVisible: boolean;
 };
 
 type SubmarineWorkbenchLayout = AgenticWorkbenchLayout;
 
 export function getSubmarineWorkbenchLayout({
-  chatOpen,
+  mobileNegotiationRailVisible,
 }: SubmarineWorkbenchLayoutOptions): SubmarineWorkbenchLayout {
   return getAgenticWorkbenchLayout({
-    chatOpen,
-    desktopNegotiationRailWidthClassName: "minmax(320px,420px)",
-    desktopWorkbenchPaddingClassName: "xl:pr-1",
+    surface: "submarine",
+    mobileNegotiationRailVisible,
   });
 }
 

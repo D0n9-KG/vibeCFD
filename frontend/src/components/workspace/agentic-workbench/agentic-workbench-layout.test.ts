@@ -5,11 +5,10 @@ const { getAgenticWorkbenchLayout } = await import(
   new URL("./agentic-workbench-layout.ts", import.meta.url).href,
 );
 
-void test("builds a persistent desktop split with configurable negotiation rail width", () => {
+void test("builds a persistent desktop split from surface metadata", () => {
   const layout = getAgenticWorkbenchLayout({
-    chatOpen: true,
-    desktopNegotiationRailWidthClassName: "minmax(320px,420px)",
-    desktopWorkbenchPaddingClassName: "xl:pr-1",
+    surface: "submarine",
+    mobileNegotiationRailVisible: true,
   });
 
   assert.match(layout.shellClassName, /w-full/);
@@ -27,6 +26,7 @@ void test("builds a persistent desktop split with configurable negotiation rail 
   assert.match(layout.workbenchPaneClassName, /xl:min-h-0/);
   assert.match(layout.workbenchPaneClassName, /xl:overflow-hidden/);
   assert.match(layout.workbenchPaneClassName, /xl:pr-1/);
+  assert.doesNotMatch(layout.chatRailClassName, /hidden/);
   assert.match(layout.chatRailClassName, /xl:block/);
   assert.match(layout.chatRailClassName, /xl:h-full/);
   assert.match(layout.chatRailInnerClassName, /xl:h-full/);
@@ -34,9 +34,8 @@ void test("builds a persistent desktop split with configurable negotiation rail 
 
 void test("keeps desktop negotiation rail mounted when mobile chat is hidden", () => {
   const layout = getAgenticWorkbenchLayout({
-    chatOpen: false,
-    desktopNegotiationRailWidthClassName: "minmax(340px,460px)",
-    desktopWorkbenchPaddingClassName: "xl:pr-2",
+    surface: "skill-studio",
+    mobileNegotiationRailVisible: false,
   });
 
   assert.match(

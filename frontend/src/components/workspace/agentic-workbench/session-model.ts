@@ -12,7 +12,7 @@ export type AgenticWorkbenchSecondaryLayerId = "trust-critical";
 export type AgenticWorkbenchSessionModel = {
   surface: AgenticWorkbenchSurface;
   isNewThread: boolean;
-  chatOpen: boolean;
+  mobileNegotiationRailVisible: boolean;
   primaryStage: AgenticWorkbenchPrimaryStage;
   negotiation: AgenticWorkbenchNegotiationState;
   secondaryLayers: {
@@ -25,18 +25,19 @@ export type AgenticWorkbenchSessionModel = {
 export type CreateAgenticWorkbenchSessionModelOptions = {
   surface: AgenticWorkbenchSurface;
   isNewThread: boolean;
-  chatOpenOverride?: boolean;
+  mobileNegotiationRailVisibleOverride?: boolean;
 };
 
 export function createAgenticWorkbenchSessionModel({
   surface,
   isNewThread,
-  chatOpenOverride,
+  mobileNegotiationRailVisibleOverride,
 }: CreateAgenticWorkbenchSessionModelOptions): AgenticWorkbenchSessionModel {
   return {
     surface,
     isNewThread,
-    chatOpen: chatOpenOverride ?? isNewThread,
+    mobileNegotiationRailVisible:
+      mobileNegotiationRailVisibleOverride ?? isNewThread,
     primaryStage: "workspace",
     negotiation: {
       pendingApprovals: 0,
@@ -70,11 +71,21 @@ export function updateAgenticWorkbenchNegotiationState(
   };
 }
 
-export function toggleAgenticWorkbenchChatOpen(
+export function setAgenticWorkbenchMobileNegotiationRailVisible(
+  model: AgenticWorkbenchSessionModel,
+  mobileNegotiationRailVisible: boolean,
+): AgenticWorkbenchSessionModel {
+  return {
+    ...model,
+    mobileNegotiationRailVisible,
+  };
+}
+
+export function toggleAgenticWorkbenchMobileNegotiationRailVisible(
   model: AgenticWorkbenchSessionModel,
 ): AgenticWorkbenchSessionModel {
   return {
     ...model,
-    chatOpen: !model.chatOpen,
+    mobileNegotiationRailVisible: !model.mobileNegotiationRailVisible,
   };
 }

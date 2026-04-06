@@ -3,9 +3,10 @@ import test from "node:test";
 
 const {
   createAgenticWorkbenchSessionModel,
+  setAgenticWorkbenchMobileNegotiationRailVisible,
   selectAgenticWorkbenchPrimaryStage,
   updateAgenticWorkbenchNegotiationState,
-  toggleAgenticWorkbenchChatOpen,
+  toggleAgenticWorkbenchMobileNegotiationRailVisible,
 } = await import(new URL("./session-model.ts", import.meta.url).href);
 
 void test("builds shared session foundation with surface, stage, and trust-critical layer", () => {
@@ -22,8 +23,8 @@ void test("builds shared session foundation with surface, stage, and trust-criti
   assert.equal(forExistingThread.surface, "skill-studio");
   assert.equal(forNewThread.primaryStage, "workspace");
   assert.equal(forExistingThread.primaryStage, "workspace");
-  assert.equal(forNewThread.chatOpen, true);
-  assert.equal(forExistingThread.chatOpen, false);
+  assert.equal(forNewThread.mobileNegotiationRailVisible, true);
+  assert.equal(forExistingThread.mobileNegotiationRailVisible, false);
   assert.equal(forNewThread.desktopNegotiationRailPersistent, true);
   assert.equal(forExistingThread.desktopNegotiationRailPersistent, true);
   assert.equal(forNewThread.negotiation.pendingApprovals, 0);
@@ -32,21 +33,32 @@ void test("builds shared session foundation with surface, stage, and trust-criti
   assert.deepEqual(forNewThread.secondaryLayers.available, ["trust-critical"]);
 });
 
-void test("supports stage selection groundwork and deterministic chat toggles", () => {
+void test("supports stage selection groundwork and deterministic rail toggles", () => {
   const model = createAgenticWorkbenchSessionModel({
     surface: "submarine",
     isNewThread: false,
-    chatOpenOverride: true,
+    mobileNegotiationRailVisibleOverride: true,
   });
   const staged = selectAgenticWorkbenchPrimaryStage(model, "review");
-  const toggled = toggleAgenticWorkbenchChatOpen(model);
+  const toggled = toggleAgenticWorkbenchMobileNegotiationRailVisible(model);
 
   assert.equal(staged.primaryStage, "review");
-  assert.equal(model.chatOpen, true);
-  assert.equal(toggled.chatOpen, false);
+  assert.equal(model.mobileNegotiationRailVisible, true);
+  assert.equal(toggled.mobileNegotiationRailVisible, false);
   assert.equal(toggled.isNewThread, model.isNewThread);
   assert.equal(toggled.surface, model.surface);
   assert.equal(toggled.desktopNegotiationRailPersistent, true);
+});
+
+void test("supports explicit mobile negotiation-rail visibility updates", () => {
+  const model = createAgenticWorkbenchSessionModel({
+    surface: "skill-studio",
+    isNewThread: true,
+  });
+  const updated = setAgenticWorkbenchMobileNegotiationRailVisible(model, false);
+
+  assert.equal(model.mobileNegotiationRailVisible, true);
+  assert.equal(updated.mobileNegotiationRailVisible, false);
 });
 
 void test("tracks negotiation state with pending approvals and interruption visibility", () => {

@@ -20,6 +20,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  createAgenticWorkbenchSessionModel,
+  setAgenticWorkbenchMobileNegotiationRailVisible,
+  toggleAgenticWorkbenchMobileNegotiationRailVisible,
+} from "@/components/workspace/agentic-workbench/session-model";
+import {
   ArtifactTrigger,
   useArtifacts,
 } from "@/components/workspace/artifacts";
@@ -95,10 +100,17 @@ export default function SkillStudioWorkbenchPage() {
   const { showNotification } = useNotification();
   const { setOpen: setArtifactsOpen, deselect: deselectArtifact } =
     useArtifacts();
-  const [chatOpen, setChatOpen] = useState(isNewThread);
+  const [sessionModel, setSessionModel] = useState(() =>
+    createAgenticWorkbenchSessionModel({
+      surface: "skill-studio",
+      isNewThread,
+    }),
+  );
   const [pendingThreadRouteId, setPendingThreadRouteId] = useState<
     string | null
   >(null);
+  const mobileNegotiationRailVisible =
+    sessionModel.mobileNegotiationRailVisible;
 
   useSpecificChatMode();
 
@@ -214,8 +226,11 @@ export default function SkillStudioWorkbenchPage() {
   const agentSelectorEnabled = agentOptions.length > 0;
 
   const layout = useMemo(
-    () => getSkillStudioWorkbenchLayout({ chatOpen }),
-    [chatOpen],
+    () =>
+      getSkillStudioWorkbenchLayout({
+        mobileNegotiationRailVisible,
+      }),
+    [mobileNegotiationRailVisible],
   );
 
   const hasSkillStudioState = studioState != null;
@@ -243,8 +258,10 @@ export default function SkillStudioWorkbenchPage() {
   }, [thread]);
 
   const focusChatRail = useCallback(() => {
-    if (!chatOpen) {
-      setChatOpen(true);
+    if (!mobileNegotiationRailVisible) {
+      setSessionModel((model) =>
+        setAgenticWorkbenchMobileNegotiationRailVisible(model, true),
+      );
       window.setTimeout(() => {
         const rail = document.getElementById("skill-studio-chat-rail");
         rail?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -262,7 +279,7 @@ export default function SkillStudioWorkbenchPage() {
     if (input instanceof HTMLTextAreaElement) {
       input.focus();
     }
-  }, [chatOpen]);
+  }, [mobileNegotiationRailVisible]);
 
   const dashboardHref = withMock("/workspace/skill-studio", isMock);
   const selectionHint = agentSelectionLocked
@@ -303,11 +320,19 @@ export default function SkillStudioWorkbenchPage() {
               <Button
                 size="sm"
                 variant="outline"
-                aria-label={chatOpen ? "收起对话侧栏" : "展开对话侧栏"}
-                onClick={() => setChatOpen((open) => !open)}
+                aria-label={
+                  mobileNegotiationRailVisible
+                    ? "收起对话侧栏"
+                    : "展开对话侧栏"
+                }
+                onClick={() =>
+                  setSessionModel((model) =>
+                    toggleAgenticWorkbenchMobileNegotiationRailVisible(model),
+                  )
+                }
               >
                 <MessageSquareIcon className="size-4" />
-                {chatOpen ? "收起对话" : "展开对话"}
+                {mobileNegotiationRailVisible ? "收起对话" : "展开对话"}
               </Button>
               <TokenUsageIndicator messages={thread.messages} />
               <ExportTrigger threadId={threadId} />
