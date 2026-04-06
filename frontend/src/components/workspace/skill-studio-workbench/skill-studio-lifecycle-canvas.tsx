@@ -1,0 +1,495 @@
+"use client";
+
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  SecondaryLayerHost,
+  WorkbenchFlow,
+} from "@/components/workspace/agentic-workbench";
+import {
+  SKILL_STUDIO_BINDING_ROLE_IDS,
+  type SkillStudioLifecycleBindingTarget,
+} from "@/components/workspace/skill-studio-workbench.utils";
+
+import type { SkillStudioDetailModel } from "./skill-studio-detail-model";
+import type { SkillStudioSessionModel } from "./skill-studio-session-model";
+import { SkillStudioTestingEvidence } from "./skill-studio-testing-evidence";
+
+type DrawerId = "testing" | "publish" | "graph";
+
+const DEFAULT_DRAWER_BY_MODULE: Record<string, DrawerId> = {
+  intent: "publish",
+  draft: "publish",
+  evaluation: "testing",
+  "release-prep": "publish",
+  lifecycle: "publish",
+  graph: "graph",
+};
+
+type SkillStudioLifecycleCanvasProps = {
+  session: SkillStudioSessionModel;
+  detail: SkillStudioDetailModel;
+  enabled: boolean;
+  versionNote: string;
+  explicitBindingRoleIds: string[];
+  busy: boolean;
+  canPublish: boolean;
+  canRollback: boolean;
+  onEnabledChange: (nextValue: boolean) => void;
+  onVersionNoteChange: (nextValue: string) => void;
+  onToggleBindingRole: (roleId: string) => void;
+  onSaveLifecycle: () => void;
+  onPublish: () => void;
+  onRollback: () => void;
+  onOpenNegotiation: () => void;
+};
+
+export function SkillStudioLifecycleCanvas({
+  session,
+  detail,
+  enabled,
+  versionNote,
+  explicitBindingRoleIds,
+  busy,
+  canPublish,
+  canRollback,
+  onEnabledChange,
+  onVersionNoteChange,
+  onToggleBindingRole,
+  onSaveLifecycle,
+  onPublish,
+  onRollback,
+  onOpenNegotiation,
+}: SkillStudioLifecycleCanvasProps) {
+  const [activeDrawerId, setActiveDrawerId] = useState<DrawerId>(
+    DEFAULT_DRAWER_BY_MODULE[session.activeModuleId],
+  );
+
+  useEffect(() => {
+    setActiveDrawerId(DEFAULT_DRAWER_BY_MODULE[session.activeModuleId]);
+  }, [session.activeModuleId]);
+
+  const drawerLayers = useMemo(
+    () => [
+      {
+        id: "testing",
+        label: "验证与试跑证据",
+        content: <SkillStudioTestingEvidence evaluate={detail.evaluate} />,
+      },
+      {
+        id: "publish",
+        label: "发布状态与版本信息",
+        content: <PublishDrawer detail={detail} />,
+      },
+      {
+        id: "graph",
+        label: "关系网络",
+        content: <GraphDrawer detail={detail} />,
+      },
+    ],
+    [detail],
+  );
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <WorkbenchFlow
+        items={session.modules.map((module) => ({
+          id: module.id,
+          title: module.title,
+          status: module.status,
+          summary: module.summary,
+          expanded: module.expanded,
+          content: renderLifecycleContent({
+            moduleId: module.id,
+            detail,
+            enabled,
+            versionNote,
+            explicitBindingRoleIds,
+            busy,
+            canPublish,
+            canRollback,
+            onEnabledChange,
+            onVersionNoteChange,
+            onToggleBindingRole,
+            onSaveLifecycle,
+            onPublish,
+            onRollback,
+            onOpenNegotiation,
+            onOpenDrawer: setActiveDrawerId,
+          }),
+        }))}
+      />
+
+      <SecondaryLayerHost
+        layers={drawerLayers}
+        activeLayerId={activeDrawerId}
+        className="border-slate-200/70 bg-slate-50/70"
+      />
+    </div>
+  );
+}
+
+function renderLifecycleContent({
+  moduleId,
+  detail,
+  enabled,
+  versionNote,
+  explicitBindingRoleIds,
+  busy,
+  canPublish,
+  canRollback,
+  onEnabledChange,
+  onVersionNoteChange,
+  onToggleBindingRole,
+  onSaveLifecycle,
+  onPublish,
+  onRollback,
+  onOpenNegotiation,
+  onOpenDrawer,
+}: {
+  moduleId: string;
+  detail: SkillStudioDetailModel;
+  enabled: boolean;
+  versionNote: string;
+  explicitBindingRoleIds: string[];
+  busy: boolean;
+  canPublish: boolean;
+  canRollback: boolean;
+  onEnabledChange: (nextValue: boolean) => void;
+  onVersionNoteChange: (nextValue: string) => void;
+  onToggleBindingRole: (roleId: string) => void;
+  onSaveLifecycle: () => void;
+  onPublish: () => void;
+  onRollback: () => void;
+  onOpenNegotiation: () => void;
+  onOpenDrawer: (drawerId: DrawerId) => void;
+}): ReactNode {
+  switch (moduleId) {
+    case "intent":
+      return (
+        <div className="space-y-4">
+          <KeyValueGrid
+            items={[
+              { label: "技能名称", value: detail.define.skillName },
+              { label: "主要目标", value: detail.define.skillGoal },
+              { label: "创建助手", value: detail.assistant.label },
+            ]}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={onOpenNegotiation}>
+              去协商区补充目标
+            </Button>
+          </div>
+        </div>
+      );
+    case "draft":
+      return (
+        <div className="space-y-4">
+          <TokenList
+            title="触发条件"
+            items={detail.define.triggerConditions}
+            emptyLabel="尚未补充触发条件。"
+          />
+          <TokenList
+            title="专家约束"
+            items={detail.define.constraints}
+            emptyLabel="尚未补充专家约束。"
+          />
+          <TokenList
+            title="成功标准"
+            items={detail.define.acceptanceCriteria}
+            emptyLabel="尚未补充成功标准。"
+          />
+        </div>
+      );
+    case "evaluation":
+      return (
+        <div className="space-y-4">
+          <KeyValueGrid
+            items={[
+              { label: "验证状态", value: detail.evaluate.status },
+              { label: "错误数量", value: String(detail.evaluate.errorCount) },
+              { label: "警告数量", value: String(detail.evaluate.warningCount) },
+            ]}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => onOpenDrawer("testing")}>
+              查看验证与试跑证据
+            </Button>
+          </div>
+        </div>
+      );
+    case "release-prep":
+      return (
+        <div className="space-y-4">
+          <KeyValueGrid
+            items={[
+              { label: "发布门禁", value: String(detail.publish.gateCount) },
+              { label: "阻塞门禁", value: String(detail.publish.blockedGateCount) },
+              { label: "产物分组", value: String(detail.artifactGroups.length) },
+            ]}
+          />
+          <CompactList
+            title="下一步动作"
+            items={detail.publish.nextActions.map((item) => ({
+              title: item,
+            }))}
+            emptyLabel="当前没有额外的发布准备动作。"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => onOpenDrawer("publish")}>
+              查看发布状态
+            </Button>
+          </div>
+        </div>
+      );
+    case "lifecycle":
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
+            <div>
+              <div className="text-sm font-semibold text-slate-950">启用状态</div>
+              <div className="mt-1 text-sm text-slate-600">
+                控制当前技能是否作为活动版本对外可用。
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-700">
+              <span>{enabled ? "已启用" : "未启用"}</span>
+              <Switch checked={enabled} onCheckedChange={onEnabledChange} />
+            </div>
+          </div>
+
+          <KeyValueGrid
+            items={[
+              { label: "活动版本", value: detail.publish.activeRevisionId ?? "草稿中" },
+              {
+                label: "已发布版本",
+                value: detail.publish.publishedRevisionId ?? "尚未发布",
+              },
+              { label: "回退目标", value: detail.publish.rollbackTargetId ?? "暂无" },
+            ]}
+          />
+
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold text-slate-950">版本说明</h4>
+            <Textarea
+              className="min-h-28"
+              value={versionNote}
+              onChange={(event) => onVersionNoteChange(event.target.value)}
+              placeholder="记录这一版解决了什么问题、还保留了哪些边界。"
+            />
+          </section>
+
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold text-slate-950">显式挂载角色</h4>
+            <div className="grid gap-2 md:grid-cols-2">
+              {SKILL_STUDIO_BINDING_ROLE_IDS.map((roleId) => {
+                const selected = explicitBindingRoleIds.includes(roleId);
+
+                return (
+                  <button
+                    key={roleId}
+                    type="button"
+                    className={`rounded-2xl border px-3 py-3 text-left text-sm transition-colors ${
+                      selected
+                        ? "border-orange-200 bg-orange-50 text-orange-900"
+                        : "border-slate-200 bg-slate-50 text-slate-700"
+                    }`}
+                    onClick={() => onToggleBindingRole(roleId)}
+                  >
+                    {roleId}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" disabled={busy} onClick={onSaveLifecycle}>
+              保存生命周期设置
+            </Button>
+            <Button disabled={busy || !canPublish} onClick={onPublish}>
+              发布当前草案
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy || !canRollback}
+              onClick={onRollback}
+            >
+              回退到上一版本
+            </Button>
+          </div>
+        </div>
+      );
+    case "graph":
+      return (
+        <div className="space-y-4">
+          <KeyValueGrid
+            items={[
+              { label: "关联技能", value: String(detail.graph.relationshipCount) },
+              { label: "高影响连接", value: String(detail.graph.highImpactCount) },
+              { label: "上游技能", value: String(detail.graph.upstreamCount) },
+            ]}
+          />
+          <CompactList
+            title="关系摘要"
+            items={detail.graph.relatedSkills.slice(0, 3).map((item) => ({
+              title: item.skillName,
+              meta: `${item.category} · score ${item.strongestScore.toFixed(2)}`,
+              description: item.reasons[0] ?? item.description,
+            }))}
+            emptyLabel="当前还没有建立技能关系。"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => onOpenDrawer("graph")}>
+              查看关系网络
+            </Button>
+          </div>
+        </div>
+      );
+    default:
+      return null;
+  }
+}
+
+function PublishDrawer({ detail }: { detail: SkillStudioDetailModel }) {
+  return (
+    <section className="space-y-3">
+      <KeyValueGrid
+        items={[
+          { label: "版本数量", value: String(detail.publish.revisionCount) },
+          { label: "绑定数量", value: String(detail.publish.bindingCount) },
+          { label: "回退目标", value: detail.publish.rollbackTargetId ?? "暂无" },
+        ]}
+      />
+      <CompactList
+        title="发布门禁"
+        items={detail.publish.gates.map((gate) => ({
+          title: gate.label,
+          meta: gate.status,
+        }))}
+        emptyLabel="当前没有发布门禁信息。"
+      />
+      <CompactList
+        title="绑定目标"
+        items={detail.publish.bindingTargets.map((target: SkillStudioLifecycleBindingTarget) => ({
+          title: target.role_id,
+          meta: target.mode,
+          description: target.target_skills.join("、"),
+        }))}
+        emptyLabel="当前没有显式绑定目标。"
+      />
+    </section>
+  );
+}
+
+function GraphDrawer({ detail }: { detail: SkillStudioDetailModel }) {
+  return (
+    <CompactList
+      title="相关技能"
+      items={detail.graph.relatedSkills.map((item) => ({
+        title: item.skillName,
+        meta: `${item.category} · score ${item.strongestScore.toFixed(2)}`,
+        description: item.reasons[0] ?? item.description,
+      }))}
+      emptyLabel="当前还没有图谱关联。"
+    />
+  );
+}
+
+function KeyValueGrid({
+  items,
+}: {
+  items: readonly { label: string; value: string }[];
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      {items.map((item) => (
+        <article
+          key={item.label}
+          className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3"
+        >
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            {item.label}
+          </div>
+          <div className="mt-2 text-sm leading-6 text-slate-800">{item.value}</div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function TokenList({
+  title,
+  items,
+  emptyLabel,
+}: {
+  title: string;
+  items: readonly string[];
+  emptyLabel: string;
+}) {
+  return (
+    <section className="space-y-2">
+      <h4 className="text-sm font-semibold text-slate-950">{title}</h4>
+      {items.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {items.map((item) => (
+            <span
+              key={item}
+              className="rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-sm text-slate-700"
+            >
+              {item}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm leading-6 text-slate-600">{emptyLabel}</p>
+      )}
+    </section>
+  );
+}
+
+function CompactList({
+  title,
+  items,
+  emptyLabel,
+}: {
+  title: string;
+  items: readonly {
+    title: string;
+    meta?: string;
+    description?: string;
+  }[];
+  emptyLabel: string;
+}) {
+  return (
+    <section className="space-y-3">
+      <h4 className="text-sm font-semibold text-slate-950">{title}</h4>
+      {items.length > 0 ? (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <article
+              key={[item.title, item.meta, item.description].join("-")}
+              className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3"
+            >
+              <div className="text-sm font-semibold text-slate-900">{item.title}</div>
+              {item.meta ? (
+                <div className="mt-1 text-xs text-slate-500">{item.meta}</div>
+              ) : null}
+              {item.description ? (
+                <div className="mt-2 text-sm leading-6 text-slate-700">
+                  {item.description}
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm leading-6 text-slate-600">{emptyLabel}</p>
+      )}
+    </section>
+  );
+}

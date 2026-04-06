@@ -12,12 +12,12 @@ export function SkillStudioTestingEvidence({
   return (
     <section className="rounded-[24px] border border-slate-200/80 bg-white/92 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-700">
-        Testing Evidence
+        验证与试跑证据
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-3">
-        <Metric label="Scenarios" value={String(evaluate.scenarioMatrix.scenarioCount)} />
-        <Metric label="Blocked" value={String(evaluate.scenarioMatrix.blockedCount)} />
-        <Metric label="Dry-run" value={evaluate.dryRun.ready ? "Ready" : "Blocked"} />
+        <Metric label="场景数" value={String(evaluate.scenarioMatrix.scenarioCount)} />
+        <Metric label="阻塞数" value={String(evaluate.scenarioMatrix.blockedCount)} />
+        <Metric label="Dry-run" value={evaluate.dryRun.ready ? "已就绪" : "待修正"} />
       </div>
       <div className="mt-4 space-y-2">
         {evaluate.scenarioMatrix.scenarios.length > 0 ? (
@@ -35,24 +35,24 @@ export function SkillStudioTestingEvidence({
                 </div>
               </div>
               <p className="mt-2 text-sm text-slate-700">
-                Expected: {scenario.expectedOutcome}
+                预期结果：{scenario.expectedOutcome}
               </p>
               {scenario.blockingReasons.length > 0 ? (
                 <p className="mt-2 text-xs text-amber-800">
-                  Blocking: {scenario.blockingReasons.join(" | ")}
+                  阻塞原因：{scenario.blockingReasons.join(" ｜ ")}
                 </p>
               ) : null}
             </article>
           ))
         ) : (
           <p className="text-sm text-slate-600">
-            Scenario coverage will appear here once the draft defines test cases.
+            生成测试场景后，这里会展示验证矩阵与试跑证据。
           </p>
         )}
       </div>
       {evaluate.dryRun.nextActions.length > 0 ? (
         <p className="mt-3 text-xs text-slate-600">
-          Next: {evaluate.dryRun.nextActions[0]}
+          下一步：{evaluate.dryRun.nextActions[0]}
         </p>
       ) : null}
     </section>

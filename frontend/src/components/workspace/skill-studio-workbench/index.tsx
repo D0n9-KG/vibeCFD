@@ -1,25 +1,11 @@
 "use client";
 
-import {
-  GitBranchPlusIcon,
-  MessageSquareIcon,
-  ShieldAlertIcon,
-  SparklesIcon,
-  UploadCloudIcon,
-} from "lucide-react";
+import { MessageSquareIcon, SparklesIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -28,11 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  InterruptActionBar,
   NegotiationRail,
-  SecondaryLayerHost,
   SessionSummaryBar,
   ThreadHeader,
+  WORKBENCH_COPY,
   WorkbenchShell,
 } from "@/components/workspace/agentic-workbench";
 import { useArtifacts } from "@/components/workspace/artifacts";
@@ -63,7 +48,6 @@ import type { AgentThreadContext } from "@/core/threads";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
-import { SkillStudioDefineStage } from "./skill-studio-define-stage";
 import {
   buildSkillStudioDetailModel,
   type PublishReadinessPayload,
@@ -73,13 +57,8 @@ import {
   type TestMatrixPayload,
   type ValidationPayload,
 } from "./skill-studio-detail-model";
-import { SkillStudioEvaluateStage } from "./skill-studio-evaluate-stage";
-import { SkillStudioGraphStage } from "./skill-studio-graph-stage";
-import { SkillStudioPublishStage } from "./skill-studio-publish-stage";
-import {
-  buildSkillStudioSessionModel,
-  type SkillStudioPrimaryStage,
-} from "./skill-studio-session-model";
+import { SkillStudioLifecycleCanvas } from "./skill-studio-lifecycle-canvas";
+import { buildSkillStudioSessionModel } from "./skill-studio-session-model";
 
 type SkillStudioAgenticWorkbenchProps = {
   threadId: string;
@@ -114,32 +93,6 @@ type SkillStudioAgenticWorkbenchProps = {
   onStop: () => Promise<void>;
 };
 
-const STAGE_META: Record<
-  SkillStudioPrimaryStage,
-  { label: string; note: string; icon: typeof SparklesIcon }
-> = {
-  define: {
-    label: "Define",
-    note: "Goal, triggers, constraints, acceptance, and package intent.",
-    icon: SparklesIcon,
-  },
-  evaluate: {
-    label: "Evaluate",
-    note: "Validation blockers, warnings, scenarios, and dry-run evidence.",
-    icon: ShieldAlertIcon,
-  },
-  publish: {
-    label: "Publish",
-    note: "Readiness, bindings, revisions, rollback, and enable state.",
-    icon: UploadCloudIcon,
-  },
-  graph: {
-    label: "Graph",
-    note: "Upstream, downstream, similar, and high-impact relationships.",
-    icon: GitBranchPlusIcon,
-  },
-};
-
 function safeJsonParse<T>(content?: string | null) {
   if (!content) return null;
   try {
@@ -167,6 +120,33 @@ function collectSkillStudioArtifacts(
       all.indexOf(artifact) === index
     );
   });
+}
+
+function toChineseStatus(status: string | null | undefined) {
+  switch (status) {
+    case "ready_for_review":
+      return "待评审";
+    case "needs_revision":
+      return "待修订";
+    case "draft_only":
+      return "仅有草案";
+    case "ready_for_dry_run":
+      return "待试跑";
+    case "draft_ready":
+      return "草案就绪";
+    case "published":
+      return "已发布";
+    case "rollback_available":
+      return "可回退";
+    case "blocked":
+      return "已阻塞";
+    case "passed":
+      return "已通过";
+    case "failed":
+      return "未通过";
+    default:
+      return status ?? "待处理";
+  }
 }
 
 export function SkillStudioAgenticWorkbench({
@@ -353,18 +333,11 @@ export function SkillStudioAgenticWorkbench({
       validation?.warning_count,
     ],
   );
-  const [activeStage, setActiveStage] = useState<SkillStudioPrimaryStage>(
-    session.primaryStage,
-  );
   const [publishEnabled, setPublishEnabled] = useState(detail.publish.enabled);
   const [versionNote, setVersionNote] = useState(detail.publish.versionNote);
   const [explicitBindingRoleIds, setExplicitBindingRoleIds] = useState<string[]>(
     detail.publish.explicitBindingRoleIds,
   );
-
-  useEffect(() => {
-    setActiveStage(session.primaryStage);
-  }, [session.primaryStage]);
 
   useEffect(() => {
     setPublishEnabled(detail.publish.enabled);
@@ -405,9 +378,9 @@ export function SkillStudioAgenticWorkbench({
         version_note: versionNote,
         binding_targets: bindingTargets,
       });
-      toast.success("Lifecycle settings updated.");
+      toast.success("生命周期设置已保存。");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update lifecycle.");
+      toast.error(error instanceof Error ? error.message : "保存生命周期设置失败。");
     }
   }, [bindingTargets, publishEnabled, skillName, updateLifecycle, versionNote]);
 
@@ -421,9 +394,9 @@ export function SkillStudioAgenticWorkbench({
         version_note: versionNote,
         binding_targets: bindingTargets,
       });
-      toast.success("Skill published.");
+      toast.success("技能已发布。");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to publish skill.");
+      toast.error(error instanceof Error ? error.message : "发布技能失败。");
     }
   }, [
     bindingTargets,
@@ -433,6 +406,7 @@ export function SkillStudioAgenticWorkbench({
     threadId,
     versionNote,
   ]);
+
   const rollback = useCallback(async () => {
     if (!skillName || !detail.publish.rollbackTargetId) return;
     try {
@@ -440,230 +414,266 @@ export function SkillStudioAgenticWorkbench({
         skillName,
         revision_id: detail.publish.rollbackTargetId,
       });
-      toast.success("Rollback applied.");
+      toast.success("已回退到指定版本。");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to roll back.");
+      toast.error(error instanceof Error ? error.message : "回退失败。");
     }
   }, [detail.publish.rollbackTargetId, rollbackSkillRevision, skillName]);
 
-  const secondaryLayers = [
-    {
-      id: "define",
-      label: "Package Brief",
-      content:
-        detail.define.acceptanceCriteria[0] ??
-        detail.define.constraints[0] ??
-        "Define the brief and acceptance boundary first.",
-    },
-    {
-      id: "evaluate",
-      label: "Evaluation Blockers",
-      content:
-        detail.evaluate.validationErrors[0] ??
-        detail.evaluate.dryRun.nextActions[0] ??
-        "Validation and dry-run blockers will surface here.",
-    },
-    {
-      id: "publish",
-      label: "Publish State",
-      content:
-        detail.publish.nextActions[0] ??
-        detail.publish.rollbackTargetId ??
-        "Publish readiness and rollback state stay visible here.",
-    },
-    {
-      id: "graph",
-      label: "Graph Context",
-      content:
-        detail.graph.relatedSkills[0]?.reasons[0] ??
-        "Relationship context appears here once graph links are available.",
-    },
-  ];
-  const secondaryLayerId =
-    activeStage === "evaluate"
-      ? "evaluate"
-      : activeStage === "publish"
-        ? "publish"
-        : activeStage === "graph"
-          ? "graph"
-          : "define";
+  const openNegotiation = useCallback(() => {
+    if (!mobileNegotiationRailVisible) {
+      onToggleChatRail();
+      window.setTimeout(() => {
+        const rail = document.getElementById("skill-studio-chat-rail");
+        rail?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const input = rail?.querySelector("textarea");
+        if (input instanceof HTMLTextAreaElement) {
+          input.focus();
+        }
+      }, 50);
+      return;
+    }
+
+    const rail = document.getElementById("skill-studio-chat-rail");
+    rail?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const input = rail?.querySelector("textarea");
+    if (input instanceof HTMLTextAreaElement) {
+      input.focus();
+    }
+  }, [mobileNegotiationRailVisible, onToggleChatRail]);
+
+  const activeModule = session.modules.find((module) => module.expanded) ?? session.modules[0];
   const threadTitle =
     typeof thread.values.title === "string" && thread.values.title.length > 0
       ? thread.values.title
       : detail.define.skillTitle;
 
+  const nav = (
+    <div className="flex h-full min-h-0 flex-col gap-5">
+      <section className="rounded-[26px] border border-orange-200/70 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.16),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(252,246,241,0.96))] p-4 shadow-[0_22px_60px_rgba(249,115,22,0.10)]">
+        <div className="flex items-center gap-2 text-orange-700">
+          <SparklesIcon className="size-4" />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.22em]">
+            技能生命周期工作台
+          </span>
+        </div>
+        <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950">
+          {threadTitle}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          从技能意图到发布版本，所有定义、验证、试跑、发布和关系网络都集中在这一张主画布里。
+        </p>
+        <div className="mt-4 grid gap-2">
+          <NavMetric label="当前焦点" value={activeModule?.title ?? "等待开始"} />
+          <NavMetric
+            label="待确认事项"
+            value={
+              session.negotiation.pendingApprovalCount > 0
+                ? `${session.negotiation.pendingApprovalCount} 项`
+                : "当前无阻塞项"
+            }
+          />
+          <NavMetric label="技能关系" value={`${detail.graph.relationshipCount} 条`} />
+        </div>
+      </section>
+
+      <section className="min-h-0 rounded-[24px] border border-slate-200/80 bg-white/92 p-4">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+          生命周期推进流
+        </div>
+        <div className="mt-3 space-y-2">
+          {session.modules.map((module, index) => (
+            <article
+              key={module.id}
+              className={cn(
+                "rounded-2xl border px-3 py-3 transition-colors",
+                module.expanded
+                  ? "border-orange-200/80 bg-orange-50/70"
+                  : "border-slate-200/80 bg-slate-50/70",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold text-slate-500">
+                    {String(index + 1).padStart(2, "0")}
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-950">
+                    {module.title}
+                  </div>
+                </div>
+                <span className="rounded-full border border-slate-200/80 bg-white px-2.5 py-1 text-xs text-slate-600">
+                  {module.status}
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+
+  const main = (
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <ThreadHeader
+        title={threadTitle}
+        subtitle={`${activeAssistantLabel} 负责这条技能生命周期线程的定义、验证与发布协商。`}
+        statusLabel={activeModule?.status ?? "处理中"}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={onToggleChatRail}>
+              <MessageSquareIcon className="size-4" />
+              {mobileNegotiationRailVisible ? "收起协商区" : "展开协商区"}
+            </Button>
+          </div>
+        }
+      />
+      <SessionSummaryBar
+        pendingApprovals={session.negotiation.pendingApprovalCount}
+        interruptionVisible={session.negotiation.interruptionVisible}
+        summary={session.negotiation.question ?? WORKBENCH_COPY.common.negotiationHint}
+      />
+      <div className="min-h-0 flex-1">
+        <SkillStudioLifecycleCanvas
+          session={session}
+          detail={detail}
+          enabled={publishEnabled}
+          versionNote={versionNote}
+          explicitBindingRoleIds={explicitBindingRoleIds}
+          busy={busy}
+          canPublish={Boolean(packageArchivePath)}
+          canRollback={Boolean(detail.publish.rollbackTargetId)}
+          onEnabledChange={setPublishEnabled}
+          onVersionNoteChange={setVersionNote}
+          onToggleBindingRole={(roleId) =>
+            setExplicitBindingRoleIds((current) =>
+              current.includes(roleId)
+                ? current.filter((item) => item !== roleId)
+                : [...current, roleId],
+            )
+          }
+          onSaveLifecycle={saveLifecycle}
+          onPublish={publish}
+          onRollback={rollback}
+          onOpenNegotiation={openNegotiation}
+        />
+      </div>
+    </div>
+  );
+
+  const negotiation = (
+    <NegotiationRail
+      title={
+        <div className="space-y-1">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            {WORKBENCH_COPY.common.negotiationRailTitle}
+          </div>
+          <h3 className="text-base font-semibold text-slate-950">
+            在这里直接补充技能规则、修改验证口径或调整发布策略。
+          </h3>
+        </div>
+      }
+      question={
+        <p className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-sm text-amber-900">
+          {session.negotiation.question ?? "当前没有阻塞项，可继续推进技能生命周期。"}
+        </p>
+      }
+      actions={
+        <div className="space-y-2">
+          <div className="text-xs leading-5 text-slate-500">
+            开始创建后会锁定创建助手，但你仍然可以随时在这里协商修改技能方案。
+          </div>
+          <Select
+            value={activeAgentName}
+            onValueChange={onAgentChange}
+            disabled={agentSelectionLocked || !agentSelectorEnabled}
+          >
+            <SelectTrigger className="w-full bg-white/90">
+              <SelectValue placeholder="选择技能创建助手" />
+            </SelectTrigger>
+            <SelectContent>
+              {agentOptions.map((option) => (
+                <SelectItem key={option.name} value={option.name}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      }
+      body={
+        <div className="flex h-full min-h-0 flex-col gap-3">
+          <section className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3">
+            <div className="text-sm font-semibold text-slate-950">{activeAssistantLabel}</div>
+            <p className="mt-1 text-sm leading-6 text-slate-600">{assistantDescription}</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+              <span className="rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-1">
+                验证：{toChineseStatus(session.summary.validationStatus)}
+              </span>
+              <span className="rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-1">
+                试跑：{toChineseStatus(session.summary.testStatus)}
+              </span>
+              <span className="rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-1">
+                发布：{toChineseStatus(session.summary.publishStatus)}
+              </span>
+            </div>
+          </section>
+
+          <div
+            id="skill-studio-chat-rail"
+            className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/84"
+          >
+            <MessageList
+              className="flex-1 justify-start"
+              paddingBottom={32}
+              threadId={threadId}
+              thread={thread}
+            />
+          </div>
+
+          <InputBox
+            className="w-full bg-transparent"
+            isNewThread={isNewThread}
+            showNewThreadSuggestions={false}
+            threadId={threadId}
+            autoFocus={isNewThread}
+            status={thread.error ? "error" : thread.isLoading ? "streaming" : "ready"}
+            context={context}
+            disabled={env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || isUploading}
+            onContextChange={onContextChange}
+            onSubmit={onSubmit}
+            onStop={onStop}
+          />
+
+          <Button variant="outline" onClick={() => setArtifactsOpen(true)}>
+            打开技能产物
+          </Button>
+        </div>
+      }
+      footer={
+        <p className="text-xs leading-5 text-slate-600">
+          不需要额外的暂停或恢复按钮，直接在聊天框里告诉主智能体“先停一下，修改技能方案”即可。
+        </p>
+      }
+    />
+  );
+
   return (
     <WorkbenchShell
       mobileNegotiationRailVisible={mobileNegotiationRailVisible}
-      nav={
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="flex items-center gap-2 text-orange-700">
-            <SparklesIcon className="size-4" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">
-              Skill Studio
-            </span>
-          </div>
-          <div className="mt-4 space-y-2">
-            {(Object.keys(STAGE_META) as SkillStudioPrimaryStage[]).map((stage) => {
-              const meta = STAGE_META[stage];
-              const Icon = meta.icon;
-              return (
-                <button
-                  key={stage}
-                  type="button"
-                  className={cn(
-                    "w-full rounded-2xl border px-3 py-3 text-left transition-colors",
-                    activeStage === stage
-                      ? "border-orange-200 bg-orange-50"
-                      : "border-slate-200 bg-white",
-                  )}
-                  onClick={() => setActiveStage(stage)}
-                >
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
-                    <Icon className="size-4" />
-                    {meta.label}
-                  </div>
-                  <div className="mt-2 text-xs leading-5 text-slate-600">
-                    {meta.note}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      }
-      main={
-        <div className="flex h-full min-h-0 flex-col gap-3">
-          <ThreadHeader
-            title={threadTitle}
-            subtitle={`${activeAssistantLabel} · agentic skill lifecycle`}
-            statusLabel={session.summary.publishStatus}
-            actions={
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={onToggleChatRail}>
-                  <MessageSquareIcon className="size-4" />
-                  {mobileNegotiationRailVisible ? "Hide rail" : "Show rail"}
-                </Button>
-              </div>
-            }
-          />
-          <SessionSummaryBar
-            pendingApprovals={session.negotiation.pendingApprovalCount}
-            interruptionVisible={session.negotiation.interruptionVisible}
-            summary={
-              session.negotiation.question ??
-              "The right rail stays available for negotiation and live edits."
-            }
-          />
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-            {activeStage === "define" ? (
-              <SkillStudioDefineStage detail={detail} onOpenChat={onToggleChatRail} />
-            ) : null}
-            {activeStage === "evaluate" ? (
-              <SkillStudioEvaluateStage detail={detail} />
-            ) : null}
-            {activeStage === "publish" ? (
-              <SkillStudioPublishStage
-                detail={detail}
-                enabled={publishEnabled}
-                versionNote={versionNote}
-                explicitBindingRoleIds={explicitBindingRoleIds}
-                busy={busy}
-                canPublish={Boolean(packageArchivePath)}
-                canRollback={Boolean(detail.publish.rollbackTargetId)}
-                onEnabledChange={setPublishEnabled}
-                onVersionNoteChange={setVersionNote}
-                onToggleBindingRole={(roleId) =>
-                  setExplicitBindingRoleIds((current) =>
-                    current.includes(roleId)
-                      ? current.filter((item) => item !== roleId)
-                      : [...current, roleId],
-                  )
-                }
-                onSaveLifecycle={saveLifecycle}
-                onPublish={publish}
-                onRollback={rollback}
-              />
-            ) : null}
-            {activeStage === "graph" ? <SkillStudioGraphStage detail={detail} /> : null}
-          </div>
-        </div>
-      }
-      negotiation={
-        <NegotiationRail
-          title={<div className="text-base font-semibold text-slate-950">Assistant Rail</div>}
-          question={
-            <p className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-sm text-amber-900">
-              {session.negotiation.question ?? "No blocking negotiation right now."}
-            </p>
-          }
-          actions={
-            <Select
-              value={activeAgentName}
-              onValueChange={onAgentChange}
-              disabled={agentSelectionLocked || !agentSelectorEnabled}
-            >
-              <SelectTrigger className="w-full bg-white/90">
-                <SelectValue placeholder="Choose skill creator" />
-              </SelectTrigger>
-              <SelectContent>
-                {agentOptions.map((option) => (
-                  <SelectItem key={option.name} value={option.name}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          }
-          body={
-            <div className="flex h-full min-h-0 flex-col gap-3">
-              <InterruptActionBar
-                interruptionVisible={session.negotiation.interruptionVisible}
-                onPause={() => setActiveStage("define")}
-                onResolve={onToggleChatRail}
-              />
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">{activeAssistantLabel}</CardTitle>
-                  <CardDescription>{assistantDescription}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-2 pt-0">
-                  <Badge variant="outline">{session.summary.validationStatus}</Badge>
-                  <Badge variant="outline">{session.summary.testStatus}</Badge>
-                  <Badge variant="outline">{session.summary.publishStatus}</Badge>
-                </CardContent>
-              </Card>
-              <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/84">
-                <MessageList
-                  className="flex-1 justify-start"
-                  paddingBottom={32}
-                  threadId={threadId}
-                  thread={thread}
-                />
-              </div>
-              <InputBox
-                className="w-full bg-transparent"
-                isNewThread={isNewThread}
-                showNewThreadSuggestions={false}
-                threadId={threadId}
-                autoFocus={isNewThread}
-                status={thread.error ? "error" : thread.isLoading ? "streaming" : "ready"}
-                context={context}
-                disabled={env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || isUploading}
-                onContextChange={onContextChange}
-                onSubmit={onSubmit}
-                onStop={onStop}
-              />
-              <Button variant="outline" onClick={() => setArtifactsOpen(true)}>
-                Open Artifacts
-              </Button>
-            </div>
-          }
-        />
-      }
-      secondary={
-        <SecondaryLayerHost layers={secondaryLayers} activeLayerId={secondaryLayerId} />
-      }
+      nav={nav}
+      main={main}
+      negotiation={negotiation}
     />
+  );
+}
+
+function NavMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/80 bg-white/88 px-3 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+    </div>
   );
 }

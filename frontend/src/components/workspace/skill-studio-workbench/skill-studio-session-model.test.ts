@@ -5,7 +5,7 @@ const { buildSkillStudioSessionModel } = await import(
   new URL("./skill-studio-session-model.ts", import.meta.url).href,
 );
 
-void test("routes brand new threads to define and keeps assistant choice editable", () => {
+void test("keeps the six lifecycle modules and leaves assistant editable for new threads", () => {
   const model = buildSkillStudioSessionModel({
     isNewThread: true,
     persistedAssistantMode: null,
@@ -19,13 +19,15 @@ void test("routes brand new threads to define and keeps assistant choice editabl
     graphRelationshipCount: 0,
   });
 
-  assert.equal(model.primaryStage, "define");
+  assert.deepEqual(
+    model.modules.map((item: { id: string }) => item.id),
+    ["intent", "draft", "evaluation", "release-prep", "lifecycle", "graph"],
+  );
+  assert.equal(model.activeModuleId, "intent");
   assert.equal(model.assistant.locked, false);
-  assert.equal(model.negotiation.interruptionVisible, false);
-  assert.deepEqual(model.stageOrder, ["define", "evaluate", "publish", "graph"]);
 });
 
-void test("routes drafted skills with validation blockers to evaluate and locks the assistant once persisted", () => {
+void test("routes validation blockers into the evaluation module", () => {
   const model = buildSkillStudioSessionModel({
     isNewThread: false,
     persistedAssistantMode: "codex-skill-creator",
@@ -39,28 +41,30 @@ void test("routes drafted skills with validation blockers to evaluate and locks 
     graphRelationshipCount: 2,
   });
 
-  assert.equal(model.primaryStage, "evaluate");
+  assert.equal(model.activeModuleId, "evaluation");
   assert.equal(model.assistant.locked, true);
   assert.equal(model.negotiation.pendingApprovalCount, 3);
-  assert.equal(model.negotiation.interruptionVisible, true);
-  assert.match(model.negotiation.question ?? "", /validation/i);
+  assert.match(model.negotiation.question ?? "", /验证|阻塞/);
 });
 
-void test("routes publish-ready skills to publish while keeping graph context available", () => {
+void test("routes review-ready packages into the lifecycle module while preserving graph context", () => {
   const model = buildSkillStudioSessionModel({
     isNewThread: false,
     persistedAssistantMode: "codex-skill-creator",
     hasDraftArtifact: true,
     validationStatus: "ready_for_review",
     testStatus: "ready_for_dry_run",
-    publishStatus: "published",
+    publishStatus: "ready_for_review",
     errorCount: 0,
     warningCount: 1,
     blockingCount: 0,
     graphRelationshipCount: 5,
   });
 
-  assert.equal(model.primaryStage, "publish");
+  assert.equal(model.activeModuleId, "lifecycle");
   assert.equal(model.summary.graphRelationshipCount, 5);
-  assert.equal(model.negotiation.interruptionVisible, false);
+  assert.equal(
+    model.modules.find((item: { id: string }) => item.id === "graph")?.status,
+    "已建立",
+  );
 });

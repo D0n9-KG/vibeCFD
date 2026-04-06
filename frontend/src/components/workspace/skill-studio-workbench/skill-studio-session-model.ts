@@ -1,17 +1,31 @@
+import { WORKBENCH_COPY } from "../agentic-workbench/workbench-copy.ts";
 import {
   DEFAULT_SKILL_STUDIO_AGENT,
   labelOfSkillStudioAgentName,
 } from "../skill-studio-agent-options.ts";
 
-export type SkillStudioPrimaryStage =
-  | "define"
-  | "evaluate"
-  | "publish"
-  | "graph";
+export const SKILL_STUDIO_MODULE_ORDER = [
+  "intent",
+  "draft",
+  "evaluation",
+  "release-prep",
+  "lifecycle",
+  "graph",
+] as const;
+
+export type SkillStudioModuleId = (typeof SKILL_STUDIO_MODULE_ORDER)[number];
+
+export type SkillStudioLifecycleModule = {
+  id: SkillStudioModuleId;
+  title: string;
+  status: string;
+  summary: string;
+  expanded: boolean;
+};
 
 export type SkillStudioSessionModel = {
-  primaryStage: SkillStudioPrimaryStage;
-  stageOrder: readonly SkillStudioPrimaryStage[];
+  activeModuleId: SkillStudioModuleId;
+  modules: readonly SkillStudioLifecycleModule[];
   assistant: {
     mode: string;
     label: string;
@@ -44,7 +58,7 @@ export type BuildSkillStudioSessionModelInput = {
   graphRelationshipCount: number;
 };
 
-const PUBLISH_READY_STATUSES = new Set([
+const LIFECYCLE_READY_STATUSES = new Set([
   "draft_ready",
   "published",
   "ready_for_review",
@@ -56,66 +70,162 @@ function normalizeStatus(value: string | null | undefined, fallback = "draft_onl
   return normalized && normalized.length > 0 ? normalized : fallback;
 }
 
-function resolvePrimaryStage(
+function hasBlockingNegotiation(input: BuildSkillStudioSessionModelInput) {
+  return (
+    input.blockingCount > 0 ||
+    input.errorCount > 0 ||
+    normalizeStatus(input.validationStatus) === "needs_revision" ||
+    normalizeStatus(input.testStatus) === "failed" ||
+    normalizeStatus(input.publishStatus) === "blocked"
+  );
+}
+
+function resolveActiveModuleId(
   input: BuildSkillStudioSessionModelInput,
-  hasBlockingNegotiation: boolean,
-): SkillStudioPrimaryStage {
+  blocking: boolean,
+): SkillStudioModuleId {
   if (input.isNewThread || !input.hasDraftArtifact) {
-    return "define";
+    return "intent";
   }
 
-  if (hasBlockingNegotiation) {
-    return "evaluate";
+  if (blocking) {
+    return "evaluation";
   }
 
-  if (PUBLISH_READY_STATUSES.has(normalizeStatus(input.publishStatus))) {
-    return "publish";
+  if (LIFECYCLE_READY_STATUSES.has(normalizeStatus(input.publishStatus))) {
+    return "lifecycle";
   }
 
-  if (input.graphRelationshipCount > 0 && !input.hasDraftArtifact) {
-    return "graph";
+  if (
+    normalizeStatus(input.validationStatus) !== "draft_only" ||
+    normalizeStatus(input.testStatus) !== "draft_only"
+  ) {
+    return "release-prep";
   }
 
-  return "evaluate";
+  return "draft";
 }
 
 function buildNegotiationQuestion(
   input: BuildSkillStudioSessionModelInput,
-  hasBlockingNegotiation: boolean,
+  blocking: boolean,
 ) {
-  if (!hasBlockingNegotiation) {
+  if (!blocking) {
     return null;
   }
 
   if (input.errorCount > 0 || normalizeStatus(input.validationStatus) === "needs_revision") {
-    return "Validation blockers need attention before dry-run or publish.";
+    return "仍有验证问题待修正，先在协商区补齐证据与规则。";
   }
 
   if (normalizeStatus(input.testStatus) === "failed") {
-    return "Scenario test failures are blocking the current lifecycle.";
+    return "场景测试尚未通过，先处理阻塞用例。";
   }
 
   if (normalizeStatus(input.publishStatus) === "blocked") {
-    return "Publish readiness is blocked. Resolve the remaining gates first.";
+    return "发布准备仍被阻塞，先补齐缺失门禁。";
   }
 
-  return "The lifecycle has unresolved blockers that require operator review.";
+  return "当前技能生命周期仍有阻塞项，先在协商区确认修订方案。";
+}
+
+function resolveModuleStatus({
+  id,
+  activeModuleId,
+  input,
+  blocking,
+}: {
+  id: SkillStudioModuleId;
+  activeModuleId: SkillStudioModuleId;
+  input: BuildSkillStudioSessionModelInput;
+  blocking: boolean;
+}) {
+  if (id === activeModuleId) {
+    return "当前焦点";
+  }
+
+  switch (id) {
+    case "intent":
+      return input.hasDraftArtifact ? "已明确" : "待明确";
+    case "draft":
+      return input.hasDraftArtifact ? "已生成" : "待生成";
+    case "evaluation":
+      return blocking ? "待修正" : input.hasDraftArtifact ? "已检查" : "待验证";
+    case "release-prep":
+      return input.hasDraftArtifact ? "待发布" : "待准备";
+    case "lifecycle":
+      return LIFECYCLE_READY_STATUSES.has(normalizeStatus(input.publishStatus))
+        ? "已建立"
+        : "待建立";
+    case "graph":
+      return input.graphRelationshipCount > 0 ? "已建立" : "待建立";
+  }
+}
+
+function resolveModuleSummary({
+  id,
+  input,
+  blocking,
+}: {
+  id: SkillStudioModuleId;
+  input: BuildSkillStudioSessionModelInput;
+  blocking: boolean;
+}) {
+  switch (id) {
+    case "intent":
+      return "先明确技能目标、触发条件、适用边界和成功标准。";
+    case "draft":
+      return input.hasDraftArtifact
+        ? "技能草案、规则和输入输出约束已经生成。"
+        : "等待主智能体产出第一版技能草案。";
+    case "evaluation":
+      return blocking
+        ? `当前有 ${input.blockingCount} 项阻塞，需先修正验证或测试问题。`
+        : "验证、试跑与结构检查结果会在这里集中展示。";
+    case "release-prep":
+      return "在发布前确认门禁状态、版本说明、包产物与挂载目标。";
+    case "lifecycle":
+      return "这里汇总启用状态、活动版本、已发布版本和回退目标。";
+    case "graph":
+      return input.graphRelationshipCount > 0
+        ? `已建立 ${input.graphRelationshipCount} 条技能关系，可查看上下游与高影响连接。`
+        : "关系网络会在技能纳入图谱后出现。";
+  }
 }
 
 export function buildSkillStudioSessionModel(
   input: BuildSkillStudioSessionModelInput,
 ): SkillStudioSessionModel {
   const assistantMode = input.persistedAssistantMode ?? DEFAULT_SKILL_STUDIO_AGENT;
-  const hasBlockingNegotiation =
-    input.blockingCount > 0 ||
-    input.errorCount > 0 ||
-    normalizeStatus(input.validationStatus) === "needs_revision" ||
-    normalizeStatus(input.testStatus) === "failed" ||
-    normalizeStatus(input.publishStatus) === "blocked";
+  const blocking = hasBlockingNegotiation(input);
+  const activeModuleId = resolveActiveModuleId(input, blocking);
 
   return {
-    primaryStage: resolvePrimaryStage(input, hasBlockingNegotiation),
-    stageOrder: ["define", "evaluate", "publish", "graph"],
+    activeModuleId,
+    modules: SKILL_STUDIO_MODULE_ORDER.map((id) => ({
+      id,
+      title:
+        {
+          intent: WORKBENCH_COPY.skillStudio.modules.intent,
+          draft: WORKBENCH_COPY.skillStudio.modules.draft,
+          evaluation: WORKBENCH_COPY.skillStudio.modules.evaluation,
+          "release-prep": WORKBENCH_COPY.skillStudio.modules.releasePrep,
+          lifecycle: WORKBENCH_COPY.skillStudio.modules.lifecycle,
+          graph: WORKBENCH_COPY.skillStudio.modules.graph,
+        }[id] ?? id,
+      status: resolveModuleStatus({
+        id,
+        activeModuleId,
+        input,
+        blocking,
+      }),
+      summary: resolveModuleSummary({
+        id,
+        input,
+        blocking,
+      }),
+      expanded: id === activeModuleId,
+    })),
     assistant: {
       mode: assistantMode,
       label: labelOfSkillStudioAgentName(assistantMode),
@@ -130,8 +240,8 @@ export function buildSkillStudioSessionModel(
     },
     negotiation: {
       pendingApprovalCount: input.blockingCount,
-      interruptionVisible: hasBlockingNegotiation,
-      question: buildNegotiationQuestion(input, hasBlockingNegotiation),
+      interruptionVisible: blocking,
+      question: buildNegotiationQuestion(input, blocking),
     },
   };
 }

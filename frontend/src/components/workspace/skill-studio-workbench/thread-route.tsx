@@ -125,7 +125,7 @@ export function SkillStudioThreadRoute({
           body:
             textContent && textContent.length > 0
               ? textContent.slice(0, 200)
-              : "Skill Studio thread finished its latest turn.",
+              : "技能工作台线程已完成最新一轮处理。",
         });
       }
     },
@@ -219,7 +219,7 @@ export function SkillStudioThreadRoute({
           activeAssistantLabel={activeAssistantLabel}
           assistantDescription={
             activeAgentOption?.description ??
-            `${activeAssistantLabel} carries the definition, validation, and publish negotiation for this thread.`
+            `${activeAssistantLabel} 负责这条技能生命周期线程中的定义整理、验证试跑与发布协商。`
           }
           agentOptions={agentOptions}
           agentSelectionLocked={!isNewThread || persistedAssistantMode != null}
