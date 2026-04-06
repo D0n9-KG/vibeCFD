@@ -19,14 +19,14 @@ export type WorkspaceSurfaceHrefOptions = {
 export const WORKSPACE_SURFACES: readonly WorkspaceSurface[] = [
   {
     id: "submarine",
-    label: "仿真",
+    label: "仿真工作台",
     defaultHref: "/workspace/submarine/new",
     pathPrefixes: ["/workspace/submarine"],
   },
   {
     id: "skill-studio",
     label: "技能工作台",
-    defaultHref: "/workspace/skill-studio",
+    defaultHref: "/workspace/skill-studio/new",
     pathPrefixes: ["/workspace/skill-studio"],
   },
   {
