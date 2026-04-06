@@ -26,6 +26,7 @@ void test("routes to plan stage when confirmations are still blocking progress",
   assert.equal(model.negotiation.pendingApprovalCount, 2);
   assert.equal(model.negotiation.interruptionVisible, true);
   assert.match(model.negotiation.question ?? "", /confirm/i);
+  assert.deepEqual(model.reachableStages, ["plan"]);
 });
 
 void test("routes to execute stage while runtime is actively running", () => {
@@ -109,6 +110,7 @@ void test("keeps confirmation blockers in plan stage for user-confirmation and i
   assert.equal(model.primaryStage, "plan");
   assert.equal(model.negotiation.interruptionVisible, true);
   assert.match(model.negotiation.question ?? "", /blocking/i);
+  assert.deepEqual(model.reachableStages, ["plan"]);
 });
 
 void test("routes geometry-preflight and active runtime status to execute stage", () => {
@@ -182,4 +184,31 @@ void test("keeps completed runtime in execute until review or report evidence is
 
   assert.equal(model.primaryStage, "execute");
   assert.deepEqual(model.reachableStages, ["plan", "execute"]);
+});
+
+void test("keeps later evidence surfaces reachable even when plan negotiation becomes active again", () => {
+  const model = buildSubmarineSessionModel({
+    isNewThread: false,
+    runtime: {
+      task_summary: "Review completed CFD evidence with one remaining approval.",
+      review_status: "needs_user_confirmation",
+      report_virtual_path: "/artifacts/submarine/final-report.json",
+      execution_log_virtual_path: "/artifacts/submarine/openfoam-run.log",
+      solver_results_virtual_path: "/artifacts/submarine/solver-results.json",
+      activity_timeline: [{ title: "Run finished", actor: "solver-worker" }],
+      calculation_plan: [{ approval_state: "pending" }],
+    },
+    designBrief: {
+      summary_zh: "Need one more decision before delivery",
+      open_questions: ["Approve whether to ship the current run as-is"],
+    },
+    finalReport: {
+      summary_zh: "Current report is ready for review.",
+    },
+    messageCount: 18,
+    artifactCount: 12,
+  });
+
+  assert.equal(model.primaryStage, "plan");
+  assert.deepEqual(model.reachableStages, ["plan", "execute", "results"]);
 });

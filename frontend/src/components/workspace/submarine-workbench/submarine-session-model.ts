@@ -154,17 +154,48 @@ function resolvePrimaryStage(
 }
 
 function resolveReachableStages(
-  primaryStage: SubmarinePrimaryStage,
+  input: BuildSubmarineSessionModelInput,
 ): readonly SubmarinePrimaryStage[] {
-  if (primaryStage === "results") {
-    return ["plan", "execute", "results"];
+  const displayedStage = getSubmarineDisplayedStage(input.runtime, input.designBrief);
+  const displayedNextStage = getSubmarineDisplayedNextStage(
+    input.runtime,
+    input.designBrief,
+  );
+  const reachableStages: SubmarinePrimaryStage[] = ["plan"];
+
+  const executionVisible = [
+    input.runtime?.activity_timeline?.length ?? 0,
+    input.runtime?.execution_log_virtual_path ?? null,
+    input.runtime?.solver_results_virtual_path ?? null,
+    input.runtime?.workspace_case_dir_virtual_path ?? null,
+    input.runtime?.run_script_virtual_path ?? null,
+    EXECUTION_STAGE_IDS.has(input.runtime?.current_stage ?? ""),
+    displayedStage === "geometry-preflight",
+    displayedStage === "solver-dispatch",
+    displayedStage === "result-reporting",
+    input.runtime?.runtime_status === "running",
+    input.runtime?.runtime_status === "completed",
+  ].some(Boolean);
+
+  const resultsVisible = [
+    input.finalReport,
+    input.runtime?.report_virtual_path ?? null,
+    input.runtime?.review_status === "ready_for_supervisor",
+    input.runtime?.review_status === "completed",
+    input.runtime?.current_stage === "supervisor-review",
+    displayedStage === "supervisor-review",
+    displayedNextStage === "supervisor-review",
+  ].some(Boolean);
+
+  if (executionVisible) {
+    reachableStages.push("execute");
   }
 
-  if (primaryStage === "execute") {
-    return ["plan", "execute"];
+  if (resultsVisible) {
+    reachableStages.push("results");
   }
 
-  return ["plan"];
+  return reachableStages;
 }
 
 export function buildSubmarineSessionModel(
@@ -177,7 +208,7 @@ export function buildSubmarineSessionModel(
     pendingApprovalCount,
   });
   const primaryStage = resolvePrimaryStage(input, blockingReasons);
-  const reachableStages = resolveReachableStages(primaryStage);
+  const reachableStages = resolveReachableStages(input);
   const evidenceReady = Boolean(input.finalReport);
   const currentObjective =
     input.runtime?.task_summary ??
