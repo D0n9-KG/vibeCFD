@@ -4,29 +4,21 @@ import { type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { InterruptActionBar } from "./interrupt-action-bar";
-import { NarrativeStream, type NarrativeStreamItem } from "./narrative-stream";
-import { SessionSummaryBar } from "./session-summary-bar";
-
 export type NegotiationRailProps = {
-  pendingApprovals: number;
-  interruptionVisible: boolean;
-  narrative: readonly NarrativeStreamItem[];
-  header?: ReactNode;
+  title: ReactNode;
+  question: ReactNode;
+  actions: ReactNode;
+  body: ReactNode;
   footer?: ReactNode;
-  onPause?: () => void;
-  onResolve?: () => void;
   className?: string;
 };
 
 export function NegotiationRail({
-  pendingApprovals,
-  interruptionVisible,
-  narrative,
-  header = null,
+  title,
+  question,
+  actions,
+  body,
   footer = null,
-  onPause,
-  onResolve,
   className,
 }: NegotiationRailProps) {
   return (
@@ -36,22 +28,16 @@ export function NegotiationRail({
         className,
       )}
     >
-      {header}
+      <section data-negotiation-slot="title">{title}</section>
+      <section data-negotiation-slot="question">{question}</section>
+      <section data-negotiation-slot="actions">{actions}</section>
+      <section data-negotiation-slot="body" className="min-h-0 flex-1">
+        {body}
+      </section>
 
-      <SessionSummaryBar
-        pendingApprovals={pendingApprovals}
-        interruptionVisible={interruptionVisible}
-      />
-
-      <InterruptActionBar
-        interruptionVisible={interruptionVisible}
-        onPause={onPause}
-        onResolve={onResolve}
-      />
-
-      <NarrativeStream items={narrative} className="min-h-0 flex-1" />
-
-      {footer}
+      {footer ? (
+        <section data-negotiation-slot="footer">{footer}</section>
+      ) : null}
     </section>
   );
 }
