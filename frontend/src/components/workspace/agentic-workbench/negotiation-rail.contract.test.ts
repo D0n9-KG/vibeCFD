@@ -1,32 +1,31 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 
-const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const moduleUrl = new URL("./negotiation-rail.contract.ts", import.meta.url)
+  .href;
 
-void test("negotiation rail stays stage-agnostic with composable slots", async () => {
-  const source = await readFile(
-    path.join(moduleDir, "negotiation-rail.tsx"),
-    "utf-8",
-  );
+void test("negotiation rail slot contract preserves shared slot order", async () => {
+  const { NEGOTIATION_RAIL_SLOT_ORDER, getNegotiationRailRenderedSlotOrder } =
+    await import(moduleUrl);
 
-  assert.match(source, /export type NegotiationRailProps = \{/);
-  assert.match(source, /\btitle:\s*ReactNode\b/);
-  assert.match(source, /\bquestion:\s*ReactNode\b/);
-  assert.match(source, /\bactions:\s*ReactNode\b/);
-  assert.match(source, /\bbody:\s*ReactNode\b/);
-  assert.match(source, /\bfooter\?:\s*ReactNode\b/);
-  assert.match(source, /data-negotiation-slot="title"/);
-  assert.match(source, /data-negotiation-slot="question"/);
-  assert.match(source, /data-negotiation-slot="actions"/);
-  assert.match(source, /data-negotiation-slot="body"/);
-  assert.doesNotMatch(source, /\bpendingApprovals\b/);
-  assert.doesNotMatch(source, /\binterruptionVisible\b/);
-  assert.doesNotMatch(source, /\bnarrative\b/);
-  assert.doesNotMatch(source, /\bonPause\b/);
-  assert.doesNotMatch(source, /\bonResolve\b/);
-  assert.doesNotMatch(source, /\bPause\b/);
-  assert.doesNotMatch(source, /\bResolve\b/);
+  assert.deepEqual(NEGOTIATION_RAIL_SLOT_ORDER, [
+    "title",
+    "question",
+    "actions",
+    "body",
+    "footer",
+  ]);
+  assert.deepEqual(getNegotiationRailRenderedSlotOrder({ hasFooter: false }), [
+    "title",
+    "question",
+    "actions",
+    "body",
+  ]);
+  assert.deepEqual(getNegotiationRailRenderedSlotOrder({ hasFooter: true }), [
+    "title",
+    "question",
+    "actions",
+    "body",
+    "footer",
+  ]);
 });

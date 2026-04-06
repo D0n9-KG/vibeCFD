@@ -4,27 +4,34 @@ import { type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-export type SecondaryLayerDefinition = {
-  id: string;
-  label: string;
-  content: ReactNode;
-};
+import {
+  DEFAULT_SECONDARY_LAYER_EMPTY_STATE,
+  DEFAULT_SECONDARY_LAYER_MISSING_STATE,
+  selectSecondaryLayer,
+  type SecondaryLayerRecord,
+} from "./secondary-layer-host.contract";
+
+export type SecondaryLayerDefinition = SecondaryLayerRecord<ReactNode>;
 
 export type SecondaryLayerHostProps = {
   layers: readonly SecondaryLayerDefinition[];
   activeLayerId?: string;
   emptyState?: ReactNode;
+  missingState?: ReactNode;
   className?: string;
 };
 
 export function SecondaryLayerHost({
   layers,
   activeLayerId,
-  emptyState = "Secondary layers will appear when a trust-critical surface is active.",
+  emptyState = DEFAULT_SECONDARY_LAYER_EMPTY_STATE,
+  missingState = DEFAULT_SECONDARY_LAYER_MISSING_STATE,
   className,
 }: SecondaryLayerHostProps) {
-  const activeLayer =
-    layers.find((layer) => layer.id === activeLayerId) ?? layers[0];
+  const selection = selectSecondaryLayer({
+    layers,
+    activeLayerId,
+  });
 
   return (
     <section
@@ -33,16 +40,18 @@ export function SecondaryLayerHost({
         className,
       )}
     >
-      {activeLayer ? (
+      {selection.kind === "active" ? (
         <div className="space-y-2">
           <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
             Secondary Layer
           </div>
           <h3 className="text-sm font-semibold text-slate-900">
-            {activeLayer.label}
+            {selection.layer.label}
           </h3>
-          <div className="text-sm text-slate-700">{activeLayer.content}</div>
+          <div className="text-sm text-slate-700">{selection.layer.content}</div>
         </div>
+      ) : selection.kind === "missing" ? (
+        <p className="text-sm text-slate-600">{missingState}</p>
       ) : (
         <p className="text-sm text-slate-600">{emptyState}</p>
       )}

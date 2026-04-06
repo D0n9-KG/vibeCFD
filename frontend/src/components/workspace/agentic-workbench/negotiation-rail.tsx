@@ -4,6 +4,11 @@ import { type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
+import {
+  getNegotiationRailRenderedSlotOrder,
+  type NegotiationRailSlot,
+} from "./negotiation-rail.contract";
+
 export type NegotiationRailProps = {
   title: ReactNode;
   question: ReactNode;
@@ -21,6 +26,17 @@ export function NegotiationRail({
   footer = null,
   className,
 }: NegotiationRailProps) {
+  const renderedSlots = getNegotiationRailRenderedSlotOrder({
+    hasFooter: footer !== null,
+  });
+  const slotContent: Record<NegotiationRailSlot, ReactNode | null> = {
+    title,
+    question,
+    actions,
+    body,
+    footer,
+  };
+
   return (
     <section
       className={cn(
@@ -28,16 +44,15 @@ export function NegotiationRail({
         className,
       )}
     >
-      <section data-negotiation-slot="title">{title}</section>
-      <section data-negotiation-slot="question">{question}</section>
-      <section data-negotiation-slot="actions">{actions}</section>
-      <section data-negotiation-slot="body" className="min-h-0 flex-1">
-        {body}
-      </section>
-
-      {footer ? (
-        <section data-negotiation-slot="footer">{footer}</section>
-      ) : null}
+      {renderedSlots.map((slot) => (
+        <section
+          key={slot}
+          data-negotiation-slot={slot}
+          className={slot === "body" ? "min-h-0 flex-1" : undefined}
+        >
+          {slotContent[slot]}
+        </section>
+      ))}
     </section>
   );
 }
