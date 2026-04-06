@@ -45,7 +45,6 @@ type SubmarineAgenticWorkbenchProps = {
 export function SubmarineAgenticWorkbench({
   threadId,
   isNewThread,
-  onOpenChat,
   negotiationContent,
   headerActions = null,
 }: SubmarineAgenticWorkbenchProps) {
@@ -131,10 +130,6 @@ export function SubmarineAgenticWorkbench({
     [finalReport, runtime],
   );
 
-  const negotiationQuestion = session.negotiation.interruptionVisible
-    ? session.negotiation.question
-    : null;
-
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
@@ -151,7 +146,6 @@ export function SubmarineAgenticWorkbench({
           designBrief={designBrief}
           finalReport={finalReport}
           artifactPaths={submarineArtifacts}
-          onOpenNegotiation={onOpenChat}
         />
       </div>
     </div>
@@ -159,18 +153,9 @@ export function SubmarineAgenticWorkbench({
 
   const negotiation = (
     <NegotiationRail
-      title={
-        <h3 className="text-lg font-semibold leading-8 text-slate-950">
-          直接输入修改意见，主智能体会重新协商并调整流程。
-        </h3>
-      }
-      question={
-        negotiationQuestion ? (
-          <p className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-sm text-amber-900">
-            {negotiationQuestion}
-          </p>
-        ) : null
-      }
+      className="gap-2 p-2.5"
+      title={<div className="px-1 text-sm font-semibold text-slate-900">协商区</div>}
+      question={null}
       body={
         <div id="submarine-chat-rail" className="min-h-0 flex-1 overflow-hidden">
           {negotiationContent}

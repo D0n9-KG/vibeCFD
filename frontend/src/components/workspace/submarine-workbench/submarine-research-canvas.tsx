@@ -1,9 +1,7 @@
 "use client";
 
-import { Layers3Icon, MicroscopeIcon, ScrollTextIcon } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   SecondaryLayerHost,
   WorkbenchFlow,
@@ -27,7 +25,6 @@ type SubmarineResearchCanvasProps = {
   designBrief: SubmarineDesignBriefPayload | null;
   finalReport: SubmarineFinalReportPayload | null;
   artifactPaths: readonly string[];
-  onOpenNegotiation: () => void;
 };
 
 type DrawerId = "trust" | "studies" | "operator";
@@ -54,7 +51,6 @@ export function SubmarineResearchCanvas({
   designBrief,
   finalReport,
   artifactPaths,
-  onOpenNegotiation,
 }: SubmarineResearchCanvasProps) {
   const [activeDrawerId, setActiveDrawerId] = useState<DrawerId>(() =>
     resolveDefaultDrawerId(session.activeModuleId),
@@ -66,19 +62,29 @@ export function SubmarineResearchCanvas({
       ? `${session.negotiation.pendingApprovalCount} 项待确认`
       : "当前无阻塞项";
   const artifactSummary =
-    artifactPaths.length > 0 ? `${artifactPaths.length} 项研究产物` : "尚未产出研究文件";
+    artifactPaths.length > 0
+      ? `${artifactPaths.length} 项研究产物`
+      : "尚未产出研究文件";
 
   useEffect(() => {
     setActiveDrawerId(resolveDefaultDrawerId(session.activeModuleId));
   }, [session.activeModuleId]);
 
-  const executionPlan = runtime?.execution_plan ?? designBrief?.execution_outline ?? [];
+  const executionPlan =
+    runtime?.execution_plan ?? designBrief?.execution_outline ?? [];
   const skillNames = [
-    ...(runtime?.execution_plan?.flatMap((item) => item.target_skills ?? []) ?? []),
-    ...(runtime?.activity_timeline?.flatMap((item) => item.skill_names ?? []) ?? []),
-  ].filter((skill, index, all): skill is string => Boolean(skill) && all.indexOf(skill) === index);
+    ...(runtime?.execution_plan?.flatMap((item) => item.target_skills ?? []) ??
+      []),
+    ...(runtime?.activity_timeline?.flatMap((item) => item.skill_names ?? []) ??
+      []),
+  ].filter(
+    (skill, index, all): skill is string =>
+      Boolean(skill) && all.indexOf(skill) === index,
+  );
   const requestedOutputs =
-    runtime?.requested_outputs?.map((item) => item?.label ?? item?.requested_label ?? "").filter(Boolean) ??
+    runtime?.requested_outputs
+      ?.map((item) => item?.label ?? item?.requested_label ?? "")
+      .filter(Boolean) ??
     designBrief?.requested_outputs
       ?.map((item) => item?.label ?? item?.requested_label ?? "")
       .filter(Boolean) ??
@@ -100,7 +106,9 @@ export function SubmarineResearchCanvas({
       {
         id: "studies",
         label: "对比试验与后处理结果",
-        content: <SubmarineExperimentBoard experimentBoard={detail.experimentBoard} />,
+        content: (
+          <SubmarineExperimentBoard experimentBoard={detail.experimentBoard} />
+        ),
       },
       {
         id: "operator",
@@ -122,33 +130,28 @@ export function SubmarineResearchCanvas({
             <h3 className="mt-2 text-lg font-semibold text-slate-950">
               围绕目标、证据与交付判断推进整条研究链。
             </h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              协商在右侧聊天框完成，主画布只保留当前研究状态、流程索引与关键证据入口。
-            </p>
           </div>
 
           <div className="grid min-w-[280px] flex-1 gap-3 md:grid-cols-3">
-            <OverviewMetric label="当前焦点" value={activeModule?.title ?? "等待开始"} />
+            <OverviewMetric
+              label="当前焦点"
+              value={activeModule?.title ?? "等待开始"}
+            />
             <OverviewMetric label="待确认事项" value={pendingSummary} />
             <OverviewMetric label="研究产物" value={artifactSummary} />
           </div>
         </div>
 
-        <div className="mt-4">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            研究推进索引
-          </div>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {session.modules.map((module, index) => (
-              <FlowIndexCard
-                key={module.id}
-                index={index + 1}
-                title={module.title}
-                status={module.status}
-                active={module.expanded}
-              />
-            ))}
-          </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {session.modules.map((module, index) => (
+            <FlowIndexChip
+              key={module.id}
+              index={index + 1}
+              title={module.title}
+              status={module.status}
+              active={module.expanded}
+            />
+          ))}
         </div>
       </section>
 
@@ -172,8 +175,6 @@ export function SubmarineResearchCanvas({
             artifactPaths,
             conclusionSections,
             detail,
-            onOpenNegotiation,
-            onOpenDrawer: setActiveDrawerId,
           }),
         }))}
       />
@@ -181,7 +182,7 @@ export function SubmarineResearchCanvas({
       <SecondaryLayerHost
         layers={drawerLayers}
         activeLayerId={activeDrawerId}
-        className="border-slate-200/70 bg-slate-50/70"
+        className="border-slate-200/70 bg-transparent"
       />
     </div>
   );
@@ -193,12 +194,14 @@ function OverviewMetric({ label, value }: { label: string; value: string }) {
       <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </div>
-      <div className="mt-1 text-sm font-semibold leading-6 text-slate-900">{value}</div>
+      <div className="mt-1 text-sm font-semibold leading-6 text-slate-900">
+        {value}
+      </div>
     </article>
   );
 }
 
-function FlowIndexCard({
+function FlowIndexChip({
   index,
   title,
   status,
@@ -212,7 +215,7 @@ function FlowIndexCard({
   return (
     <article
       className={[
-        "min-w-[150px] rounded-2xl border px-3 py-3 transition-colors",
+        "inline-flex items-center gap-2 rounded-full border px-3 py-2 transition-colors",
         active
           ? "border-sky-200/80 bg-sky-50/80"
           : "border-slate-200/80 bg-white/88",
@@ -221,8 +224,8 @@ function FlowIndexCard({
       <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {String(index).padStart(2, "0")}
       </div>
-      <div className="mt-1 text-sm font-semibold text-slate-950">{title}</div>
-      <div className="mt-2 text-xs text-slate-600">{status}</div>
+      <div className="text-sm font-semibold text-slate-950">{title}</div>
+      <div className="text-xs text-slate-600">{status}</div>
     </article>
   );
 }
@@ -240,8 +243,6 @@ function renderModuleContent({
   artifactPaths,
   conclusionSections,
   detail,
-  onOpenNegotiation,
-  onOpenDrawer,
 }: {
   moduleId: string;
   runtime: SubmarineRuntimeSnapshotPayload | null;
@@ -268,8 +269,6 @@ function renderModuleContent({
     summary_zh?: string | null;
   }[];
   detail: SubmarineDetailModel;
-  onOpenNegotiation: () => void;
-  onOpenDrawer: (id: DrawerId) => void;
 }): ReactNode {
   switch (moduleId) {
     case "proposal":
@@ -321,11 +320,6 @@ function renderModuleContent({
                 .map((item) => item?.label ?? item?.item_id ?? "待确认项") ?? []
             }
           />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={onOpenNegotiation}>
-              去协商区补充修改意见
-            </Button>
-          </div>
         </div>
       );
     case "delegation":
@@ -341,18 +335,11 @@ function renderModuleContent({
       );
     case "skills":
       return (
-        <div className="space-y-4">
-          <TokenList
-            title="已调用技能"
-            emptyLabel="当前尚未触发显式技能调用。"
-            items={skillNames}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => onOpenDrawer("operator")}>
-              查看主智能体编排说明
-            </Button>
-          </div>
-        </div>
+        <TokenList
+          title="已调用技能"
+          emptyLabel="当前尚未触发显式技能调用。"
+          items={skillNames}
+        />
       );
     case "execution":
       return (
@@ -396,45 +383,26 @@ function renderModuleContent({
             emptyLabel="尚未定义科学验证要求。"
             items={verificationRequirements}
           />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => onOpenDrawer("trust")}>
-              查看证据与可信度
-            </Button>
-          </div>
         </div>
       );
     case "postprocess-result":
       return (
-        <div className="space-y-4">
-          <KeyValueGrid
-            items={[
-              {
-                label: "对比试验",
-                value: `${detail.experimentBoard.compareCount} 组`,
-              },
-              {
-                label: "研究批次",
-                value: `${detail.experimentBoard.studyCount} 组`,
-              },
-              {
-                label: "已完成对比",
-                value: `${detail.experimentBoard.compareCompletedCount} 组`,
-              },
-            ]}
-          />
-          <div className="flex flex-wrap gap-2">
-            <DrawerShortcut
-              icon={<MicroscopeIcon className="size-4" />}
-              label="查看对比试验"
-              onClick={() => onOpenDrawer("studies")}
-            />
-            <DrawerShortcut
-              icon={<Layers3Icon className="size-4" />}
-              label="查看证据链"
-              onClick={() => onOpenDrawer("trust")}
-            />
-          </div>
-        </div>
+        <KeyValueGrid
+          items={[
+            {
+              label: "对比试验",
+              value: `${detail.experimentBoard.compareCount} 组`,
+            },
+            {
+              label: "研究批次",
+              value: `${detail.experimentBoard.studyCount} 组`,
+            },
+            {
+              label: "已完成对比",
+              value: `${detail.experimentBoard.compareCompletedCount} 组`,
+            },
+          ]}
+        />
       );
     case "report":
       return (
@@ -444,7 +412,8 @@ function renderModuleContent({
               {
                 label: "最终结论",
                 value:
-                  finalReport?.summary_zh ?? "尚未形成最终结论，请继续推进研究与复核。",
+                  finalReport?.summary_zh ??
+                  "尚未形成最终结论，请继续推进研究与复核。",
               },
               {
                 label: "结论边界",
@@ -469,40 +438,11 @@ function renderModuleContent({
               description: section.summary_zh ?? undefined,
             }))}
           />
-          <div className="flex flex-wrap gap-2">
-            <DrawerShortcut
-              icon={<Layers3Icon className="size-4" />}
-              label="查看证据与可信度"
-              onClick={() => onOpenDrawer("trust")}
-            />
-            <DrawerShortcut
-              icon={<ScrollTextIcon className="size-4" />}
-              label="查看交付判断"
-              onClick={() => onOpenDrawer("operator")}
-            />
-          </div>
         </div>
       );
     default:
       return null;
   }
-}
-
-function DrawerShortcut({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button size="sm" variant="outline" onClick={onClick}>
-      {icon}
-      {label}
-    </Button>
-  );
 }
 
 function KeyValueGrid({
@@ -520,7 +460,9 @@ function KeyValueGrid({
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
             {item.label}
           </div>
-          <div className="mt-2 text-sm leading-6 text-slate-800">{item.value}</div>
+          <div className="mt-2 text-sm leading-6 text-slate-800">
+            {item.value}
+          </div>
         </article>
       ))}
     </div>
@@ -580,7 +522,9 @@ function CompactList({
               key={[item.title, item.meta, item.description].join("-")}
               className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3"
             >
-              <div className="text-sm font-semibold text-slate-900">{item.title}</div>
+              <div className="text-sm font-semibold text-slate-900">
+                {item.title}
+              </div>
               {item.meta ? (
                 <div className="mt-1 text-xs text-slate-500">{item.meta}</div>
               ) : null}

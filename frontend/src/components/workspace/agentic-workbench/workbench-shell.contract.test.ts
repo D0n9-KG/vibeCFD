@@ -27,7 +27,7 @@ void test("locks the desktop shell to a fixed-height split so only the center pa
   assert.match(classes.root, /\boverflow-hidden\b/);
   assert.match(
     classes.root,
-    /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(360px,480px\)\]/,
+    /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(440px,620px\)\]/,
   );
   assert.match(classes.main, /\bh-full\b/);
   assert.match(classes.main, /\boverflow-hidden\b/);

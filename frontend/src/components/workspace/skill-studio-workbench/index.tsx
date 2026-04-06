@@ -126,10 +126,25 @@ const DEFAULT_ENGLISH_SKILL_GOAL = [
 
 function localizeSkillStudioGoal(goal: string) {
   if (goal === DEFAULT_ENGLISH_SKILL_GOAL) {
-    return "定义 Claude Code 与报告子代理如何判断一次潜艇 CFD 任务是否可信、需要复核，还是应该重新计算。";
+    return "定义 Claude Code 与报告子代理如何判断一次潜艇 CFD 任务是否可信、是否需要复核，或者是否应当重新计算。";
   }
 
   return goal;
+}
+
+function resolveSkillStudioHeaderStatusLabel(status: string) {
+  switch (status) {
+    case "published":
+      return "已发布";
+    case "ready_for_review":
+      return "待评审";
+    case "draft_ready":
+      return "待发布";
+    case "rollback_available":
+      return "可回退";
+    default:
+      return "处理中";
+  }
 }
 
 export function SkillStudioAgenticWorkbench({
@@ -409,42 +424,18 @@ export function SkillStudioAgenticWorkbench({
     }
   }, [detail.publish.rollbackTargetId, rollbackSkillRevision, skillName]);
 
-  const openNegotiation = useCallback(() => {
-    if (!mobileNegotiationRailVisible) {
-      onToggleChatRail();
-      window.setTimeout(() => {
-        const rail = document.getElementById("skill-studio-chat-rail");
-        rail?.scrollIntoView({ behavior: "smooth", block: "start" });
-        const input = rail?.querySelector("textarea");
-        if (input instanceof HTMLTextAreaElement) {
-          input.focus();
-        }
-      }, 50);
-      return;
-    }
-
-    const rail = document.getElementById("skill-studio-chat-rail");
-    rail?.scrollIntoView({ behavior: "smooth", block: "start" });
-    const input = rail?.querySelector("textarea");
-    if (input instanceof HTMLTextAreaElement) {
-      input.focus();
-    }
-  }, [mobileNegotiationRailVisible, onToggleChatRail]);
-
-  const activeModule = session.modules.find((module) => module.expanded) ?? session.modules[0];
   const threadTitle =
     typeof thread.values.title === "string" && thread.values.title.length > 0
       ? thread.values.title
       : detail.define.skillTitle;
   const showAssistantSelector = agentSelectorEnabled && !agentSelectionLocked;
-  const negotiationQuestion = session.negotiation.question;
 
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
         title={threadTitle}
         subtitle={localizeSkillStudioGoal(detail.define.skillGoal)}
-        statusLabel={activeModule?.status ?? "处理中"}
+        statusLabel={resolveSkillStudioHeaderStatusLabel(session.summary.publishStatus)}
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -456,6 +447,24 @@ export function SkillStudioAgenticWorkbench({
               <MessageSquareIcon className="size-4" />
               {mobileNegotiationRailVisible ? "收起协商区" : "展开协商区"}
             </Button>
+            {showAssistantSelector ? (
+              <Select
+                value={activeAgentName}
+                onValueChange={onAgentChange}
+                disabled={agentSelectionLocked || !agentSelectorEnabled}
+              >
+                <SelectTrigger className="w-[220px] bg-white/90">
+                  <SelectValue placeholder="选择技能创建助手" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agentOptions.map((option) => (
+                    <SelectItem key={option.name} value={option.name}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
             <Button size="sm" variant="outline" onClick={() => setArtifactsOpen(true)}>
               打开技能产物
             </Button>
@@ -485,7 +494,6 @@ export function SkillStudioAgenticWorkbench({
           onSaveLifecycle={saveLifecycle}
           onPublish={publish}
           onRollback={rollback}
-          onOpenNegotiation={openNegotiation}
         />
       </div>
     </div>
@@ -493,66 +501,37 @@ export function SkillStudioAgenticWorkbench({
 
   const negotiation = (
     <NegotiationRail
-      title={
-        <h3 className="text-lg font-semibold leading-8 text-slate-950">
-          直接输入修改意见，主智能体会重新协商技能方案。
-        </h3>
-      }
-      question={
-        negotiationQuestion ? (
-          <p className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-sm text-amber-900">
-            {negotiationQuestion}
-          </p>
-        ) : null
-      }
-      actions={
-        showAssistantSelector ? (
-          <Select
-            value={activeAgentName}
-            onValueChange={onAgentChange}
-            disabled={agentSelectionLocked || !agentSelectorEnabled}
-          >
-            <SelectTrigger className="w-full bg-white/90">
-              <SelectValue placeholder="选择技能创建助手" />
-            </SelectTrigger>
-            <SelectContent>
-              {agentOptions.map((option) => (
-                <SelectItem key={option.name} value={option.name}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : null
-      }
+      className="gap-2 p-2.5"
+      title={<div className="px-1 text-sm font-semibold text-slate-900">协商区</div>}
+      question={null}
+      actions={null}
       body={
-        <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-          <div
-            id="skill-studio-chat-rail"
-            className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/84"
-          >
+        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/84">
+          <div id="skill-studio-chat-rail" className="min-h-0 flex-1 overflow-hidden">
             <MessageList
               className="flex-1 justify-start"
-              paddingBottom={160}
+              paddingBottom={192}
               threadId={threadId}
               thread={thread}
             />
           </div>
 
-          <InputBox
-            className="w-full bg-transparent"
-            textareaClassName="min-h-28"
-            isNewThread={isNewThread}
-            showNewThreadSuggestions={false}
-            threadId={threadId}
-            autoFocus={isNewThread}
-            status={thread.error ? "error" : thread.isLoading ? "streaming" : "ready"}
-            context={context}
-            disabled={env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || isUploading}
-            onContextChange={onContextChange}
-            onSubmit={onSubmit}
-            onStop={onStop}
-          />
+          <div className="border-t border-slate-200/80 p-2.5">
+            <InputBox
+              className="w-full bg-transparent"
+              textareaClassName="min-h-36"
+              isNewThread={isNewThread}
+              showNewThreadSuggestions={false}
+              threadId={threadId}
+              autoFocus={isNewThread}
+              status={thread.error ? "error" : thread.isLoading ? "streaming" : "ready"}
+              context={context}
+              disabled={env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || isUploading}
+              onContextChange={onContextChange}
+              onSubmit={onSubmit}
+              onStop={onStop}
+            />
+          </div>
         </div>
       }
     />

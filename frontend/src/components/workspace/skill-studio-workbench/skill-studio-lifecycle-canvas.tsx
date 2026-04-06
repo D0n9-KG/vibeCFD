@@ -50,7 +50,6 @@ type SkillStudioLifecycleCanvasProps = {
   onSaveLifecycle: () => void;
   onPublish: () => void;
   onRollback: () => void;
-  onOpenNegotiation: () => void;
 };
 
 export function SkillStudioLifecycleCanvas({
@@ -69,7 +68,6 @@ export function SkillStudioLifecycleCanvas({
   onSaveLifecycle,
   onPublish,
   onRollback,
-  onOpenNegotiation,
 }: SkillStudioLifecycleCanvasProps) {
   const [activeDrawerId, setActiveDrawerId] = useState<DrawerId>(() =>
     resolveDefaultDrawerId(session.activeModuleId),
@@ -82,7 +80,7 @@ export function SkillStudioLifecycleCanvas({
       : "当前无阻塞项";
   const relationshipSummary =
     detail.graph.relationshipCount > 0
-      ? `${detail.graph.relationshipCount} 条关联技能`
+      ? `${detail.graph.relationshipCount} 条技能关系`
       : "关系网络待建立";
 
   useEffect(() => {
@@ -121,33 +119,28 @@ export function SkillStudioLifecycleCanvas({
             <h3 className="mt-2 text-lg font-semibold text-slate-950">
               围绕定义、验证、发布与挂载维护整条技能生命周期。
             </h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              聊天框负责协商修订，主画布保留当前焦点、生命周期索引与关键发布证据。
-            </p>
           </div>
 
           <div className="grid min-w-[280px] flex-1 gap-3 md:grid-cols-3">
-            <OverviewMetric label="当前焦点" value={activeModule?.title ?? "等待开始"} />
+            <OverviewMetric
+              label="当前焦点"
+              value={activeModule?.title ?? "等待开始"}
+            />
             <OverviewMetric label="待确认事项" value={pendingSummary} />
             <OverviewMetric label="技能关系" value={relationshipSummary} />
           </div>
         </div>
 
-        <div className="mt-4">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            生命周期索引
-          </div>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {session.modules.map((module, index) => (
-              <FlowIndexCard
-                key={module.id}
-                index={index + 1}
-                title={module.title}
-                status={module.status}
-                active={module.expanded}
-              />
-            ))}
-          </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {session.modules.map((module, index) => (
+            <FlowIndexChip
+              key={module.id}
+              index={index + 1}
+              title={module.title}
+              status={module.status}
+              active={module.expanded}
+            />
+          ))}
         </div>
       </section>
 
@@ -174,8 +167,6 @@ export function SkillStudioLifecycleCanvas({
             onSaveLifecycle,
             onPublish,
             onRollback,
-            onOpenNegotiation,
-            onOpenDrawer: setActiveDrawerId,
           }),
         }))}
       />
@@ -183,7 +174,7 @@ export function SkillStudioLifecycleCanvas({
       <SecondaryLayerHost
         layers={drawerLayers}
         activeLayerId={activeDrawerId}
-        className="border-slate-200/70 bg-slate-50/70"
+        className="border-slate-200/70 bg-transparent"
       />
     </div>
   );
@@ -195,12 +186,14 @@ function OverviewMetric({ label, value }: { label: string; value: string }) {
       <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </div>
-      <div className="mt-1 text-sm font-semibold leading-6 text-slate-900">{value}</div>
+      <div className="mt-1 text-sm font-semibold leading-6 text-slate-900">
+        {value}
+      </div>
     </article>
   );
 }
 
-function FlowIndexCard({
+function FlowIndexChip({
   index,
   title,
   status,
@@ -214,7 +207,7 @@ function FlowIndexCard({
   return (
     <article
       className={[
-        "min-w-[150px] rounded-2xl border px-3 py-3 transition-colors",
+        "inline-flex items-center gap-2 rounded-full border px-3 py-2 transition-colors",
         active
           ? "border-orange-200/80 bg-orange-50/80"
           : "border-slate-200/80 bg-white/88",
@@ -223,8 +216,8 @@ function FlowIndexCard({
       <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {String(index).padStart(2, "0")}
       </div>
-      <div className="mt-1 text-sm font-semibold text-slate-950">{title}</div>
-      <div className="mt-2 text-xs text-slate-600">{status}</div>
+      <div className="text-sm font-semibold text-slate-950">{title}</div>
+      <div className="text-xs text-slate-600">{status}</div>
     </article>
   );
 }
@@ -258,8 +251,6 @@ function renderLifecycleContent({
   onSaveLifecycle,
   onPublish,
   onRollback,
-  onOpenNegotiation,
-  onOpenDrawer,
 }: {
   moduleId: string;
   detail: SkillStudioDetailModel;
@@ -276,26 +267,17 @@ function renderLifecycleContent({
   onSaveLifecycle: () => void;
   onPublish: () => void;
   onRollback: () => void;
-  onOpenNegotiation: () => void;
-  onOpenDrawer: (drawerId: DrawerId) => void;
 }): ReactNode {
   switch (moduleId) {
     case "intent":
       return (
-        <div className="space-y-4">
-          <KeyValueGrid
-            items={[
-              { label: "技能名称", value: detail.define.skillName },
-              { label: "主要目标", value: detail.define.skillGoal },
-              { label: "创建助手", value: detail.assistant.label },
-            ]}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={onOpenNegotiation}>
-              去协商区补充目标
-            </Button>
-          </div>
-        </div>
+        <KeyValueGrid
+          items={[
+            { label: "技能名称", value: detail.define.skillName },
+            { label: "主要目标", value: detail.define.skillGoal },
+            { label: "创建助手", value: detail.assistant.label },
+          ]}
+        />
       );
     case "draft":
       return (
@@ -319,20 +301,13 @@ function renderLifecycleContent({
       );
     case "evaluation":
       return (
-        <div className="space-y-4">
-          <KeyValueGrid
-            items={[
-              { label: "验证状态", value: detail.evaluate.status },
-              { label: "错误数量", value: String(detail.evaluate.errorCount) },
-              { label: "警告数量", value: String(detail.evaluate.warningCount) },
-            ]}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => onOpenDrawer("testing")}>
-              查看验证与试跑证据
-            </Button>
-          </div>
-        </div>
+        <KeyValueGrid
+          items={[
+            { label: "验证状态", value: detail.evaluate.status },
+            { label: "错误数量", value: String(detail.evaluate.errorCount) },
+            { label: "警告数量", value: String(detail.evaluate.warningCount) },
+          ]}
+        />
       );
     case "release-prep":
       return (
@@ -351,23 +326,13 @@ function renderLifecycleContent({
             }))}
             emptyLabel="当前没有额外的发布准备动作。"
           />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => onOpenDrawer("publish")}>
-              查看发布状态
-            </Button>
-          </div>
         </div>
       );
     case "lifecycle":
       return (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
-            <div>
-              <div className="text-sm font-semibold text-slate-950">启用状态</div>
-              <div className="mt-1 text-sm text-slate-600">
-                控制当前技能是否作为活动版本对外可用。
-              </div>
-            </div>
+            <div className="text-sm font-semibold text-slate-950">启用状态</div>
             <div className="flex items-center gap-2 text-sm text-slate-700">
               <span>{enabled ? "已启用" : "未启用"}</span>
               <Switch
@@ -380,12 +345,18 @@ function renderLifecycleContent({
 
           <KeyValueGrid
             items={[
-              { label: "活动版本", value: detail.publish.activeRevisionId ?? "草稿中" },
+              {
+                label: "活动版本",
+                value: detail.publish.activeRevisionId ?? "草稿中",
+              },
               {
                 label: "已发布版本",
                 value: detail.publish.publishedRevisionId ?? "尚未发布",
               },
-              { label: "回退目标", value: detail.publish.rollbackTargetId ?? "暂无" },
+              {
+                label: "回退目标",
+                value: detail.publish.rollbackTargetId ?? "暂无",
+              },
             ]}
           />
 
@@ -395,7 +366,7 @@ function renderLifecycleContent({
               className="min-h-28"
               value={versionNote}
               onChange={(event) => onVersionNoteChange(event.target.value)}
-              placeholder="记录这一版解决了什么问题、还保留了哪些边界。"
+              placeholder="记录这一版解决了什么问题，还保留了哪些边界。"
             />
           </section>
 
@@ -460,11 +431,6 @@ function renderLifecycleContent({
             }))}
             emptyLabel="当前还没有建立技能关系。"
           />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => onOpenDrawer("graph")}>
-              查看关系网络
-            </Button>
-          </div>
         </div>
       );
     default:
@@ -474,7 +440,7 @@ function renderLifecycleContent({
 
 function PublishDrawer({ detail }: { detail: SkillStudioDetailModel }) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-3 rounded-[24px] border border-slate-200/80 bg-white/92 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
       <KeyValueGrid
         items={[
           { label: "版本数量", value: String(detail.publish.revisionCount) },
@@ -492,11 +458,13 @@ function PublishDrawer({ detail }: { detail: SkillStudioDetailModel }) {
       />
       <CompactList
         title="绑定目标"
-        items={detail.publish.bindingTargets.map((target: SkillStudioLifecycleBindingTarget) => ({
-          title: labelOfSkillStudioBindingRoleId(target.role_id),
-          meta: target.mode,
-          description: target.target_skills.join("、"),
-        }))}
+        items={detail.publish.bindingTargets.map(
+          (target: SkillStudioLifecycleBindingTarget) => ({
+            title: labelOfSkillStudioBindingRoleId(target.role_id),
+            meta: target.mode,
+            description: target.target_skills.join("、"),
+          }),
+        )}
         emptyLabel="当前没有显式绑定目标。"
       />
     </section>
@@ -505,15 +473,17 @@ function PublishDrawer({ detail }: { detail: SkillStudioDetailModel }) {
 
 function GraphDrawer({ detail }: { detail: SkillStudioDetailModel }) {
   return (
-    <CompactList
-      title="相关技能"
-      items={detail.graph.relatedSkills.map((item) => ({
-        title: item.skillName,
-        meta: `${item.category} · score ${item.strongestScore.toFixed(2)}`,
-        description: item.reasons[0] ?? item.description,
-      }))}
-      emptyLabel="当前还没有图谱关联。"
-    />
+    <section className="rounded-[24px] border border-slate-200/80 bg-white/92 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+      <CompactList
+        title="相关技能"
+        items={detail.graph.relatedSkills.map((item) => ({
+          title: item.skillName,
+          meta: `${item.category} · score ${item.strongestScore.toFixed(2)}`,
+          description: item.reasons[0] ?? item.description,
+        }))}
+        emptyLabel="当前还没有图谱关联。"
+      />
+    </section>
   );
 }
 
@@ -532,7 +502,9 @@ function KeyValueGrid({
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
             {item.label}
           </div>
-          <div className="mt-2 text-sm leading-6 text-slate-800">{item.value}</div>
+          <div className="mt-2 text-sm leading-6 text-slate-800">
+            {item.value}
+          </div>
         </article>
       ))}
     </div>
@@ -592,7 +564,9 @@ function CompactList({
               key={[item.title, item.meta, item.description].join("-")}
               className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3"
             >
-              <div className="text-sm font-semibold text-slate-900">{item.title}</div>
+              <div className="text-sm font-semibold text-slate-900">
+                {item.title}
+              </div>
               {item.meta ? (
                 <div className="mt-1 text-xs text-slate-500">{item.meta}</div>
               ) : null}

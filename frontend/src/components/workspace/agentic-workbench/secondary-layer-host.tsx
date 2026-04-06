@@ -36,16 +36,16 @@ export function SecondaryLayerHost({
   return (
     <section
       className={cn(
-        "rounded-[22px] border border-slate-200/80 bg-white/84 p-3",
+        "rounded-[22px] border border-slate-200/80 bg-transparent p-0",
         className,
       )}
     >
       {selection.kind === "active" ? (
         selection.layer.content
       ) : selection.kind === "missing" ? (
-        <p className="text-sm text-slate-600">{missingState}</p>
+        <p className="px-4 py-3 text-sm text-slate-600">{missingState}</p>
       ) : (
-        <p className="text-sm text-slate-600">{emptyState}</p>
+        <p className="px-4 py-3 text-sm text-slate-600">{emptyState}</p>
       )}
     </section>
   );

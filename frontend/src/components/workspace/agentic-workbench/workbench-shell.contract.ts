@@ -28,7 +28,7 @@ export function getWorkbenchShellZoneClassNames({
       "overflow-hidden",
       "grid-cols-1",
       "gap-4",
-      "xl:grid-cols-[minmax(0,1fr)_minmax(360px,480px)]",
+      "xl:grid-cols-[minmax(0,1fr)_minmax(440px,620px)]",
     ].join(" "),
     main: [
       "agentic-workbench-zone-main",

@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 const {
   getSubmarinePipelineCenterPaneConfig,
@@ -9,6 +12,7 @@ const {
 } = await import(
   new URL("./submarine-pipeline-shell.ts", import.meta.url).href
 );
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 void test(
   "desktop shell keeps responsive visibility classes outside the inline panel group",
@@ -36,6 +40,16 @@ void test("chat rail uses an explicit mobile height instead of collapsing to zer
   assert.ok(viewportClassName.includes("min-h-0"));
   assert.ok(viewportClassName.includes("flex-1"));
   assert.ok(viewportClassName.includes("overflow-y-auto"));
+});
+
+void test("chat rail gives the conversation the rail instead of spending height on a duplicate header", async () => {
+  const source = await readFile(
+    path.join(moduleDir, "submarine-pipeline.tsx"),
+    "utf-8",
+  );
+
+  assert.doesNotMatch(source, /pipelineStatus\.agentLabel/);
+  assert.doesNotMatch(source, /Chat header/);
 });
 
 void test("center pane uses a scroll-friendly desktop grid instead of clipping stage content", () => {

@@ -25,21 +25,27 @@ void test("submarine workbench source no longer hardcodes english stage-first ch
 
 void test("submarine workbench removes the extra summary bar and verbose chat helper copy", () => {
   assert.doesNotMatch(source, /SessionSummaryBar/);
-  assert.doesNotMatch(source, /聊天框负责所有追问/);
-  assert.doesNotMatch(source, /直接说“先停一下，改方案”/);
+  assert.match(source, /px-1 text-sm font-semibold text-slate-900/);
+  assert.match(source, /协商区/);
+  assert.doesNotMatch(source, /negotiationQuestion/);
 });
 
 void test("submarine workbench folds overview and flow index back into the main canvas", () => {
   assert.doesNotMatch(source, /const nav = \(/);
   assert.doesNotMatch(source, /nav=\{nav\}/);
   assert.doesNotMatch(source, /function NavMetric/);
-  assert.match(canvasSource, /研究总览/);
-  assert.match(canvasSource, /研究推进索引/);
-  assert.match(canvasSource, /当前焦点/);
+  assert.match(canvasSource, /FlowIndexChip/);
+  assert.doesNotMatch(canvasSource, /FlowIndexCard/);
+  assert.doesNotMatch(canvasSource, /overflow-x-auto/);
+  assert.doesNotMatch(canvasSource, /min-w-\[150px\]/);
+  assert.doesNotMatch(canvasSource, /DrawerShortcut/);
 });
 
 void test("submarine workbench scrolls the center canvas instead of the whole page", () => {
-  assert.match(source, /<section data-workbench-surface="submarine" className="h-full min-h-0">/);
+  assert.match(
+    source,
+    /<section data-workbench-surface="submarine" className="h-full min-h-0">/,
+  );
   assert.match(source, /className="min-h-0 flex-1 overflow-y-auto pr-1"/);
   assert.match(
     source,

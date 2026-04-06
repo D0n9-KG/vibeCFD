@@ -13,7 +13,7 @@ type FlowItem = {
 
 export function WorkbenchFlow({ items }: { items: readonly FlowItem[] }) {
   return (
-    <div className="flex min-h-0 flex-col gap-3">
+    <div className="flex min-h-0 flex-col gap-2.5">
       {items.map((item) => (
         <section
           key={item.id}
@@ -21,7 +21,7 @@ export function WorkbenchFlow({ items }: { items: readonly FlowItem[] }) {
           className={
             item.expanded
               ? "rounded-[28px] border border-sky-200/80 bg-white px-4 py-4"
-              : "rounded-[22px] border border-slate-200/80 bg-slate-50/80 px-4 py-3"
+              : "rounded-[20px] border border-slate-200/80 bg-slate-50/80 px-4 py-3"
           }
         >
           <div className="flex items-start justify-between gap-3">
@@ -29,9 +29,11 @@ export function WorkbenchFlow({ items }: { items: readonly FlowItem[] }) {
               <div className="text-sm font-semibold text-slate-950">
                 {item.title}
               </div>
-              <div className="mt-1 text-sm leading-6 text-slate-600">
-                {item.summary}
-              </div>
+              {item.expanded ? (
+                <div className="mt-1 text-sm leading-6 text-slate-600">
+                  {item.summary}
+                </div>
+              ) : null}
             </div>
             <span className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600">
               {item.status}
