@@ -23,9 +23,17 @@ export function SubmarineTrustPanels({
           <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">
             {panel.status === "available" ? "available" : "missing"}
           </p>
-          <div className="mt-3 text-sm text-slate-700">
-            {panel.highlights[0] ?? "No linked artifact captured yet."}
-          </div>
+          {panel.highlights.length > 0 ? (
+            <ul className="mt-3 space-y-1 text-sm text-slate-700">
+              {panel.highlights.slice(0, 2).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          ) : (
+            <div className="mt-3 text-sm text-slate-700">
+              No linked artifact captured yet.
+            </div>
+          )}
         </article>
       ))}
     </section>

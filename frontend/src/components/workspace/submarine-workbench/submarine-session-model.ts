@@ -4,6 +4,11 @@ import type {
   SubmarineRuntimeSnapshotPayload,
 } from "@/components/workspace/submarine-runtime-panel.contract";
 
+import {
+  getSubmarineDisplayedNextStage,
+  getSubmarineDisplayedStage,
+} from "../submarine-pipeline-runs.ts";
+
 export type SubmarinePrimaryStage = "plan" | "execute" | "results";
 
 export type SubmarineSessionModel = {
@@ -37,6 +42,8 @@ export type BuildSubmarineSessionModelInput = {
 };
 
 const EXECUTION_STAGE_IDS = new Set(["solver-dispatch", "result-reporting"]);
+const PLAN_STAGE_IDS = new Set(["task-intelligence", "user-confirmation"]);
+const ACTIVE_STAGE_STATUSES = new Set(["in_progress", "running", "streaming"]);
 
 function countPendingApprovals({
   runtime,
@@ -52,27 +59,94 @@ function countPendingApprovals({
   return openQuestions + unconfirmedPlanItems;
 }
 
+function hasImmediateConfirmationRequirement(
+  runtime: SubmarineRuntimeSnapshotPayload | null,
+  designBrief: SubmarineDesignBriefPayload | null,
+): boolean {
+  if (
+    runtime?.requires_immediate_confirmation === true ||
+    designBrief?.requires_immediate_confirmation === true
+  ) {
+    return true;
+  }
+
+  const planItems = runtime?.calculation_plan ?? designBrief?.calculation_plan ?? [];
+  return planItems.some(
+    (item) =>
+      item?.requires_immediate_confirmation === true &&
+      item?.approval_state !== "researcher_confirmed",
+  );
+}
+
+function resolveBlockingReasons({
+  runtime,
+  designBrief,
+  pendingApprovalCount,
+}: Pick<BuildSubmarineSessionModelInput, "runtime" | "designBrief"> & {
+  pendingApprovalCount: number;
+}): string[] {
+  const reasons: string[] = [];
+  if (runtime?.review_status === "needs_user_confirmation") {
+    reasons.push("Review status requires user confirmation.");
+  }
+  if (runtime?.next_recommended_stage === "user-confirmation") {
+    reasons.push("Next recommended stage is user confirmation.");
+  }
+  if (hasImmediateConfirmationRequirement(runtime, designBrief)) {
+    reasons.push("Immediate confirmation is required before execution.");
+  }
+  if (pendingApprovalCount > 0) {
+    reasons.push(`There are ${pendingApprovalCount} pending approval items.`);
+  }
+  if (
+    designBrief?.confirmation_status === "draft" &&
+    (designBrief?.open_questions?.length ?? 0) > 0
+  ) {
+    reasons.push("Design brief is still draft with unresolved open questions.");
+  }
+  return reasons;
+}
+
 function resolvePrimaryStage(
   input: BuildSubmarineSessionModelInput,
-  pendingApprovalCount: number,
+  blockingReasons: string[],
 ): SubmarinePrimaryStage {
-  if (input.isNewThread || pendingApprovalCount > 0) {
+  const displayedStage = getSubmarineDisplayedStage(input.runtime, input.designBrief);
+  const displayedNextStage = getSubmarineDisplayedNextStage(
+    input.runtime,
+    input.designBrief,
+  );
+  const stageStatus = input.runtime?.stage_status?.toLowerCase() ?? "";
+
+  if (input.isNewThread || blockingReasons.length > 0) {
     return "plan";
   }
 
-  if (input.finalReport) {
+  if (
+    input.finalReport ||
+    displayedStage === "supervisor-review" ||
+    displayedNextStage === "supervisor-review" ||
+    input.runtime?.review_status === "ready_for_supervisor" ||
+    input.runtime?.review_status === "completed" ||
+    input.runtime?.current_stage === "supervisor-review" ||
+    input.runtime?.runtime_status === "completed"
+  ) {
     return "results";
   }
 
   if (
     input.runtime?.runtime_status === "running" ||
-    EXECUTION_STAGE_IDS.has(input.runtime?.current_stage ?? "")
+    ACTIVE_STAGE_STATUSES.has(stageStatus) ||
+    EXECUTION_STAGE_IDS.has(input.runtime?.current_stage ?? "") ||
+    displayedStage === "geometry-preflight" ||
+    displayedStage === "solver-dispatch" ||
+    displayedStage === "result-reporting"
   ) {
     return "execute";
   }
 
-  if (input.runtime?.current_stage === "supervisor-review") {
-    return "results";
+  if (displayedStage && PLAN_STAGE_IDS.has(displayedStage)) {
+    return "plan";
   }
 
   return "plan";
@@ -82,7 +156,12 @@ export function buildSubmarineSessionModel(
   input: BuildSubmarineSessionModelInput,
 ): SubmarineSessionModel {
   const pendingApprovalCount = countPendingApprovals(input);
-  const primaryStage = resolvePrimaryStage(input, pendingApprovalCount);
+  const blockingReasons = resolveBlockingReasons({
+    runtime: input.runtime,
+    designBrief: input.designBrief,
+    pendingApprovalCount,
+  });
+  const primaryStage = resolvePrimaryStage(input, blockingReasons);
   const evidenceReady = Boolean(input.finalReport);
   const currentObjective =
     input.runtime?.task_summary ??
@@ -100,12 +179,10 @@ export function buildSubmarineSessionModel(
     },
     negotiation: {
       pendingApprovalCount,
-      interruptionVisible:
-        pendingApprovalCount > 0 ||
-        input.runtime?.review_status === "needs_user_confirmation",
+      interruptionVisible: blockingReasons.length > 0,
       question:
-        pendingApprovalCount > 0
-          ? "Pending confirmations are blocking progress. Confirm plan assumptions before execution."
+        blockingReasons.length > 0
+          ? `Blocking negotiation context: ${blockingReasons[0]}`
           : null,
     },
     trustSurface: {

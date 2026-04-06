@@ -84,3 +84,75 @@ void test("routes to results stage once report evidence is available", () => {
   assert.equal(model.trustSurface.provenanceAvailable, true);
   assert.equal(model.trustSurface.reproducibilityAvailable, true);
 });
+
+void test("keeps confirmation blockers in plan stage for user-confirmation and immediate confirmations", () => {
+  const model = buildSubmarineSessionModel({
+    isNewThread: false,
+    runtime: {
+      next_recommended_stage: "user-confirmation",
+      requires_immediate_confirmation: true,
+      current_stage: "geometry-preflight",
+      calculation_plan: [{ approval_state: "researcher_confirmed" }],
+    },
+    designBrief: {
+      summary_zh: "Need hard confirmation before running geometry checks",
+      open_questions: [],
+      requires_immediate_confirmation: true,
+    },
+    finalReport: null,
+    messageCount: 9,
+    artifactCount: 3,
+  });
+
+  assert.equal(model.primaryStage, "plan");
+  assert.equal(model.negotiation.interruptionVisible, true);
+  assert.match(model.negotiation.question ?? "", /blocking/i);
+});
+
+void test("routes geometry-preflight and active runtime status to execute stage", () => {
+  const model = buildSubmarineSessionModel({
+    isNewThread: false,
+    runtime: {
+      current_stage: "geometry-preflight",
+      stage_status: "in_progress",
+      runtime_status: "ready",
+      review_status: "in_progress",
+      calculation_plan: [{ approval_state: "researcher_confirmed" }],
+      requires_immediate_confirmation: false,
+    },
+    designBrief: {
+      summary_zh: "Geometry preflight checks",
+      open_questions: [],
+      calculation_plan: [{ approval_state: "researcher_confirmed" }],
+      requires_immediate_confirmation: false,
+    },
+    finalReport: null,
+    messageCount: 11,
+    artifactCount: 4,
+  });
+
+  assert.equal(model.primaryStage, "execute");
+});
+
+void test("routes supervisor-review and review-ready states to results stage", () => {
+  const model = buildSubmarineSessionModel({
+    isNewThread: false,
+    runtime: {
+      current_stage: "supervisor-review",
+      stage_status: "completed",
+      review_status: "ready_for_supervisor",
+      calculation_plan: [{ approval_state: "researcher_confirmed" }],
+      requires_immediate_confirmation: false,
+    },
+    designBrief: {
+      summary_zh: "Ready for supervisor review",
+      open_questions: [],
+      calculation_plan: [{ approval_state: "researcher_confirmed" }],
+    },
+    finalReport: null,
+    messageCount: 15,
+    artifactCount: 7,
+  });
+
+  assert.equal(model.primaryStage, "results");
+});

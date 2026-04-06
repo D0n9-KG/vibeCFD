@@ -21,6 +21,35 @@ export function SubmarineExperimentBoard({
           value={String(experimentBoard.compareCompletedCount)}
         />
       </div>
+      {experimentBoard.variantRunIds.length > 0 ? (
+        <p className="mt-3 text-sm text-slate-700">
+          Variants: {experimentBoard.variantRunIds.join(", ")}
+        </p>
+      ) : null}
+      {experimentBoard.comparisons.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {experimentBoard.comparisons.slice(0, 3).map((comparison) => (
+            <li
+              key={`${comparison.candidateRunId}-${comparison.variantLabel}`}
+              className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-sm text-slate-700"
+            >
+              {comparison.variantLabel} ({comparison.candidateRunId}) -{" "}
+              {comparison.status}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {experimentBoard.lineageNotes.length > 0 ? (
+        <p className="mt-3 text-xs text-slate-600">
+          Lineage: {experimentBoard.lineageNotes[0]}
+        </p>
+      ) : null}
+      {experimentBoard.studies.length > 0 ? (
+        <p className="mt-2 text-xs text-slate-600">
+          Study: {experimentBoard.studies[0].label} (
+          {experimentBoard.studies[0].workflowStatus})
+        </p>
+      ) : null}
     </section>
   );
 }
