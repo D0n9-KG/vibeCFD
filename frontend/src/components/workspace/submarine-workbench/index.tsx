@@ -157,7 +157,10 @@ export function SubmarineAgenticWorkbench({
       title={<div className="px-1 text-sm font-semibold text-slate-900">协商区</div>}
       question={null}
       body={
-        <div id="submarine-chat-rail" className="min-h-0 flex-1 overflow-hidden">
+        <div
+          id="submarine-chat-rail"
+          className="flex h-full min-h-0 flex-col overflow-hidden"
+        >
           {negotiationContent}
         </div>
       }

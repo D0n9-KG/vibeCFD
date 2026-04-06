@@ -6,5 +6,5 @@ const source = await readFile(new URL("./submarine-pipeline.tsx", import.meta.ur
 
 void test("submarine chat rail keeps the message list clear of a larger pinned composer", () => {
   assert.match(source, /paddingBottom=\{160\}/);
-  assert.match(source, /textareaClassName="min-h-28"/);
+  assert.match(source, /textareaClassName="min-h-36"/);
 });

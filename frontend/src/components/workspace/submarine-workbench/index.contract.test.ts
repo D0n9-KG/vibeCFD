@@ -49,6 +49,6 @@ void test("submarine workbench scrolls the center canvas instead of the whole pa
   assert.match(source, /className="min-h-0 flex-1 overflow-y-auto pr-1"/);
   assert.match(
     source,
-    /id="submarine-chat-rail" className="min-h-0 flex-1 overflow-hidden"/,
+    /id="submarine-chat-rail"[\s\S]*className="flex h-full min-h-0 flex-col overflow-hidden"/,
   );
 });
