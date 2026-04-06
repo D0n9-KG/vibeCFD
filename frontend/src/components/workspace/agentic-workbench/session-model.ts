@@ -13,6 +13,7 @@ export type AgenticWorkbenchSessionModel = {
   surface: AgenticWorkbenchSurface;
   isNewThread: boolean;
   mobileNegotiationRailVisible: boolean;
+  pendingApprovals: number;
   primaryStage: AgenticWorkbenchPrimaryStage;
   negotiation: AgenticWorkbenchNegotiationState;
   secondaryLayers: {
@@ -38,6 +39,7 @@ export function createAgenticWorkbenchSessionModel({
     isNewThread,
     mobileNegotiationRailVisible:
       mobileNegotiationRailVisibleOverride ?? isNewThread,
+    pendingApprovals: 0,
     primaryStage: "workspace",
     negotiation: {
       pendingApprovals: 0,
@@ -67,6 +69,7 @@ export function updateAgenticWorkbenchNegotiationState(
 ): AgenticWorkbenchSessionModel {
   return {
     ...model,
+    pendingApprovals: negotiation.pendingApprovals,
     negotiation,
   };
 }

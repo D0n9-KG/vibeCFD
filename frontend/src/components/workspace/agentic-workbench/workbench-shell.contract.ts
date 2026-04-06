@@ -2,7 +2,6 @@ export const WORKBENCH_SHELL_ZONE_ORDER = [
   "nav",
   "main",
   "negotiation",
-  "secondary",
 ] as const;
 
 export type WorkbenchShellZone = (typeof WORKBENCH_SHELL_ZONE_ORDER)[number];
@@ -12,7 +11,6 @@ export type WorkbenchShellZoneClassNames = {
   nav: string;
   main: string;
   negotiation: string;
-  secondary: string;
 };
 
 export type GetWorkbenchShellZoneClassNamesOptions = {
@@ -30,8 +28,7 @@ export function getWorkbenchShellZoneClassNames({
       "w-full",
       "grid-cols-1",
       "gap-4",
-      "xl:grid-cols-[280px_minmax(0,1fr)_minmax(340px,460px)]",
-      "xl:grid-rows-[minmax(0,1fr)_auto]",
+      "xl:grid-cols-[240px_minmax(0,1fr)_minmax(360px,420px)]",
     ].join(" "),
     nav: [
       "agentic-workbench-zone-nav",
@@ -66,16 +63,6 @@ export function getWorkbenchShellZoneClassNames({
       "xl:block",
       "xl:min-h-0",
       "xl:overflow-hidden",
-    ].join(" "),
-    secondary: [
-      "agentic-workbench-zone-secondary",
-      "min-h-[120px]",
-      "rounded-[24px]",
-      "border",
-      "border-slate-200/80",
-      "bg-slate-50/80",
-      "p-3",
-      "xl:min-h-0",
     ].join(" "),
   };
 }

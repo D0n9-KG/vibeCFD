@@ -28,7 +28,7 @@ export function WorkbenchShell({
   nav,
   main,
   negotiation,
-  secondary = null,
+  secondary: _secondary = null,
 }: WorkbenchShellProps) {
   const classes = getWorkbenchShellZoneClassNames({
     mobileNegotiationRailVisible,
@@ -47,10 +47,6 @@ export function WorkbenchShell({
       <aside data-workbench-zone="negotiation" className={classes.negotiation}>
         {negotiation}
       </aside>
-
-      <section data-workbench-zone="secondary" className={classes.secondary}>
-        {secondary}
-      </section>
     </section>
   );
 }
