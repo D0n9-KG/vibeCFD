@@ -1,15 +1,14 @@
 "use client";
 
-import { MessageSquareIcon, RadarIcon, RefreshCcwIcon } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { MessageSquareIcon, RadarIcon } from "lucide-react";
+import { type ReactNode, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
-  InterruptActionBar,
   NegotiationRail,
-  SecondaryLayerHost,
   SessionSummaryBar,
   ThreadHeader,
+  WORKBENCH_COPY,
   WorkbenchShell,
 } from "@/components/workspace/agentic-workbench";
 import { useArtifactContent } from "@/core/artifacts/hooks";
@@ -22,28 +21,15 @@ import type {
   SubmarineRuntimeSnapshotPayload,
 } from "../submarine-runtime-panel.contract";
 
-import {
-  buildSubmarineDetailModel,
-  type SubmarineDetailModel,
-} from "./submarine-detail-model";
-import { SubmarineExecutionStage } from "./submarine-execution-stage";
-import { SubmarinePlanStage } from "./submarine-plan-stage";
-import { SubmarineResultsStage } from "./submarine-results-stage";
-import {
-  buildSubmarineSessionModel,
-  type SubmarinePrimaryStage,
-} from "./submarine-session-model";
-
-const LOCKED_STAGE_NOTES: Record<SubmarinePrimaryStage, string> = {
-  plan: "Planning remains available at all times.",
-  execute: "Unlocks after approvals clear and execution begins.",
-  results: "Unlocks after supervisor-facing evidence is available.",
-};
+import { buildSubmarineDetailModel } from "./submarine-detail-model";
+import { SubmarineResearchCanvas } from "./submarine-research-canvas";
+import { buildSubmarineSessionModel } from "./submarine-session-model";
 
 function safeJsonParse<T>(content?: string | null): T | null {
   if (!content) {
     return null;
   }
+
   try {
     return JSON.parse(content) as T;
   } catch {
@@ -74,6 +60,7 @@ export function SubmarineAgenticWorkbench({
 
   const runtime = useMemo<SubmarineRuntimeSnapshotPayload | null>(() => {
     const value = thread.values.submarine_runtime;
+
     return value && typeof value === "object"
       ? (value as SubmarineRuntimeSnapshotPayload)
       : null;
@@ -141,7 +128,8 @@ export function SubmarineAgenticWorkbench({
       thread.messages.length,
     ],
   );
-  const detail = useMemo<SubmarineDetailModel>(
+
+  const detail = useMemo(
     () =>
       buildSubmarineDetailModel({
         runtime,
@@ -150,135 +138,92 @@ export function SubmarineAgenticWorkbench({
     [finalReport, runtime],
   );
 
-  const [activeStage, setActiveStage] = useState<SubmarinePrimaryStage>(
-    session.primaryStage,
-  );
-  const [interruptionDismissed, setInterruptionDismissed] = useState(false);
-
-  useEffect(() => {
-    setActiveStage(session.primaryStage);
-    setInterruptionDismissed(false);
-  }, [session.primaryStage]);
-
-  const interruptionVisible =
-    session.negotiation.interruptionVisible && !interruptionDismissed;
-
-  const secondaryLayers = useMemo(
-    () => [
-      {
-        id: "scientific-gate",
-        label: "Scientific Gate",
-        content:
-          detail.trustPanels.find((panel) => panel.id === "scientific-gate")
-            ?.highlights[0] ?? "No scientific gate assessment yet.",
-      },
-      {
-        id: "study-summary",
-        label: "Scientific Study Summary",
-        content:
-          detail.experimentBoard.studies.length > 0
-            ? detail.experimentBoard.studies
-                .map((study) => `${study.label}: ${study.workflowStatus}`)
-                .join(" | ")
-            : "No scientific study summary linked yet.",
-      },
-    ],
-    [detail.experimentBoard.studies, detail.trustPanels],
-  );
+  const activeModule = session.modules.find((module) => module.expanded) ?? session.modules[0];
+  const pendingLabel =
+    session.negotiation.pendingApprovalCount > 0
+      ? `${session.negotiation.pendingApprovalCount} 项待确认`
+      : "当前无阻塞项";
 
   const nav = (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 text-sky-700">
-        <RadarIcon className="size-4" />
-        <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">
-          Submarine Workbench
-        </span>
-      </div>
-      <h2 className="mt-3 text-lg font-semibold tracking-tight text-slate-950">
-        Adaptive Session Stages
-      </h2>
-      <p className="mt-2 text-sm leading-6 text-slate-700">
-        {session.summary.currentObjective}
-      </p>
-      <nav className="mt-4 space-y-2">
-        {session.stageOrder.map((stage) => {
-          const enabled = session.reachableStages.includes(stage);
+    <div className="flex h-full min-h-0 flex-col gap-5">
+      <section className="rounded-[26px] border border-sky-200/70 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(243,248,252,0.96))] p-4 shadow-[0_22px_60px_rgba(14,165,233,0.10)]">
+        <div className="flex items-center gap-2 text-sky-700">
+          <RadarIcon className="size-4" />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.22em]">
+            仿真研究工作台
+          </span>
+        </div>
+        <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950">
+          {thread.values.title ?? "潜艇 CFD 研究任务"}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          围绕目标、证据、交付判断推进整条研究链，所有协商都在右侧聊天框内完成。
+        </p>
+        <div className="mt-4 grid gap-2">
+          <NavMetric label="当前焦点" value={activeModule?.title ?? "等待开始"} />
+          <NavMetric label="待确认事项" value={pendingLabel} />
+          <NavMetric label="研究产物" value={`${submarineArtifacts.length} 项`} />
+        </div>
+      </section>
 
-          return (
-            <button
-              key={stage}
-              type="button"
-              disabled={!enabled}
+      <section className="min-h-0 rounded-[24px] border border-slate-200/80 bg-white/92 p-4">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+          研究推进流
+        </div>
+        <div className="mt-3 space-y-2">
+          {session.modules.map((module, index) => (
+            <article
+              key={module.id}
               className={cn(
-                "w-full rounded-xl border px-3 py-2 text-left text-sm font-medium capitalize transition-colors",
-                activeStage === stage
-                  ? "border-sky-200 bg-sky-50 text-slate-950"
-                  : "border-slate-200 bg-white text-slate-600",
-                !enabled && "cursor-not-allowed border-dashed bg-slate-50 text-slate-400",
+                "rounded-2xl border px-3 py-3 transition-colors",
+                module.expanded
+                  ? "border-sky-200/80 bg-sky-50/70"
+                  : "border-slate-200/80 bg-slate-50/70",
               )}
-              onClick={() => {
-                if (enabled) {
-                  setActiveStage(stage);
-                }
-              }}
             >
-              <div>{stage}</div>
-              <div className="mt-1 text-xs font-normal normal-case text-slate-500">
-                {enabled ? "Available now" : LOCKED_STAGE_NOTES[stage]}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold text-slate-500">
+                    {String(index + 1).padStart(2, "0")}
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-950">
+                    {module.title}
+                  </div>
+                </div>
+                <span className="rounded-full border border-slate-200/80 bg-white px-2.5 py-1 text-xs text-slate-600">
+                  {module.status}
+                </span>
               </div>
-            </button>
-          );
-        })}
-      </nav>
-      <div className="mt-4 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 text-xs text-slate-600">
-        Current stage: {activeStage}
-      </div>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   );
 
   const main = (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
-        title={thread.values.title ?? "Submarine Session"}
+        title={thread.values.title ?? "潜艇 CFD 会话"}
         subtitle={session.summary.currentObjective}
-        statusLabel={session.summary.evidenceReady ? "Evidence ready" : "In progress"}
+        statusLabel={session.summary.evidenceReady ? "报告可审阅" : "研究推进中"}
         actions={headerActions}
       />
       <SessionSummaryBar
         pendingApprovals={session.negotiation.pendingApprovalCount}
-        interruptionVisible={interruptionVisible}
-        summary={
-          session.negotiation.question ??
-          "Negotiation rail remains visible so revisions and approvals stay explicit."
-        }
+        interruptionVisible={session.negotiation.interruptionVisible}
+        summary={session.negotiation.question ?? WORKBENCH_COPY.common.negotiationHint}
       />
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        {activeStage === "plan" ? (
-          <SubmarinePlanStage
-            session={session}
-            runtime={runtime}
-            designBrief={designBrief}
-            onOpenChat={onOpenChat}
-          />
-        ) : null}
-        {activeStage === "execute" ? (
-          <SubmarineExecutionStage
-            session={session}
-            detail={detail}
-            runtime={runtime}
-            artifactPaths={submarineArtifacts}
-          />
-        ) : null}
-        {activeStage === "results" ? (
-          <SubmarineResultsStage
-            session={session}
-            detail={detail}
-            runtime={runtime}
-            designBrief={designBrief}
-            finalReport={finalReport}
-            artifactPaths={submarineArtifacts}
-          />
-        ) : null}
+      <div className="min-h-0 flex-1">
+        <SubmarineResearchCanvas
+          session={session}
+          detail={detail}
+          runtime={runtime}
+          designBrief={designBrief}
+          finalReport={finalReport}
+          artifactPaths={submarineArtifacts}
+          onOpenNegotiation={onOpenChat}
+        />
       </div>
     </div>
   );
@@ -288,66 +233,39 @@ export function SubmarineAgenticWorkbench({
       title={
         <div className="space-y-1">
           <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Negotiation Rail
+            {WORKBENCH_COPY.common.negotiationRailTitle}
           </div>
           <h3 className="text-base font-semibold text-slate-950">
-            Approval and interruption channel
+            直接输入修改意见，主智能体会重新协商并调整流程。
           </h3>
         </div>
       }
       question={
         <p className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-sm text-amber-900">
-          {session.negotiation.question ?? "No blocking approval right now."}
+          {session.negotiation.question ?? "当前没有阻塞项，可继续观察流程推进。"}
         </p>
       }
       actions={
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs leading-5 text-slate-500">
+            直接说“先停一下，改方案”即可打断并回到协商。
+          </p>
           <Button size="sm" variant="outline" onClick={onToggleChatRail}>
             <MessageSquareIcon className="size-4" />
-            {showChatRail ? "Hide rail" : "Show rail"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setActiveStage("plan");
-              onOpenChat();
-            }}
-          >
-            <RefreshCcwIcon className="size-4" />
-            Revise plan
+            {showChatRail ? "收起协商区" : "展开协商区"}
           </Button>
         </div>
       }
       body={
-        <div className="flex h-full min-h-0 flex-col gap-3">
-          <InterruptActionBar
-            interruptionVisible={interruptionVisible}
-            activeDescription="An interruption is active. Dismissing this banner only hides the local notice; use the negotiation rail to revise or confirm the run."
-            idleDescription="No interruption is active. The rail stays ready for revisions, confirmations, and reruns."
-            onPause={() => setActiveStage("plan")}
-            pauseLabel="Return to Plan"
-            resolveLabel="Dismiss Notice"
-            onResolve={() => setInterruptionDismissed(true)}
-          />
-          <div id="submarine-chat-rail" className="min-h-0 flex-1 overflow-hidden">
-            {negotiationContent}
-          </div>
+        <div id="submarine-chat-rail" className="min-h-0 flex-1 overflow-hidden">
+          {negotiationContent}
         </div>
       }
       footer={
         <p className="text-xs leading-5 text-slate-600">
-          Keep this rail visible during execution so approvals, reruns, and revisions
-          never disappear behind stage content.
+          聊天框负责所有追问、修正、暂停和重新协商，主画布只负责把研究推进过程讲清楚。
         </p>
       }
-    />
-  );
-
-  const secondary = (
-    <SecondaryLayerHost
-      layers={secondaryLayers}
-      activeLayerId={activeStage === "results" ? "study-summary" : "scientific-gate"}
     />
   );
 
@@ -358,8 +276,18 @@ export function SubmarineAgenticWorkbench({
         nav={nav}
         main={main}
         negotiation={negotiation}
-        secondary={secondary}
       />
     </section>
+  );
+}
+
+function NavMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/80 bg-white/88 px-3 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
+    </div>
   );
 }

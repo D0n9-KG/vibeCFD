@@ -4,11 +4,17 @@ import test from "node:test";
 
 const source = await readFile(new URL("./index.tsx", import.meta.url), "utf8");
 
-void test("mounts submarine workbench on shared shell primitives", () => {
-  assert.match(source, /WorkbenchShell/);
-  assert.match(source, /NegotiationRail/);
-  assert.match(source, /ThreadHeader/);
-  assert.match(source, /SecondaryLayerHost/);
-  assert.match(source, /SessionSummaryBar/);
-  assert.match(source, /InterruptActionBar/);
+void test("submarine workbench mounts the research canvas instead of stage tabs", () => {
+  assert.match(source, /SubmarineResearchCanvas/);
+  assert.doesNotMatch(source, /SubmarinePlanStage/);
+  assert.doesNotMatch(source, /SubmarineExecutionStage/);
+  assert.doesNotMatch(source, /SubmarineResultsStage/);
+  assert.doesNotMatch(source, /InterruptActionBar/);
+});
+
+void test("submarine workbench source no longer hardcodes english stage-first chrome", () => {
+  assert.doesNotMatch(source, /Adaptive Session Stages/);
+  assert.doesNotMatch(source, /Negotiation Rail/);
+  assert.doesNotMatch(source, /Revise plan/);
+  assert.doesNotMatch(source, /Current stage/);
 });

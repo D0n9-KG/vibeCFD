@@ -43,7 +43,7 @@ export function SecondaryLayerHost({
       {selection.kind === "active" ? (
         <div className="space-y-2">
           <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Secondary Layer
+            详情抽屉
           </div>
           <h3 className="text-sm font-semibold text-slate-900">
             {selection.layer.label}

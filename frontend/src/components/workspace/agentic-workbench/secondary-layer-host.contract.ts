@@ -14,11 +14,9 @@ export type SelectSecondaryLayerOptions<TContent = unknown> = {
   activeLayerId?: string;
 };
 
-export const DEFAULT_SECONDARY_LAYER_EMPTY_STATE =
-  "No secondary layer is available.";
+export const DEFAULT_SECONDARY_LAYER_EMPTY_STATE = "当前没有可展开的详情抽屉。";
 
-export const DEFAULT_SECONDARY_LAYER_MISSING_STATE =
-  "The requested secondary layer is unavailable.";
+export const DEFAULT_SECONDARY_LAYER_MISSING_STATE = "请求的详情抽屉暂时不可用。";
 
 export function selectSecondaryLayer<TContent>({
   layers,

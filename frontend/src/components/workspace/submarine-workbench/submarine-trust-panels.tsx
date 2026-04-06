@@ -21,7 +21,7 @@ export function SubmarineTrustPanels({
             <h4 className="text-sm font-semibold text-slate-950">{panel.title}</h4>
           </div>
           <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">
-            {panel.status === "available" ? "available" : "missing"}
+            {panel.status === "available" ? "证据已挂载" : "待补证据"}
           </p>
           {panel.highlights.length > 0 ? (
             <ul className="mt-3 space-y-1 text-sm text-slate-700">
@@ -30,9 +30,7 @@ export function SubmarineTrustPanels({
               ))}
             </ul>
           ) : (
-            <div className="mt-3 text-sm text-slate-700">
-              No linked artifact captured yet.
-            </div>
+            <div className="mt-3 text-sm text-slate-700">尚未链接对应产物。</div>
           )}
         </article>
       ))}

@@ -166,8 +166,8 @@ export default function SubmarineWorkbenchPage() {
                       variant="outline"
                       aria-label={
                         mobileNegotiationRailVisible
-                          ? "Hide negotiation rail"
-                          : "Show negotiation rail"
+                          ? "收起协商区"
+                          : "展开协商区"
                       }
                       onClick={() =>
                         setSessionModel((model) =>
@@ -176,7 +176,7 @@ export default function SubmarineWorkbenchPage() {
                       }
                     >
                       <MessageSquareIcon className="size-4" />
-                      {mobileNegotiationRailVisible ? "Hide rail" : "Show rail"}
+                      {mobileNegotiationRailVisible ? "收起协商区" : "展开协商区"}
                     </Button>
                     <TokenUsageIndicator messages={thread.messages} />
                     <ExportTrigger threadId={threadId} />
@@ -187,11 +187,11 @@ export default function SubmarineWorkbenchPage() {
                   <SubmarinePipelineChatRail
                     thread={thread}
                     pipelineStatus={{
-                      agentLabel: "Submarine research supervisor",
-                      outputStatus: "Live sync",
-                      runLabel: thread.isLoading ? "Running" : "Ready",
+                      agentLabel: "主智能体协商线程",
+                      outputStatus: "实时同步",
+                      runLabel: thread.isLoading ? "处理中" : "待命",
                       summaryText:
-                        "The right rail keeps collaboration, approvals, and interruption context visible while the center remains workbench-focused.",
+                        "右侧协商区负责所有修改、追问和重新协商，中央主画布只负责讲清楚研究推进过程。",
                       tone: chatRailErrorMessage
                         ? "error"
                         : thread.isLoading
@@ -199,9 +199,8 @@ export default function SubmarineWorkbenchPage() {
                           : "ready",
                       errorBanner: chatRailErrorMessage
                         ? {
-                            title: "Thread error",
-                            guidance:
-                              "Review the latest message, then decide whether to revise and rerun.",
+                            title: "协商线程异常",
+                            guidance: "先查看最近一条消息，再决定是否继续修改方案或重新执行。",
                             message: chatRailErrorMessage,
                           }
                         : null,

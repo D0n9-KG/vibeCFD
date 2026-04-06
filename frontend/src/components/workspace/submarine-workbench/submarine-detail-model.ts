@@ -144,7 +144,7 @@ export function buildSubmarineDetailModel({
     trustPanels: [
       createTrustPanel(
         "provenance",
-        "Provenance",
+        "来源链路",
         Boolean(
           finalReport?.provenance_manifest_virtual_path ??
             runtime?.provenance_manifest_virtual_path,
@@ -160,7 +160,7 @@ export function buildSubmarineDetailModel({
       ),
       createTrustPanel(
         "reproducibility",
-        "Reproducibility",
+        "复现能力",
         Boolean(
           reproducibilitySummary?.manifest_virtual_path ??
             reproducibilitySummary?.reproducibility_status,
@@ -175,7 +175,7 @@ export function buildSubmarineDetailModel({
       ),
       createTrustPanel(
         "environment-parity",
-        "Environment Parity",
+        "环境一致性",
         Boolean(environmentParity?.parity_status),
         [
           environmentParity?.parity_status,
@@ -188,7 +188,7 @@ export function buildSubmarineDetailModel({
       ),
       createTrustPanel(
         "scientific-gate",
-        "Scientific Gate",
+        "科学交付门",
         Boolean(
           supervisorGate?.gate_status ??
             finalReport?.scientific_gate_status ??
@@ -209,7 +209,7 @@ export function buildSubmarineDetailModel({
       ),
       createTrustPanel(
         "experiment-compare",
-        "Experiment / Compare",
+        "对比试验",
         Boolean(experimentSummary ?? compareSummary ?? studySummary),
         [
           experimentSummary?.workflow_status,
@@ -221,7 +221,7 @@ export function buildSubmarineDetailModel({
       ),
       createTrustPanel(
         "remediation",
-        "Remediation",
+        "修正方案",
         Boolean(remediationSummary ?? remediationHandoff),
         [
           remediationSummary?.plan_status,
@@ -233,7 +233,7 @@ export function buildSubmarineDetailModel({
       ),
       createTrustPanel(
         "follow-up",
-        "Follow-up",
+        "后续研究",
         Boolean(followupSummary),
         [
           followupSummary?.latest_outcome_status,

@@ -12,20 +12,17 @@ export function SubmarineExperimentBoard({
   return (
     <section className="rounded-2xl border border-slate-200/80 bg-white/92 p-4 shadow-[0_12px_26px_rgba(15,23,42,0.04)]">
       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">
-        Experiment / Compare
+        对比试验与后处理
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Baseline Run" value={experimentBoard.baselineRunId ?? "none"} />
-        <Metric label="Run Count" value={String(experimentBoard.runCount)} />
-        <Metric label="Compare Count" value={String(experimentBoard.compareCount)} />
-        <Metric
-          label="Compared Complete"
-          value={String(experimentBoard.compareCompletedCount)}
-        />
+        <Metric label="基线算例" value={experimentBoard.baselineRunId ?? "暂无"} />
+        <Metric label="运行数量" value={String(experimentBoard.runCount)} />
+        <Metric label="对比数量" value={String(experimentBoard.compareCount)} />
+        <Metric label="已完成对比" value={String(experimentBoard.compareCompletedCount)} />
       </div>
       {experimentBoard.variantRunIds.length > 0 ? (
         <p className="mt-3 text-sm text-slate-700">
-          Variants: {experimentBoard.variantRunIds.join(", ")}
+          变体算例：{experimentBoard.variantRunIds.join("、")}
         </p>
       ) : null}
       {experimentBoard.comparisons.length > 0 ? (
@@ -35,20 +32,19 @@ export function SubmarineExperimentBoard({
               key={`${comparison.candidateRunId}-${comparison.variantLabel}`}
               className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-sm text-slate-700"
             >
-              {comparison.variantLabel} ({comparison.candidateRunId}) -{" "}
-              {comparison.status}
+              {comparison.variantLabel}（{comparison.candidateRunId}） · {comparison.status}
             </li>
           ))}
         </ul>
       ) : null}
       {experimentBoard.lineageNotes.length > 0 ? (
         <p className="mt-3 text-xs text-slate-600">
-          Lineage: {experimentBoard.lineageNotes[0]}
+          数据链路：{experimentBoard.lineageNotes[0]}
         </p>
       ) : null}
       {leadingStudy ? (
         <p className="mt-2 text-xs text-slate-600">
-          Study: {leadingStudy.label} ({leadingStudy.workflowStatus})
+          当前研究批次：{leadingStudy.label}（{leadingStudy.workflowStatus}）
         </p>
       ) : null}
     </section>

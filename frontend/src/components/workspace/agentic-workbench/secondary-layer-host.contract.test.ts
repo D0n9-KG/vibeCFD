@@ -49,3 +49,14 @@ void test("secondary layer selection reports empty when no layers exist", async 
 
   assert.deepEqual(selection, { kind: "empty" });
 });
+
+void test("secondary layer copy is chinese drawer language", async () => {
+  const {
+    DEFAULT_SECONDARY_LAYER_EMPTY_STATE,
+    DEFAULT_SECONDARY_LAYER_MISSING_STATE,
+  } = await import(moduleUrl);
+
+  assert.match(DEFAULT_SECONDARY_LAYER_EMPTY_STATE, /详情/);
+  assert.match(DEFAULT_SECONDARY_LAYER_MISSING_STATE, /详情/);
+  assert.doesNotMatch(DEFAULT_SECONDARY_LAYER_EMPTY_STATE, /secondary/i);
+});
