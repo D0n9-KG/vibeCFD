@@ -14,6 +14,7 @@ export type SubmarinePrimaryStage = "plan" | "execute" | "results";
 export type SubmarineSessionModel = {
   primaryStage: SubmarinePrimaryStage;
   stageOrder: readonly SubmarinePrimaryStage[];
+  reachableStages: readonly SubmarinePrimaryStage[];
   summary: {
     currentObjective: string;
     evidenceReady: boolean;
@@ -128,8 +129,7 @@ function resolvePrimaryStage(
     displayedNextStage === "supervisor-review" ||
     input.runtime?.review_status === "ready_for_supervisor" ||
     input.runtime?.review_status === "completed" ||
-    input.runtime?.current_stage === "supervisor-review" ||
-    input.runtime?.runtime_status === "completed"
+    input.runtime?.current_stage === "supervisor-review"
   ) {
     return "results";
   }
@@ -140,7 +140,8 @@ function resolvePrimaryStage(
     EXECUTION_STAGE_IDS.has(input.runtime?.current_stage ?? "") ||
     displayedStage === "geometry-preflight" ||
     displayedStage === "solver-dispatch" ||
-    displayedStage === "result-reporting"
+    displayedStage === "result-reporting" ||
+    input.runtime?.runtime_status === "completed"
   ) {
     return "execute";
   }
@@ -150,6 +151,20 @@ function resolvePrimaryStage(
   }
 
   return "plan";
+}
+
+function resolveReachableStages(
+  primaryStage: SubmarinePrimaryStage,
+): readonly SubmarinePrimaryStage[] {
+  if (primaryStage === "results") {
+    return ["plan", "execute", "results"];
+  }
+
+  if (primaryStage === "execute") {
+    return ["plan", "execute"];
+  }
+
+  return ["plan"];
 }
 
 export function buildSubmarineSessionModel(
@@ -162,6 +177,7 @@ export function buildSubmarineSessionModel(
     pendingApprovalCount,
   });
   const primaryStage = resolvePrimaryStage(input, blockingReasons);
+  const reachableStages = resolveReachableStages(primaryStage);
   const evidenceReady = Boolean(input.finalReport);
   const currentObjective =
     input.runtime?.task_summary ??
@@ -171,6 +187,7 @@ export function buildSubmarineSessionModel(
   return {
     primaryStage,
     stageOrder: ["plan", "execute", "results"],
+    reachableStages,
     summary: {
       currentObjective,
       evidenceReady,

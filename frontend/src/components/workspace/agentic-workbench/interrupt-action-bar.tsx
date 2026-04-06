@@ -7,6 +7,10 @@ export type InterruptActionBarProps = {
   interruptionVisible: boolean;
   onPause?: () => void;
   onResolve?: () => void;
+  activeDescription?: string;
+  idleDescription?: string;
+  pauseLabel?: string;
+  resolveLabel?: string;
   className?: string;
 };
 
@@ -14,6 +18,10 @@ export function InterruptActionBar({
   interruptionVisible,
   onPause,
   onResolve,
+  activeDescription = "An interruption is active and requires operator intent.",
+  idleDescription = "No interruption is active. Controls remain armed.",
+  pauseLabel = "Pause",
+  resolveLabel = "Resolve",
   className,
 }: InterruptActionBarProps) {
   return (
@@ -29,17 +37,15 @@ export function InterruptActionBar({
             Interrupt Controls
           </div>
           <p className="mt-1 text-sm text-slate-700">
-            {interruptionVisible
-              ? "An interruption is active and requires operator intent."
-              : "No interruption is active. Controls remain armed."}
+            {interruptionVisible ? activeDescription : idleDescription}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={onPause}>
-            Pause
+            {pauseLabel}
           </Button>
-          <Button onClick={onResolve}>Resolve</Button>
+          <Button onClick={onResolve}>{resolveLabel}</Button>
         </div>
       </div>
     </section>

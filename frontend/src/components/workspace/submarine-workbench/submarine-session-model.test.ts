@@ -48,6 +48,7 @@ void test("routes to execute stage while runtime is actively running", () => {
   assert.equal(model.primaryStage, "execute");
   assert.equal(model.negotiation.interruptionVisible, false);
   assert.equal(model.summary.evidenceReady, false);
+  assert.deepEqual(model.reachableStages, ["plan", "execute"]);
 });
 
 void test("routes to results stage once report evidence is available", () => {
@@ -80,6 +81,7 @@ void test("routes to results stage once report evidence is available", () => {
 
   assert.equal(model.primaryStage, "results");
   assert.equal(model.summary.evidenceReady, true);
+  assert.deepEqual(model.reachableStages, ["plan", "execute", "results"]);
   assert.equal(model.trustSurface.environmentParityAvailable, true);
   assert.equal(model.trustSurface.provenanceAvailable, true);
   assert.equal(model.trustSurface.reproducibilityAvailable, true);
@@ -155,4 +157,29 @@ void test("routes supervisor-review and review-ready states to results stage", (
   });
 
   assert.equal(model.primaryStage, "results");
+});
+
+void test("keeps completed runtime in execute until review or report evidence is ready", () => {
+  const model = buildSubmarineSessionModel({
+    isNewThread: false,
+    runtime: {
+      runtime_status: "completed",
+      current_stage: "result-reporting",
+      stage_status: "completed",
+      review_status: "in_progress",
+      calculation_plan: [{ approval_state: "researcher_confirmed" }],
+      requires_immediate_confirmation: false,
+    },
+    designBrief: {
+      summary_zh: "Post-processing completed but supervisor review not started",
+      open_questions: [],
+      calculation_plan: [{ approval_state: "researcher_confirmed" }],
+    },
+    finalReport: null,
+    messageCount: 12,
+    artifactCount: 8,
+  });
+
+  assert.equal(model.primaryStage, "execute");
+  assert.deepEqual(model.reachableStages, ["plan", "execute"]);
 });

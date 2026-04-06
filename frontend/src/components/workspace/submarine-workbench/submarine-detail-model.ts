@@ -98,7 +98,8 @@ export function buildSubmarineDetailModel({
   const remediationSummary = finalReport?.scientific_remediation_summary;
   const remediationHandoff = finalReport?.scientific_remediation_handoff;
   const followupSummary = finalReport?.scientific_followup_summary;
-  const deliveryDecision = finalReport?.delivery_decision_summary;
+  const deliveryDecision =
+    finalReport?.delivery_decision_summary ?? runtime?.delivery_decision_summary;
   const supervisorGate = finalReport?.scientific_supervisor_gate;
   const researchEvidence = finalReport?.research_evidence_summary;
   const reproducibilitySummary = finalReport?.reproducibility_summary;
@@ -256,7 +257,8 @@ export function buildSubmarineDetailModel({
       studies,
     },
     operatorBoard: {
-      decisionStatus: deliveryDecision?.decision_status ?? null,
+      decisionStatus:
+        deliveryDecision?.decision_status ?? runtime?.decision_status ?? null,
       timelineEntryCount: runtime?.activity_timeline?.length ?? 0,
       deliveryDecision: {
         question: deliveryDecision?.decision_question_zh ?? null,
@@ -278,7 +280,10 @@ export function buildSubmarineDetailModel({
         latestOutcomeStatus: followupSummary?.latest_outcome_status ?? null,
         latestToolName: followupSummary?.latest_tool_name ?? null,
         latestNotes: followupSummary?.latest_notes ?? [],
-        historyVirtualPath: followupSummary?.history_virtual_path ?? null,
+        historyVirtualPath:
+          followupSummary?.history_virtual_path ??
+          runtime?.scientific_followup_history_virtual_path ??
+          null,
       },
     },
   };

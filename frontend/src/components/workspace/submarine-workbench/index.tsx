@@ -34,6 +34,12 @@ import {
   type SubmarinePrimaryStage,
 } from "./submarine-session-model";
 
+const LOCKED_STAGE_NOTES: Record<SubmarinePrimaryStage, string> = {
+  plan: "Planning remains available at all times.",
+  execute: "Unlocks after approvals clear and execution begins.",
+  results: "Unlocks after supervisor-facing evidence is available.",
+};
+
 function safeJsonParse<T>(content?: string | null): T | null {
   if (!content) {
     return null;
@@ -195,21 +201,34 @@ export function SubmarineAgenticWorkbench({
         {session.summary.currentObjective}
       </p>
       <nav className="mt-4 space-y-2">
-        {session.stageOrder.map((stage) => (
-          <button
-            key={stage}
-            type="button"
-            className={cn(
-              "w-full rounded-xl border px-3 py-2 text-left text-sm font-medium capitalize transition-colors",
-              activeStage === stage
-                ? "border-sky-200 bg-sky-50 text-slate-950"
-                : "border-slate-200 bg-white text-slate-600",
-            )}
-            onClick={() => setActiveStage(stage)}
-          >
-            {stage}
-          </button>
-        ))}
+        {session.stageOrder.map((stage) => {
+          const enabled = session.reachableStages.includes(stage);
+
+          return (
+            <button
+              key={stage}
+              type="button"
+              disabled={!enabled}
+              className={cn(
+                "w-full rounded-xl border px-3 py-2 text-left text-sm font-medium capitalize transition-colors",
+                activeStage === stage
+                  ? "border-sky-200 bg-sky-50 text-slate-950"
+                  : "border-slate-200 bg-white text-slate-600",
+                !enabled && "cursor-not-allowed border-dashed bg-slate-50 text-slate-400",
+              )}
+              onClick={() => {
+                if (enabled) {
+                  setActiveStage(stage);
+                }
+              }}
+            >
+              <div>{stage}</div>
+              <div className="mt-1 text-xs font-normal normal-case text-slate-500">
+                {enabled ? "Available now" : LOCKED_STAGE_NOTES[stage]}
+              </div>
+            </button>
+          );
+        })}
       </nav>
       <div className="mt-4 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 text-xs text-slate-600">
         Current stage: {activeStage}
@@ -235,13 +254,30 @@ export function SubmarineAgenticWorkbench({
       />
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         {activeStage === "plan" ? (
-          <SubmarinePlanStage session={session} onOpenChat={onOpenChat} />
+          <SubmarinePlanStage
+            session={session}
+            runtime={runtime}
+            designBrief={designBrief}
+            onOpenChat={onOpenChat}
+          />
         ) : null}
         {activeStage === "execute" ? (
-          <SubmarineExecutionStage session={session} detail={detail} />
+          <SubmarineExecutionStage
+            session={session}
+            detail={detail}
+            runtime={runtime}
+            artifactPaths={submarineArtifacts}
+          />
         ) : null}
         {activeStage === "results" ? (
-          <SubmarineResultsStage session={session} detail={detail} />
+          <SubmarineResultsStage
+            session={session}
+            detail={detail}
+            runtime={runtime}
+            designBrief={designBrief}
+            finalReport={finalReport}
+            artifactPaths={submarineArtifacts}
+          />
         ) : null}
       </div>
     </div>
@@ -287,7 +323,11 @@ export function SubmarineAgenticWorkbench({
         <div className="flex h-full min-h-0 flex-col gap-3">
           <InterruptActionBar
             interruptionVisible={interruptionVisible}
+            activeDescription="An interruption is active. Dismissing this banner only hides the local notice; use the negotiation rail to revise or confirm the run."
+            idleDescription="No interruption is active. The rail stays ready for revisions, confirmations, and reruns."
             onPause={() => setActiveStage("plan")}
+            pauseLabel="Return to Plan"
+            resolveLabel="Dismiss Notice"
             onResolve={() => setInterruptionDismissed(true)}
           />
           <div id="submarine-chat-rail" className="min-h-0 flex-1 overflow-hidden">

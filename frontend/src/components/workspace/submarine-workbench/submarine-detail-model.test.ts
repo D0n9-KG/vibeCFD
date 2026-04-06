@@ -195,3 +195,31 @@ void test("preserves delivery decision, remediation handoff/manual actions, foll
   assert.equal(model.experimentBoard.comparisons.length, 1);
   assert.equal(model.experimentBoard.studyCount, 1);
 });
+
+void test("falls back to runtime delivery and follow-up signals when the final report is not ready", () => {
+  const model = buildSubmarineDetailModel({
+    runtime: {
+      decision_status: "needs_followup",
+      delivery_decision_summary: {
+        decision_status: "needs_followup",
+        decision_question_zh: "Ship current findings or request another run?",
+        options: [{ option_id: "rerun", label_zh: "Request rerun" }],
+      },
+      scientific_followup_history_virtual_path: "/artifacts/submarine/followup.json",
+      activity_timeline: [{ title: "Waiting for supervisor", actor: "lead-agent" }],
+    },
+    finalReport: null,
+  });
+
+  assert.equal(model.operatorBoard.decisionStatus, "needs_followup");
+  assert.equal(
+    model.operatorBoard.deliveryDecision.question,
+    "Ship current findings or request another run?",
+  );
+  assert.equal(model.operatorBoard.deliveryDecision.optionCount, 1);
+  assert.equal(
+    model.operatorBoard.followup.historyVirtualPath,
+    "/artifacts/submarine/followup.json",
+  );
+  assert.equal(model.operatorBoard.timelineEntryCount, 1);
+});
