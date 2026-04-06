@@ -7,6 +7,8 @@ export function SubmarineExperimentBoard({
 }: {
   experimentBoard: SubmarineDetailModel["experimentBoard"];
 }) {
+  const leadingStudy = experimentBoard.studies[0];
+
   return (
     <section className="rounded-2xl border border-slate-200/80 bg-white/92 p-4 shadow-[0_12px_26px_rgba(15,23,42,0.04)]">
       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">
@@ -44,10 +46,9 @@ export function SubmarineExperimentBoard({
           Lineage: {experimentBoard.lineageNotes[0]}
         </p>
       ) : null}
-      {experimentBoard.studies.length > 0 ? (
+      {leadingStudy ? (
         <p className="mt-2 text-xs text-slate-600">
-          Study: {experimentBoard.studies[0].label} (
-          {experimentBoard.studies[0].workflowStatus})
+          Study: {leadingStudy.label} ({leadingStudy.workflowStatus})
         </p>
       ) : null}
     </section>

@@ -7,7 +7,7 @@ import {
   SparklesIcon,
   UploadCloudIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
@@ -49,6 +49,7 @@ import { useArtifactContent } from "@/core/artifacts/hooks";
 import type {
   SkillGraphResponse,
   SkillLifecycleRecord,
+  SkillLifecycleSummary,
 } from "@/core/skills/api";
 import {
   usePublishSkill,
@@ -59,6 +60,8 @@ import {
   useUpdateSkillLifecycle,
 } from "@/core/skills/hooks";
 import type { AgentThreadContext } from "@/core/threads";
+import { env } from "@/env";
+import { cn } from "@/lib/utils";
 
 import { SkillStudioDefineStage } from "./skill-studio-define-stage";
 import {
@@ -262,8 +265,16 @@ export function SkillStudioAgenticWorkbench({
   );
   const skillName = draft?.skill_name ?? studioState?.skill_name ?? null;
   const { lifecycleSummaries } = useSkillLifecycleSummaries({ enabled: !isMock });
-  const lifecycleSummary = useMemo(
-    () => findSkillLifecycleSummary(lifecycleSummaries, skillName),
+  const lifecycleSummary = useMemo<SkillLifecycleSummary | null>(
+    () => {
+      const summary = findSkillLifecycleSummary(lifecycleSummaries, skillName);
+      return summary
+        ? {
+            ...summary,
+            version_note: summary.version_note ?? undefined,
+          }
+        : null;
+    },
     [lifecycleSummaries, skillName],
   );
   const lifecycleQuery = useSkillLifecycle({
