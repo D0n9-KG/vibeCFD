@@ -1,620 +1,674 @@
-# VibeCFD Agentic Workbench Frontend Design
+# VibeCFD 中文科研指挥台前端设计
 
-**Date:** 2026-04-06
+**日期：** 2026-04-06
 
-**Status:** Drafted from front-end restructuring discussion and approved direction
+**状态：** 已根据前端重构讨论完成设计收敛，等待用户复审
 
-## Goal
+## 1. 目标
 
-Redesign the VibeCFD front end so it feels closer to vibecoding than to a fixed CFD pipeline, while still making the full workflow transparent and controllable.
+本轮前端重构的目标不是继续修补现有工作台，而是在仅保留现有配色方向的前提下，彻底重做 VibeCFD 的前端信息架构、页面骨架、组件布局和交互语义，使其更接近“vibecoding 式的主智能体协作体验”，同时保留科研仿真场景所需的全过程透明度。
 
-The new front end must let the user:
+新前端必须让用户：
 
-- watch the main agent negotiate, plan, delegate, execute, and report in one continuous workspace
-- interrupt the flow at any time and renegotiate with the main agent
-- inspect the full process without drowning in always-on stage cards
-- clearly see plan generation, plan confirmation, sub-agent delegation, skill usage, tool calls, solver execution, postprocess work, evidence quality, and final reporting
-- use both `submarine` and `skill-studio` through one coherent workbench language
+- 以中文界面使用整个产品
+- 清楚看到从方案生成到最终报告的完整推进过程
+- 始终能通过聊天框与主智能体协商、纠偏、追加要求或中止当前推进
+- 在不丢失信息的前提下获得更简洁、更聚焦的界面
+- 在 `submarine` 与 `skill-studio` 之间获得统一的产品语言与视觉体验
 
-The redesign should preserve the current color palette and tonal direction, but otherwise treat the front end as a clean-sheet rebuild.
+本轮重构是一次彻底的前端重构，而不是基于旧页面的渐进式换皮。
 
-The current front end should be used as:
+保留项只有：
 
-- a capability inventory
-- a backend contract reference
-- a source of approved color tokens
+- 当前配色与色调方向
+- 后端能力覆盖
+- 后端契约与数据来源
 
-The current front end should not be treated as a required baseline for:
+可完全重做的部分包括：
 
-- layout structure
-- page composition
-- information architecture
-- component hierarchy
-- interaction model
-- module boundaries
-- route-local UI semantics
+- 页面结构
+- 信息架构
+- 路由语义
+- 组件体系
+- 模块边界
+- 导航组织
+- 页面视觉骨架
+- 中英文文案体系
 
-## Problem Statement
+## 2. 现状问题
 
-The current front end has moved some language toward lead-agent-first orchestration, but the product still feels structurally stage-first.
+当前前端即使已经做过一轮重构，仍然存在以下核心问题：
 
-Current issues:
+- 页面骨架仍然明显继承旧工作台，用户能感受到“左侧阶段轨 + 中间内容区 + 右侧 rail”的旧结构影子。
+- `submarine` 仍然容易让用户觉得自己在浏览阶段，而不是在与主智能体共同推进一项研究任务。
+- `skill-studio` 仍然更像功能仪表板，而不是技能资产生命周期工作台。
+- 用户虽然能看到不少信息，但“方案、分工、技能、工具、执行、后处理、报告”之间缺乏一条清晰的主线叙事。
+- 过多显式的控制条、状态块、阶段标签，会把体验拉回工程后台，而不是你要的科研协作工作台。
+- 用户可见文案仍有较多英文残留，不符合中文产品要求。
 
-- the `submarine` workbench still relies too heavily on stage cards and stage progression as the main mental model
-- the top-level summary improved, but deeper views still revert to a rigid pipeline feel
-- the user can see many artifacts, but not the agentic story connecting plan, delegation, skills, tools, execution, and report
-- the chat rail is still treated as a separate surface rather than the user's control path into the live process
-- `skill-studio` has strong visual flavor but behaves more like a concept dashboard than a true agentic workbench
-- `submarine` and `skill-studio` do not yet feel like two expressions of the same system
+因此，这一轮设计必须解决的不是“补更多卡片”，而是“彻底替换用户的主心智模型”。
 
-The redesign must solve this without hiding process detail or weakening operational transparency.
+## 3. 核心设计结论
 
-## Design Principles
+本轮前端采用的目标形态是：
 
-### 1. Agentic, Not Stage-First
+`中文科研指挥台 + 右侧协商聊天框 + 单主画布推进流 + 分层下钻证据面`
 
-The primary user experience should be:
+它不是阶段系统的外观优化，而是一个新的使用模型：
 
-`goal negotiation -> live plan evolution -> delegated work -> evidence-backed execution -> report and iteration`
+- 用户主要在中央主画布中理解“现在系统正在推进什么”
+- 用户通过右侧聊天框直接与主智能体协商
+- 主智能体负责根据聊天内容自主暂停、修正、改派、重跑、补充后处理或调整报告
+- 过程细节、证据、日志、图谱、版本与发布信息通过抽屉和下钻层查看，而不是常驻占满主界面
 
-not:
+## 4. 总体设计原则
 
-`stage 1 -> stage 2 -> stage 3 -> stage 4`
+### 4.1 主智能体优先，不再阶段优先
 
-Stages may still exist internally and visually as secondary structure, but they should no longer dominate the main screen.
+用户的主体验应当是：
 
-### 2. One Workspace, Two Domains
+`目标协商 -> 方案形成 -> 分工推进 -> 计算与后处理 -> 结论与报告`
 
-`submarine` and `skill-studio` should feel like the same workbench system operating on different objects:
+而不是：
 
-- `submarine` operates on a simulation thread
-- `skill-studio` operates on a skill asset lifecycle thread
+`阶段 1 -> 阶段 2 -> 阶段 3 -> 阶段 4`
 
-The shell, layout rules, summary language, control affordances, and secondary layers should be shared.
+后端内部即使仍保留阶段概念，前端也不应再把阶段轨作为主信息结构。
 
-### 3. Show The Whole Process Without Showing Everything At Once
+### 4.2 页面默认回答一个问题
 
-The interface must preserve full process visibility, but the central area should only show the most relevant layer for the current thread state.
+中央主画布在任意时刻只回答一个主问题，例如：
 
-The full workflow stays available through secondary layers, drawers, and drill-down surfaces.
+- 现在方案推进到哪了
+- 当前主要阻塞是什么
+- 当前运行在做什么
+- 当前结果是否足够支持结论
 
-### 4. Negotiation Is A First-Class UI Primitive
+不能让一个页面同时平铺十几类同权重模块。
 
-The user must always feel able to interrupt the system, question a decision, revise the plan, or redirect execution.
+### 4.3 协商通过聊天完成，不通过显式控制面完成
 
-This means the chat surface is not a secondary utility. It is a persistent negotiation rail that can expand into a full control surface when needed.
+用户已经明确要求：中断、修改、纠偏不需要复杂的按钮系统，只需要在聊天框里告诉主智能体即可。
 
-### 5. Evidence And Control Over Ornament
+因此前端不应再把下面这些做成主交互：
 
-The redesign should stay visually confident and polished, but its value must come from clarity of control, evidence traceability, and process legibility rather than decorative dashboards.
+- `Pause`
+- `Resolve`
+- `Revise plan`
+- `Dismiss notice`
+- `No interruption is active`
 
-### 6. Preserve Color, Rebuild Everything Else
+取而代之的是：
 
-This is a full front-end redesign, not a reskin.
+- 右侧始终存在可展开的协商区
+- 页面只保留轻量提示：用户可随时在协商区输入修改意见
+- 主智能体收到后自行决定暂停、改方案、重派任务、重跑计算或调整报告
 
-What should be preserved:
+### 4.4 全流程可见，但不全量常驻
 
-- the approved color palette
-- the warm technical tonal direction of that palette
-- backend capability coverage
-- trust-critical state visibility
+用户必须能看清：
 
-What may be rebuilt without inheriting old structure:
+- 方案生成
+- 方案敲定
+- 子代理任务分配
+- skill 使用
+- 实际计算流程
+- 后处理方法
+- 后处理结果
+- 最终报告
 
-- shell layout
-- navigation model
-- page hierarchy
-- screen composition
-- card patterns
-- panel arrangement
-- typography choices
-- spacing system
-- visual density
-- component boundaries
-- route semantics, if a clearer model needs them to change
+但这些信息不应该永远全部展开。应采用：
 
-The old front end is not the design source of truth. It is only the source of feature coverage, contracts, and color.
+- 主画布展开当前焦点
+- 非焦点模块缩成摘要
+- 详细过程通过抽屉、详情层、证据层查看
 
-## Shared Product Model
+### 4.5 `submarine` 与 `skill-studio` 必须属于同一个产品系统
 
-The front end should treat every workbench thread as an `agentic session` with:
+二者不是两套风格相近的页面，而应是同一个中文科研指挥台框架下的两种对象：
 
-- a current objective
-- a current live state
-- a current decision boundary
-- a current process narrative
-- a lineage and provenance state
-- a set of evidence and artifacts
-- a set of operator actions
-- a revision and publishing state when applicable
+- `submarine` 面向研究任务
+- `skill-studio` 面向技能资产
 
-This becomes the shared product model behind both `submarine` and `skill-studio`.
+它们的配色、页面节奏、交互语言、协商方式、下钻方式应保持统一。
 
-## Shared Shell
+### 4.6 旧前端不是设计真相来源
 
-Both workbenches should use the same three-zone shell:
+旧前端和刚完成的第一轮重构前端，仅作为：
 
-### Left: Workspace Navigation
+- 功能覆盖清单
+- 后端契约参照
+- 色彩来源
 
-Purpose:
+它们不构成以下内容的保留边界：
 
-- switch product surfaces
-- switch active threads
-- jump to recent work
+- 布局骨架
+- 阶段组织方式
+- 卡片组合关系
+- rail 命名方式
+- 页面分栏策略
+- 路由与页面层级
 
-Rules:
+## 5. 共享产品模型
 
-- lightweight and non-competing
-- no dense operational data here
-- supports quick context switching only
+前端应把每个线程统一理解为一个“主智能体协作会话”，无论它属于 `submarine` 还是 `skill-studio`，都具备以下共同结构：
 
-### Center: Adaptive Main Stage
+- 当前目标
+- 当前判断
+- 当前推进状态
+- 当前待确认事项
+- 当前主要产出
+- 过程叙事
+- 证据与产物
+- 用户可施加的修改入口
+- 历史脉络与可追溯性
 
-Purpose:
+这意味着共享层不再是“阶段”，而是“会话状态 + 主画布焦点 + 协商入口 + 可下钻证据层”。
 
-- show the most relevant current work surface for the thread
+## 6. 共享页面骨架
 
-Rules:
+## 6.1 顶部任务指挥条
 
-- exactly one primary stage at a time
-- no "all stages expanded" layout
-- should change based on session state, not on a fixed tab order alone
+所有工作台页顶部都使用一条固定的任务指挥条，用于展示最高优先级状态信息。
 
-### Right: Negotiation Rail
+包含内容：
 
-Purpose:
+- 当前任务或技能名称
+- 当前状态
+- 主智能体的最新一句判断
+- 待确认事项数量
+- 最近一次关键动作
+- 必要的全局操作入口
 
-- keep the user connected to the main agent's active reasoning and control surface
+这条区域必须简洁，不能膨胀成第二套仪表板。
 
-Rules:
+## 6.2 左侧轻导航
 
-- narrow by default
-- shows latest question, pending approvals, interrupt entry points, and quick actions
-- expands into full conversation mode when the user engages
-- remains present in both `submarine` and `skill-studio`
+左侧只承担轻量导航职责：
 
-## Information Hierarchy
+- 在产品一级页面间切换
+- 查看近期线程
+- 回到新建入口
 
-To keep the interface simple without losing capability, all front-end content should be organized into four layers.
+左侧不再承担主流程推进展示，也不承载高密度状态卡。
 
-### Layer 1: Primary Stage
+## 6.3 中央单主画布
 
-The main adaptive center panel.
+中央是整个系统的核心。
 
-This answers:
+设计要求：
 
-- what is happening now
-- what matters now
-- what can the user do now
+- 始终只有一个主画布
+- 主画布内部按当前状态展开一个焦点模块
+- 其他模块以摘要形式折叠在同一条推进流中
+- 不使用旧式常驻多阶段页签或阶段导航卡列
 
-### Layer 2: Negotiation Layer
+## 6.4 右侧协商区
 
-The right rail and expanded conversation view.
+右侧保留聊天框，但其角色从“附属聊天 rail”升级为“协商区”。
 
-This answers:
+它的职责是：
 
-- what is the main agent asking
-- what approvals or changes are pending
-- how can the user interrupt or redirect
+- 接收用户修改意见
+- 接收补充条件和新问题
+- 让主智能体解释当前判断
+- 允许用户要求停止当前推进并改动策略
 
-### Layer 3: Process Layers
+它不应承担复杂控制台式按钮逻辑，也不应抢夺主画布注意力。
 
-Expandable surfaces for:
+默认行为：
 
-- live narrative timeline
-- dependency map
-- sub-agent assignments
-- skill usage
-- tool calls
-- execution flow
-- postprocess flow
+- 默认较窄，可展开
+- 保持可用，但不喧宾夺主
+- 作为用户唯一正式的协商入口
 
-This answers:
+## 6.5 抽屉与详情层
 
-- how did the system get here
-- what ran
-- in what order or dependency pattern
+对以下内容，不再常驻一整列面板，而应通过抽屉或详情层查看：
 
-### Layer 4: Evidence Layers
+- artifact 浏览
+- 日志
+- 图谱
+- tool 调用链
+- 证据明细
+- 版本历史
+- 绑定关系
+- provenance
+- reproducibility
+- experiment compare
+- 发布闸门
 
-Expandable surfaces for:
+## 7. 文案与语言规则
 
-- artifacts
-- logs
-- figures
-- metrics
-- reports
-- scientific gates
-- validation evidence
-- provenance manifests
-- reproducibility summaries
-- environment parity assessments
-- study and compare outputs
-- dry-run and publish-gate evidence
-- revision history
+整套工作台的用户可见文案默认使用中文。
 
-This answers:
+允许保留原文的仅包括：
 
-- what proof exists
-- what result quality exists
-- what outputs were generated
-- whether the outputs are trustworthy enough to reuse, publish, compare, or claim against
+- 模型名称
+- skill id
+- 文件名
+- 版本号
+- 必要的技术实体名
 
-## Shared Component System
+不应继续在主界面保留这些英文术语：
 
-The redesign should establish a shared component grammar before page-specific work.
+- `Define`
+- `Evaluate`
+- `Publish`
+- `Graph`
+- `Assistant Rail`
+- `Negotiation Rail`
+- `Pending approvals`
+- `Show rail`
+- `Hide rail`
+- `Plan`
+- `Execute`
+- `Results`
 
-These component names describe the new design language. They are not instructions to preserve or gradually mutate existing component files one by one.
+应改写成更自然的中文科研工作台语义，例如：
 
-### Core Shell Components
+- `任务定义`
+- `验证与试跑`
+- `发布与挂载`
+- `关系网络`
+- `协商区`
+- `待确认事项`
+- `展开协商区`
+- `收起协商区`
+- `方案推进`
+- `计算执行`
+- `结果与报告`
 
-- `WorkbenchShell`
-- `ThreadHeader`
-- `AdaptiveMainStage`
-- `NegotiationRail`
-- `SecondaryLayerHost`
+本条是硬约束，不是建议项。
 
-### Session Components
+## 8. `submarine` 工作台设计
 
-- `SessionSummaryBar`
-- `DecisionCard`
-- `ActionQueueCard`
-- `InterruptActionBar`
-- `ThreadStateBadge`
+`submarine` 应重构为“研究推进主画布”，不再是阶段工作台。
 
-### Process Components
+## 8.1 主画布核心结构
 
-- `NarrativeStream`
-- `ProcessLayerDrawer`
-- `DependencyMapPanel`
-- `AgentDispatchPanel`
-- `SkillUsagePanel`
-- `ToolCallPanel`
+中央主画布以一条纵向推进流承载完整过程。
 
-### Evidence Components
+固定呈现以下模块顺序：
 
-- `ArtifactPanel`
-- `EvidencePanel`
-- `MetricPanel`
-- `ReportPanel`
-- `ValidationGatePanel`
-- `ProvenancePanel`
-- `ReproducibilityPanel`
-- `StudyComparePanel`
-- `TestingEvidencePanel`
+- 方案生成
+- 方案敲定
+- 子代理分工
+- 技能调用
+- 实际计算
+- 后处理方法
+- 后处理结果
+- 最终报告
 
-### Asset Components
+这八个模块始终可见，但默认只展开当前焦点模块，其余模块显示：
 
-- `AssetBoard`
-- `RevisionTimeline`
-- `BindingsPanel`
-- `PublishDecisionPanel`
-- `LifecycleStatePanel`
-- `AssistantModePicker`
+- 当前状态
+- 一句话摘要
+- 最近更新时间
+- 是否可查看详情
 
-The same components should be reused across `submarine` and `skill-studio` wherever semantics match.
+## 8.2 模块含义
 
-## Submarine Workbench Design
+### 方案生成
 
-The `submarine` workbench should stop behaving like a cockpit with permanent stage cards and instead become an adaptive simulation session workspace.
+展示：
 
-### Submarine State A: Plan / Negotiate
+- 主智能体提出的候选方案
+- 关键假设
+- 边界条件
+- 目标指标
+- 约束与风险
 
-Used when the thread is still forming or revising the task.
+### 方案敲定
 
-The primary stage should show:
+展示：
 
-- current objective
-- current plan snapshot
-- assumptions
-- open questions
-- requested outputs
-- proposed sub-agents
-- proposed skills and tools
-- approval readiness
+- 当前采用的方案
+- 用户已确认项
+- 尚待确认项
+- 方案修订记录
 
-The negotiation rail should show:
+### 子代理分工
 
-- latest question from the main agent
-- pending approvals
-- interrupt and revise entry points
-- quick actions like `confirm plan`, `revise assumptions`, `request more evidence`
+展示：
 
-### Submarine State B: Execute / Orchestrate
+- 已分派的子代理
+- 各自负责内容
+- 当前产出
+- 是否完成或受阻
+- 主智能体如何汇总这些结果
 
-Used when the thread is actively coordinating geometry review, dispatch, execution, verification, or postprocess work.
+### 技能调用
 
-The primary stage should show:
+展示：
 
-- live session narrative
-- current active task
-- what sub-agent is running
-- what skill is in use
-- what tool was called
-- what execution step is active
-- what can be interrupted or rerun
+- 用到了哪些 skill
+- 为什么调用它们
+- 输入输出边界
+- 是否命中已有技能资产
 
-The process layers should expose:
+### 实际计算
 
-- sub-agent assignment tree
-- skill usage history
-- tool call history
-- execution dependency map
-- solver and postprocess chain
+展示：
 
-### Submarine State C: Results / Postprocess / Report
+- 几何检查
+- case 准备
+- 求解器调度
+- 运行状态
+- 关键运行事件
+- 中间产物摘要
 
-Used when outputs, evidence, and reporting dominate the thread.
+### 后处理方法
 
-The primary stage should show:
+展示：
 
-- latest result summary
-- current conclusion strength
-- scientific claim boundary
-- delivery decision status
-- remediation status and recommended next owner
-- evidence quality summary
-- provenance and reproducibility status
-- generated figures and metrics
-- postprocess methods used
-- study, compare, and variant status
-- final report status
-- next recommended follow-up
+- 使用了哪些后处理方法
+- 为什么采用这些方法
+- 对比策略
+- 采用的指标和图法
 
-The negotiation rail should support:
+### 后处理结果
 
-- request stronger claims
-- request additional postprocess
-- revise report framing
-- choose a delivery decision
-- trigger remediation or manual handoff
-- trigger rerun, compare study, or extension study
-- create a follow-up branch from the current result state
+展示：
 
-### Submarine Secondary Layers
+- 核心图表
+- 关键指标
+- 异常点
+- 不确定性
+- 是否建议补算或对比试验
 
-The following must remain available but not permanently occupy the center:
+### 最终报告
 
-- full live timeline
-- sub-agent allocation history
-- skill usage chain
-- tool invocation log
-- solver execution log
-- postprocess method details
-- artifact browser
-- report browser
-- evidence and verification details
-- provenance manifest and environment parity view
-- reproducibility and recovery guidance
-- experiment board for baseline, variants, and compare outputs
-- remediation handoff, follow-up history, and operator action log
+展示：
 
-## Skill Studio Workbench Design
+- 报告草稿状态
+- 可交付结论
+- 结论边界
+- 保留意见
+- 后续建议
 
-The `skill-studio` workbench should stop acting like a concept dashboard and become an adaptive skill-asset lifecycle workspace.
+## 8.3 协商与打断
 
-### Skill Studio State A: Define Skill
+`submarine` 中不再设置显式“暂停流程”控制区。
 
-The primary stage should show:
+正确的交互模型是：
 
-- problem being solved
-- creator or assistant selection before thread start
-- target use case
-- trigger conditions
-- workflow steps
-- required tools
-- examples
-- anti-patterns
-- open drafting issues
+- 用户直接在右侧协商区说“先停一下，方案要改”
+- 或“先不要继续算，边界条件要改”
+- 或“后处理方式换成压力分布对比”
 
-Once the thread starts, the chosen creator or assistant mode should remain visible as session provenance and become locked unless the user intentionally starts a new thread.
+主智能体收到后应：
 
-### Skill Studio State B: Evaluate / Verify
+- 停止当前推进
+- 回到相应模块
+- 说明已采用的修改
+- 在推进流中留下变更记录
 
-The primary stage should show:
+页面只需保留轻量提示：
 
-- structure checks
-- completeness checks
-- rule quality checks
-- scenario-level test matrix
-- dry-run readiness and handoff evidence
-- blockers and warnings
-- suggested fixes
+`可随时在协商区输入修改意见，主智能体会停止当前推进并重新协商。`
 
-This should use the same `NarrativeStream` pattern as submarine execution, but the narrative is about evaluation and hardening rather than solver execution.
+## 8.4 `submarine` 下钻层
 
-This stage must not collapse testing into a single readiness badge. The user should be able to inspect scenario status, blocking reasons, expected outcomes, and dry-run related publish blockers from the main workbench.
+以下能力必须可见，但不应常驻主画布：
 
-### Skill Studio State C: Connect / Publish
+- 子代理执行详情
+- skill 调用详情
+- tool 调用链
+- solver 执行日志
+- 后处理方法详情
+- artifact 浏览器
+- 结果证据详情
+- report package
+- provenance 清单
+- reproducibility 摘要
+- environment parity 视图
+- study / variant / compare 面板
+- remediation 与 follow-up 历史
 
-The primary stage should show:
+## 8.5 `submarine` 必须覆盖的后端能力
 
-- lifecycle state
+前端必须显式承载以下能力，不得只停留在隐藏 JSON 中：
+
+- 方案生成
+- 方案确认
+- 子代理任务分配
+- skill 使用轨迹
+- 几何检查
+- solver dispatch
+- 实际计算流程
+- 后处理方法
+- 后处理结果
+- 结果结论与 claim boundary
+- evidence quality
+- provenance
+- reproducibility
+- environment parity
+- scientific delivery decision
+- remediation handoff
+- scientific follow-up
+- 多 run / study / variant / compare
+- 最终报告与报告产物
+
+## 9. `skill-studio` 工作台设计
+
+`skill-studio` 应重构为“技能生命周期主画布”，而不是技能仪表板或功能集合页。
+
+## 9.1 主画布核心结构
+
+`skill-studio` 与 `submarine` 共享同一套页面骨架与节奏，但主对象从“研究任务”切换为“技能资产”。
+
+中央主画布建议固定呈现以下模块：
+
+- 技能意图
+- 技能草案
+- 验证与试跑
+- 发布准备
+- 版本与回退
+- 关系网络
+
+同样采用：
+
+- 当前焦点模块展开
+- 其他模块摘要折叠
+- 详细信息下钻查看
+
+## 9.2 模块含义
+
+### 技能意图
+
+展示：
+
+- 这个 skill 解决什么问题
+- 给谁使用
+- 在什么场景触发
+- 成功标准是什么
+- 由哪个 creator 或 assistant 创建
+
+用户在线程开始前选择的创建者或助手模式，应在开始后继续可见，并作为会话 provenance 保存。
+
+### 技能草案
+
+展示：
+
+- prompt 包
+- 规则说明
+- 输入输出约束
+- 工作流步骤
+- 示例
+- anti-pattern
+- 依赖资源
+
+### 验证与试跑
+
+展示：
+
+- 结构校验
+- 完整性校验
+- 警告与错误
+- scenario test matrix
+- dry-run 证据
+- 当前阻塞项
+
+不能把这些信息压扁成单个 readiness badge。
+
+### 发布准备
+
+展示：
+
+- readiness 状态
+- 阻塞项
+- 版本说明
+- 显式绑定目标
+- 发布风险
+
+### 版本与回退
+
+展示：
+
+- 当前启用版本
+- 当前已发布版本
+- 当前工作版本
+- 候选回退点
+- 变更摘要
+
+### 关系网络
+
+展示：
+
+- 上游依赖
+- 下游复用
+- 相似技能
+- 高影响连接
+
+默认只显示摘要，不占用整列主界面。
+
+## 9.3 协商方式
+
+`skill-studio` 与 `submarine` 共享同一条规则：
+
+- 所有修改与打断都通过右侧协商区完成
+- 不新增复杂控制按钮系统
+- 用户直接告诉主智能体要改什么
+- 主智能体自行回到合适模块继续推进
+
+## 9.4 `skill-studio` 必须覆盖的后端能力
+
+以下能力必须在新前端中有明确对应：
+
+- skill 定义
+- creator / assistant 选择
+- workflow 结构
+- examples 与 anti-patterns
+- validation
+- scenario-level tests
+- dry-run evidence
+- 发布阻塞项
+- revisions
+- bindings
+- related skills
+- 发布决策
 - enabled state
 - active revision
-- published revision
+- 已发布版本
 - rollback target
 - version note
 - explicit bindings
-- current revision context
-- related skills
-- publish readiness
-- rollback readiness
-- unresolved risks
 
-Secondary layers should expose:
+## 10. 共享的证据与信任面
 
-- revision history
-- binding map
-- relationship graph
+以下信息属于信任关键面，必须在前端拥有命名化、可定位的展示入口，而不能退化为普通徽标或折叠说明：
+
+- provenance
+- reproducibility
+- environment parity
+- validation gate
+- scientific claim boundary
+- compare / study evidence
 - dry-run evidence
-- publish artifacts
-- rollback options
+- 发布闸门
+- rollback readiness
+- report package lineage
 
-The publish surface should make the relationship between `enabled`, `active revision`, `published revision`, and `rollback target` explicit so the user can tell what is live now, what is only saved, what is currently published, and what will be restored if rollback is triggered.
+原则是：凡是影响“能否相信当前结论”“能否复现”“能否发布”“能否回退”的状态，都必须在前端被用户明确看见。
 
-## Functional Coverage Matrix
+## 11. 视觉方向
 
-The redesign must explicitly surface every major capability the back end already supports or is expected to support.
+视觉方向采用你已确认的：
 
-### Submarine Coverage
+`中文科研指挥台`
 
-- plan generation: primary stage in `Plan / Negotiate`
-- plan confirmation: decision cards plus negotiation rail approvals
-- sub-agent task allocation: process layer agent dispatch panel
-- skill usage: process layer skill usage panel and event chips in narrative stream
-- actual calculation flow: execution narrative + tool call layer + execution panel
-- geometry review: either as plan evidence or execution narrative event with expandable findings
-- solver dispatch: execution narrative event + control actions + execution details
-- postprocess methods: result stage method section plus expandable process layer
-- postprocess results: evidence layer figures, metrics, and derived outputs
-- calculation results: result board metric section
-- evidence quality and claim limits: validation gate panel
-- provenance, reproducibility, and environment parity: dedicated evidence panels, not a generic metadata foldout
-- scientific delivery decision and remediation handoff: result-stage decision card plus operator action surfaces
-- scientific follow-up and extension history: follow-up board with lineage to current run
-- multi-run studies, custom variants, and compare outputs: experiment board with baseline, candidate, lineage, and compare summaries
-- final report: report panel and report status in result stage
-- artifacts and logs: evidence layer artifact browser
-- user interruption: always available through negotiation rail
-- rerun or redirection: interrupt action bar and decision cards
+这意味着界面应当具有以下气质：
 
-### Skill Studio Coverage
+- 专业
+- 克制
+- 清晰
+- 像研究任务控制台，而不是普通后台管理页
+- 像与主智能体协作推进复杂任务，而不是翻流程卡片
 
-- skill definition: definition board primary stage
-- creator or assistant selection: visible in thread setup and persisted thread header
-- workflow structure: definition board plus process layer
-- examples and anti-patterns: definition board
-- validation and readiness: evaluation primary stage
-- scenario-level tests and dry-run evidence: evaluation stage plus testing evidence panel
-- draft quality warnings: evaluation primary stage
-- revisions: asset board plus revision timeline
-- bindings: asset board plus bindings panel with explicit binding state
-- related skills: process/evidence layer graph panel
-- publish decision: publish decision panel
-- publish state model: enabled state, active revision, published revision, rollback target, and version notes
-- rollback: asset board controls and revision timeline
-- user interruption: always available through negotiation rail
+保留：
 
-No backend capability that matters to user trust or control should exist only in hidden JSON without a corresponding front-end surface.
+- 当前配色与色调方向
 
-## Visual Language
+自由重做：
 
-The redesign should preserve the current palette direction only. Visual identity outside color is free to change if the new workbench becomes clearer, simpler, and more agentic.
+- 版式
+- 空间层级
+- 卡片形态
+- 字体组合
+- 图标与标签语义
+- 面板边界
+- 页面密度策略
 
-Keep:
+不应再追求：
 
-- existing color family and tonal direction
-- the warm technical feeling created by that palette
+- 大量 stage card 平铺
+- 多列永久常驻信息墙
+- 为了“显得复杂”而堆叠工程态控件
 
-Change freely:
+## 12. 路由与迁移方向
 
-- page structure
-- spatial hierarchy
-- component composition
-- density management
-- visual emphasis rules
-- typography system
-- icon treatment
-- card shape language
-- panel styling
-- navigation presentation
+路由兼容不是设计边界。
 
-The new visuals should feel:
+如果新的工作台模型需要调整页面入口、嵌套路由或线程入口语义，允许直接调整。
 
-- sharper and more intentional
-- less dashboard-like for the sake of dashboards
-- more like an intelligent control room for a live agentic system
-
-## Interaction Rules
-
-### Rule 1: One Primary Question Per Main Stage
-
-At any moment, the center should answer one dominant question only.
-
-Examples:
-
-- "What do I still need to confirm?"
-- "What is running right now?"
-- "How strong are the current conclusions?"
-
-### Rule 2: Interruptibility Must Be Obvious
-
-The user should never have to hunt for how to stop, revise, redirect, or renegotiate.
-
-### Rule 3: Full Process Visibility Must Be Recoverable
-
-Even if not all process detail is visible at once, the user must be able to reconstruct:
-
-- who did what
-- what skills were used
-- what tools were called
-- what execution actually happened
-- what outputs came out of that work
-
-### Rule 4: Chat Should Control, Not Distract
-
-The negotiation rail should always feel available, but should not dominate the primary stage unless the user intentionally expands it.
-
-### Rule 5: Trust-Critical States Must Stay Named
-
-Provenance, reproducibility, study comparison, publish gates, rollback state, and dry-run evidence must remain first-class named surfaces. They should not be flattened into generic badges, hidden accordions, or unlabeled JSON viewers.
-
-## Routing Direction
-
-The target is a new workbench model, not route-level backward visual compatibility.
-
-Routes may stay compatible where that reduces migration risk, but route structure is not a preservation boundary. If the cleaner front-end model requires changing route semantics, nested surfaces, or thread entry structure, that is allowed.
-
-Recommended direction:
+推荐方向：
 
 - `/workspace/submarine/new`
-  - starts in `Plan / Negotiate`
+  - 进入新的中文研究推进工作台
 - `/workspace/submarine/[thread_id]`
-  - adaptive workbench, not a stage cockpit
+  - 进入同一工作台的线程态
 - `/workspace/skill-studio/new`
-  - starts in `Define Skill`
+  - 进入新的技能生命周期工作台
 - `/workspace/skill-studio/[thread_id]`
-  - adaptive lifecycle workbench, not a concept landing page
+  - 进入同一工作台的线程态
 
-## Migration Strategy
+迁移时可以分阶段实施，但设计目标必须是一次清晰的前端重置，而不是长期保留旧式阶段工作台与新式主画布并存。
 
-The engineering rollout may happen in phases, but the design target is a clean-break front-end reset. The implementation should avoid a stitched-together hybrid where legacy stage dashboards remain the dominant mental model.
+## 13. 非目标
 
-### Phase 1: Shared Shell And Right Rail
+本轮设计不追求以下方向：
 
-- build the new common workbench shell as the replacement top-level frame
-- establish the new thread header and negotiation rail as the primary control model
-- carry over only the approved color system from the existing UI
+- 与旧页面保持强视觉连续性
+- 保留旧的阶段轨体验
+- 保留英文工作台术语
+- 把所有过程细节默认展开在主界面
+- 把打断与协商做成复杂的操作台系统
 
-### Phase 2: Replace Stage-First Center Panels
+## 14. 设计结论
 
-- replace legacy center-panel structures with adaptive main-stage surfaces
-- remove current permanent stage card dominance
-- move stage detail into process layers or evidence layers instead of preserving old panel topology
+VibeCFD 的前端应重构为一套真正统一的中文科研指挥台：
 
-### Phase 3: Process Transparency Layers
+- `submarine` 用研究推进主画布讲清完整仿真流程
+- `skill-studio` 用技能生命周期主画布讲清技能沉淀与发布流程
+- 右侧聊天框作为唯一正式协商入口
+- 过程、证据、产物、版本、图谱通过抽屉与详情层承载
+- 页面只保留现有配色，不保留旧结构
 
-- add narrative stream
-- add sub-agent, skill, tool, and execution layers
-- add unified evidence layers with dedicated provenance, reproducibility, and testing surfaces
+这是最符合当前产品目标的方向，因为它同时满足了：
 
-### Phase 4: Result And Asset Boards
-
-- replace current result and skill summary surfaces with dedicated asset boards
-- add experiment/compare boards and scientific remediation surfaces
-- unify report, evidence, lifecycle, revision, and publish-state panels
-
-## Recommendation
-
-The front end should adopt:
-
-`a shared agentic workbench shell with an adaptive main stage, a persistent right-side negotiation rail, and expandable process/evidence layers`
-
-For user experience, this should behave like:
-
-- vibecoding when the agent is actively thinking, negotiating, and executing
-- a research caseboard when the user is reviewing evidence and conclusions
-- a control room when the user interrupts, redirects, approves, or reruns work
-
-This design is the best fit for VibeCFD because it preserves transparency and control without forcing the user to live inside a stage machine.
+- vibe 式协作体验
+- 全流程透明
+- 用户随时可打断协商
+- 中文产品表达
+- 页面尽量简洁
