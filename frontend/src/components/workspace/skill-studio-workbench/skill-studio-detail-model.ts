@@ -169,6 +169,28 @@ export type BuildSkillStudioDetailModelInput = {
   studioArtifacts: string[];
 };
 
+const SKILL_STUDIO_COPY_MAP: Record<string, string> = {
+  "Skill structure is valid": "技能结构校验通过",
+  "Trigger description is discoverable": "触发描述可被发现",
+  "Scenario tests are prepared": "场景测试已准备",
+  "Dry-run handoff is ready": "试跑交接已就绪",
+  "UI metadata has been generated": "界面元数据已生成",
+  "Run a dry-run conversation using one of the prepared scenarios.":
+    "使用已准备的场景执行一次试跑对话。",
+  "Review the generated SKILL.md, domain rules, and UI metadata together.":
+    "一并复核生成的 SKILL.md、领域规则与界面元数据。",
+  "Publish only after the expert signs off on the dry-run result.":
+    "仅在专家确认试跑结果后再执行发布。",
+};
+
+function localizeSkillStudioCopy(value: string | null | undefined) {
+  if (!value) {
+    return value ?? "";
+  }
+
+  return SKILL_STUDIO_COPY_MAP[value] ?? value;
+}
+
 export function buildSkillStudioDetailModel(
   input: BuildSkillStudioDetailModelInput,
 ): SkillStudioDetailModel {
@@ -256,7 +278,9 @@ export function buildSkillStudioDetailModel(
       errorCount: input.validation?.error_count ?? input.studioState?.error_count ?? 0,
       warningCount:
         input.validation?.warning_count ?? input.studioState?.warning_count ?? 0,
-      passedChecks: input.validation?.passed_checks ?? [],
+      passedChecks:
+        input.validation?.passed_checks?.map((item) => localizeSkillStudioCopy(item)) ??
+        [],
       validationErrors: input.validation?.errors ?? [],
       validationWarnings: input.validation?.warnings ?? [],
       scenarioMatrix: {
@@ -282,10 +306,13 @@ export function buildSkillStudioDetailModel(
       gates:
         input.publishReadiness?.gates?.map((gate) => ({
           id: gate?.id ?? "gate",
-          label: gate?.label ?? "Unnamed gate",
+          label: localizeSkillStudioCopy(gate?.label) || "未命名门禁",
           status: gate?.status ?? "pending",
         })) ?? [],
-      nextActions: input.publishReadiness?.next_actions ?? [],
+      nextActions:
+        input.publishReadiness?.next_actions?.map((item) =>
+          localizeSkillStudioCopy(item),
+        ) ?? [],
     },
     graph: {
       relationshipCount: relatedSkills.length,

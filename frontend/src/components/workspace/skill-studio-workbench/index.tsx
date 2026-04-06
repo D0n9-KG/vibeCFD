@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquareIcon, SparklesIcon } from "lucide-react";
+import { MessageSquareIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -46,7 +46,6 @@ import {
 } from "@/core/skills/hooks";
 import type { AgentThreadContext } from "@/core/threads";
 import { env } from "@/env";
-import { cn } from "@/lib/utils";
 
 import {
   buildSkillStudioDetailModel,
@@ -448,70 +447,6 @@ export function SkillStudioAgenticWorkbench({
       ? thread.values.title
       : detail.define.skillTitle;
 
-  const nav = (
-    <div className="flex h-full min-h-0 flex-col gap-5">
-      <section className="rounded-[26px] border border-orange-200/70 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.16),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(252,246,241,0.96))] p-4 shadow-[0_22px_60px_rgba(249,115,22,0.10)]">
-        <div className="flex items-center gap-2 text-orange-700">
-          <SparklesIcon className="size-4" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.22em]">
-            技能生命周期工作台
-          </span>
-        </div>
-        <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950">
-          {threadTitle}
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          从技能意图到发布版本，所有定义、验证、试跑、发布和关系网络都集中在这一张主画布里。
-        </p>
-        <div className="mt-4 grid gap-2">
-          <NavMetric label="当前焦点" value={activeModule?.title ?? "等待开始"} />
-          <NavMetric
-            label="待确认事项"
-            value={
-              session.negotiation.pendingApprovalCount > 0
-                ? `${session.negotiation.pendingApprovalCount} 项`
-                : "当前无阻塞项"
-            }
-          />
-          <NavMetric label="技能关系" value={`${detail.graph.relationshipCount} 条`} />
-        </div>
-      </section>
-
-      <section className="min-h-0 rounded-[24px] border border-slate-200/80 bg-white/92 p-4">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-          生命周期推进流
-        </div>
-        <div className="mt-3 space-y-2">
-          {session.modules.map((module, index) => (
-            <article
-              key={module.id}
-              className={cn(
-                "rounded-2xl border px-3 py-3 transition-colors",
-                module.expanded
-                  ? "border-orange-200/80 bg-orange-50/70"
-                  : "border-slate-200/80 bg-slate-50/70",
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    {String(index + 1).padStart(2, "0")}
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-950">
-                    {module.title}
-                  </div>
-                </div>
-                <span className="rounded-full border border-slate-200/80 bg-white px-2.5 py-1 text-xs text-slate-600">
-                  {module.status}
-                </span>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
@@ -660,20 +595,8 @@ export function SkillStudioAgenticWorkbench({
   return (
     <WorkbenchShell
       mobileNegotiationRailVisible={mobileNegotiationRailVisible}
-      nav={nav}
       main={main}
       negotiation={negotiation}
     />
-  );
-}
-
-function NavMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/80 bg-white/88 px-3 py-3">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-    </div>
   );
 }

@@ -43,6 +43,10 @@ const DEFAULT_DRAWER_BY_MODULE: Record<string, DrawerId> = {
   report: "trust",
 };
 
+function resolveDefaultDrawerId(moduleId: string): DrawerId {
+  return DEFAULT_DRAWER_BY_MODULE[moduleId] ?? "operator";
+}
+
 export function SubmarineResearchCanvas({
   session,
   detail,
@@ -52,12 +56,20 @@ export function SubmarineResearchCanvas({
   artifactPaths,
   onOpenNegotiation,
 }: SubmarineResearchCanvasProps) {
-  const [activeDrawerId, setActiveDrawerId] = useState<DrawerId>(
-    DEFAULT_DRAWER_BY_MODULE[session.activeModuleId],
+  const [activeDrawerId, setActiveDrawerId] = useState<DrawerId>(() =>
+    resolveDefaultDrawerId(session.activeModuleId),
   );
+  const activeModule =
+    session.modules.find((module) => module.expanded) ?? session.modules[0];
+  const pendingSummary =
+    session.negotiation.pendingApprovalCount > 0
+      ? `${session.negotiation.pendingApprovalCount} 项待确认`
+      : "当前无阻塞项";
+  const artifactSummary =
+    artifactPaths.length > 0 ? `${artifactPaths.length} 项研究产物` : "尚未产出研究文件";
 
   useEffect(() => {
-    setActiveDrawerId(DEFAULT_DRAWER_BY_MODULE[session.activeModuleId]);
+    setActiveDrawerId(resolveDefaultDrawerId(session.activeModuleId));
   }, [session.activeModuleId]);
 
   const executionPlan = runtime?.execution_plan ?? designBrief?.execution_outline ?? [];
@@ -101,6 +113,45 @@ export function SubmarineResearchCanvas({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
+      <section className="rounded-[24px] border border-sky-200/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,249,253,0.96))] px-4 py-4 shadow-[0_18px_40px_rgba(14,165,233,0.08)]">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-2xl">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
+              研究总览
+            </div>
+            <h3 className="mt-2 text-lg font-semibold text-slate-950">
+              围绕目标、证据与交付判断推进整条研究链。
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              协商在右侧聊天框完成，主画布只保留当前研究状态、流程索引与关键证据入口。
+            </p>
+          </div>
+
+          <div className="grid min-w-[280px] flex-1 gap-3 md:grid-cols-3">
+            <OverviewMetric label="当前焦点" value={activeModule?.title ?? "等待开始"} />
+            <OverviewMetric label="待确认事项" value={pendingSummary} />
+            <OverviewMetric label="研究产物" value={artifactSummary} />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            研究推进索引
+          </div>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {session.modules.map((module, index) => (
+              <FlowIndexCard
+                key={module.id}
+                index={index + 1}
+                title={module.title}
+                status={module.status}
+                active={module.expanded}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
       <WorkbenchFlow
         items={session.modules.map((module) => ({
           id: module.id,
@@ -133,6 +184,46 @@ export function SubmarineResearchCanvas({
         className="border-slate-200/70 bg-slate-50/70"
       />
     </div>
+  );
+}
+
+function OverviewMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-2xl border border-white/90 bg-white/88 px-3 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold leading-6 text-slate-900">{value}</div>
+    </article>
+  );
+}
+
+function FlowIndexCard({
+  index,
+  title,
+  status,
+  active,
+}: {
+  index: number;
+  title: string;
+  status: string;
+  active: boolean;
+}) {
+  return (
+    <article
+      className={[
+        "min-w-[150px] rounded-2xl border px-3 py-3 transition-colors",
+        active
+          ? "border-sky-200/80 bg-sky-50/80"
+          : "border-slate-200/80 bg-white/88",
+      ].join(" ")}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {String(index).padStart(2, "0")}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-slate-950">{title}</div>
+      <div className="mt-2 text-xs text-slate-600">{status}</div>
+    </article>
   );
 }
 

@@ -29,6 +29,10 @@ const DEFAULT_DRAWER_BY_MODULE: Record<string, DrawerId> = {
   graph: "graph",
 };
 
+function resolveDefaultDrawerId(moduleId: string): DrawerId {
+  return DEFAULT_DRAWER_BY_MODULE[moduleId] ?? "publish";
+}
+
 type SkillStudioLifecycleCanvasProps = {
   session: SkillStudioSessionModel;
   detail: SkillStudioDetailModel;
@@ -64,12 +68,22 @@ export function SkillStudioLifecycleCanvas({
   onRollback,
   onOpenNegotiation,
 }: SkillStudioLifecycleCanvasProps) {
-  const [activeDrawerId, setActiveDrawerId] = useState<DrawerId>(
-    DEFAULT_DRAWER_BY_MODULE[session.activeModuleId],
+  const [activeDrawerId, setActiveDrawerId] = useState<DrawerId>(() =>
+    resolveDefaultDrawerId(session.activeModuleId),
   );
+  const activeModule =
+    session.modules.find((module) => module.expanded) ?? session.modules[0];
+  const pendingSummary =
+    session.negotiation.pendingApprovalCount > 0
+      ? `${session.negotiation.pendingApprovalCount} 项待修正`
+      : "当前无阻塞项";
+  const relationshipSummary =
+    detail.graph.relationshipCount > 0
+      ? `${detail.graph.relationshipCount} 条关联技能`
+      : "关系网络待建立";
 
   useEffect(() => {
-    setActiveDrawerId(DEFAULT_DRAWER_BY_MODULE[session.activeModuleId]);
+    setActiveDrawerId(resolveDefaultDrawerId(session.activeModuleId));
   }, [session.activeModuleId]);
 
   const drawerLayers = useMemo(
@@ -95,6 +109,45 @@ export function SkillStudioLifecycleCanvas({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
+      <section className="rounded-[24px] border border-orange-200/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(252,246,241,0.96))] px-4 py-4 shadow-[0_18px_40px_rgba(249,115,22,0.08)]">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-2xl">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-orange-700">
+              技能总览
+            </div>
+            <h3 className="mt-2 text-lg font-semibold text-slate-950">
+              围绕定义、验证、发布与挂载维护整条技能生命周期。
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              聊天框负责协商修订，主画布保留当前焦点、生命周期索引与关键发布证据。
+            </p>
+          </div>
+
+          <div className="grid min-w-[280px] flex-1 gap-3 md:grid-cols-3">
+            <OverviewMetric label="当前焦点" value={activeModule?.title ?? "等待开始"} />
+            <OverviewMetric label="待确认事项" value={pendingSummary} />
+            <OverviewMetric label="技能关系" value={relationshipSummary} />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            生命周期索引
+          </div>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {session.modules.map((module, index) => (
+              <FlowIndexCard
+                key={module.id}
+                index={index + 1}
+                title={module.title}
+                status={module.status}
+                active={module.expanded}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
       <WorkbenchFlow
         items={session.modules.map((module) => ({
           id: module.id,
@@ -130,6 +183,59 @@ export function SkillStudioLifecycleCanvas({
       />
     </div>
   );
+}
+
+function OverviewMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-2xl border border-white/90 bg-white/88 px-3 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold leading-6 text-slate-900">{value}</div>
+    </article>
+  );
+}
+
+function FlowIndexCard({
+  index,
+  title,
+  status,
+  active,
+}: {
+  index: number;
+  title: string;
+  status: string;
+  active: boolean;
+}) {
+  return (
+    <article
+      className={[
+        "min-w-[150px] rounded-2xl border px-3 py-3 transition-colors",
+        active
+          ? "border-orange-200/80 bg-orange-50/80"
+          : "border-slate-200/80 bg-white/88",
+      ].join(" ")}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {String(index).padStart(2, "0")}
+      </div>
+      <div className="mt-1 text-sm font-semibold text-slate-950">{title}</div>
+      <div className="mt-2 text-xs text-slate-600">{status}</div>
+    </article>
+  );
+}
+
+function localizeGateStatus(status: string | undefined) {
+  switch (status) {
+    case "passed":
+      return "已通过";
+    case "blocked":
+      return "已阻塞";
+    case "pending":
+      return "待处理";
+    default:
+      return status ?? "待处理";
+  }
 }
 
 function renderLifecycleContent({
@@ -369,7 +475,7 @@ function PublishDrawer({ detail }: { detail: SkillStudioDetailModel }) {
         title="发布门禁"
         items={detail.publish.gates.map((gate) => ({
           title: gate.label,
-          meta: gate.status,
+          meta: localizeGateStatus(gate.status),
         }))}
         emptyLabel="当前没有发布门禁信息。"
       />

@@ -16,19 +16,15 @@ export type { WorkbenchShellZone };
 export type WorkbenchShellProps = {
   className?: string;
   mobileNegotiationRailVisible?: boolean;
-  nav: ReactNode;
   main: ReactNode;
   negotiation: ReactNode;
-  secondary?: ReactNode;
 };
 
 export function WorkbenchShell({
   className,
   mobileNegotiationRailVisible = true,
-  nav,
   main,
   negotiation,
-  secondary: _secondary = null,
 }: WorkbenchShellProps) {
   const classes = getWorkbenchShellZoneClassNames({
     mobileNegotiationRailVisible,
@@ -36,10 +32,6 @@ export function WorkbenchShell({
 
   return (
     <section className={cn(classes.root, className)}>
-      <aside data-workbench-zone="nav" className={classes.nav}>
-        {nav}
-      </aside>
-
       <main data-workbench-zone="main" className={classes.main}>
         {main}
       </main>

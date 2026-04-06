@@ -74,10 +74,25 @@ void test("keeps define, evaluate, publish, and graph lifecycle detail explicit"
       status: "blocked",
       blocking_count: 1,
       gates: [
+        { id: "structure", label: "Skill structure is valid", status: "passed" },
+        {
+          id: "trigger",
+          label: "Trigger description is discoverable",
+          status: "passed",
+        },
+        {
+          id: "scenarios",
+          label: "Scenario tests are prepared",
+          status: "passed",
+        },
         { id: "dry-run", label: "Dry-run handoff is ready", status: "blocked" },
         { id: "metadata", label: "UI metadata has been generated", status: "passed" },
       ],
-      next_actions: ["collect one fresh dry-run transcript"],
+      next_actions: [
+        "Run a dry-run conversation using one of the prepared scenarios.",
+        "Review the generated SKILL.md, domain rules, and UI metadata together.",
+        "Publish only after the expert signs off on the dry-run result.",
+      ],
     },
     lifecycleSummary: {
       skill_name: "submarine-result-acceptance",
@@ -226,6 +241,23 @@ void test("keeps define, evaluate, publish, and graph lifecycle detail explicit"
   assert.equal(model.publish.publishedRevisionId, "rev-2");
   assert.equal(model.publish.rollbackTargetId, "rev-1");
   assert.equal(model.publish.explicitBindingRoleIds[0], "scientific-verification");
+  assert.equal(model.publish.gates[0]?.label, "技能结构校验通过");
+  assert.equal(model.publish.gates[1]?.label, "触发描述可被发现");
+  assert.equal(model.publish.gates[2]?.label, "场景测试已准备");
+  assert.equal(model.publish.gates[3]?.label, "试跑交接已就绪");
+  assert.equal(model.publish.gates[4]?.label, "界面元数据已生成");
+  assert.equal(
+    model.publish.nextActions[0],
+    "使用已准备的场景执行一次试跑对话。",
+  );
+  assert.equal(
+    model.publish.nextActions[1],
+    "一并复核生成的 SKILL.md、领域规则与界面元数据。",
+  );
+  assert.equal(
+    model.publish.nextActions[2],
+    "仅在专家确认试跑结果后再执行发布。",
+  );
   assert.equal(model.graph.relationshipCount, 3);
   assert.equal(model.graph.highImpactCount, 2);
   assert.equal(model.graph.upstreamCount, 1);

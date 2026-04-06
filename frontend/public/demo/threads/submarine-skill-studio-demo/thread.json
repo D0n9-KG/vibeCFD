@@ -5,7 +5,7 @@
         "content": [
           {
             "type": "text",
-            "text": "We need a reusable skill that helps Claude Code judge whether a submarine CFD run is ready for delivery or should be rerun."
+            "text": "我们需要一个可复用技能，帮助 Claude Code 判断潜艇 CFD 任务是否已经具备交付条件，还是应该重新计算。"
           }
         ],
         "additional_kwargs": {},
@@ -15,7 +15,7 @@
         "id": "skill-studio-human-1"
       },
       {
-        "content": "I drafted the `submarine-result-acceptance` package, generated the UI metadata, prepared two dry-run scenarios, and marked the package ready for expert review. You can inspect the package, validation checks, scenario tests, and publish gates in the Skill Studio workbench.",
+        "content": "我已经起草了 `submarine-result-acceptance` 技能包，生成了界面元数据，准备了两个试跑场景，并将该技能标记为待专家评审。你可以在技能工作台中查看技能包、校验结果、场景测试和发布门禁。",
         "additional_kwargs": {},
         "response_metadata": {
           "finish_reason": "stop",
@@ -29,7 +29,7 @@
         "usage_metadata": null
       }
     ],
-    "title": "Submarine Skill Studio Demo",
+    "title": "潜艇技能工作台演示",
     "artifacts": [
       "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-draft.json",
       "/mnt/user-data/outputs/submarine/skill-studio/submarine-result-acceptance/skill-package.json",
@@ -48,7 +48,7 @@
     "submarine_skill_studio": {
       "skill_name": "submarine-result-acceptance",
       "assistant_mode": "claude-code-skill-creator",
-      "assistant_label": "Claude Code · Skill Creator",
+      "assistant_label": "Claude Code 技能创建器",
       "builtin_skills": [
         "skill-creator",
         "writing-skills"

@@ -1,5 +1,4 @@
 export const WORKBENCH_SHELL_ZONE_ORDER = [
-  "nav",
   "main",
   "negotiation",
 ] as const;
@@ -8,7 +7,6 @@ export type WorkbenchShellZone = (typeof WORKBENCH_SHELL_ZONE_ORDER)[number];
 
 export type WorkbenchShellZoneClassNames = {
   root: string;
-  nav: string;
   main: string;
   negotiation: string;
 };
@@ -28,17 +26,7 @@ export function getWorkbenchShellZoneClassNames({
       "w-full",
       "grid-cols-1",
       "gap-4",
-      "xl:grid-cols-[240px_minmax(0,1fr)_minmax(360px,420px)]",
-    ].join(" "),
-    nav: [
-      "agentic-workbench-zone-nav",
-      "min-h-0",
-      "rounded-[26px]",
-      "border",
-      "border-slate-200/80",
-      "bg-white/92",
-      "p-4",
-      "xl:row-span-2",
+      "xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]",
     ].join(" "),
     main: [
       "agentic-workbench-zone-main",

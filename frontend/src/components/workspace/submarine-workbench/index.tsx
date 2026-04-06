@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquareIcon, RadarIcon } from "lucide-react";
+import { MessageSquareIcon } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
   WorkbenchShell,
 } from "@/components/workspace/agentic-workbench";
 import { useArtifactContent } from "@/core/artifacts/hooks";
-import { cn } from "@/lib/utils";
 
 import { useThread } from "../messages/context";
 import type {
@@ -138,69 +137,6 @@ export function SubmarineAgenticWorkbench({
     [finalReport, runtime],
   );
 
-  const activeModule = session.modules.find((module) => module.expanded) ?? session.modules[0];
-  const pendingLabel =
-    session.negotiation.pendingApprovalCount > 0
-      ? `${session.negotiation.pendingApprovalCount} 项待确认`
-      : "当前无阻塞项";
-
-  const nav = (
-    <div className="flex h-full min-h-0 flex-col gap-5">
-      <section className="rounded-[26px] border border-sky-200/70 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(243,248,252,0.96))] p-4 shadow-[0_22px_60px_rgba(14,165,233,0.10)]">
-        <div className="flex items-center gap-2 text-sky-700">
-          <RadarIcon className="size-4" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.22em]">
-            仿真研究工作台
-          </span>
-        </div>
-        <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950">
-          {thread.values.title ?? "潜艇 CFD 研究任务"}
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          围绕目标、证据、交付判断推进整条研究链，所有协商都在右侧聊天框内完成。
-        </p>
-        <div className="mt-4 grid gap-2">
-          <NavMetric label="当前焦点" value={activeModule?.title ?? "等待开始"} />
-          <NavMetric label="待确认事项" value={pendingLabel} />
-          <NavMetric label="研究产物" value={`${submarineArtifacts.length} 项`} />
-        </div>
-      </section>
-
-      <section className="min-h-0 rounded-[24px] border border-slate-200/80 bg-white/92 p-4">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-          研究推进流
-        </div>
-        <div className="mt-3 space-y-2">
-          {session.modules.map((module, index) => (
-            <article
-              key={module.id}
-              className={cn(
-                "rounded-2xl border px-3 py-3 transition-colors",
-                module.expanded
-                  ? "border-sky-200/80 bg-sky-50/70"
-                  : "border-slate-200/80 bg-slate-50/70",
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    {String(index + 1).padStart(2, "0")}
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-950">
-                    {module.title}
-                  </div>
-                </div>
-                <span className="rounded-full border border-slate-200/80 bg-white px-2.5 py-1 text-xs text-slate-600">
-                  {module.status}
-                </span>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
@@ -273,21 +209,9 @@ export function SubmarineAgenticWorkbench({
     <section data-workbench-surface="submarine">
       <WorkbenchShell
         mobileNegotiationRailVisible={showChatRail}
-        nav={nav}
         main={main}
         negotiation={negotiation}
       />
     </section>
-  );
-}
-
-function NavMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/80 bg-white/88 px-3 py-3">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-semibold text-slate-900">{value}</div>
-    </div>
   );
 }

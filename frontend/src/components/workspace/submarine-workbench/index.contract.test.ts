@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const source = await readFile(new URL("./index.tsx", import.meta.url), "utf8");
+const canvasSource = await readFile(
+  new URL("./submarine-research-canvas.tsx", import.meta.url),
+  "utf8",
+);
 
 void test("submarine workbench mounts the research canvas instead of stage tabs", () => {
   assert.match(source, /SubmarineResearchCanvas/);
@@ -17,4 +21,13 @@ void test("submarine workbench source no longer hardcodes english stage-first ch
   assert.doesNotMatch(source, /Negotiation Rail/);
   assert.doesNotMatch(source, /Revise plan/);
   assert.doesNotMatch(source, /Current stage/);
+});
+
+void test("submarine workbench folds overview and flow index back into the main canvas", () => {
+  assert.doesNotMatch(source, /const nav = \(/);
+  assert.doesNotMatch(source, /nav=\{nav\}/);
+  assert.doesNotMatch(source, /function NavMetric/);
+  assert.match(canvasSource, /研究总览/);
+  assert.match(canvasSource, /研究推进索引/);
+  assert.match(canvasSource, /当前焦点/);
 });
