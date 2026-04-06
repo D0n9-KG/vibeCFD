@@ -11,6 +11,7 @@ import {
 } from "@/components/workspace/agentic-workbench";
 import {
   SKILL_STUDIO_BINDING_ROLE_IDS,
+  labelOfSkillStudioBindingRoleId,
   type SkillStudioLifecycleBindingTarget,
 } from "@/components/workspace/skill-studio-workbench.utils";
 
@@ -36,6 +37,7 @@ function resolveDefaultDrawerId(moduleId: string): DrawerId {
 type SkillStudioLifecycleCanvasProps = {
   session: SkillStudioSessionModel;
   detail: SkillStudioDetailModel;
+  isMock: boolean;
   enabled: boolean;
   versionNote: string;
   explicitBindingRoleIds: string[];
@@ -54,6 +56,7 @@ type SkillStudioLifecycleCanvasProps = {
 export function SkillStudioLifecycleCanvas({
   session,
   detail,
+  isMock,
   enabled,
   versionNote,
   explicitBindingRoleIds,
@@ -158,6 +161,7 @@ export function SkillStudioLifecycleCanvas({
           content: renderLifecycleContent({
             moduleId: module.id,
             detail,
+            isMock,
             enabled,
             versionNote,
             explicitBindingRoleIds,
@@ -241,6 +245,7 @@ function localizeGateStatus(status: string | undefined) {
 function renderLifecycleContent({
   moduleId,
   detail,
+  isMock,
   enabled,
   versionNote,
   explicitBindingRoleIds,
@@ -258,6 +263,7 @@ function renderLifecycleContent({
 }: {
   moduleId: string;
   detail: SkillStudioDetailModel;
+  isMock: boolean;
   enabled: boolean;
   versionNote: string;
   explicitBindingRoleIds: string[];
@@ -364,7 +370,11 @@ function renderLifecycleContent({
             </div>
             <div className="flex items-center gap-2 text-sm text-slate-700">
               <span>{enabled ? "已启用" : "未启用"}</span>
-              <Switch checked={enabled} onCheckedChange={onEnabledChange} />
+              <Switch
+                checked={enabled}
+                onCheckedChange={onEnabledChange}
+                disabled={isMock}
+              />
             </div>
           </div>
 
@@ -399,14 +409,15 @@ function renderLifecycleContent({
                   <button
                     key={roleId}
                     type="button"
-                    className={`rounded-2xl border px-3 py-3 text-left text-sm transition-colors ${
+                    disabled={isMock}
+                    className={`rounded-2xl border px-3 py-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                       selected
                         ? "border-orange-200 bg-orange-50 text-orange-900"
                         : "border-slate-200 bg-slate-50 text-slate-700"
                     }`}
                     onClick={() => onToggleBindingRole(roleId)}
                   >
-                    {roleId}
+                    {labelOfSkillStudioBindingRoleId(roleId)}
                   </button>
                 );
               })}
@@ -414,15 +425,15 @@ function renderLifecycleContent({
           </section>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" disabled={busy} onClick={onSaveLifecycle}>
+            <Button variant="outline" disabled={busy || isMock} onClick={onSaveLifecycle}>
               保存生命周期设置
             </Button>
-            <Button disabled={busy || !canPublish} onClick={onPublish}>
+            <Button disabled={busy || isMock || !canPublish} onClick={onPublish}>
               发布当前草案
             </Button>
             <Button
               variant="outline"
-              disabled={busy || !canRollback}
+              disabled={busy || isMock || !canRollback}
               onClick={onRollback}
             >
               回退到上一版本
@@ -482,7 +493,7 @@ function PublishDrawer({ detail }: { detail: SkillStudioDetailModel }) {
       <CompactList
         title="绑定目标"
         items={detail.publish.bindingTargets.map((target: SkillStudioLifecycleBindingTarget) => ({
-          title: target.role_id,
+          title: labelOfSkillStudioBindingRoleId(target.role_id),
           meta: target.mode,
           description: target.target_skills.join("、"),
         }))}

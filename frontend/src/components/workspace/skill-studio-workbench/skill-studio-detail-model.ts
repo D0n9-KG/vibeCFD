@@ -170,6 +170,8 @@ export type BuildSkillStudioDetailModelInput = {
 };
 
 const SKILL_STUDIO_COPY_MAP: Record<string, string> = {
+  "Define how Claude Code and reporting subagents should decide whether a submarine CFD run is trustworthy, needs review, or should be rerun.":
+    "定义 Claude Code 与报告子代理如何判断一次潜艇 CFD 任务是否可信、需要复核，还是应该重新计算。",
   "Skill structure is valid": "技能结构校验通过",
   "Trigger description is discoverable": "触发描述可被发现",
   "Scenario tests are prepared": "场景测试已准备",

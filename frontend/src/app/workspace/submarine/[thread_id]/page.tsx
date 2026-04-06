@@ -164,6 +164,7 @@ export default function SubmarineWorkbenchPage() {
                     <Button
                       size="sm"
                       variant="outline"
+                      className="xl:hidden"
                       aria-label={
                         mobileNegotiationRailVisible
                           ? "收起协商区"

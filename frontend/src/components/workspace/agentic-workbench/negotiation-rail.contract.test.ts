@@ -35,3 +35,7 @@ void test("negotiation rail slot contract preserves shared slot order", async ()
 void test("negotiation rail clips its body slot so chat internals can scroll without moving the rail", () => {
   assert.match(railSource, /slot === "body" \? "min-h-0 flex-1 overflow-hidden" : undefined/);
 });
+
+void test("negotiation rail skips empty slots so helper chrome does not consume chat space", () => {
+  assert.match(railSource, /renderedSlots\.filter\(\(slot\) => slotContent\[slot\] != null\)/);
+});

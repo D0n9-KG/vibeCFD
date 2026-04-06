@@ -4,7 +4,8 @@ import test from "node:test";
 
 const source = await readFile(new URL("./thread-header.tsx", import.meta.url), "utf8");
 
-void test("thread header uses chinese command-strip copy", () => {
-  assert.match(source, /任务指挥条/);
+void test("thread header drops the redundant strip label", () => {
+  assert.doesNotMatch(source, /浠诲姟鎸囨尌鏉?/);
   assert.doesNotMatch(source, /Agentic Thread/);
+  assert.match(source, /statusLabel/);
 });

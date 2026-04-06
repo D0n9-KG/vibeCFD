@@ -25,6 +25,12 @@ void test("skill studio source no longer hardcodes english stage-first chrome", 
   assert.doesNotMatch(source, /Show rail|Hide rail/);
 });
 
+void test("skill studio removes the extra summary bar and redundant assistant helper blocks", () => {
+  assert.doesNotMatch(source, /SessionSummaryBar/);
+  assert.doesNotMatch(source, /开始创建后会锁定创建助手/);
+  assert.doesNotMatch(source, /负责技能工作台中的技能编写/);
+});
+
 void test("skill studio folds lifecycle overview and index into the main canvas", () => {
   assert.doesNotMatch(source, /const nav = \(/);
   assert.doesNotMatch(source, /nav=\{nav\}/);

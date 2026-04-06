@@ -15,9 +15,7 @@ import {
 } from "@/components/ui/select";
 import {
   NegotiationRail,
-  SessionSummaryBar,
   ThreadHeader,
-  WORKBENCH_COPY,
   WorkbenchShell,
 } from "@/components/workspace/agentic-workbench";
 import { useArtifacts } from "@/components/workspace/artifacts";
@@ -121,39 +119,23 @@ function collectSkillStudioArtifacts(
   });
 }
 
-function toChineseStatus(status: string | null | undefined) {
-  switch (status) {
-    case "ready_for_review":
-      return "待评审";
-    case "needs_revision":
-      return "待修订";
-    case "draft_only":
-      return "仅有草案";
-    case "ready_for_dry_run":
-      return "待试跑";
-    case "draft_ready":
-      return "草案就绪";
-    case "published":
-      return "已发布";
-    case "rollback_available":
-      return "可回退";
-    case "blocked":
-      return "已阻塞";
-    case "passed":
-      return "已通过";
-    case "failed":
-      return "未通过";
-    default:
-      return status ?? "待处理";
+const DEFAULT_ENGLISH_SKILL_GOAL = [
+  "De",
+  "fine how Claude Code and reporting subagents should decide whether a submarine CFD run is trustworthy, needs review, or should be rerun.",
+].join("");
+
+function localizeSkillStudioGoal(goal: string) {
+  if (goal === DEFAULT_ENGLISH_SKILL_GOAL) {
+    return "定义 Claude Code 与报告子代理如何判断一次潜艇 CFD 任务是否可信、需要复核，还是应该重新计算。";
   }
+
+  return goal;
 }
 
 export function SkillStudioAgenticWorkbench({
   threadId,
   isNewThread,
   activeAgentName,
-  activeAssistantLabel,
-  assistantDescription,
   agentOptions,
   agentSelectionLocked,
   agentSelectorEnabled,
@@ -168,11 +150,13 @@ export function SkillStudioAgenticWorkbench({
 }: SkillStudioAgenticWorkbenchProps) {
   const { thread, isMock } = useThread();
   const { setOpen: setArtifactsOpen } = useArtifacts();
+
   const studioState =
     thread.values.submarine_skill_studio != null &&
     typeof thread.values.submarine_skill_studio === "object"
       ? (thread.values.submarine_skill_studio as SkillStudioThreadState)
       : null;
+
   const studioArtifacts = useMemo(
     () =>
       collectSkillStudioArtifacts(
@@ -181,6 +165,7 @@ export function SkillStudioAgenticWorkbench({
       ),
     [studioState?.artifact_virtual_paths, thread.values.artifacts],
   );
+
   const draftPath = pickArtifact(studioArtifacts, "/skill-draft.json");
   const validationPath = studioArtifacts.find((item) =>
     item.includes("/validation-report."),
@@ -242,31 +227,32 @@ export function SkillStudioAgenticWorkbench({
     () => safeJsonParse<SkillPackagePayload>(skillPackageContent),
     [skillPackageContent],
   );
+
   const skillName = draft?.skill_name ?? studioState?.skill_name ?? null;
   const { lifecycleSummaries } = useSkillLifecycleSummaries({ enabled: !isMock });
-  const lifecycleSummary = useMemo<SkillLifecycleSummary | null>(
-    () => {
-      const summary = findSkillLifecycleSummary(lifecycleSummaries, skillName);
-      return summary
-        ? {
-            ...summary,
-            version_note: summary.version_note ?? undefined,
-          }
-        : null;
-    },
-    [lifecycleSummaries, skillName],
-  );
+  const lifecycleSummary = useMemo<SkillLifecycleSummary | null>(() => {
+    const summary = findSkillLifecycleSummary(lifecycleSummaries, skillName);
+    return summary
+      ? {
+          ...summary,
+          version_note: summary.version_note ?? undefined,
+        }
+      : null;
+  }, [lifecycleSummaries, skillName]);
+
   const lifecycleQuery = useSkillLifecycle({
     skillName: skillName ?? undefined,
     enabled: Boolean(skillName) && !isMock,
   });
   const lifecycleDetail: SkillLifecycleRecord | null = lifecycleQuery.data ?? null;
+
   const skillGraphQuery = useSkillGraph({
     skillName: skillName ?? undefined,
     isMock: isMock === true,
     enabled: Boolean(skillName),
   });
   const skillGraph: SkillGraphResponse | null = skillGraphQuery.data ?? null;
+
   const detail = useMemo(
     () =>
       buildSkillStudioDetailModel({
@@ -294,6 +280,7 @@ export function SkillStudioAgenticWorkbench({
       validation,
     ],
   );
+
   const session = useMemo(
     () =>
       buildSkillStudioSessionModel({
@@ -332,6 +319,7 @@ export function SkillStudioAgenticWorkbench({
       validation?.warning_count,
     ],
   );
+
   const [publishEnabled, setPublishEnabled] = useState(detail.publish.enabled);
   const [versionNote, setVersionNote] = useState(detail.publish.versionNote);
   const [explicitBindingRoleIds, setExplicitBindingRoleIds] = useState<string[]>(
@@ -355,6 +343,7 @@ export function SkillStudioAgenticWorkbench({
     updateLifecycle.isPending ||
     publishSkillMutation.isPending ||
     rollbackSkillRevision.isPending;
+
   const bindingTargets = useMemo<SkillStudioLifecycleBindingTarget[]>(
     () =>
       skillName
@@ -362,6 +351,7 @@ export function SkillStudioAgenticWorkbench({
         : [],
     [explicitBindingRoleIds, skillName],
   );
+
   const packageArchivePath =
     studioState?.package_archive_virtual_path ??
     skillPackage?.package_archive_virtual_path ??
@@ -377,9 +367,9 @@ export function SkillStudioAgenticWorkbench({
         version_note: versionNote,
         binding_targets: bindingTargets,
       });
-      toast.success("生命周期设置已保存。");
+      toast.success("技能生命周期设置已保存。");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "保存生命周期设置失败。");
+      toast.error(error instanceof Error ? error.message : "保存技能生命周期设置失败。");
     }
   }, [bindingTargets, publishEnabled, skillName, updateLifecycle, versionNote]);
 
@@ -446,31 +436,37 @@ export function SkillStudioAgenticWorkbench({
     typeof thread.values.title === "string" && thread.values.title.length > 0
       ? thread.values.title
       : detail.define.skillTitle;
+  const showAssistantSelector = agentSelectorEnabled && !agentSelectionLocked;
+  const negotiationQuestion = session.negotiation.question;
 
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
         title={threadTitle}
-        subtitle={`${activeAssistantLabel} 负责这条技能生命周期线程的定义、验证与发布协商。`}
+        subtitle={localizeSkillStudioGoal(detail.define.skillGoal)}
         statusLabel={activeModule?.status ?? "处理中"}
         actions={
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={onToggleChatRail}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="xl:hidden"
+              onClick={onToggleChatRail}
+            >
               <MessageSquareIcon className="size-4" />
               {mobileNegotiationRailVisible ? "收起协商区" : "展开协商区"}
             </Button>
+            <Button size="sm" variant="outline" onClick={() => setArtifactsOpen(true)}>
+              打开技能产物
+            </Button>
           </div>
         }
-      />
-      <SessionSummaryBar
-        pendingApprovals={session.negotiation.pendingApprovalCount}
-        interruptionVisible={session.negotiation.interruptionVisible}
-        summary={session.negotiation.question ?? WORKBENCH_COPY.common.negotiationHint}
       />
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <SkillStudioLifecycleCanvas
           session={session}
           detail={detail}
+          isMock={Boolean(isMock)}
           enabled={publishEnabled}
           versionNote={versionNote}
           explicitBindingRoleIds={explicitBindingRoleIds}
@@ -498,25 +494,19 @@ export function SkillStudioAgenticWorkbench({
   const negotiation = (
     <NegotiationRail
       title={
-        <div className="space-y-1">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            {WORKBENCH_COPY.common.negotiationRailTitle}
-          </div>
-          <h3 className="text-base font-semibold text-slate-950">
-            在这里直接补充技能规则、修改验证口径或调整发布策略。
-          </h3>
-        </div>
+        <h3 className="text-lg font-semibold leading-8 text-slate-950">
+          直接输入修改意见，主智能体会重新协商技能方案。
+        </h3>
       }
       question={
-        <p className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-sm text-amber-900">
-          {session.negotiation.question ?? "当前没有阻塞项，可继续推进技能生命周期。"}
-        </p>
+        negotiationQuestion ? (
+          <p className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-sm text-amber-900">
+            {negotiationQuestion}
+          </p>
+        ) : null
       }
       actions={
-        <div className="space-y-2">
-          <div className="text-xs leading-5 text-slate-500">
-            开始创建后会锁定创建助手，但你仍然可以随时在这里协商修改技能方案。
-          </div>
+        showAssistantSelector ? (
           <Select
             value={activeAgentName}
             onValueChange={onAgentChange}
@@ -533,26 +523,10 @@ export function SkillStudioAgenticWorkbench({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        ) : null
       }
       body={
         <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-          <section className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3">
-            <div className="text-sm font-semibold text-slate-950">{activeAssistantLabel}</div>
-            <p className="mt-1 text-sm leading-6 text-slate-600">{assistantDescription}</p>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-              <span className="rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-1">
-                验证：{toChineseStatus(session.summary.validationStatus)}
-              </span>
-              <span className="rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-1">
-                试跑：{toChineseStatus(session.summary.testStatus)}
-              </span>
-              <span className="rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-1">
-                发布：{toChineseStatus(session.summary.publishStatus)}
-              </span>
-            </div>
-          </section>
-
           <div
             id="skill-studio-chat-rail"
             className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/84"
@@ -579,16 +553,7 @@ export function SkillStudioAgenticWorkbench({
             onSubmit={onSubmit}
             onStop={onStop}
           />
-
-          <Button variant="outline" onClick={() => setArtifactsOpen(true)}>
-            打开技能产物
-          </Button>
         </div>
-      }
-      footer={
-        <p className="text-xs leading-5 text-slate-600">
-          不需要额外的暂停或恢复按钮，直接在聊天框里告诉主智能体“先停一下，修改技能方案”即可。
-        </p>
       }
     />
   );

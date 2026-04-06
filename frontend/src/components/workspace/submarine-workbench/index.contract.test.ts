@@ -23,6 +23,12 @@ void test("submarine workbench source no longer hardcodes english stage-first ch
   assert.doesNotMatch(source, /Current stage/);
 });
 
+void test("submarine workbench removes the extra summary bar and verbose chat helper copy", () => {
+  assert.doesNotMatch(source, /SessionSummaryBar/);
+  assert.doesNotMatch(source, /聊天框负责所有追问/);
+  assert.doesNotMatch(source, /直接说“先停一下，改方案”/);
+});
+
 void test("submarine workbench folds overview and flow index back into the main canvas", () => {
   assert.doesNotMatch(source, /const nav = \(/);
   assert.doesNotMatch(source, /nav=\{nav\}/);

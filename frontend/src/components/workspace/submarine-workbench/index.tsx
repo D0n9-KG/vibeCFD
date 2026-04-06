@@ -1,14 +1,10 @@
 "use client";
 
-import { MessageSquareIcon } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   NegotiationRail,
-  SessionSummaryBar,
   ThreadHeader,
-  WORKBENCH_COPY,
   WorkbenchShell,
 } from "@/components/workspace/agentic-workbench";
 import { useArtifactContent } from "@/core/artifacts/hooks";
@@ -39,8 +35,8 @@ function safeJsonParse<T>(content?: string | null): T | null {
 type SubmarineAgenticWorkbenchProps = {
   threadId: string;
   isNewThread: boolean;
-  showChatRail: boolean;
-  onToggleChatRail: () => void;
+  showChatRail?: boolean;
+  onToggleChatRail?: () => void;
   onOpenChat: () => void;
   negotiationContent: ReactNode;
   headerActions?: ReactNode;
@@ -49,8 +45,6 @@ type SubmarineAgenticWorkbenchProps = {
 export function SubmarineAgenticWorkbench({
   threadId,
   isNewThread,
-  showChatRail,
-  onToggleChatRail,
   onOpenChat,
   negotiationContent,
   headerActions = null,
@@ -137,6 +131,10 @@ export function SubmarineAgenticWorkbench({
     [finalReport, runtime],
   );
 
+  const negotiationQuestion = session.negotiation.interruptionVisible
+    ? session.negotiation.question
+    : null;
+
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
@@ -144,11 +142,6 @@ export function SubmarineAgenticWorkbench({
         subtitle={session.summary.currentObjective}
         statusLabel={session.summary.evidenceReady ? "报告可审阅" : "研究推进中"}
         actions={headerActions}
-      />
-      <SessionSummaryBar
-        pendingApprovals={session.negotiation.pendingApprovalCount}
-        interruptionVisible={session.negotiation.interruptionVisible}
-        summary={session.negotiation.question ?? WORKBENCH_COPY.common.negotiationHint}
       />
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <SubmarineResearchCanvas
@@ -167,51 +160,28 @@ export function SubmarineAgenticWorkbench({
   const negotiation = (
     <NegotiationRail
       title={
-        <div className="space-y-1">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            {WORKBENCH_COPY.common.negotiationRailTitle}
-          </div>
-          <h3 className="text-base font-semibold text-slate-950">
-            直接输入修改意见，主智能体会重新协商并调整流程。
-          </h3>
-        </div>
+        <h3 className="text-lg font-semibold leading-8 text-slate-950">
+          直接输入修改意见，主智能体会重新协商并调整流程。
+        </h3>
       }
       question={
-        <p className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-sm text-amber-900">
-          {session.negotiation.question ?? "当前没有阻塞项，可继续观察流程推进。"}
-        </p>
-      }
-      actions={
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs leading-5 text-slate-500">
-            直接说“先停一下，改方案”即可打断并回到协商。
+        negotiationQuestion ? (
+          <p className="rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-sm text-amber-900">
+            {negotiationQuestion}
           </p>
-          <Button size="sm" variant="outline" onClick={onToggleChatRail}>
-            <MessageSquareIcon className="size-4" />
-            {showChatRail ? "收起协商区" : "展开协商区"}
-          </Button>
-        </div>
+        ) : null
       }
       body={
         <div id="submarine-chat-rail" className="min-h-0 flex-1 overflow-hidden">
           {negotiationContent}
         </div>
       }
-      footer={
-        <p className="text-xs leading-5 text-slate-600">
-          聊天框负责所有追问、修正、暂停和重新协商，主画布只负责把研究推进过程讲清楚。
-        </p>
-      }
     />
   );
 
   return (
     <section data-workbench-surface="submarine" className="h-full min-h-0">
-      <WorkbenchShell
-        mobileNegotiationRailVisible={showChatRail}
-        main={main}
-        negotiation={negotiation}
-      />
+      <WorkbenchShell main={main} negotiation={negotiation} />
     </section>
   );
 }

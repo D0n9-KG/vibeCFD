@@ -28,12 +28,7 @@ export function ThreadHeader({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-            任务指挥条
-          </div>
-          <h2 className="mt-1 truncate text-lg font-semibold text-slate-950">
-            {title}
-          </h2>
+          <h2 className="truncate text-lg font-semibold text-slate-950">{title}</h2>
           {subtitle ? (
             <p className="mt-1 text-sm leading-6 text-slate-600">{subtitle}</p>
           ) : null}

@@ -10,18 +10,18 @@ import {
 } from "./negotiation-rail.contract";
 
 export type NegotiationRailProps = {
-  title: ReactNode;
-  question: ReactNode;
-  actions: ReactNode;
+  title?: ReactNode;
+  question?: ReactNode;
+  actions?: ReactNode;
   body: ReactNode;
   footer?: ReactNode;
   className?: string;
 };
 
 export function NegotiationRail({
-  title,
-  question,
-  actions,
+  title = null,
+  question = null,
+  actions = null,
   body,
   footer = null,
   className,
@@ -44,7 +44,7 @@ export function NegotiationRail({
         className,
       )}
     >
-      {renderedSlots.map((slot) => (
+      {renderedSlots.filter((slot) => slotContent[slot] != null).map((slot) => (
         <section
           key={slot}
           data-negotiation-slot={slot}
