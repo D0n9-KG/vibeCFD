@@ -16,7 +16,23 @@ The new front end must let the user:
 - clearly see plan generation, plan confirmation, sub-agent delegation, skill usage, tool calls, solver execution, postprocess work, evidence quality, and final reporting
 - use both `submarine` and `skill-studio` through one coherent workbench language
 
-The redesign should preserve the current color palette and general product identity, but replace the current page structure, information hierarchy, and module layout.
+The redesign should preserve the current color palette and tonal direction, but otherwise treat the front end as a clean-sheet rebuild.
+
+The current front end should be used as:
+
+- a capability inventory
+- a backend contract reference
+- a source of approved color tokens
+
+The current front end should not be treated as a required baseline for:
+
+- layout structure
+- page composition
+- information architecture
+- component hierarchy
+- interaction model
+- module boundaries
+- route-local UI semantics
 
 ## Problem Statement
 
@@ -71,6 +87,33 @@ This means the chat surface is not a secondary utility. It is a persistent negot
 ### 5. Evidence And Control Over Ornament
 
 The redesign should stay visually confident and polished, but its value must come from clarity of control, evidence traceability, and process legibility rather than decorative dashboards.
+
+### 6. Preserve Color, Rebuild Everything Else
+
+This is a full front-end redesign, not a reskin.
+
+What should be preserved:
+
+- the approved color palette
+- the warm technical tonal direction of that palette
+- backend capability coverage
+- trust-critical state visibility
+
+What may be rebuilt without inheriting old structure:
+
+- shell layout
+- navigation model
+- page hierarchy
+- screen composition
+- card patterns
+- panel arrangement
+- typography choices
+- spacing system
+- visual density
+- component boundaries
+- route semantics, if a clearer model needs them to change
+
+The old front end is not the design source of truth. It is only the source of feature coverage, contracts, and color.
 
 ## Shared Product Model
 
@@ -200,6 +243,8 @@ This answers:
 ## Shared Component System
 
 The redesign should establish a shared component grammar before page-specific work.
+
+These component names describe the new design language. They are not instructions to preserve or gradually mutate existing component files one by one.
 
 ### Core Shell Components
 
@@ -455,21 +500,25 @@ No backend capability that matters to user trust or control should exist only in
 
 ## Visual Language
 
-The redesign should preserve the current palette direction and product identity.
+The redesign should preserve the current palette direction only. Visual identity outside color is free to change if the new workbench becomes clearer, simpler, and more agentic.
 
 Keep:
 
 - existing color family and tonal direction
-- overall VibeCFD visual brand recognition
-- current warm and technical balance
+- the warm technical feeling created by that palette
 
-Change:
+Change freely:
 
 - page structure
 - spatial hierarchy
 - component composition
 - density management
 - visual emphasis rules
+- typography system
+- icon treatment
+- card shape language
+- panel styling
+- navigation presentation
 
 The new visuals should feel:
 
@@ -513,7 +562,9 @@ Provenance, reproducibility, study comparison, publish gates, rollback state, an
 
 ## Routing Direction
 
-The surface routing can stay roughly compatible with current paths, but the page semantics should change.
+The target is a new workbench model, not route-level backward visual compatibility.
+
+Routes may stay compatible where that reduces migration risk, but route structure is not a preservation boundary. If the cleaner front-end model requires changing route semantics, nested surfaces, or thread entry structure, that is allowed.
 
 Recommended direction:
 
@@ -528,17 +579,19 @@ Recommended direction:
 
 ## Migration Strategy
 
+The engineering rollout may happen in phases, but the design target is a clean-break front-end reset. The implementation should avoid a stitched-together hybrid where legacy stage dashboards remain the dominant mental model.
+
 ### Phase 1: Shared Shell And Right Rail
 
-- introduce common workbench shell
-- unify thread header and negotiation rail
-- preserve current colors
+- build the new common workbench shell as the replacement top-level frame
+- establish the new thread header and negotiation rail as the primary control model
+- carry over only the approved color system from the existing UI
 
 ### Phase 2: Replace Stage-First Center Panels
 
+- replace legacy center-panel structures with adaptive main-stage surfaces
 - remove current permanent stage card dominance
-- introduce adaptive main stage containers
-- move stage detail into process layers
+- move stage detail into process layers or evidence layers instead of preserving old panel topology
 
 ### Phase 3: Process Transparency Layers
 
