@@ -28,6 +28,7 @@ import {
 import {
   deriveThreadsAfterDeletion,
   rememberWorkbenchKindForThread,
+  resolveThreadDisplayTitle,
   type ThreadWorkbenchKind,
 } from "./utils";
 
@@ -44,7 +45,7 @@ const THREAD_STREAM_REBIND_TIMEOUT_MS = 1500;
 const THREAD_STREAM_REBIND_POLL_MS = 16;
 
 export type ThreadStreamOptions = {
-  threadId?: string | null | undefined;
+  threadId?: string | null;
   isNewThread?: boolean;
   context: LocalSettings["context"];
   isMock?: boolean;
@@ -119,7 +120,15 @@ export function useThreadStream({
   }, [threadId, workbenchKind]);
 
   const tagStartedWorkbenchThread = useCallback(
-    (startedThreadId: string) => {
+    ({
+      startedThreadId,
+      provisionalTitle,
+      initialMessages,
+    }: {
+      startedThreadId: string;
+      provisionalTitle?: string | null;
+      initialMessages?: Message[] | null;
+    }) => {
       if (!workbenchKind) {
         return;
       }
@@ -141,6 +150,8 @@ export function useThreadStream({
             threadId: startedThreadId,
             workbenchKind,
             updatedAt,
+            provisionalTitle,
+            initialMessages: initialMessages ?? undefined,
           });
         },
       );
@@ -149,17 +160,41 @@ export function useThreadStream({
   );
 
   const bindKnownThreadStart = useCallback(
-    (startedThreadId: string) => {
+    ({
+      startedThreadId,
+      provisionalTitle,
+      initialMessages,
+    }: {
+      startedThreadId: string;
+      provisionalTitle?: string | null;
+      initialMessages?: Message[] | null;
+    }) => {
       threadIdRef.current = startedThreadId;
       setOnStreamThreadId(startedThreadId);
-      tagStartedWorkbenchThread(startedThreadId);
+      tagStartedWorkbenchThread({
+        startedThreadId,
+        provisionalTitle,
+        initialMessages,
+      });
     },
     [tagStartedWorkbenchThread],
   );
 
   const handleKnownThreadStart = useCallback(
-    (startedThreadId: string) => {
-      bindKnownThreadStart(startedThreadId);
+    ({
+      startedThreadId,
+      provisionalTitle,
+      initialMessages,
+    }: {
+      startedThreadId: string;
+      provisionalTitle?: string | null;
+      initialMessages?: Message[] | null;
+    }) => {
+      bindKnownThreadStart({
+        startedThreadId,
+        provisionalTitle,
+        initialMessages,
+      });
       notifyKnownThreadStart(startedThreadId);
     },
     [bindKnownThreadStart, notifyKnownThreadStart],
@@ -172,7 +207,9 @@ export function useThreadStream({
     reconnectOnMount: initialBinding.reconnectOnMount,
     fetchStateHistory: { limit: 1 },
     onCreated(meta) {
-      handleKnownThreadStart(meta.thread_id);
+      handleKnownThreadStart({
+        startedThreadId: meta.thread_id,
+      });
     },
     onLangChainEvent(event) {
       if (event.event === "on_tool_end") {
@@ -291,6 +328,11 @@ export function useThreadStream({
         additional_kwargs:
           optimisticFiles.length > 0 ? { files: optimisticFiles } : {},
       };
+      const provisionalTitle = resolveThreadDisplayTitle(
+        undefined,
+        "Untitled",
+        [optimisticHumanMsg],
+      );
 
       const newOptimistic: Message[] = [optimisticHumanMsg];
       if (optimisticFiles.length > 0) {
@@ -313,7 +355,12 @@ export function useThreadStream({
           ifExists: "do_nothing",
           threadId,
         });
-        bindKnownThreadStart(threadId);
+        bindKnownThreadStart({
+          startedThreadId: threadId,
+          provisionalTitle:
+            provisionalTitle === "Untitled" ? undefined : provisionalTitle,
+          initialMessages: [optimisticHumanMsg],
+        });
       } else if (sendState.shouldSignalStartBeforeSubmit) {
         notifyKnownThreadStart(threadId);
       }

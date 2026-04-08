@@ -72,7 +72,10 @@ export default function ChatPage() {
                 : textContent;
           }
         }
-        showNotification(resolveThreadDisplayTitle(state.title), { body });
+        showNotification(
+          resolveThreadDisplayTitle(state.title, t.pages.untitled, state.messages),
+          { body },
+        );
       }
     },
   });
@@ -158,7 +161,11 @@ export default function ChatPage() {
   const threadLabel =
     isNewThread && (!thread.values.title || thread.values.title === "Untitled")
       ? t.pages.newChat
-      : resolveThreadDisplayTitle(thread.values.title, t.pages.untitled);
+      : resolveThreadDisplayTitle(
+          thread.values.title,
+          t.pages.untitled,
+          thread.values.messages,
+        );
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>

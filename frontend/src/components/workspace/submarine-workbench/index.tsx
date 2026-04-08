@@ -167,7 +167,7 @@ export function SubmarineAgenticWorkbench({
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
-        title={resolveThreadDisplayTitle(thread.values.title, "潜艇 CFD 会话")}
+        title={resolveThreadDisplayTitle(thread.values.title, "潜艇 CFD 会话", thread.values.messages)}
         subtitle={session.summary.currentObjective}
         statusLabel={session.summary.evidenceReady ? "报告可审阅" : "研究推进中"}
         actions={headerActions}

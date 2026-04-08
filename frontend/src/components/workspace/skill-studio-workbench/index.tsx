@@ -450,6 +450,7 @@ export function SkillStudioAgenticWorkbench({
   const threadTitle = resolveThreadDisplayTitle(
     thread.values.title,
     detail.define.skillTitle,
+    thread.values.messages,
   );
   const showAssistantSelector = agentSelectorEnabled && !agentSelectionLocked;
 

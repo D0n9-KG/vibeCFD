@@ -249,3 +249,55 @@ void test("titleOfThread falls back to the untitled label for truncated upload s
 
   assert.equal(titleOfThread(thread, "Untitled Thread"), "Untitled Thread");
 });
+
+void test("titleOfThread falls back to the first human message when a new thread is still untitled", () => {
+  const thread = makeThread("untitled-with-message", {
+    title: "Untitled",
+    messages: [
+      {
+        type: "human",
+        id: "human-1",
+        content: [
+          {
+            type: "text",
+            text: "Geometry preflight for SUBOFF STL at 12 knots and 4 m depth",
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.match(titleOfThread(thread), /SUBOFF STL/);
+});
+
+void test("titleOfThread ignores uploaded file scaffolding when using the first human message as the fallback title", () => {
+  const thread = makeThread("untitled-with-uploaded-file-message", {
+    title: "Untitled",
+    messages: [
+      {
+        type: "human",
+        id: "human-1",
+        content: [
+          {
+            type: "text",
+            text: [
+              "<uploaded_files>",
+              "The following files were uploaded in this message:",
+              "",
+              "- suboff_solid.stl (1677721)",
+              "  Path: /mnt/user-data/uploads/suboff_solid.stl",
+              "</uploaded_files>",
+              "",
+              "Please run a geometry preflight and suggest the next CFD setup.",
+            ].join("\n"),
+          },
+        ],
+      },
+    ],
+  });
+
+  const title = titleOfThread(thread);
+
+  assert.match(title, /(几何预检|CFD setup)/i);
+  assert.doesNotMatch(title, /<uploaded_files>|Path:/);
+});

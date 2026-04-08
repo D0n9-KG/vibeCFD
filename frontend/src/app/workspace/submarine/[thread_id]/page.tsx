@@ -159,7 +159,10 @@ export default function SubmarineWorkbenchPage() {
                 : textContent;
           }
         }
-        showNotification(resolveThreadDisplayTitle(state.title), { body });
+        showNotification(
+          resolveThreadDisplayTitle(state.title, "潜艇 CFD 会话", state.messages),
+          { body },
+        );
       }
     },
   });

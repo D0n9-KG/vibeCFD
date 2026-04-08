@@ -194,6 +194,51 @@ void test("deriveThreadsAfterWorkbenchStart patches a created thread with a pers
   );
 });
 
+void test("deriveThreadsAfterWorkbenchStart preserves a provisional title and first human message so new thread lists stay readable before server titles land", () => {
+  assert.deepEqual(
+    deriveThreadsAfterWorkbenchStart({
+      threads: [],
+      threadId: "readable-new-thread",
+      workbenchKind: "submarine",
+      updatedAt: "2026-03-31T00:00:01.000Z",
+      provisionalTitle: "Geometry preflight for SUBOFF STL",
+      initialMessages: [
+        {
+          type: "human",
+          id: "human-1",
+          content: [{ type: "text", text: "Geometry preflight for SUBOFF STL" }],
+        },
+      ],
+    }),
+    [
+      {
+        thread_id: "readable-new-thread",
+        created_at: "2026-03-31T00:00:01.000Z",
+        updated_at: "2026-03-31T00:00:01.000Z",
+        status: "busy",
+        metadata: {},
+        interrupts: {},
+        config: undefined,
+        error: undefined,
+        values: {
+          artifacts: [],
+          messages: [
+            {
+              type: "human",
+              id: "human-1",
+              content: [
+                { type: "text", text: "Geometry preflight for SUBOFF STL" },
+              ],
+            },
+          ],
+          title: "Geometry preflight for SUBOFF STL",
+          workspace_kind: "submarine",
+        },
+      },
+    ],
+  );
+});
+
 void test("shouldPromoteStartedThreadRoute waits for the created thread binding before promoting", () => {
   assert.equal(
     shouldPromoteStartedThreadRoute({

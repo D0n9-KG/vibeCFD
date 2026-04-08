@@ -121,12 +121,19 @@ export function SkillStudioThreadRoute({
       if (document.hidden || !document.hasFocus()) {
         const lastMessage = state.messages.at(-1);
         const textContent = lastMessage ? textOfMessage(lastMessage) : "";
-        showNotification(resolveThreadDisplayTitle(state.title), {
-          body:
-            textContent && textContent.length > 0
-              ? textContent.slice(0, 200)
-              : "技能工作台线程已完成最新一轮处理。",
-        });
+        showNotification(
+          resolveThreadDisplayTitle(
+            state.title,
+            "技能工作台会话",
+            state.messages,
+          ),
+          {
+            body:
+              textContent && textContent.length > 0
+                ? textContent.slice(0, 200)
+                : "技能工作台线程已完成最新一轮处理。",
+          },
+        );
       }
     },
   });

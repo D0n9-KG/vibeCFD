@@ -22,7 +22,9 @@ export function ThreadTitle({
   const resolvedTitle = resolveThreadDisplayTitle(
     rawTitle,
     isNewThread ? t.pages.newChat : t.pages.untitled,
+    thread.values?.messages,
   );
+  const fallbackTitle = isNewThread ? t.pages.newChat : t.pages.untitled;
 
   useEffect(() => {
     if (thread.isThreadLoading) {
@@ -38,7 +40,7 @@ export function ThreadTitle({
     thread.isThreadLoading,
   ]);
 
-  if (!rawTitle) {
+  if (!rawTitle && resolvedTitle === fallbackTitle) {
     return null;
   }
 

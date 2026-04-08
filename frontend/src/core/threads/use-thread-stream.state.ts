@@ -9,8 +9,8 @@ export function deriveThreadStreamBinding({
   previousThreadId,
   requestedThreadId,
 }: {
-  previousThreadId?: string | null | undefined;
-  requestedThreadId?: string | null | undefined;
+  previousThreadId?: string | null;
+  requestedThreadId?: string | null;
 }) {
   const streamThreadId = requestedThreadId ?? null;
 
@@ -76,8 +76,8 @@ export function shouldPromoteStartedThreadRoute({
   persistedMessageCount,
   visibleMessageCount,
 }: {
-  pendingThreadId?: string | null | undefined;
-  activeThreadId?: string | null | undefined;
+  pendingThreadId?: string | null;
+  activeThreadId?: string | null;
   isLoading: boolean;
   persistedMessageCount: number;
   visibleMessageCount: number;
@@ -95,11 +95,15 @@ export function deriveThreadsAfterWorkbenchStart({
   threadId,
   workbenchKind,
   updatedAt,
+  provisionalTitle,
+  initialMessages,
 }: {
   threads: AgentThread[];
   threadId: string;
   workbenchKind: Exclude<ThreadWorkbenchKind, "chat">;
   updatedAt: string;
+  provisionalTitle?: string | null;
+  initialMessages?: Message[] | null;
 }) {
   const normalizeThread = (thread?: AgentThread): AgentThread => ({
     thread_id: thread?.thread_id ?? threadId,
@@ -111,8 +115,8 @@ export function deriveThreadsAfterWorkbenchStart({
     config: thread?.config,
     error: thread?.error,
     values: {
-      title: thread?.values?.title ?? "Untitled",
-      messages: thread?.values?.messages ?? [],
+      title: thread?.values?.title ?? provisionalTitle ?? "Untitled",
+      messages: thread?.values?.messages ?? initialMessages ?? [],
       artifacts: thread?.values?.artifacts ?? [],
       ...thread?.values,
       workspace_kind: workbenchKind,
