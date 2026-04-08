@@ -6,6 +6,7 @@ import type { Message } from "@langchain/langgraph-sdk";
 import type { AgentThread } from "./types.ts";
 import {
   deriveOptimisticMessagesAfterUpload,
+  deriveThreadsAfterSearchRefresh,
   deriveThreadsAfterWorkbenchStart,
   deriveThreadStreamBinding,
   deriveThreadStreamSendState,
@@ -235,6 +236,136 @@ void test("deriveThreadsAfterWorkbenchStart preserves a provisional title and fi
           workspace_kind: "submarine",
         },
       },
+    ],
+  );
+});
+
+void test("deriveThreadsAfterSearchRefresh preserves a readable local title when the backend still returns Untitled for a fresh thread", () => {
+  assert.deepEqual(
+    deriveThreadsAfterSearchRefresh({
+      previousThreads: [
+        {
+          thread_id: "fresh-thread",
+          created_at: "2026-03-31T00:00:00.000Z",
+          updated_at: "2026-03-31T00:00:05.000Z",
+          status: "busy",
+          metadata: {},
+          interrupts: {},
+          values: {
+            title: "请对 SUBOFF STL 做几何预检，并给出下一步 CFD 工况建议。",
+            messages: [
+              {
+                type: "human",
+                id: "human-1",
+                content: [
+                  {
+                    type: "text",
+                    text: "请对 SUBOFF STL 做几何预检，并给出下一步 CFD 工况建议。",
+                  },
+                ],
+              },
+            ],
+            artifacts: [],
+            workspace_kind: "submarine",
+          },
+        } as AgentThread,
+      ],
+      incomingThreads: [
+        {
+          thread_id: "fresh-thread",
+          created_at: "2026-03-31T00:00:00.000Z",
+          updated_at: "2026-03-31T00:00:06.000Z",
+          status: "busy",
+          metadata: {},
+          interrupts: {},
+          values: {
+            title: "Untitled",
+            messages: [],
+            artifacts: [],
+          },
+        } as AgentThread,
+      ],
+    }),
+    [
+      {
+        thread_id: "fresh-thread",
+        created_at: "2026-03-31T00:00:00.000Z",
+        updated_at: "2026-03-31T00:00:06.000Z",
+        status: "busy",
+        metadata: {},
+        interrupts: {},
+        values: {
+          title: "请对 SUBOFF STL 做几何预检，并给出下一步 CFD 工况建议。",
+          messages: [
+            {
+              type: "human",
+              id: "human-1",
+              content: [
+                {
+                  type: "text",
+                  text: "请对 SUBOFF STL 做几何预检，并给出下一步 CFD 工况建议。",
+                },
+              ],
+            },
+          ],
+          artifacts: [],
+          workspace_kind: "submarine",
+        },
+      } as AgentThread,
+    ],
+  );
+});
+
+void test("deriveThreadsAfterSearchRefresh respects a newer backend title once the server has produced one", () => {
+  assert.deepEqual(
+    deriveThreadsAfterSearchRefresh({
+      previousThreads: [
+        {
+          thread_id: "fresh-thread",
+          created_at: "2026-03-31T00:00:00.000Z",
+          updated_at: "2026-03-31T00:00:05.000Z",
+          status: "busy",
+          metadata: {},
+          interrupts: {},
+          values: {
+            title: "请对 SUBOFF STL 做几何预检，并给出下一步 CFD 工况建议。",
+            messages: [],
+            artifacts: [],
+            workspace_kind: "submarine",
+          },
+        } as AgentThread,
+      ],
+      incomingThreads: [
+        {
+          thread_id: "fresh-thread",
+          created_at: "2026-03-31T00:00:00.000Z",
+          updated_at: "2026-03-31T00:00:06.000Z",
+          status: "busy",
+          metadata: {},
+          interrupts: {},
+          values: {
+            title: "SUBOFF STL预检与CFD准备",
+            messages: [],
+            artifacts: [],
+          },
+        } as AgentThread,
+      ],
+    }),
+    [
+      {
+        thread_id: "fresh-thread",
+        created_at: "2026-03-31T00:00:00.000Z",
+        updated_at: "2026-03-31T00:00:06.000Z",
+        status: "busy",
+        metadata: {},
+        interrupts: {},
+        values: {
+          title: "SUBOFF STL预检与CFD准备",
+          messages: [],
+          artifacts: [],
+          workspace_kind: "submarine",
+        },
+      } as AgentThread,
     ],
   );
 });

@@ -21,6 +21,7 @@ import { prepareThreadUploadFiles } from "./thread-upload-files";
 import type { AgentThread, AgentThreadState } from "./types";
 import {
   deriveOptimisticMessagesAfterUpload,
+  deriveThreadsAfterSearchRefresh,
   deriveThreadsAfterWorkbenchStart,
   deriveThreadStreamBinding,
   deriveThreadStreamSendState,
@@ -536,9 +537,17 @@ export function useThreads(
   isMock = false,
 ) {
   const apiClient = getAPIClient(isMock);
+  const queryClient = useQueryClient();
   return useQuery<AgentThread[]>({
     queryKey: ["threads", "search", params, isMock],
     queryFn: async () => {
+      const previousThreads =
+        queryClient.getQueryData<AgentThread[]>([
+          "threads",
+          "search",
+          params,
+          isMock,
+        ]) ?? [];
       const maxResults = params.limit;
       const initialOffset = params.offset ?? 0;
       const DEFAULT_PAGE_SIZE = 50;
@@ -548,7 +557,10 @@ export function useThreads(
       if (maxResults !== undefined && maxResults <= 0) {
         const response =
           await apiClient.threads.search<AgentThreadState>(params);
-        return response as AgentThread[];
+        return deriveThreadsAfterSearchRefresh({
+          previousThreads,
+          incomingThreads: response as AgentThread[],
+        });
       }
 
       const pageSize =
@@ -588,7 +600,10 @@ export function useThreads(
         offset += response.length;
       }
 
-      return threads;
+      return deriveThreadsAfterSearchRefresh({
+        previousThreads,
+        incomingThreads: threads,
+      });
     },
     refetchOnWindowFocus: false,
   });
