@@ -532,18 +532,17 @@ def get_submarine_workflow_prompt_section() -> str:
     """Describe the required supervisor workflow for submarine CFD requests."""
 
     return """<submarine_workflow_protocol>
-For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resistance/wake/pressure analysis, or research-grade result delivery, follow this protocol strictly:
+For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resistance/wake/pressure analysis, or research-grade result delivery, the primary agent should treat the following sequence as the recommended DeerFlow-native path:
 
-1. ALWAYS capture or refresh the structured plan with `submarine_design_brief` first.
-   The brief must carry the current task objective, operating conditions, requested outputs, scientific verification requirements, constraints, and open questions.
-2. After writing the brief, present the detailed calculation plan to the user from the brief contents.
-   Do NOT answer submarine CFD requests directly from general reasoning and do NOT skip the brief just because the task sounds familiar.
-3. If any operating condition, deliverable, comparison target, or verification requirement is still unresolved, call `ask_clarification` and stop.
+1. Start by capturing or refreshing `submarine_design_brief` so the current objective, operating conditions, requested outputs, scientific verification expectations, constraints, and open questions are explicit.
+2. Present the brief-backed calculation plan to the user instead of answering submarine CFD requests directly from generic reasoning alone.
+   Do NOT answer submarine CFD requests directly from generic reasoning and do NOT skip the brief just because the task sounds familiar.
+3. If any operating condition, deliverable, comparison target, or verification requirement is still unresolved, call `ask_clarification` and stop there.
    Do not continue to execution while the brief still has open questions.
-4. Only after the user explicitly confirms the plan may you continue.
-   Mark the brief as confirmed, wait for explicit user confirmation, and then proceed with `submarine_geometry_check` and `submarine_solver_dispatch`.
-5. When execution is approved, execution must follow the confirmed brief.
-   Reuse the confirmed case selection, simulation requirements, requested outputs, and verification expectations instead of inventing a different execution path.
+4. Continue to `submarine_geometry_check` and `submarine_solver_dispatch` only after the user has explicitly confirmed the current plan.
+   Mark the brief as confirmed, wait for explicit user confirmation, and then proceed.
+5. Keep execution aligned with the confirmed brief instead of inventing a different execution path mid-run.
+   Reuse the confirmed case selection, simulation requirements, requested outputs, and verification expectations.
 6. Use `submarine_result_report` only after preflight or solver artifacts exist and the report can be grounded in actual DeerFlow evidence.
 </submarine_workflow_protocol>"""
 

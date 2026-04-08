@@ -18,21 +18,21 @@ This skill does not restore the legacy executor. It defines how the DeerFlow-nat
 
 Use it to keep the system specialized for submarine CFD instead of generic chat.
 
-## Required orchestration path
+## Guidance For The Primary Agent
 
-When the task is a real submarine CFD workflow, prefer the specialized DeerFlow subagents instead of generic delegation:
+When the primary agent should coordinate a real submarine CFD workflow, prefer the specialized DeerFlow subagents instead of generic delegation:
 
 - `submarine-task-intelligence`
 - `submarine-geometry-preflight`
 - `submarine-solver-dispatch`
 - `submarine-result-reporting`
 
-Use the built-in tools in this order when appropriate:
+The usual DeerFlow-native path is:
 
 1. `submarine_design_brief`
-2. `submarine_geometry_check`
-3. `submarine_solver_dispatch`
-4. artifact-driven Chinese reporting
+2. `submarine_geometry_check` once the brief is concrete enough to support execution
+3. `submarine_solver_dispatch` when the plan is approved for execution
+4. artifact-driven Chinese reporting through `submarine-result-reporting`
 
 ## V1 geometry boundary
 

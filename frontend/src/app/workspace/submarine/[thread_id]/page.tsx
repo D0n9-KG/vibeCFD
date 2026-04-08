@@ -4,6 +4,7 @@ import { MessageSquareIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
 import {
   createAgenticWorkbenchSessionModel,
@@ -17,8 +18,9 @@ import {
   useThreadChat,
 } from "@/components/workspace/chats";
 import { ExportTrigger } from "@/components/workspace/export-trigger";
+import { InputBox } from "@/components/workspace/input-box";
+import { MessageList } from "@/components/workspace/messages";
 import { ThreadContext } from "@/components/workspace/messages/context";
-import { SubmarinePipelineChatRail } from "@/components/workspace/submarine-pipeline";
 import { SubmarineAgenticWorkbench } from "@/components/workspace/submarine-workbench";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { useNotification } from "@/core/notification/hooks";
@@ -26,6 +28,85 @@ import { useLocalSettings } from "@/core/settings";
 import { useThreadStream } from "@/core/threads/hooks";
 import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
 import { textOfMessage } from "@/core/threads/utils";
+import { env } from "@/env";
+
+type SubmarineInputContext = ReturnType<typeof useLocalSettings>[0]["context"];
+type SubmarineThreadStream = ReturnType<typeof useThreadStream>[0];
+
+type SubmarineNegotiationRailBodyProps = {
+  thread: SubmarineThreadStream;
+  threadId: string;
+  isNewThread: boolean;
+  isUploading: boolean;
+  context: SubmarineInputContext;
+  onContextChange: (context: SubmarineInputContext) => void;
+  onSubmit: (message: PromptInputMessage) => Promise<void> | void;
+  onStop: () => Promise<void>;
+  errorMessage: string | null;
+};
+
+function SubmarineNegotiationRailBody({
+  thread,
+  threadId,
+  isNewThread,
+  isUploading,
+  context,
+  onContextChange,
+  onSubmit,
+  onStop,
+  errorMessage,
+}: SubmarineNegotiationRailBodyProps) {
+  const inputStatus = errorMessage
+    ? "error"
+    : thread.isLoading
+      ? "streaming"
+      : "ready";
+
+  return (
+    <div
+      id="submarine-chat-rail"
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/96"
+    >
+      <div className="border-b border-slate-200/70 px-4 py-3">
+        <div className="text-sm font-semibold text-slate-900">
+          主智能体协商线程
+        </div>
+        <div className="mt-1 text-xs leading-5 text-slate-500">
+          右侧协商区负责所有修改、追问和重新协商，中央主画布只负责讲清楚研究推进过程。
+        </div>
+        {errorMessage ? (
+          <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-800">
+            {errorMessage}
+          </div>
+        ) : null}
+      </div>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <MessageList
+          className="flex-1 min-h-0 justify-start overflow-y-auto"
+          paddingBottom={160}
+          threadId={threadId}
+          thread={thread}
+        />
+      </div>
+      <div className="shrink-0 border-t border-slate-200/80 bg-white p-2.5">
+        <InputBox
+          className="w-full bg-white"
+          textareaClassName="min-h-36"
+          isNewThread={isNewThread}
+          showNewThreadSuggestions={false}
+          threadId={threadId}
+          autoFocus={isNewThread}
+          status={inputStatus}
+          context={context}
+          disabled={env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || isUploading}
+          onContextChange={onContextChange}
+          onSubmit={onSubmit}
+          onStop={onStop}
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function SubmarineWorkbenchPage() {
   const router = useRouter();
@@ -185,34 +266,16 @@ export default function SubmarineWorkbenchPage() {
                   </div>
                 }
                 negotiationContent={
-                  <SubmarinePipelineChatRail
+                  <SubmarineNegotiationRailBody
                     thread={thread}
-                    pipelineStatus={{
-                      agentLabel: "主智能体协商线程",
-                      outputStatus: "实时同步",
-                      runLabel: thread.isLoading ? "处理中" : "待命",
-                      summaryText:
-                        "右侧协商区负责所有修改、追问和重新协商，中央主画布只负责讲清楚研究推进过程。",
-                      tone: chatRailErrorMessage
-                        ? "error"
-                        : thread.isLoading
-                          ? "streaming"
-                          : "ready",
-                      errorBanner: chatRailErrorMessage
-                        ? {
-                            title: "协商线程异常",
-                            guidance: "先查看最近一条消息，再决定是否继续修改方案或重新执行。",
-                            message: chatRailErrorMessage,
-                          }
-                        : null,
-                    }}
                     threadId={threadId}
                     isNewThread={isNewThread}
                     isUploading={isUploading}
                     context={settings.context}
                     onContextChange={(context) => setSettings("context", context)}
-                    handleSubmit={(message) => sendMessage(threadId, message)}
+                    onSubmit={(message) => sendMessage(threadId, message)}
                     onStop={handleStop}
+                    errorMessage={chatRailErrorMessage}
                   />
                 }
               />

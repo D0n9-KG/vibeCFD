@@ -1,4 +1,3 @@
-export * from "./interrupt-action-bar";
 export * from "./narrative-stream";
 export * from "./negotiation-rail";
 export * from "./secondary-layer-host";
