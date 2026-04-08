@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { MessageSquareIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -27,7 +27,7 @@ import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings } from "@/core/settings";
 import { useThreadStream } from "@/core/threads/hooks";
 import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
-import { textOfMessage } from "@/core/threads/utils";
+import { resolveThreadDisplayTitle, textOfMessage } from "@/core/threads/utils";
 import { env } from "@/env";
 
 type SubmarineInputContext = ReturnType<typeof useLocalSettings>[0]["context"];
@@ -159,7 +159,7 @@ export default function SubmarineWorkbenchPage() {
                 : textContent;
           }
         }
-        showNotification(state.title, { body });
+        showNotification(resolveThreadDisplayTitle(state.title), { body });
       }
     },
   });

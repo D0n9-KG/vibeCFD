@@ -155,6 +155,40 @@ export function SubmarineResearchCanvas({
         </div>
       </section>
 
+      {session.liveProgress.visible ? (
+        <section
+          data-live-progress="submarine"
+          className="rounded-[24px] border border-sky-200/70 bg-white/92 px-4 py-4 shadow-[0_18px_40px_rgba(14,165,233,0.06)]"
+        >
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
+            实时进展
+          </div>
+          <h3 className="mt-2 text-lg font-semibold text-slate-950">
+            结构化 CFD 产物生成中
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {session.liveProgress.statusSummary}
+          </p>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <OverviewMetric
+              label="状态"
+              value={session.liveProgress.statusLabel}
+            />
+            <OverviewMetric
+              label="主智能体反馈"
+              value={
+                session.liveProgress.latestAssistantPreview ?? "暂未给出新的主智能体反馈。"
+              }
+            />
+            <OverviewMetric
+              label="研究者输入"
+              value={session.liveProgress.latestUserPreview ?? "暂未收到新的研究者输入。"}
+            />
+          </div>
+        </section>
+      ) : null}
+
       <WorkbenchFlow
         items={session.modules.map((module) => ({
           id: module.id,

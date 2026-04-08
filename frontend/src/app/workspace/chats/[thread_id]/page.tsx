@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
+import { LayoutPanelLeftIcon, WavesIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LayoutPanelLeftIcon, WavesIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
@@ -23,12 +23,11 @@ import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicato
 import { Welcome } from "@/components/workspace/welcome";
 import { WorkspaceStatePanel } from "@/components/workspace/workspace-state-panel";
 import { useI18n } from "@/core/i18n/hooks";
-import { localizeThreadDisplayTitle } from "@/core/i18n/workspace-display";
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings } from "@/core/settings";
 import { useThreadStream } from "@/core/threads/hooks";
 import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
-import { textOfMessage } from "@/core/threads/utils";
+import { resolveThreadDisplayTitle, textOfMessage } from "@/core/threads/utils";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +72,7 @@ export default function ChatPage() {
                 : textContent;
           }
         }
-        showNotification(state.title, { body });
+        showNotification(resolveThreadDisplayTitle(state.title), { body });
       }
     },
   });
@@ -149,15 +148,13 @@ export default function ChatPage() {
   const threadErrorMessage =
     thread.error instanceof Error
       ? thread.error.message
-      : thread.error
-        ? String(thread.error)
+      : typeof thread.error === "string"
+        ? thread.error
         : null;
   const threadLabel =
     isNewThread && (!thread.values.title || thread.values.title === "Untitled")
       ? t.pages.newChat
-      : thread.values.title && thread.values.title !== "Untitled"
-        ? localizeThreadDisplayTitle(thread.values.title)
-        : t.pages.untitled;
+      : resolveThreadDisplayTitle(thread.values.title, t.pages.untitled);
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>

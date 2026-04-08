@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { type ReactNode, useMemo } from "react";
 
@@ -8,6 +8,8 @@ import {
   WorkbenchShell,
 } from "@/components/workspace/agentic-workbench";
 import { useArtifactContent } from "@/core/artifacts/hooks";
+import { buildProgressPreviewFromMessage } from "@/core/messages/utils";
+import { resolveThreadDisplayTitle } from "@/core/threads/utils";
 
 import { useThread } from "../messages/context";
 import type {
@@ -49,6 +51,30 @@ export function SubmarineAgenticWorkbench({
   headerActions = null,
 }: SubmarineAgenticWorkbenchProps) {
   const { thread } = useThread();
+  const latestAssistantPreview = useMemo(() => {
+    const latestAssistantMessage = [...thread.messages]
+      .reverse()
+      .find((message) => message.type === "ai");
+
+    return latestAssistantMessage
+      ? buildProgressPreviewFromMessage(latestAssistantMessage)
+      : null;
+  }, [thread.messages]);
+  const latestUserPreview = useMemo(() => {
+    const latestUserMessage = [...thread.messages]
+      .reverse()
+      .find((message) => message.type === "human");
+
+    return latestUserMessage
+      ? buildProgressPreviewFromMessage(latestUserMessage)
+      : null;
+  }, [thread.messages]);
+  const threadErrorMessage =
+    thread.error instanceof Error
+      ? thread.error.message
+      : typeof thread.error === "string"
+        ? thread.error
+        : null;
 
   const runtime = useMemo<SubmarineRuntimeSnapshotPayload | null>(() => {
     const value = thread.values.submarine_runtime;
@@ -110,14 +136,22 @@ export function SubmarineAgenticWorkbench({
         finalReport,
         messageCount: thread.messages.length,
         artifactCount: submarineArtifacts.length,
+        isLoading: thread.isLoading,
+        errorMessage: threadErrorMessage,
+        latestAssistantPreview,
+        latestUserPreview,
       }),
     [
       designBrief,
       finalReport,
       isNewThread,
+      latestAssistantPreview,
+      latestUserPreview,
       runtime,
       submarineArtifacts.length,
+      thread.isLoading,
       thread.messages.length,
+      threadErrorMessage,
     ],
   );
 
@@ -133,7 +167,7 @@ export function SubmarineAgenticWorkbench({
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
-        title={thread.values.title ?? "潜艇 CFD 会话"}
+        title={resolveThreadDisplayTitle(thread.values.title, "潜艇 CFD 会话")}
         subtitle={session.summary.currentObjective}
         statusLabel={session.summary.evidenceReady ? "报告可审阅" : "研究推进中"}
         actions={headerActions}

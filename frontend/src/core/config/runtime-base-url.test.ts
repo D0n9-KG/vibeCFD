@@ -7,7 +7,7 @@ const {
 } = await import(new URL("./runtime-base-url.ts", import.meta.url).href);
 
 void test(
-  "resolveBackendBaseURL keeps browser requests on the frontend origin",
+  "resolveBackendBaseURL uses the local gateway URL for standalone localhost frontend runs",
   () => {
     assert.equal(
       resolveBackendBaseURL({
@@ -16,6 +16,23 @@ void test(
           origin: "http://localhost:3000",
           hostname: "localhost",
           port: "3000",
+        },
+      }),
+      "http://localhost:8001",
+    );
+  },
+);
+
+void test(
+  "resolveBackendBaseURL keeps same-origin routing for the reverse-proxied local frontend",
+  () => {
+    assert.equal(
+      resolveBackendBaseURL({
+        backendBaseURL: undefined,
+        location: {
+          origin: "http://localhost:2026",
+          hostname: "localhost",
+          port: "2026",
         },
       }),
       "",
@@ -75,7 +92,7 @@ void test(
 );
 
 void test(
-  "resolveBackendBaseURL still prefers the frontend origin even when a browser runtime receives an explicit backend URL",
+  "resolveBackendBaseURL prefers an explicit backend URL in the browser",
   () => {
     assert.equal(
       resolveBackendBaseURL({
@@ -86,7 +103,7 @@ void test(
           port: "3000",
         },
       }),
-      "",
+      "https://gateway.example.test",
     );
   },
 );
@@ -140,18 +157,18 @@ void test("explicit LangGraph environment URLs are trimmed before being returned
 });
 
 void test(
-  "whitespace-only backend URLs fall back to the frontend origin in the browser and localhost server-side",
+  "whitespace-only backend URLs fall back to the standalone local gateway in the browser and localhost server-side",
   () => {
     assert.equal(
       resolveBackendBaseURL({
         backendBaseURL: "   ",
         location: {
-          origin: "http://localhost:3000",
+          origin: "http://localhost:3100",
           hostname: "localhost",
-          port: "3000",
+          port: "3100",
         },
       }),
-      "",
+      "http://localhost:8001",
     );
 
     assert.equal(
@@ -169,9 +186,9 @@ void test("whitespace-only LangGraph URLs fall back to standalone local defaults
       langGraphBaseURL: "   ",
       isMock: false,
       location: {
-        origin: "http://localhost:3000",
+        origin: "http://localhost:3100",
         hostname: "localhost",
-        port: "3000",
+        port: "3100",
       },
     }),
     "http://localhost:2024",

@@ -1,6 +1,7 @@
 """Middleware for automatic thread title generation."""
 
 import logging
+import re
 from typing import NotRequired, override
 
 from langchain.agents import AgentState
@@ -23,6 +24,11 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
     """Automatically generate a title for the thread after the first user message."""
 
     state_schema = TitleMiddlewareState
+    _UPLOAD_BLOCK_RE = re.compile(
+        r"<uploaded_files>[\s\S]*?</uploaded_files>\n*",
+        re.IGNORECASE,
+    )
+    _UPLOAD_FILENAME_RE = re.compile(r"^\s*-\s+([^\n(]+?)\s*\([^)]*\)\s*$", re.MULTILINE)
 
     def _normalize_content(self, content: object) -> str:
         if isinstance(content, str):
@@ -42,6 +48,33 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
                 return self._normalize_content(nested_content)
 
         return ""
+
+    def _extract_uploaded_filenames(self, content: str) -> list[str]:
+        return [
+            match.group(1).strip()
+            for match in self._UPLOAD_FILENAME_RE.finditer(content)
+            if match.group(1).strip()
+        ]
+
+    def _clean_user_message(self, content: object) -> str:
+        normalized = self._normalize_content(content)
+        visible_content = self._UPLOAD_BLOCK_RE.sub("", normalized).strip()
+        if visible_content:
+            return visible_content
+
+        uploaded_filenames = self._extract_uploaded_filenames(normalized)
+        if not uploaded_filenames:
+            return ""
+
+        visible_filenames = uploaded_filenames[:2]
+        if len(uploaded_filenames) == 1:
+            return f"Uploaded {visible_filenames[0]}"
+
+        preview = ", ".join(visible_filenames)
+        remaining = len(uploaded_filenames) - len(visible_filenames)
+        if remaining > 0:
+            return f"Uploaded {preview} and {remaining} more files"
+        return f"Uploaded {preview}"
 
     def _should_generate_title(self, state: TitleMiddlewareState) -> bool:
         """Check if we should generate a title for this thread."""
@@ -76,7 +109,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         user_msg_content = next((m.content for m in messages if m.type == "human"), "")
         assistant_msg_content = next((m.content for m in messages if m.type == "ai"), "")
 
-        user_msg = self._normalize_content(user_msg_content)
+        user_msg = self._clean_user_message(user_msg_content)
         assistant_msg = self._normalize_content(assistant_msg_content)
 
         prompt = config.prompt_template.format(
@@ -95,10 +128,11 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
 
     def _fallback_title(self, user_msg: str) -> str:
         config = get_title_config()
+        cleaned_user_msg = self._clean_user_message(user_msg)
         fallback_chars = min(config.max_chars, 50)
-        if len(user_msg) > fallback_chars:
-            return user_msg[:fallback_chars].rstrip() + "..."
-        return user_msg if user_msg else "New Conversation"
+        if len(cleaned_user_msg) > fallback_chars:
+            return cleaned_user_msg[:fallback_chars].rstrip() + "..."
+        return cleaned_user_msg if cleaned_user_msg else "New Conversation"
 
     def _generate_title_result(self, state: TitleMiddlewareState) -> dict | None:
         """Synchronously generate a title. Returns state update or None."""

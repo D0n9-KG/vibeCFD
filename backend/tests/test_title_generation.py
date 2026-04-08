@@ -1,5 +1,7 @@
 """Tests for automatic thread title generation."""
 
+from types import SimpleNamespace
+
 import pytest
 
 from deerflow.agents.middlewares.title_middleware import TitleMiddleware
@@ -68,6 +70,57 @@ class TestTitleMiddleware:
         middleware = TitleMiddleware()
         assert middleware is not None
         assert middleware.state_schema is not None
+
+    def test_build_title_prompt_strips_uploaded_file_scaffolding(self):
+        middleware = TitleMiddleware()
+        prompt, user_msg = middleware._build_title_prompt(
+            {
+                "messages": [
+                    SimpleNamespace(
+                        type="human",
+                        content="\n".join(
+                            [
+                                "<uploaded_files>",
+                                "The following files were uploaded in this message:",
+                                "",
+                                "- suboff_solid.stl (1677721)",
+                                "  Path: /mnt/user-data/uploads/suboff_solid.stl",
+                                "</uploaded_files>",
+                                "",
+                                "Geometry preflight for SUBOFF STL",
+                            ]
+                        ),
+                    ),
+                    SimpleNamespace(
+                        type="ai",
+                        content="I will inspect the geometry and propose the setup.",
+                    ),
+                ]
+            }
+        )
+
+        assert "<uploaded_files>" not in prompt
+        assert "Path: /mnt/user-data/uploads/suboff_solid.stl" not in prompt
+        assert user_msg == "Geometry preflight for SUBOFF STL"
+
+    def test_fallback_title_uses_uploaded_filename_when_no_visible_prompt_exists(self):
+        middleware = TitleMiddleware()
+        title = middleware._fallback_title(
+            "\n".join(
+                [
+                    "<uploaded_files>",
+                    "The following files were uploaded in this message:",
+                    "",
+                    "- suboff_solid.stl (1677721)",
+                    "  Path: /mnt/user-data/uploads/suboff_solid.stl",
+                    "</uploaded_files>",
+                ]
+            )
+        )
+
+        assert "suboff_solid.stl" in title
+        assert "<uploaded_files>" not in title
+        assert "Path:" not in title
 
     # TODO: Add integration tests with mock Runtime
     # def test_should_generate_title(self):

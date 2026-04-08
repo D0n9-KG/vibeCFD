@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -25,7 +25,7 @@ import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings } from "@/core/settings";
 import { useThreadStream } from "@/core/threads/hooks";
 import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
-import { textOfMessage } from "@/core/threads/utils";
+import { resolveThreadDisplayTitle, textOfMessage } from "@/core/threads/utils";
 import { uuid } from "@/core/utils/uuid";
 import { env } from "@/env";
 
@@ -121,7 +121,7 @@ export function SkillStudioThreadRoute({
       if (document.hidden || !document.hasFocus()) {
         const lastMessage = state.messages.at(-1);
         const textContent = lastMessage ? textOfMessage(lastMessage) : "";
-        showNotification(state.title, {
+        showNotification(resolveThreadDisplayTitle(state.title), {
           body:
             textContent && textContent.length > 0
               ? textContent.slice(0, 200)

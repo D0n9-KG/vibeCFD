@@ -12,6 +12,10 @@ from deerflow.utils.file_conversion import CONVERTIBLE_EXTENSIONS, convert_file_
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/threads/{thread_id}/uploads", tags=["uploads"])
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+MAX_THREAD_UPLOAD_BYTES = 200 * 1024 * 1024
+MAX_THREAD_UPLOAD_FILES = 20
+BLOCKED_EXTENSIONS = {".bat", ".cmd", ".com", ".exe", ".ps1", ".scr"}
 
 
 class UploadResponse(BaseModel):
@@ -34,6 +38,49 @@ def get_uploads_dir(thread_id: str) -> Path:
     base_dir = get_paths().sandbox_uploads_dir(thread_id)
     base_dir.mkdir(parents=True, exist_ok=True)
     return base_dir
+
+
+def sanitize_upload_filename(filename: str) -> str:
+    safe_filename = Path(filename).name
+    if not safe_filename or safe_filename in {".", ".."} or "/" in safe_filename or "\\" in safe_filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    extension = Path(safe_filename).suffix.lower()
+    if extension and extension in BLOCKED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type is not allowed: {extension}",
+        )
+
+    return safe_filename
+
+
+def enforce_upload_budget(
+    *,
+    existing_files: dict[str, int],
+    incoming_files: list[tuple[str, int]],
+    max_file_count: int = MAX_THREAD_UPLOAD_FILES,
+    max_total_bytes: int = MAX_THREAD_UPLOAD_BYTES,
+) -> None:
+    projected_files = dict(existing_files)
+    for filename, size in incoming_files:
+        projected_files[filename] = size
+
+    if len(projected_files) > max_file_count:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many uploaded files for this thread. Max {max_file_count} files allowed.",
+        )
+
+    projected_bytes = sum(projected_files.values())
+    if projected_bytes > max_total_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Total upload quota exceeded for this thread. "
+                f"Max {max_total_bytes // (1024 * 1024)} MB allowed."
+            ),
+        )
 
 
 @router.post("", response_model=UploadResponse)
@@ -59,19 +106,38 @@ async def upload_files(
     uploads_dir = get_uploads_dir(thread_id)
     paths = get_paths()
     uploaded_files = []
+    prepared_uploads: list[tuple[str, bytes]] = []
 
     for file in files:
         if not file.filename:
             continue
 
-        try:
-            # Normalize filename to prevent path traversal
-            safe_filename = Path(file.filename).name
-            if not safe_filename or safe_filename in {".", ".."} or "/" in safe_filename or "\\" in safe_filename:
-                logger.warning(f"Skipping file with unsafe filename: {file.filename!r}")
-                continue
+        safe_filename = sanitize_upload_filename(file.filename)
+        content = await file.read()
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"File too large: {safe_filename}. "
+                    f"Max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB per file."
+                ),
+            )
+        prepared_uploads.append((safe_filename, content))
 
-            content = await file.read()
+    existing_files = {
+        file_path.name: file_path.stat().st_size
+        for file_path in uploads_dir.iterdir()
+        if file_path.is_file()
+    }
+    enforce_upload_budget(
+        existing_files=existing_files,
+        incoming_files=[
+            (safe_filename, len(content)) for safe_filename, content in prepared_uploads
+        ],
+    )
+
+    for safe_filename, content in prepared_uploads:
+        try:
             file_path = uploads_dir / safe_filename
             file_path.write_bytes(content)
 
@@ -109,9 +175,11 @@ async def upload_files(
 
             uploaded_files.append(file_info)
 
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Failed to upload {file.filename}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to upload {file.filename}: {str(e)}")
+            logger.error(f"Failed to upload {safe_filename}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to upload {safe_filename}: {str(e)}")
 
     return UploadResponse(
         success=True,

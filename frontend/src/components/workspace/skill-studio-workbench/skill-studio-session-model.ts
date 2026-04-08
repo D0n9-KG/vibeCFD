@@ -38,6 +38,12 @@ export type SkillStudioSessionModel = {
     publishStatus: string;
     graphRelationshipCount: number;
   };
+  liveProgress: {
+    visible: boolean;
+    statusLabel: string;
+    statusSummary: string;
+    latestVisiblePreview: string | null;
+  };
   negotiation: {
     pendingApprovalCount: number;
     interruptionVisible: boolean;
@@ -56,6 +62,9 @@ export type BuildSkillStudioSessionModelInput = {
   warningCount: number;
   blockingCount: number;
   graphRelationshipCount: number;
+  isLoading: boolean;
+  errorMessage: string | null;
+  latestVisiblePreview: string | null;
 };
 
 const LIFECYCLE_READY_STATUSES = new Set([
@@ -200,6 +209,17 @@ export function buildSkillStudioSessionModel(
   const blocking = hasBlockingNegotiation(input);
   const activeModuleId = resolveActiveModuleId(input, blocking);
 
+  const liveProgressVisible = !input.hasDraftArtifact && !input.isNewThread;
+  const liveProgressStatusLabel = input.errorMessage
+    ? "需要关注"
+    : input.isLoading
+      ? "技能助手处理中"
+      : "等待首个结构化产物";
+  const liveProgressStatusSummary =
+    input.errorMessage ??
+    input.latestVisiblePreview ??
+    "线程已经启动，但首个结构化技能产物还没落盘，主智能体正在整理技能目标与草案。";
+
   return {
     activeModuleId,
     modules: SKILL_STUDIO_MODULE_ORDER.map((id) => ({
@@ -237,6 +257,12 @@ export function buildSkillStudioSessionModel(
       testStatus: normalizeStatus(input.testStatus),
       publishStatus: normalizeStatus(input.publishStatus),
       graphRelationshipCount: input.graphRelationshipCount,
+    },
+    liveProgress: {
+      visible: liveProgressVisible,
+      statusLabel: liveProgressStatusLabel,
+      statusSummary: liveProgressStatusSummary,
+      latestVisiblePreview: input.latestVisiblePreview,
     },
     negotiation: {
       pendingApprovalCount: input.blockingCount,

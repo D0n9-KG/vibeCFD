@@ -41,6 +41,14 @@ void test("submarine workbench folds overview and flow index back into the main 
   assert.doesNotMatch(canvasSource, /DrawerShortcut/);
 });
 
+void test("submarine workbench exposes live progress before structured artifacts arrive", () => {
+  assert.match(source, /buildProgressPreviewFromMessage/);
+  assert.match(source, /resolveThreadDisplayTitle\(thread\.values\.title,/);
+  assert.match(source, /latestAssistantPreview/);
+  assert.match(source, /latestUserPreview/);
+  assert.match(canvasSource, /data-live-progress="submarine"/);
+});
+
 void test("submarine workbench scrolls the center canvas instead of the whole page", () => {
   assert.match(
     source,

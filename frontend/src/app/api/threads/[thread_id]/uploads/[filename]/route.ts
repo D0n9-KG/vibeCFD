@@ -1,3 +1,4 @@
+import { requireThreadRouteSession } from "../../../_auth";
 import { deleteThreadUpload, UploadStorageError } from "../storage";
 
 export async function DELETE(
@@ -9,6 +10,11 @@ export async function DELETE(
     }>;
   },
 ) {
+  const unauthorizedResponse = await requireThreadRouteSession();
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
+  }
+
   const { thread_id: threadId, filename } = await context.params;
 
   try {

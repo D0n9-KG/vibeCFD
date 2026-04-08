@@ -1,6 +1,7 @@
 import type { Message } from "@langchain/langgraph-sdk";
 
 import { localizeThreadDisplayTitle } from "../i18n/workspace-display.ts";
+import { buildProgressPreviewFromMessage } from "../messages/utils.ts";
 
 import type { AgentThread } from "./types";
 
@@ -126,13 +127,34 @@ export function textOfMessage(message: Message) {
   return null;
 }
 
+export function resolveThreadDisplayTitle(
+  rawTitle: string | null | undefined,
+  untitledLabel = "Untitled",
+) {
+  const normalizedTitle = rawTitle?.trim();
+  if (!normalizedTitle || normalizedTitle === "Untitled") {
+    return untitledLabel;
+  }
+
+  if (
+    normalizedTitle.startsWith("<uploaded_files>") &&
+    !normalizedTitle.includes("</uploaded_files>")
+  ) {
+    return untitledLabel;
+  }
+
+  const preview =
+    buildProgressPreviewFromMessage({
+      type: "human",
+      content: normalizedTitle,
+    }) ?? normalizedTitle;
+
+  return localizeThreadDisplayTitle(preview);
+}
+
 export function titleOfThread(
   thread: AgentThread,
   untitledLabel = "Untitled",
 ) {
-  const title = thread.values?.title?.trim();
-  if (!title || title === "Untitled") {
-    return untitledLabel;
-  }
-  return localizeThreadDisplayTitle(title);
+  return resolveThreadDisplayTitle(thread.values?.title, untitledLabel);
 }

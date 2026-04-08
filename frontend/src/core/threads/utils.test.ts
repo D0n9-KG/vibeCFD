@@ -203,3 +203,49 @@ void test("titleOfThread localizes known workspace-facing English thread titles"
   assert.equal(titleOfThread(draftThread), "潜艇结果验收草稿");
   assert.equal(titleOfThread(overviewThread), "DeerFlow 技能能力说明");
 });
+
+void test("titleOfThread strips uploaded file scaffolding from persisted thread titles", () => {
+  const thread = makeThread("uploaded-title", {
+    title: [
+      "<uploaded_files>",
+      "The following files were uploaded in this message:",
+      "",
+      "- suboff_solid.stl (1677721)",
+      "  Path: /mnt/user-data/uploads/suboff_solid.stl",
+      "</uploaded_files>",
+      "",
+      "Geometry preflight for SUBOFF STL",
+    ].join("\n"),
+  });
+
+  const title = titleOfThread(thread);
+
+  assert.match(title, /SUBOFF STL/);
+  assert.doesNotMatch(title, /<uploaded_files>|Path:/);
+});
+
+void test("titleOfThread falls back to a friendly upload summary when a persisted title only contains file metadata", () => {
+  const thread = makeThread("upload-only-title", {
+    title: [
+      "<uploaded_files>",
+      "The following files were uploaded in this message:",
+      "",
+      "- suboff_solid.stl (1677721)",
+      "  Path: /mnt/user-data/uploads/suboff_solid.stl",
+      "</uploaded_files>",
+    ].join("\n"),
+  });
+
+  const title = titleOfThread(thread);
+
+  assert.match(title, /suboff_solid\.stl/);
+  assert.doesNotMatch(title, /<uploaded_files>|Path:/);
+});
+
+void test("titleOfThread falls back to the untitled label for truncated upload scaffold titles", () => {
+  const thread = makeThread("truncated-upload-title", {
+    title: "<uploaded_files> The following files were uploaded.",
+  });
+
+  assert.equal(titleOfThread(thread, "Untitled Thread"), "Untitled Thread");
+});

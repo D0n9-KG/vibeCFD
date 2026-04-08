@@ -51,6 +51,13 @@ void test("skill studio canvas localizes publish gate statuses", () => {
   assert.match(canvasSource, /待处理/);
 });
 
+void test("skill studio shows live progress while waiting for the first artifact", () => {
+  assert.match(source, /buildProgressPreviewFromMessage/);
+  assert.match(source, /resolveThreadDisplayTitle\(\s*thread\.values\.title,/);
+  assert.match(source, /latestVisiblePreview/);
+  assert.match(canvasSource, /data-live-progress="skill-studio"/);
+});
+
 void test("skill studio scrolls the center canvas while keeping a larger fixed composer in the rail", () => {
   assert.match(source, /className="min-h-0 flex-1 overflow-y-auto pr-1"/);
   assert.match(source, /id="skill-studio-chat-rail" className="min-h-0 flex-1 overflow-hidden"/);

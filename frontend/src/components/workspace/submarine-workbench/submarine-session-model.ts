@@ -36,6 +36,13 @@ export type SubmarineSessionModel = {
     messageCount: number;
     artifactCount: number;
   };
+  liveProgress: {
+    visible: boolean;
+    statusLabel: string;
+    statusSummary: string;
+    latestAssistantPreview: string | null;
+    latestUserPreview: string | null;
+  };
   negotiation: {
     pendingApprovalCount: number;
     interruptionVisible: boolean;
@@ -55,6 +62,10 @@ export type BuildSubmarineSessionModelInput = {
   finalReport: SubmarineFinalReportPayload | null;
   messageCount: number;
   artifactCount: number;
+  isLoading: boolean;
+  errorMessage: string | null;
+  latestAssistantPreview: string | null;
+  latestUserPreview: string | null;
 };
 
 function countPendingApprovals({
@@ -348,6 +359,22 @@ export function buildSubmarineSessionModel(
     input.designBrief?.summary_zh ??
     "先明确这轮潜艇仿真的研究目标、边界条件与交付要求。";
 
+  const liveProgressVisible =
+    input.messageCount > 0 &&
+    input.artifactCount === 0 &&
+    !input.runtime &&
+    !input.finalReport;
+  const liveProgressStatusLabel = input.errorMessage
+    ? "需要关注"
+    : input.isLoading
+      ? "主智能体处理中"
+      : "等待结构化 CFD 产物";
+  const liveProgressStatusSummary =
+    input.errorMessage ??
+    input.latestAssistantPreview ??
+    input.latestUserPreview ??
+    "当前会话已经启动，主智能体正在整理几何、工况与计算方案，请继续在右侧协商区补充信息。";
+
   return {
     activeModuleId,
     modules: SUBMARINE_RESEARCH_MODULE_ORDER.map((id) => ({
@@ -389,6 +416,13 @@ export function buildSubmarineSessionModel(
       evidenceReady,
       messageCount: input.messageCount,
       artifactCount: input.artifactCount,
+    },
+    liveProgress: {
+      visible: liveProgressVisible,
+      statusLabel: liveProgressStatusLabel,
+      statusSummary: liveProgressStatusSummary,
+      latestAssistantPreview: input.latestAssistantPreview,
+      latestUserPreview: input.latestUserPreview,
     },
     negotiation: {
       pendingApprovalCount,

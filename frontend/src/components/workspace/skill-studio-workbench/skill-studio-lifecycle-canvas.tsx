@@ -144,6 +144,40 @@ export function SkillStudioLifecycleCanvas({
         </div>
       </section>
 
+      {session.liveProgress.visible ? (
+        <section
+          data-live-progress="skill-studio"
+          className="rounded-[24px] border border-orange-200/70 bg-white/92 px-4 py-4 shadow-[0_18px_40px_rgba(249,115,22,0.06)]"
+        >
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-orange-700">
+            实时进展
+          </div>
+          <h3 className="mt-2 text-lg font-semibold text-slate-950">
+            首个技能产物生成中
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {session.liveProgress.statusSummary}
+          </p>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <OverviewMetric
+              label="状态"
+              value={session.liveProgress.statusLabel}
+            />
+            <OverviewMetric
+              label="当前助手"
+              value={session.assistant.label}
+            />
+            <OverviewMetric
+              label="最新线程摘要"
+              value={
+                session.liveProgress.latestVisiblePreview ?? "暂未生成新的线程摘要。"
+              }
+            />
+          </div>
+        </section>
+      ) : null}
+
       <WorkbenchFlow
         items={session.modules.map((module) => ({
           id: module.id,

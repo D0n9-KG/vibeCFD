@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { MessageSquareIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -29,6 +29,7 @@ import {
   type SkillStudioLifecycleBindingTarget,
 } from "@/components/workspace/skill-studio-workbench.utils";
 import { useArtifactContent } from "@/core/artifacts/hooks";
+import { buildProgressPreviewFromMessage } from "@/core/messages/utils";
 import type {
   SkillGraphResponse,
   SkillLifecycleRecord,
@@ -43,6 +44,7 @@ import {
   useUpdateSkillLifecycle,
 } from "@/core/skills/hooks";
 import type { AgentThreadContext } from "@/core/threads";
+import { resolveThreadDisplayTitle } from "@/core/threads/utils";
 import { env } from "@/env";
 
 import {
@@ -165,6 +167,21 @@ export function SkillStudioAgenticWorkbench({
 }: SkillStudioAgenticWorkbenchProps) {
   const { thread, isMock } = useThread();
   const { setOpen: setArtifactsOpen } = useArtifacts();
+  const latestVisiblePreview = useMemo(() => {
+    const latestVisibleMessage = [...thread.messages]
+      .reverse()
+      .find((message) => message.type === "ai" || message.type === "human");
+
+    return latestVisibleMessage
+      ? buildProgressPreviewFromMessage(latestVisibleMessage)
+      : null;
+  }, [thread.messages]);
+  const threadErrorMessage =
+    thread.error instanceof Error
+      ? thread.error.message
+      : typeof thread.error === "string"
+        ? thread.error
+        : null;
 
   const studioState =
     thread.values.submarine_skill_studio != null &&
@@ -314,10 +331,14 @@ export function SkillStudioAgenticWorkbench({
           (testMatrix?.blocking_count ?? 0) +
           (validation?.error_count ?? 0),
         graphRelationshipCount: detail.graph.relationshipCount,
+        isLoading: thread.isLoading,
+        errorMessage: threadErrorMessage,
+        latestVisiblePreview,
       }),
     [
       detail.graph.relationshipCount,
       draftPath,
+      latestVisiblePreview,
       isNewThread,
       publishReadiness?.blocking_count,
       publishReadiness?.status,
@@ -329,9 +350,11 @@ export function SkillStudioAgenticWorkbench({
       studioState?.warning_count,
       testMatrix?.blocking_count,
       testMatrix?.status,
+      thread.isLoading,
       validation?.error_count,
       validation?.status,
       validation?.warning_count,
+      threadErrorMessage,
     ],
   );
 
@@ -424,10 +447,10 @@ export function SkillStudioAgenticWorkbench({
     }
   }, [detail.publish.rollbackTargetId, rollbackSkillRevision, skillName]);
 
-  const threadTitle =
-    typeof thread.values.title === "string" && thread.values.title.length > 0
-      ? thread.values.title
-      : detail.define.skillTitle;
+  const threadTitle = resolveThreadDisplayTitle(
+    thread.values.title,
+    detail.define.skillTitle,
+  );
   const showAssistantSelector = agentSelectorEnabled && !agentSelectionLocked;
 
   const main = (

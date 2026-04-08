@@ -3,6 +3,7 @@ from io import BytesIO
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi import UploadFile
 
 from app.gateway.routers import uploads
@@ -53,12 +54,13 @@ def test_upload_files_rejects_dotdot_and_dot_filenames(tmp_path):
     thread_uploads_dir.mkdir(parents=True)
 
     with patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir):
-        # These filenames must be rejected outright
         for bad_name in ["..", "."]:
             file = UploadFile(filename=bad_name, file=BytesIO(b"data"))
-            result = asyncio.run(uploads.upload_files("thread-local", files=[file]))
-            assert result.success is True
-            assert result.files == [], f"Expected no files for unsafe filename {bad_name!r}"
+            with pytest.raises(uploads.HTTPException) as exc_info:
+                asyncio.run(uploads.upload_files("thread-local", files=[file]))
+
+            assert exc_info.value.status_code == 400
+            assert exc_info.value.detail == "Invalid filename"
 
         # Path-traversal prefixes are stripped to the basename and accepted safely
         file = UploadFile(filename="../etc/passwd", file=BytesIO(b"data"))
@@ -108,3 +110,58 @@ def test_delete_uploaded_file_removes_generated_markdown_companion(tmp_path):
     assert result == {"success": True, "message": "Deleted report.pdf"}
     assert not (thread_uploads_dir / "report.pdf").exists()
     assert not (thread_uploads_dir / "report.md").exists()
+
+
+def test_upload_files_rejects_disallowed_extension(tmp_path):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+
+    with patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir):
+        file = UploadFile(filename="payload.exe", file=BytesIO(b"binary"))
+
+        with pytest.raises(uploads.HTTPException) as exc_info:
+            asyncio.run(uploads.upload_files("thread-unsafe", files=[file]))
+
+    assert exc_info.value.status_code == 400
+    assert "File type is not allowed" in str(exc_info.value.detail)
+
+
+def test_upload_files_rejects_oversized_payload(tmp_path):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+
+    with patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir):
+        file = UploadFile(
+            filename="oversized.stl",
+            file=BytesIO(b"x" * (uploads.MAX_UPLOAD_BYTES + 1)),
+        )
+
+        with pytest.raises(uploads.HTTPException) as exc_info:
+            asyncio.run(uploads.upload_files("thread-oversized", files=[file]))
+
+    assert exc_info.value.status_code == 400
+    assert "File too large" in str(exc_info.value.detail)
+
+
+def test_enforce_upload_budget_rejects_count_and_total_quota():
+    with pytest.raises(uploads.HTTPException) as count_exc:
+        uploads.enforce_upload_budget(
+            existing_files={"a.stl": 4, "b.stl": 4},
+            incoming_files=[("c.stl", 2)],
+            max_file_count=2,
+            max_total_bytes=20,
+        )
+
+    assert count_exc.value.status_code == 400
+    assert "Too many uploaded files" in str(count_exc.value.detail)
+
+    with pytest.raises(uploads.HTTPException) as total_exc:
+        uploads.enforce_upload_budget(
+            existing_files={"a.stl": 8},
+            incoming_files=[("b.stl", 5)],
+            max_file_count=4,
+            max_total_bytes=10,
+        )
+
+    assert total_exc.value.status_code == 400
+    assert "Total upload quota exceeded" in str(total_exc.value.detail)
