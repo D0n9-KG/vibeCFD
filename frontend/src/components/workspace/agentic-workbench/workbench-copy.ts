@@ -1,4 +1,4 @@
-export const WORKBENCH_COPY = {
+﻿export const WORKBENCH_COPY = {
   common: {
     negotiationRailTitle: "协商区",
     negotiationHint:
@@ -8,18 +8,6 @@ export const WORKBENCH_COPY = {
     openRailLabel: "展开协商区",
     closeRailLabel: "收起协商区",
     detailsDrawerLabel: "查看详情",
-  },
-  submarine: {
-    modules: {
-      proposal: "方案生成",
-      decision: "方案敲定",
-      delegation: "子代理分工",
-      skills: "技能调用",
-      execution: "实际计算",
-      postprocessMethod: "后处理方法",
-      postprocessResult: "后处理结果",
-      report: "最终报告",
-    },
   },
   skillStudio: {
     modules: {

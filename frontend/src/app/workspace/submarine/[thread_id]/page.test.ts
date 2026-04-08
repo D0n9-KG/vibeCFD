@@ -15,6 +15,12 @@ void test("keeps the right-side negotiation rail mounted for submarine sessions"
   assert.match(pageSource, /onToggleChatRail/);
 });
 
+void test("submarine route can auto-reveal the negotiation rail when runtime confirmation is blocking progress", () => {
+  assert.match(pageSource, /getSubmarineNegotiationAttentionKey/);
+  assert.match(pageSource, /autoNegotiationAttentionKey/);
+  assert.match(pageSource, /setAgenticWorkbenchMobileNegotiationRailVisible\(model, true\)/);
+});
+
 void test("submarine route no longer imports the legacy pipeline chat rail", () => {
   assert.doesNotMatch(pageSource, /SubmarinePipelineChatRail/);
 });

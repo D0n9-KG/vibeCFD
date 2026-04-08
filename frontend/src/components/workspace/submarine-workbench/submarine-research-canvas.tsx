@@ -1,11 +1,8 @@
-"use client";
+﻿"use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  SecondaryLayerHost,
-  WorkbenchFlow,
-} from "@/components/workspace/agentic-workbench";
+import { SecondaryLayerHost } from "@/components/workspace/agentic-workbench";
 import type {
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
@@ -15,7 +12,22 @@ import type {
 import type { SubmarineDetailModel } from "./submarine-detail-model";
 import { SubmarineExperimentBoard } from "./submarine-experiment-board";
 import { SubmarineOperatorBoard } from "./submarine-operator-board";
-import type { SubmarineSessionModel } from "./submarine-session-model";
+import {
+  buildSliceContextNotesModel,
+  buildSliceEvidenceBadgesModel,
+  buildSliceFactsModel,
+} from "./submarine-research-canvas.model";
+import { SubmarineResearchSliceCard } from "./submarine-research-slice-card";
+import { SubmarineResearchSliceHistoryBanner } from "./submarine-research-slice-history-banner";
+import { SubmarineResearchSliceRibbon } from "./submarine-research-slice-ribbon";
+import {
+  resolveSubmarineSecondaryLayerIds,
+  type SubmarineSecondaryLayerId,
+} from "./submarine-secondary-layers.model";
+import type {
+  SubmarineResearchSliceId,
+  SubmarineSessionModel,
+} from "./submarine-session-model";
 import { SubmarineTrustPanels } from "./submarine-trust-panels";
 
 type SubmarineResearchCanvasProps = {
@@ -27,21 +39,19 @@ type SubmarineResearchCanvasProps = {
   artifactPaths: readonly string[];
 };
 
-type DrawerId = "trust" | "studies" | "operator";
+type DrawerId = SubmarineSecondaryLayerId;
 
-const DEFAULT_DRAWER_BY_MODULE: Record<string, DrawerId> = {
-  proposal: "operator",
-  decision: "operator",
-  delegation: "operator",
-  skills: "operator",
-  execution: "operator",
-  "postprocess-method": "trust",
-  "postprocess-result": "studies",
-  report: "trust",
-};
 
-function resolveDefaultDrawerId(moduleId: string): DrawerId {
-  return DEFAULT_DRAWER_BY_MODULE[moduleId] ?? "operator";
+
+function OverviewMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="rounded-2xl border border-white/90 bg-white/88 px-3 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold leading-6 text-slate-900">{value}</div>
+    </article>
+  );
 }
 
 export function SubmarineResearchCanvas({
@@ -52,108 +62,239 @@ export function SubmarineResearchCanvas({
   finalReport,
   artifactPaths,
 }: SubmarineResearchCanvasProps) {
-  const [activeDrawerId, setActiveDrawerId] = useState<DrawerId>(() =>
-    resolveDefaultDrawerId(session.activeModuleId),
+  const [ribbonExpanded, setRibbonExpanded] = useState(false);
+  const [inspectedSliceId, setInspectedSliceId] = useState<SubmarineResearchSliceId | null>(
+    session.historyInspection.isViewingHistory ? session.viewedSlice.id : null,
   );
-  const activeModule =
-    session.modules.find((module) => module.expanded) ?? session.modules[0];
-  const pendingSummary =
-    session.negotiation.pendingApprovalCount > 0
-      ? `${session.negotiation.pendingApprovalCount} 项待确认`
-      : "当前无阻塞项";
-  const artifactSummary =
-    artifactPaths.length > 0
-      ? `${artifactPaths.length} 项研究产物`
-      : "尚未产出研究文件";
+
+  const displayedSlice =
+    session.slices.find((slice) => slice.id === inspectedSliceId) ?? session.currentSlice;
+  const isViewingHistory = displayedSlice.id !== session.currentSlice.id;
+  const [surfaceMotionPhase, setSurfaceMotionPhase] = useState<"staged" | "settled">(
+    "settled",
+  );
+  const hasMountedSurfaceRef = useRef(false);
+
+  const [activeDrawerId, setActiveDrawerId] = useState<DrawerId>(() =>
+    resolveSubmarineSecondaryLayerIds({
+      sliceId: displayedSlice.id,
+      detail,
+    })[0] ?? "operator",
+  );
 
   useEffect(() => {
-    setActiveDrawerId(resolveDefaultDrawerId(session.activeModuleId));
-  }, [session.activeModuleId]);
+    if (!inspectedSliceId) {
+      return;
+    }
 
-  const executionPlan =
-    runtime?.execution_plan ?? designBrief?.execution_outline ?? [];
-  const skillNames = [
-    ...(runtime?.execution_plan?.flatMap((item) => item.target_skills ?? []) ??
-      []),
-    ...(runtime?.activity_timeline?.flatMap((item) => item.skill_names ?? []) ??
-      []),
-  ].filter(
-    (skill, index, all): skill is string =>
-      Boolean(skill) && all.indexOf(skill) === index,
-  );
-  const requestedOutputs =
-    runtime?.requested_outputs
-      ?.map((item) => item?.label ?? item?.requested_label ?? "")
-      .filter(Boolean) ??
-    designBrief?.requested_outputs
-      ?.map((item) => item?.label ?? item?.requested_label ?? "")
-      .filter(Boolean) ??
-    [];
-  const verificationRequirements =
-    designBrief?.scientific_verification_requirements
-      ?.map((item) => item?.summary_zh ?? item?.label ?? "")
-      .filter(Boolean) ?? [];
-  const timelineEntries = runtime?.activity_timeline ?? [];
-  const conclusionSections = finalReport?.conclusion_sections ?? [];
+    const stillExists = session.slices.some((slice) => slice.id === inspectedSliceId);
+    if (!stillExists || inspectedSliceId === session.currentSlice.id) {
+      setInspectedSliceId(null);
+    }
+  }, [inspectedSliceId, session.currentSlice.id, session.slices]);
 
-  const drawerLayers = useMemo(
-    () => [
-      {
+  useEffect(() => {
+    if (!hasMountedSurfaceRef.current) {
+      hasMountedSurfaceRef.current = true;
+      return;
+    }
+
+    setSurfaceMotionPhase("staged");
+    const frameId = window.requestAnimationFrame(() => {
+      setSurfaceMotionPhase("settled");
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [displayedSlice.id, isViewingHistory]);
+
+  const drawerLayers = useMemo(() => {
+    const layersById: Record<DrawerId, { id: DrawerId; label: string; content: ReactNode }> = {
+      trust: {
         id: "trust",
         label: "证据与可信度",
         content: <SubmarineTrustPanels panels={detail.trustPanels} />,
       },
-      {
+      studies: {
         id: "studies",
         label: "对比试验与后处理结果",
-        content: (
-          <SubmarineExperimentBoard experimentBoard={detail.experimentBoard} />
-        ),
+        content: <SubmarineExperimentBoard experimentBoard={detail.experimentBoard} />,
       },
-      {
+      operator: {
         id: "operator",
-        label: "交付判断与后续动作",
+        label: "研究判断与后续安排",
         content: <SubmarineOperatorBoard operatorBoard={detail.operatorBoard} />,
       },
+    };
+
+    return resolveSubmarineSecondaryLayerIds({
+      sliceId: displayedSlice.id,
+      detail,
+    }).map((layerId) => layersById[layerId]);
+  }, [detail, displayedSlice.id]);
+
+  useEffect(() => {
+    setActiveDrawerId((current) => {
+      if (drawerLayers.length === 0) {
+        return current;
+      }
+
+      const firstLayer = drawerLayers[0];
+      return drawerLayers.some((layer) => layer.id === current)
+        ? current
+        : firstLayer
+          ? firstLayer.id
+          : current;
+    });
+  }, [drawerLayers]);
+
+  const executionPlanCount =
+    runtime?.execution_plan?.length ?? designBrief?.execution_outline?.length ?? 0;
+  const skillNames = useMemo(
+    () =>
+      [
+        ...(runtime?.execution_plan?.flatMap((item) => item.target_skills ?? []) ?? []),
+        ...(runtime?.activity_timeline?.flatMap((item) => item.skill_names ?? []) ?? []),
+      ].filter(
+        (skill, index, all): skill is string =>
+          Boolean(skill) && all.indexOf(skill) === index,
+      ),
+    [runtime?.activity_timeline, runtime?.execution_plan],
+  );
+  const requestedOutputs = useMemo(
+    () =>
+      runtime?.requested_outputs
+        ?.map((item) => item?.label ?? item?.requested_label ?? "")
+        .filter(Boolean) ??
+      designBrief?.requested_outputs
+        ?.map((item) => item?.label ?? item?.requested_label ?? "")
+        .filter(Boolean) ??
+      [],
+    [designBrief?.requested_outputs, runtime?.requested_outputs],
+  );
+  const verificationRequirements = useMemo(
+    () =>
+      designBrief?.scientific_verification_requirements
+        ?.map((item) => item?.summary_zh ?? item?.label ?? "")
+        .filter(Boolean) ?? [],
+    [designBrief?.scientific_verification_requirements],
+  );
+
+  const facts = useMemo(
+    () =>
+      buildSliceFactsModel({
+        sliceId: displayedSlice.id,
+        pendingApprovalCount: session.negotiation.pendingApprovalCount,
+        runtimeStatus: runtime?.runtime_status ?? null,
+        artifactCount: artifactPaths.length,
+        executionPlanCount,
+        skillNames,
+        requestedOutputs,
+      }),
+    [
+      artifactPaths.length,
+      displayedSlice.id,
+      executionPlanCount,
+      requestedOutputs,
+      runtime?.runtime_status,
+      session.negotiation.pendingApprovalCount,
+      skillNames,
     ],
-    [detail.experimentBoard, detail.operatorBoard, detail.trustPanels],
+  );
+
+  const evidenceBadges = useMemo(
+    () =>
+      buildSliceEvidenceBadgesModel({
+        runtime,
+        designBrief,
+        finalReport,
+        artifactPaths,
+        requestedOutputs,
+      }),
+    [artifactPaths, designBrief, finalReport, requestedOutputs, runtime],
+  );
+
+  const contextNotes = useMemo(
+    () =>
+      buildSliceContextNotesModel({
+        sliceId: displayedSlice.id,
+        runtime,
+        designBrief,
+        finalReport,
+        requestedOutputs,
+        verificationRequirements,
+        skillNames,
+        executionPlanCount,
+        artifactPaths,
+      }),
+    [
+      artifactPaths,
+      designBrief,
+      displayedSlice.id,
+      executionPlanCount,
+      finalReport,
+      requestedOutputs,
+      runtime,
+      skillNames,
+      verificationRequirements,
+    ],
   );
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
+      <SubmarineResearchSliceRibbon
+        slices={session.slices}
+        activeSliceId={session.currentSlice.id}
+        viewedSliceId={displayedSlice.id}
+        expanded={ribbonExpanded}
+        onSelectSlice={(sliceId) => {
+          setInspectedSliceId(sliceId === session.currentSlice.id ? null : sliceId);
+        }}
+        onToggleExpanded={() => {
+          setRibbonExpanded((current) => !current);
+        }}
+      />
+
       <section className="rounded-[24px] border border-sky-200/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,249,253,0.96))] px-4 py-4 shadow-[0_18px_40px_rgba(14,165,233,0.08)]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-2xl">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
-              研究总览
-            </div>
-            <h3 className="mt-2 text-lg font-semibold text-slate-950">
-              围绕目标、证据与交付判断推进整条研究链。
-            </h3>
-          </div>
-
-          <div className="grid min-w-[280px] flex-1 gap-3 md:grid-cols-3">
-            <OverviewMetric
-              label="当前焦点"
-              value={activeModule?.title ?? "等待开始"}
-            />
-            <OverviewMetric label="待确认事项" value={pendingSummary} />
-            <OverviewMetric label="研究产物" value={artifactSummary} />
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {session.modules.map((module, index) => (
-            <FlowIndexChip
-              key={module.id}
-              index={index + 1}
-              title={module.title}
-              status={module.status}
-              active={module.expanded}
-            />
-          ))}
+        <div className="grid gap-3 md:grid-cols-3">
+          <OverviewMetric label="当前切片" value={session.currentSlice.title} />
+          <OverviewMetric
+            label="查看模式"
+            value={isViewingHistory ? `正在查看 ${displayedSlice.title}` : "跟随当前研究"}
+          />
+          <OverviewMetric
+            label="研究链状态"
+            value={session.summary.evidenceReady ? "报告可审阅" : "研究推进中"}
+          />
         </div>
       </section>
+
+      <div
+        className={[
+          "flex flex-col gap-4 motion-safe:transition-[opacity,transform] motion-safe:duration-300 motion-safe:ease-out motion-reduce:transition-none",
+          surfaceMotionPhase === "staged"
+            ? "motion-safe:translate-y-1 motion-safe:opacity-0"
+            : "motion-safe:translate-y-0 motion-safe:opacity-100",
+        ].join(" ")}
+      >
+        {isViewingHistory ? (
+          <SubmarineResearchSliceHistoryBanner
+            slice={displayedSlice}
+            onReturnToCurrent={() => {
+              setInspectedSliceId(null);
+            }}
+          />
+        ) : null}
+
+        <SubmarineResearchSliceCard
+          slice={displayedSlice}
+          isHistoricalView={isViewingHistory}
+          facts={facts}
+          evidenceBadges={evidenceBadges}
+          contextNotes={contextNotes}
+        />
+      </div>
 
       {session.liveProgress.visible ? (
         <section
@@ -171,15 +312,10 @@ export function SubmarineResearchCanvas({
           </p>
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <OverviewMetric
-              label="状态"
-              value={session.liveProgress.statusLabel}
-            />
+            <OverviewMetric label="状态" value={session.liveProgress.statusLabel} />
             <OverviewMetric
               label="主智能体反馈"
-              value={
-                session.liveProgress.latestAssistantPreview ?? "暂未给出新的主智能体反馈。"
-              }
+              value={session.liveProgress.latestAssistantPreview ?? "暂未给出新的主智能体反馈。"}
             />
             <OverviewMetric
               label="研究者输入"
@@ -189,390 +325,14 @@ export function SubmarineResearchCanvas({
         </section>
       ) : null}
 
-      <WorkbenchFlow
-        items={session.modules.map((module) => ({
-          id: module.id,
-          title: module.title,
-          status: module.status,
-          summary: module.summary,
-          expanded: module.expanded,
-          content: renderModuleContent({
-            moduleId: module.id,
-            runtime,
-            designBrief,
-            finalReport,
-            executionPlan,
-            skillNames,
-            requestedOutputs,
-            verificationRequirements,
-            timelineEntries,
-            artifactPaths,
-            conclusionSections,
-            detail,
-          }),
-        }))}
-      />
-
-      <SecondaryLayerHost
-        layers={drawerLayers}
-        activeLayerId={activeDrawerId}
-        className="border-slate-200/70 bg-transparent"
-      />
+      {drawerLayers.length > 0 ? (
+        <SecondaryLayerHost
+          layers={drawerLayers}
+          activeLayerId={activeDrawerId}
+          className="border-slate-200/70 bg-transparent"
+        />
+      ) : null}
     </div>
   );
 }
 
-function OverviewMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-2xl border border-white/90 bg-white/88 px-3 py-3">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-semibold leading-6 text-slate-900">
-        {value}
-      </div>
-    </article>
-  );
-}
-
-function FlowIndexChip({
-  index,
-  title,
-  status,
-  active,
-}: {
-  index: number;
-  title: string;
-  status: string;
-  active: boolean;
-}) {
-  return (
-    <article
-      className={[
-        "inline-flex items-center gap-2 rounded-full border px-3 py-2 transition-colors",
-        active
-          ? "border-sky-200/80 bg-sky-50/80"
-          : "border-slate-200/80 bg-white/88",
-      ].join(" ")}
-    >
-      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {String(index).padStart(2, "0")}
-      </div>
-      <div className="text-sm font-semibold text-slate-950">{title}</div>
-      <div className="text-xs text-slate-600">{status}</div>
-    </article>
-  );
-}
-
-function renderModuleContent({
-  moduleId,
-  runtime,
-  designBrief,
-  finalReport,
-  executionPlan,
-  skillNames,
-  requestedOutputs,
-  verificationRequirements,
-  timelineEntries,
-  artifactPaths,
-  conclusionSections,
-  detail,
-}: {
-  moduleId: string;
-  runtime: SubmarineRuntimeSnapshotPayload | null;
-  designBrief: SubmarineDesignBriefPayload | null;
-  finalReport: SubmarineFinalReportPayload | null;
-  executionPlan: readonly {
-    role_id?: string | null;
-    owner?: string | null;
-    goal?: string | null;
-    status?: string | null;
-  }[];
-  skillNames: readonly string[];
-  requestedOutputs: readonly string[];
-  verificationRequirements: readonly string[];
-  timelineEntries: readonly {
-    actor?: string | null;
-    title?: string | null;
-    summary?: string | null;
-    status?: string | null;
-  }[];
-  artifactPaths: readonly string[];
-  conclusionSections: readonly {
-    title_zh?: string | null;
-    summary_zh?: string | null;
-  }[];
-  detail: SubmarineDetailModel;
-}): ReactNode {
-  switch (moduleId) {
-    case "proposal":
-      return (
-        <div className="space-y-4">
-          <KeyValueGrid
-            items={[
-              {
-                label: "研究目标",
-                value:
-                  runtime?.task_summary ??
-                  designBrief?.summary_zh ??
-                  "等待主智能体整理本轮潜艇仿真的目标与边界。",
-              },
-              {
-                label: "几何对象",
-                value:
-                  designBrief?.geometry_virtual_path ??
-                  runtime?.geometry_virtual_path ??
-                  "尚未绑定几何文件",
-              },
-              {
-                label: "交付预期",
-                value: requestedOutputs[0] ?? "尚未定义具体交付物",
-              },
-            ]}
-          />
-          <TokenList
-            title="用户约束"
-            emptyLabel="尚未补充显式约束。"
-            items={designBrief?.user_constraints ?? []}
-          />
-        </div>
-      );
-    case "decision":
-      return (
-        <div className="space-y-4">
-          <TokenList
-            title="待确认问题"
-            emptyLabel="当前没有待确认问题。"
-            items={designBrief?.open_questions ?? []}
-          />
-          <TokenList
-            title="待确认参数"
-            emptyLabel="当前没有待确认参数。"
-            items={
-              runtime?.calculation_plan
-                ?.filter((item) => item?.approval_state !== "researcher_confirmed")
-                .map((item) => item?.label ?? item?.item_id ?? "待确认项") ?? []
-            }
-          />
-        </div>
-      );
-    case "delegation":
-      return (
-        <CompactList
-          title="子代理任务分配"
-          emptyLabel="方案敲定后，这里会展示主智能体拆分出的子任务。"
-          items={executionPlan.map((item) => ({
-            title: item.goal ?? item.role_id ?? "未命名任务",
-            meta: [item.owner ?? "待分配", item.status ?? "待启动"].join(" · "),
-          }))}
-        />
-      );
-    case "skills":
-      return (
-        <TokenList
-          title="已调用技能"
-          emptyLabel="当前尚未触发显式技能调用。"
-          items={skillNames}
-        />
-      );
-    case "execution":
-      return (
-        <div className="space-y-4">
-          <KeyValueGrid
-            items={[
-              { label: "运行状态", value: runtime?.runtime_status ?? "尚未执行" },
-              {
-                label: "当前阶段",
-                value: runtime?.current_stage ?? "等待进入计算流程",
-              },
-              {
-                label: "运行产物",
-                value: artifactPaths.length > 0 ? `${artifactPaths.length} 项` : "暂无",
-              },
-            ]}
-          />
-          <CompactList
-            title="最新运行轨迹"
-            emptyLabel="暂无运行轨迹。"
-            items={timelineEntries.slice(0, 4).map((entry) => ({
-              title: entry.title ?? "未命名事件",
-              meta: [entry.actor ?? "主智能体", entry.status ?? "进行中"]
-                .filter(Boolean)
-                .join(" · "),
-              description: entry.summary ?? undefined,
-            }))}
-          />
-        </div>
-      );
-    case "postprocess-method":
-      return (
-        <div className="space-y-4">
-          <TokenList
-            title="后处理输出"
-            emptyLabel="尚未定义后处理输出。"
-            items={requestedOutputs}
-          />
-          <TokenList
-            title="科学验证要求"
-            emptyLabel="尚未定义科学验证要求。"
-            items={verificationRequirements}
-          />
-        </div>
-      );
-    case "postprocess-result":
-      return (
-        <KeyValueGrid
-          items={[
-            {
-              label: "对比试验",
-              value: `${detail.experimentBoard.compareCount} 组`,
-            },
-            {
-              label: "研究批次",
-              value: `${detail.experimentBoard.studyCount} 组`,
-            },
-            {
-              label: "已完成对比",
-              value: `${detail.experimentBoard.compareCompletedCount} 组`,
-            },
-          ]}
-        />
-      );
-    case "report":
-      return (
-        <div className="space-y-4">
-          <KeyValueGrid
-            items={[
-              {
-                label: "最终结论",
-                value:
-                  finalReport?.summary_zh ??
-                  "尚未形成最终结论，请继续推进研究与复核。",
-              },
-              {
-                label: "结论边界",
-                value:
-                  finalReport?.report_overview?.allowed_claim_level ??
-                  runtime?.allowed_claim_level ??
-                  "尚未明确",
-              },
-              {
-                label: "下一步建议",
-                value:
-                  finalReport?.report_overview?.recommended_next_step_zh ??
-                  "等待主智能体给出交付判断与后续动作。",
-              },
-            ]}
-          />
-          <CompactList
-            title="结论片段"
-            emptyLabel="最终报告生成后，这里会显示结论片段。"
-            items={conclusionSections.slice(0, 3).map((section) => ({
-              title: section.title_zh ?? "结论片段",
-              description: section.summary_zh ?? undefined,
-            }))}
-          />
-        </div>
-      );
-    default:
-      return null;
-  }
-}
-
-function KeyValueGrid({
-  items,
-}: {
-  items: readonly { label: string; value: string }[];
-}) {
-  return (
-    <div className="grid gap-3 md:grid-cols-3">
-      {items.map((item) => (
-        <article
-          key={item.label}
-          className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3"
-        >
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            {item.label}
-          </div>
-          <div className="mt-2 text-sm leading-6 text-slate-800">
-            {item.value}
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function TokenList({
-  title,
-  items,
-  emptyLabel,
-}: {
-  title: string;
-  items: readonly string[];
-  emptyLabel: string;
-}) {
-  return (
-    <section className="space-y-2">
-      <h4 className="text-sm font-semibold text-slate-950">{title}</h4>
-      {items.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {items.map((item) => (
-            <span
-              key={item}
-              className="rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-sm text-slate-700"
-            >
-              {item}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm leading-6 text-slate-600">{emptyLabel}</p>
-      )}
-    </section>
-  );
-}
-
-function CompactList({
-  title,
-  items,
-  emptyLabel,
-}: {
-  title: string;
-  items: readonly {
-    title: string;
-    meta?: string;
-    description?: string;
-  }[];
-  emptyLabel: string;
-}) {
-  return (
-    <section className="space-y-3">
-      <h4 className="text-sm font-semibold text-slate-950">{title}</h4>
-      {items.length > 0 ? (
-        <div className="space-y-2">
-          {items.map((item) => (
-            <article
-              key={[item.title, item.meta, item.description].join("-")}
-              className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3"
-            >
-              <div className="text-sm font-semibold text-slate-900">
-                {item.title}
-              </div>
-              {item.meta ? (
-                <div className="mt-1 text-xs text-slate-500">{item.meta}</div>
-              ) : null}
-              {item.description ? (
-                <div className="mt-2 text-sm leading-6 text-slate-700">
-                  {item.description}
-                </div>
-              ) : null}
-            </article>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm leading-6 text-slate-600">{emptyLabel}</p>
-      )}
-    </section>
-  );
-}

@@ -8,7 +8,10 @@ import {
   WorkbenchShell,
 } from "@/components/workspace/agentic-workbench";
 import { useArtifactContent } from "@/core/artifacts/hooks";
-import { buildProgressPreviewFromMessage } from "@/core/messages/utils";
+import {
+  buildProgressPreviewFromMessage,
+  parseUploadedFiles,
+} from "@/core/messages/utils";
 import { resolveThreadDisplayTitle } from "@/core/threads/utils";
 
 import { useThread } from "../messages/context";
@@ -47,10 +50,15 @@ type SubmarineAgenticWorkbenchProps = {
 export function SubmarineAgenticWorkbench({
   threadId,
   isNewThread,
+  showChatRail = true,
   negotiationContent,
   headerActions = null,
 }: SubmarineAgenticWorkbenchProps) {
   const { thread } = useThread();
+  const latestUserMessage = useMemo(
+    () => [...thread.messages].reverse().find((message) => message.type === "human") ?? null,
+    [thread.messages],
+  );
   const latestAssistantPreview = useMemo(() => {
     const latestAssistantMessage = [...thread.messages]
       .reverse()
@@ -61,14 +69,40 @@ export function SubmarineAgenticWorkbench({
       : null;
   }, [thread.messages]);
   const latestUserPreview = useMemo(() => {
-    const latestUserMessage = [...thread.messages]
-      .reverse()
-      .find((message) => message.type === "human");
-
     return latestUserMessage
       ? buildProgressPreviewFromMessage(latestUserMessage)
       : null;
-  }, [thread.messages]);
+  }, [latestUserMessage]);
+  const latestUploadedFiles = useMemo(() => {
+    if (!latestUserMessage) {
+      return [];
+    }
+
+    const structuredFiles = Array.isArray(latestUserMessage.additional_kwargs?.files)
+      ? latestUserMessage.additional_kwargs.files
+      : null;
+    if (structuredFiles && structuredFiles.length > 0) {
+      return structuredFiles
+        .map((file) => ({
+          filename:
+            typeof file?.filename === "string" ? file.filename : null,
+          path: typeof file?.path === "string" ? file.path : null,
+        }))
+        .filter(
+          (file): file is { filename: string; path: string | null } =>
+            Boolean(file.filename),
+        );
+    }
+
+    if (typeof latestUserMessage.content !== "string") {
+      return [];
+    }
+
+    return parseUploadedFiles(latestUserMessage.content).map((file) => ({
+      filename: file.filename,
+      path: file.path ?? null,
+    }));
+  }, [latestUserMessage]);
   const threadErrorMessage =
     thread.error instanceof Error
       ? thread.error.message
@@ -140,12 +174,14 @@ export function SubmarineAgenticWorkbench({
         errorMessage: threadErrorMessage,
         latestAssistantPreview,
         latestUserPreview,
+        latestUploadedFiles,
       }),
     [
       designBrief,
       finalReport,
       isNewThread,
       latestAssistantPreview,
+      latestUploadedFiles,
       latestUserPreview,
       runtime,
       submarineArtifacts.length,
@@ -203,7 +239,11 @@ export function SubmarineAgenticWorkbench({
 
   return (
     <section data-workbench-surface="submarine" className="h-full min-h-0">
-      <WorkbenchShell main={main} negotiation={negotiation} />
+      <WorkbenchShell
+        mobileNegotiationRailVisible={showChatRail}
+        main={main}
+        negotiation={negotiation}
+      />
     </section>
   );
 }

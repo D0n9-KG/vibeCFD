@@ -21,7 +21,9 @@ import { ExportTrigger } from "@/components/workspace/export-trigger";
 import { InputBox } from "@/components/workspace/input-box";
 import { MessageList } from "@/components/workspace/messages";
 import { ThreadContext } from "@/components/workspace/messages/context";
+import type { SubmarineRuntimeSnapshotPayload } from "@/components/workspace/submarine-runtime-panel.contract";
 import { SubmarineAgenticWorkbench } from "@/components/workspace/submarine-workbench";
+import { getSubmarineNegotiationAttentionKey } from "@/components/workspace/submarine-workbench/submarine-negotiation-rail.model";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings } from "@/core/settings";
@@ -124,6 +126,8 @@ export default function SubmarineWorkbenchPage() {
   const [pendingThreadRouteId, setPendingThreadRouteId] = useState<
     string | null
   >(null);
+  const [autoNegotiationAttentionKey, setAutoNegotiationAttentionKey] =
+    useState<string | null>(null);
   const mobileNegotiationRailVisible =
     sessionModel.mobileNegotiationRailVisible;
 
@@ -166,6 +170,13 @@ export default function SubmarineWorkbenchPage() {
       }
     },
   });
+  const runtime =
+    thread.values.submarine_runtime != null &&
+    typeof thread.values.submarine_runtime === "object"
+      ? (thread.values.submarine_runtime as SubmarineRuntimeSnapshotPayload)
+      : null;
+  const negotiationAttentionKey =
+    getSubmarineNegotiationAttentionKey(runtime);
 
   useEffect(() => {
     if (
@@ -193,6 +204,31 @@ export default function SubmarineWorkbenchPage() {
     thread.messages.length,
     streamMeta.persistedMessageCount,
     thread.isLoading,
+  ]);
+
+  useEffect(() => {
+    if (!negotiationAttentionKey) {
+      if (autoNegotiationAttentionKey !== null) {
+        setAutoNegotiationAttentionKey(null);
+      }
+      return;
+    }
+
+    if (autoNegotiationAttentionKey === negotiationAttentionKey) {
+      return;
+    }
+
+    setAutoNegotiationAttentionKey(negotiationAttentionKey);
+
+    if (!mobileNegotiationRailVisible) {
+      setSessionModel((model) =>
+        setAgenticWorkbenchMobileNegotiationRailVisible(model, true),
+      );
+    }
+  }, [
+    autoNegotiationAttentionKey,
+    mobileNegotiationRailVisible,
+    negotiationAttentionKey,
   ]);
 
   const handleStop = useCallback(async () => {

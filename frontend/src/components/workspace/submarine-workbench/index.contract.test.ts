@@ -7,6 +7,18 @@ const canvasSource = await readFile(
   new URL("./submarine-research-canvas.tsx", import.meta.url),
   "utf8",
 );
+const ribbonSource = await readFile(
+  new URL("./submarine-research-slice-ribbon.tsx", import.meta.url),
+  "utf8",
+);
+const cardSource = await readFile(
+  new URL("./submarine-research-slice-card.tsx", import.meta.url),
+  "utf8",
+);
+const historyBannerSource = await readFile(
+  new URL("./submarine-research-slice-history-banner.tsx", import.meta.url),
+  "utf8",
+);
 
 void test("submarine workbench mounts the research canvas instead of stage tabs", () => {
   assert.match(source, /SubmarineResearchCanvas/);
@@ -30,15 +42,14 @@ void test("submarine workbench removes the extra summary bar and verbose chat he
   assert.doesNotMatch(source, /negotiationQuestion/);
 });
 
-void test("submarine workbench folds overview and flow index back into the main canvas", () => {
+void test("submarine workbench renders a research ribbon and slice card instead of a flow-based center surface", () => {
   assert.doesNotMatch(source, /const nav = \(/);
   assert.doesNotMatch(source, /nav=\{nav\}/);
-  assert.doesNotMatch(source, /function NavMetric/);
-  assert.match(canvasSource, /FlowIndexChip/);
-  assert.doesNotMatch(canvasSource, /FlowIndexCard/);
-  assert.doesNotMatch(canvasSource, /overflow-x-auto/);
-  assert.doesNotMatch(canvasSource, /min-w-\[150px\]/);
-  assert.doesNotMatch(canvasSource, /DrawerShortcut/);
+  assert.match(canvasSource, /SubmarineResearchSliceRibbon/);
+  assert.match(canvasSource, /SubmarineResearchSliceCard/);
+  assert.match(canvasSource, /SubmarineResearchSliceHistoryBanner/);
+  assert.doesNotMatch(canvasSource, /WorkbenchFlow/);
+  assert.doesNotMatch(canvasSource, /FlowIndexChip/);
 });
 
 void test("submarine workbench exposes live progress before structured artifacts arrive", () => {
@@ -47,6 +58,11 @@ void test("submarine workbench exposes live progress before structured artifacts
   assert.match(source, /latestAssistantPreview/);
   assert.match(source, /latestUserPreview/);
   assert.match(canvasSource, /data-live-progress="submarine"/);
+});
+
+void test("submarine center surface no longer renders raw DeerFlow stage ids as visible evidence badges", () => {
+  assert.doesNotMatch(canvasSource, /阶段: \$\{runtime\.current_stage\}/);
+  assert.match(canvasSource, /buildSliceEvidenceBadgesModel/);
 });
 
 void test("submarine workbench scrolls the center canvas instead of the whole page", () => {
@@ -58,5 +74,34 @@ void test("submarine workbench scrolls the center canvas instead of the whole pa
   assert.match(
     source,
     /id="submarine-chat-rail"[\s\S]*className="flex h-full min-h-0 flex-col overflow-hidden"/,
+  );
+});
+
+void test("submarine workbench forwards mobile chat-rail visibility into the shared shell", () => {
+  assert.match(source, /showChatRail\?: boolean/);
+  assert.match(source, /mobileNegotiationRailVisible=\{showChatRail\}/);
+});
+
+void test("submarine research ribbon keeps slice nodes stacked on narrow screens before widening out", () => {
+  assert.match(ribbonSource, /className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"/);
+  assert.match(ribbonSource, /className=\{\[\s*"w-full rounded-\[22px\]/);
+});
+
+void test("submarine research surface uses motion-safe transitions with reduced-motion fallbacks", () => {
+  assert.match(
+    canvasSource,
+    /motion-safe:transition-\[opacity,transform\][\s\S]*motion-reduce:transition-none/,
+  );
+  assert.match(
+    ribbonSource,
+    /motion-safe:transition-\[transform,box-shadow,border-color,background-color\][\s\S]*motion-reduce:transition-none/,
+  );
+  assert.match(
+    cardSource,
+    /motion-safe:transition-\[transform,box-shadow,border-color,opacity\][\s\S]*motion-reduce:transition-none/,
+  );
+  assert.match(
+    historyBannerSource,
+    /motion-safe:transition-\[transform,opacity,box-shadow\][\s\S]*motion-reduce:transition-none/,
   );
 });

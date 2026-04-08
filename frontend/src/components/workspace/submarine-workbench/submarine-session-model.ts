@@ -1,35 +1,42 @@
-import { WORKBENCH_COPY } from "../agentic-workbench/workbench-copy.ts";
-import type {
+﻿import type {
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
   SubmarineRuntimeSnapshotPayload,
 } from "../submarine-runtime-panel.contract.ts";
 
-export const SUBMARINE_RESEARCH_MODULE_ORDER = [
-  "proposal",
-  "decision",
-  "delegation",
-  "skills",
-  "execution",
-  "postprocess-method",
-  "postprocess-result",
-  "report",
+import { buildSubmarineResearchSnapshotSummary } from "./submarine-research-canvas.model.ts";
+
+export const SUBMARINE_RESEARCH_SLICE_ORDER = [
+  "task-establishment",
+  "geometry-preflight",
+  "simulation-plan",
+  "simulation-execution",
+  "results-and-delivery",
 ] as const;
 
-export type SubmarineResearchModuleId =
-  (typeof SUBMARINE_RESEARCH_MODULE_ORDER)[number];
+export type SubmarineResearchSliceId =
+  (typeof SUBMARINE_RESEARCH_SLICE_ORDER)[number];
 
-export type SubmarineResearchModule = {
-  id: SubmarineResearchModuleId;
+export type SubmarineResearchSlice = {
+  id: SubmarineResearchSliceId;
   title: string;
-  status: string;
+  statusLabel: string;
   summary: string;
-  expanded: boolean;
+  keyEvidenceSummary: string;
+  agentInterpretation: string;
+  nextRecommendedAction: string;
 };
 
 export type SubmarineSessionModel = {
-  activeModuleId: SubmarineResearchModuleId;
-  modules: readonly SubmarineResearchModule[];
+  activeSliceId: SubmarineResearchSliceId;
+  slices: readonly SubmarineResearchSlice[];
+  currentSlice: SubmarineResearchSlice;
+  viewedSlice: SubmarineResearchSlice;
+  historyInspection: {
+    isViewingHistory: boolean;
+    bannerTitle: string | null;
+    returnLabel: string | null;
+  };
   summary: {
     currentObjective: string;
     evidenceReady: boolean;
@@ -66,6 +73,11 @@ export type BuildSubmarineSessionModelInput = {
   errorMessage: string | null;
   latestAssistantPreview: string | null;
   latestUserPreview: string | null;
+  latestUploadedFiles?: readonly {
+    filename: string;
+    path?: string | null;
+  }[];
+  viewedSliceId?: SubmarineResearchSliceId | null;
 };
 
 function countPendingApprovals({
@@ -78,8 +90,19 @@ function countPendingApprovals({
   const unconfirmedPlanItems = planItems.filter(
     (item) => item?.approval_state !== "researcher_confirmed",
   ).length;
+  const explicitConfirmationGate =
+    runtime?.review_status === "needs_user_confirmation" ||
+    runtime?.next_recommended_stage === "user-confirmation" ||
+    hasImmediateConfirmationRequirement(runtime, designBrief) ||
+    (designBrief?.confirmation_status === "draft" &&
+      (designBrief.open_questions?.length ?? 0) > 0);
+  const pendingApprovalCount = openQuestions + unconfirmedPlanItems;
 
-  return openQuestions + unconfirmedPlanItems;
+  if (pendingApprovalCount > 0) {
+    return pendingApprovalCount;
+  }
+
+  return explicitConfirmationGate ? 1 : 0;
 }
 
 function hasImmediateConfirmationRequirement(
@@ -111,13 +134,13 @@ function resolveBlockingReasons({
   const reasons: string[] = [];
 
   if (runtime?.review_status === "needs_user_confirmation") {
-    reasons.push("有待你确认的研究决策，主智能体会先停在协商区。");
+    reasons.push("当前存在待你确认的研究决策，主智能体会先停在协商区。");
   }
   if (runtime?.next_recommended_stage === "user-confirmation") {
-    reasons.push("当前建议先进行用户确认，再继续推进计算。");
+    reasons.push("当前建议先完成研究者确认，再继续推进计算。");
   }
   if (hasImmediateConfirmationRequirement(runtime, designBrief)) {
-    reasons.push("存在需要立即确认的参数或边界条件。");
+    reasons.push("存在需要立刻确认的参数或边界条件。");
   }
   if (pendingApprovalCount > 0) {
     reasons.push(`还有 ${pendingApprovalCount} 项待确认事项。`);
@@ -149,6 +172,7 @@ function hasExecutionSignal(runtime: SubmarineRuntimeSnapshotPayload | null): bo
     runtime?.runtime_status === "completed",
     runtime?.current_stage === "solver-dispatch",
     runtime?.current_stage === "result-reporting",
+    runtime?.current_stage === "supervisor-review",
     runtime?.execution_log_virtual_path,
     runtime?.solver_results_virtual_path,
     runtime?.workspace_case_dir_virtual_path,
@@ -160,9 +184,15 @@ function hasPostprocessResultSignal(
   runtime: SubmarineRuntimeSnapshotPayload | null,
   finalReport: SubmarineFinalReportPayload | null,
 ): boolean {
+  const reportPath = runtime?.report_virtual_path;
+  const reportLooksLikeDesignBrief =
+    typeof reportPath === "string" &&
+    (reportPath.includes("/design-brief/") || reportPath.includes("cfd-design-brief."));
+
   return [
     runtime?.current_stage === "result-reporting",
-    runtime?.report_virtual_path,
+    runtime?.current_stage === "supervisor-review",
+    reportLooksLikeDesignBrief ? null : reportPath,
     finalReport?.figure_delivery_summary,
     finalReport?.experiment_summary,
     finalReport?.scientific_study_summary,
@@ -170,174 +200,230 @@ function hasPostprocessResultSignal(
   ].some(Boolean);
 }
 
-function hasDelegationSignal(
-  runtime: SubmarineRuntimeSnapshotPayload | null,
-  designBrief: SubmarineDesignBriefPayload | null,
-): boolean {
-  return (runtime?.execution_plan?.length ?? designBrief?.execution_outline?.length ?? 0) > 0;
-}
-
-function hasMethodSignal(
-  runtime: SubmarineRuntimeSnapshotPayload | null,
-  designBrief: SubmarineDesignBriefPayload | null,
-  finalReport: SubmarineFinalReportPayload | null,
-): boolean {
-  return [
-    runtime?.requested_outputs?.length,
-    designBrief?.requested_outputs?.length,
-    designBrief?.scientific_verification_requirements?.length,
-    finalReport?.scientific_verification_assessment?.requirements?.length,
-    finalReport?.output_delivery_plan?.length,
-  ].some(Boolean);
-}
-
-function resolveActiveModuleId(
-  input: BuildSubmarineSessionModelInput,
-  blockingReasons: readonly string[],
-  skillNames: readonly string[],
-): SubmarineResearchModuleId {
-  if (input.isNewThread) {
-    return "proposal";
+function basenameOfPath(path?: string | null): string | null {
+  if (!path) {
+    return null;
   }
 
-  if (blockingReasons.length > 0) {
-    return "decision";
+  const normalized = path.replace(/\\/g, "/");
+  const segments = normalized.split("/");
+  return segments.at(-1) ?? normalized;
+}
+
+function hasGeometrySignal(
+  input: Pick<
+    BuildSubmarineSessionModelInput,
+    "runtime" | "designBrief" | "latestUploadedFiles"
+  >,
+): boolean {
+  const uploadedGeometry = input.latestUploadedFiles?.some((file) =>
+    file.filename.toLowerCase().endsWith(".stl"),
+  );
+
+  return Boolean(
+    input.runtime?.geometry_virtual_path ??
+      input.designBrief?.geometry_virtual_path ??
+      uploadedGeometry,
+  );
+}
+
+function hasPlanningSignal({
+  runtime,
+  designBrief,
+}: {
+  runtime: SubmarineRuntimeSnapshotPayload | null;
+  designBrief: SubmarineDesignBriefPayload | null;
+}): boolean {
+  const confirmedExecutionOutline =
+    designBrief?.confirmation_status === "confirmed" &&
+    (designBrief.execution_outline?.length ?? 0) > 0;
+
+  return Boolean(
+    confirmedExecutionOutline ||
+      (runtime?.calculation_plan?.length ?? 0) > 0 ||
+      (designBrief?.calculation_plan?.length ?? 0) > 0 ||
+      runtime?.next_recommended_stage === "solver-dispatch",
+  );
+}
+
+function buildResearchSlices({
+  input,
+  currentObjective,
+  pendingApprovalCount,
+  blockingReasons,
+  skillNames,
+}: {
+  input: BuildSubmarineSessionModelInput;
+  currentObjective: string;
+  pendingApprovalCount: number;
+  blockingReasons: readonly string[];
+  skillNames: readonly string[];
+}): readonly [SubmarineResearchSlice, ...SubmarineResearchSlice[]] {
+  const uploadedGeometryFile = input.latestUploadedFiles?.find((file) =>
+    file.filename.toLowerCase().endsWith(".stl"),
+  );
+  const geometryPath =
+    input.runtime?.geometry_virtual_path ??
+    input.designBrief?.geometry_virtual_path ??
+    uploadedGeometryFile?.path ??
+    uploadedGeometryFile?.filename;
+  const geometryFilename = basenameOfPath(geometryPath);
+  const semanticTaskSummary =
+    buildSubmarineResearchSnapshotSummary(
+      input.runtime?.task_summary ?? input.designBrief?.summary_zh ?? currentObjective,
+      72,
+    ) ?? currentObjective;
+  const executionPlanCount =
+    input.runtime?.execution_plan?.length ??
+    input.designBrief?.execution_outline?.length ??
+    0;
+  const confirmationGateActive = pendingApprovalCount > 0 || blockingReasons.length > 0;
+  const taskEstablishmentInterpretation = buildSubmarineResearchSnapshotSummary(
+    input.runtime?.task_summary ?? input.designBrief?.summary_zh,
+    72,
+  );
+
+  const slices: SubmarineResearchSlice[] = [
+    {
+      id: "task-establishment",
+      title: "任务建立",
+      statusLabel: input.isNewThread ? "进行中" : "已建立",
+      summary: currentObjective,
+      keyEvidenceSummary:
+        geometryFilename != null
+          ? `已收到研究对象 ${geometryFilename}。`
+          : "当前还没有稳定的几何对象或求解证据。",
+      agentInterpretation:
+        taskEstablishmentInterpretation != null
+          ? `主智能体已把当前研究意图收敛为：${taskEstablishmentInterpretation}`
+          : "当前仍处于研究意图收敛阶段，需要先明确几何、工况与交付口径。",
+      nextRecommendedAction:
+        geometryFilename != null
+          ? "进入几何预检并形成下一步 CFD 准备建议。"
+          : "补充几何、工况和交付要求。",
+    },
+  ];
+
+  if (hasGeometrySignal(input) && !input.isNewThread) {
+    slices.push({
+      id: "geometry-preflight",
+      title: "几何预检",
+      statusLabel: confirmationGateActive ? "待确认" : "已识别",
+      summary: semanticTaskSummary ?? "当前切片围绕具体几何对象的可计算性与前置判断展开。",
+      keyEvidenceSummary:
+        geometryFilename != null
+          ? `${geometryFilename} 已绑定为当前研究对象。`
+          : "当前切片已进入几何对象与工况前置判断阶段。",
+      agentInterpretation:
+        blockingReasons[0] ??
+        "主智能体正在把几何对象、基础工况和预期输出组织成可执行的前置研究切片。",
+      nextRecommendedAction:
+        confirmationGateActive
+          ? "先完成研究者确认，再继续几何预检与工况草案。"
+          : "生成工况草案并准备求解设置。",
+    });
   }
 
   if (
-    input.finalReport ||
-    input.runtime?.current_stage === "supervisor-review" ||
-    input.runtime?.review_status === "ready_for_supervisor" ||
-    input.runtime?.review_status === "completed"
+    hasPlanningSignal({
+      runtime: input.runtime,
+      designBrief: input.designBrief,
+    }) &&
+    !hasExecutionSignal(input.runtime) &&
+    !input.finalReport
   ) {
-    return "report";
-  }
-
-  if (hasPostprocessResultSignal(input.runtime, input.finalReport)) {
-    return "postprocess-result";
+    slices.push({
+      id: "simulation-plan",
+      title: "工况与计算草案",
+      statusLabel: confirmationGateActive ? "待确认" : "已整理",
+      summary:
+        confirmationGateActive
+          ? `当前仍有 ${pendingApprovalCount} 项研究决策等待确认。`
+          : "当前切片围绕求解准备、目标输出和技能协作展开。",
+      keyEvidenceSummary:
+        executionPlanCount > 0
+          ? `已形成 ${executionPlanCount} 项执行计划。`
+          : skillNames.length > 0
+            ? `已出现 ${skillNames.length} 个相关技能信号。`
+            : "已出现可执行的 CFD 规划信号。",
+      agentInterpretation:
+        confirmationGateActive
+          ? "主智能体正在等待你确认关键研究决策，然后再进入计算执行。"
+          : "主智能体已经把研究目标收敛成可执行的计算草案。",
+      nextRecommendedAction:
+        confirmationGateActive ? "完成研究者确认后推进求解。" : "进入首次求解执行。",
+    });
   }
 
   if (hasExecutionSignal(input.runtime)) {
-    return "execution";
+    slices.push({
+      id: "simulation-execution",
+      title: "求解执行",
+      statusLabel: input.runtime?.runtime_status === "running" ? "进行中" : "已完成",
+      summary:
+        input.runtime?.runtime_status === "running"
+          ? "当前切片展示正在执行的 CFD 求解与运行轨迹。"
+          : "当前切片展示已完成的求解执行与运行产物。",
+      keyEvidenceSummary:
+        input.runtime?.runtime_status === "running"
+          ? "已进入求解器分发或执行阶段。"
+          : "已形成可回看的求解执行证据。",
+      agentInterpretation:
+        input.runtime?.task_summary ??
+        "主智能体正在根据当前研究目标推进求解执行。",
+      nextRecommendedAction:
+        hasPostprocessResultSignal(input.runtime, input.finalReport)
+          ? "整理后处理结果与交付判断。"
+          : "等待结果产物并进入后处理。",
+    });
   }
 
-  if (skillNames.length > 0) {
-    return "skills";
+  if (input.finalReport || hasPostprocessResultSignal(input.runtime, input.finalReport)) {
+    slices.push({
+      id: "results-and-delivery",
+      title: "结果与交付判断",
+      statusLabel: input.finalReport ? "可审阅" : "整理中",
+      summary:
+        input.finalReport?.summary_zh ??
+        "当前切片围绕结果、证据边界和交付判断展开。",
+      keyEvidenceSummary:
+        input.finalReport?.report_overview?.recommended_next_step_zh ??
+        input.runtime?.report_virtual_path ??
+        "已出现结果或交付相关证据。",
+      agentInterpretation:
+        input.finalReport?.summary_zh ??
+        "主智能体正在把结果产物整理成可审阅的交付判断。",
+      nextRecommendedAction:
+        input.finalReport != null ? "审阅结果并决定后续研究。" : "等待最终交付汇总。",
+    });
   }
 
-  if (hasDelegationSignal(input.runtime, input.designBrief)) {
-    return "delegation";
-  }
-
-  if (hasMethodSignal(input.runtime, input.designBrief, input.finalReport)) {
-    return "postprocess-method";
-  }
-
-  return "proposal";
+  return slices as [SubmarineResearchSlice, ...SubmarineResearchSlice[]];
 }
 
-function resolveModuleStatus({
-  id,
-  activeModuleId,
-  pendingApprovalCount,
-  executionPlanCount,
-  skillNames,
-  runtime,
-  designBrief,
-  finalReport,
+function resolveActiveSlice({
+  input,
+  slices,
 }: {
-  id: SubmarineResearchModuleId;
-  activeModuleId: SubmarineResearchModuleId;
-  pendingApprovalCount: number;
-  executionPlanCount: number;
-  skillNames: readonly string[];
-  runtime: SubmarineRuntimeSnapshotPayload | null;
-  designBrief: SubmarineDesignBriefPayload | null;
-  finalReport: SubmarineFinalReportPayload | null;
-}): string {
-  if (id === activeModuleId) {
-    return "当前焦点";
+  input: BuildSubmarineSessionModelInput;
+  slices: readonly [SubmarineResearchSlice, ...SubmarineResearchSlice[]];
+}): SubmarineResearchSlice {
+  const blockedGeometryPreflight =
+    input.runtime?.current_stage === "task-intelligence" &&
+    input.runtime?.review_status === "needs_user_confirmation" &&
+    hasGeometrySignal(input) &&
+    !hasExecutionSignal(input.runtime) &&
+    !input.finalReport;
+
+  if (blockedGeometryPreflight) {
+    return (
+      slices.find((slice) => slice.id === "geometry-preflight") ??
+      slices.find((slice) => slice.id === "task-establishment") ??
+      slices[0]
+    );
   }
 
-  switch (id) {
-    case "proposal":
-      return designBrief?.summary_zh || runtime?.task_summary ? "已梳理" : "待梳理";
-    case "decision":
-      return pendingApprovalCount > 0 ? "待确认" : designBrief ? "已敲定" : "待协商";
-    case "delegation":
-      return executionPlanCount > 0 ? "已分工" : "待分工";
-    case "skills":
-      return skillNames.length > 0 ? "已调用" : "待调用";
-    case "execution":
-      if (runtime?.runtime_status === "running") {
-        return "计算中";
-      }
-      return hasExecutionSignal(runtime) ? "已执行" : "待执行";
-    case "postprocess-method":
-      return hasMethodSignal(runtime, designBrief, finalReport) ? "已定义" : "待定义";
-    case "postprocess-result":
-      return hasPostprocessResultSignal(runtime, finalReport) ? "已产出" : "待产出";
-    case "report":
-      return finalReport || runtime?.report_virtual_path ? "已汇总" : "待汇总";
-  }
-}
-
-function resolveModuleSummary({
-  id,
-  pendingApprovalCount,
-  executionPlanCount,
-  skillNames,
-  runtime,
-  designBrief,
-  finalReport,
-}: {
-  id: SubmarineResearchModuleId;
-  pendingApprovalCount: number;
-  executionPlanCount: number;
-  skillNames: readonly string[];
-  runtime: SubmarineRuntimeSnapshotPayload | null;
-  designBrief: SubmarineDesignBriefPayload | null;
-  finalReport: SubmarineFinalReportPayload | null;
-}): string {
-  switch (id) {
-    case "proposal":
-      return (
-        designBrief?.summary_zh ??
-        runtime?.task_summary ??
-        "先收敛研究目标、工况、几何对象与交付口径。"
-      );
-    case "decision":
-      return pendingApprovalCount > 0
-        ? `${pendingApprovalCount} 项待确认，确认后主智能体会继续推进。`
-        : "当前没有阻塞项，可继续推进研究流程。";
-    case "delegation":
-      return executionPlanCount > 0
-        ? `已有 ${executionPlanCount} 个子代理任务被纳入执行编排。`
-        : "方案敲定后，主智能体会拆分子任务与责任归属。";
-    case "skills":
-      return skillNames.length > 0
-        ? `已调用 ${skillNames.join("、")} 等技能支撑本轮流程。`
-        : "将按需调用几何检查、求解派发与报告整理等技能。";
-    case "execution":
-      return runtime?.runtime_status === "running"
-        ? "当前正在执行算例、记录日志并同步中间产物。"
-        : runtime?.runtime_status === "completed"
-          ? "计算已完成，正在整理后处理与交付证据。"
-          : "尚未进入实际计算。";
-    case "postprocess-method":
-      return hasMethodSignal(runtime, designBrief, finalReport)
-        ? "已定义输出指标、验证要求与后处理方法。"
-        : "后处理方法会在执行前与执行中持续补充。";
-    case "postprocess-result":
-      return hasPostprocessResultSignal(runtime, finalReport)
-        ? "对比试验、后处理图表与关键指标会在这里汇总。"
-        : "尚未形成可复核的后处理结果。";
-    case "report":
-      return (
-        finalReport?.summary_zh ??
-        "最终报告会汇总结论、证据边界、交付判断与后续建议。"
-      );
-  }
+  return slices.at(-1) ?? slices[0];
 }
 
 export function buildSubmarineSessionModel(
@@ -350,14 +436,26 @@ export function buildSubmarineSessionModel(
     pendingApprovalCount,
   });
   const skillNames = collectSkillNames(input.runtime);
-  const activeModuleId = resolveActiveModuleId(input, blockingReasons, skillNames);
-  const executionPlanCount =
-    input.runtime?.execution_plan?.length ?? input.designBrief?.execution_outline?.length ?? 0;
   const evidenceReady = Boolean(input.finalReport);
   const currentObjective =
-    input.runtime?.task_summary ??
-    input.designBrief?.summary_zh ??
-    "先明确这轮潜艇仿真的研究目标、边界条件与交付要求。";
+    buildSubmarineResearchSnapshotSummary(
+      input.runtime?.task_summary ?? input.designBrief?.summary_zh ?? input.latestUserPreview,
+      72,
+    ) ?? "先明确这轮潜艇仿真的研究目标、边界条件与交付要求。";
+  const slices = buildResearchSlices({
+    input,
+    currentObjective,
+    pendingApprovalCount,
+    blockingReasons,
+    skillNames,
+  });
+  const activeSlice = resolveActiveSlice({
+    input,
+    slices,
+  });
+  const viewedSlice =
+    slices.find((slice) => slice.id === input.viewedSliceId) ?? activeSlice;
+  const isViewingHistory = viewedSlice.id !== activeSlice.id;
 
   const liveProgressVisible =
     input.messageCount > 0 &&
@@ -376,41 +474,15 @@ export function buildSubmarineSessionModel(
     "当前会话已经启动，主智能体正在整理几何、工况与计算方案，请继续在右侧协商区补充信息。";
 
   return {
-    activeModuleId,
-    modules: SUBMARINE_RESEARCH_MODULE_ORDER.map((id) => ({
-      id,
-      title:
-        {
-          proposal: WORKBENCH_COPY.submarine.modules.proposal,
-          decision: WORKBENCH_COPY.submarine.modules.decision,
-          delegation: WORKBENCH_COPY.submarine.modules.delegation,
-          skills: WORKBENCH_COPY.submarine.modules.skills,
-          execution: WORKBENCH_COPY.submarine.modules.execution,
-          "postprocess-method": WORKBENCH_COPY.submarine.modules.postprocessMethod,
-          "postprocess-result": WORKBENCH_COPY.submarine.modules.postprocessResult,
-          report: WORKBENCH_COPY.submarine.modules.report,
-        }[id] ?? id,
-      status: resolveModuleStatus({
-        id,
-        activeModuleId,
-        pendingApprovalCount,
-        executionPlanCount,
-        skillNames,
-        runtime: input.runtime,
-        designBrief: input.designBrief,
-        finalReport: input.finalReport,
-      }),
-      summary: resolveModuleSummary({
-        id,
-        pendingApprovalCount,
-        executionPlanCount,
-        skillNames,
-        runtime: input.runtime,
-        designBrief: input.designBrief,
-        finalReport: input.finalReport,
-      }),
-      expanded: id === activeModuleId,
-    })),
+    activeSliceId: activeSlice.id,
+    slices,
+    currentSlice: activeSlice,
+    viewedSlice,
+    historyInspection: {
+      isViewingHistory,
+      bannerTitle: isViewingHistory ? "正在查看历史切片" : null,
+      returnLabel: isViewingHistory ? "返回当前研究" : null,
+    },
     summary: {
       currentObjective,
       evidenceReady,
@@ -444,3 +516,4 @@ export function buildSubmarineSessionModel(
     },
   };
 }
+

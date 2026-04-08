@@ -319,8 +319,8 @@ export const zhCN: Translations = {
 
   // Tool calls
   toolCalls: {
-    moreSteps: (count: number) => `查看其他 ${count} 个步骤`,
-    lessSteps: "隐藏步骤",
+    moreSteps: (count: number) => `查看其他 ${count} 条过程记录`,
+    lessSteps: "隐藏过程记录",
     executeCommand: "执行命令",
     presentFiles: "展示文件",
     needYourHelp: "需要你的协助",
