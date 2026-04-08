@@ -71,18 +71,22 @@ export function deriveOptimisticMessagesAfterUpload({
 
 export function shouldPromoteStartedThreadRoute({
   pendingThreadId,
+  activeThreadId,
   isLoading,
   persistedMessageCount,
+  visibleMessageCount,
 }: {
   pendingThreadId?: string | null | undefined;
+  activeThreadId?: string | null | undefined;
   isLoading: boolean;
   persistedMessageCount: number;
+  visibleMessageCount: number;
 }) {
   return (
     pendingThreadId != null &&
     pendingThreadId.length > 0 &&
-    !isLoading &&
-    persistedMessageCount > 0
+    activeThreadId === pendingThreadId &&
+    (visibleMessageCount > 0 || (!isLoading && persistedMessageCount > 0))
   );
 }
 

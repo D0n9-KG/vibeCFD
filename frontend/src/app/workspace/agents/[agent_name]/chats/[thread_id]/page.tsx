@@ -84,8 +84,10 @@ export default function AgentChatPage() {
     if (
       !shouldPromoteStartedThreadRoute({
         pendingThreadId: pendingThreadRouteId,
+        activeThreadId: threadId,
         isLoading: thread.isLoading,
         persistedMessageCount: streamMeta.persistedMessageCount,
+        visibleMessageCount: thread.messages.length,
       })
     ) {
       return;
@@ -99,6 +101,8 @@ export default function AgentChatPage() {
     agent_name,
     pendingThreadRouteId,
     router,
+    threadId,
+    thread.messages.length,
     streamMeta.persistedMessageCount,
     thread.isLoading,
   ]);

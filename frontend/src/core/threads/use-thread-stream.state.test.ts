@@ -194,28 +194,40 @@ void test("deriveThreadsAfterWorkbenchStart patches a created thread with a pers
   );
 });
 
-void test("shouldPromoteStartedThreadRoute waits until the first thread response has landed", () => {
+void test("shouldPromoteStartedThreadRoute waits for the created thread binding before promoting", () => {
   assert.equal(
     shouldPromoteStartedThreadRoute({
       pendingThreadId: "thread-123",
+      activeThreadId: "different-thread",
       isLoading: true,
       persistedMessageCount: 1,
+      visibleMessageCount: 2,
     }),
     false,
   );
+});
+
+void test("shouldPromoteStartedThreadRoute promotes as soon as the rebound thread shows visible messages", () => {
   assert.equal(
     shouldPromoteStartedThreadRoute({
       pendingThreadId: "thread-123",
-      isLoading: false,
+      activeThreadId: "thread-123",
+      isLoading: true,
       persistedMessageCount: 0,
+      visibleMessageCount: 1,
     }),
-    false,
+    true,
   );
+});
+
+void test("shouldPromoteStartedThreadRoute still promotes after loading finishes once persisted messages exist", () => {
   assert.equal(
     shouldPromoteStartedThreadRoute({
       pendingThreadId: "thread-123",
+      activeThreadId: "thread-123",
       isLoading: false,
       persistedMessageCount: 2,
+      visibleMessageCount: 0,
     }),
     true,
   );

@@ -163,8 +163,10 @@ export function SkillStudioThreadRoute({
     if (
       !shouldPromoteStartedThreadRoute({
         pendingThreadId: pendingThreadRouteId,
+        activeThreadId: threadId,
         isLoading: thread.isLoading,
         persistedMessageCount: streamMeta.persistedMessageCount,
+        visibleMessageCount: thread.messages.length,
       }) ||
       pendingThreadRouteId == null
     ) {
@@ -184,6 +186,8 @@ export function SkillStudioThreadRoute({
     pendingThreadRouteId,
     router,
     selectedAgentName,
+    threadId,
+    thread.messages.length,
     streamMeta.persistedMessageCount,
     thread.isLoading,
   ]);

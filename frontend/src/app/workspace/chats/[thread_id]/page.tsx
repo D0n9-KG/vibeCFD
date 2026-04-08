@@ -81,8 +81,10 @@ export default function ChatPage() {
     if (
       !shouldPromoteStartedThreadRoute({
         pendingThreadId: pendingThreadRouteId,
+        activeThreadId: threadId,
         isLoading: thread.isLoading,
         persistedMessageCount: streamMeta.persistedMessageCount,
+        visibleMessageCount: thread.messages.length,
       })
     ) {
       return;
@@ -97,6 +99,8 @@ export default function ChatPage() {
     isMock,
     pendingThreadRouteId,
     router,
+    threadId,
+    thread.messages.length,
     streamMeta.persistedMessageCount,
     thread.isLoading,
   ]);

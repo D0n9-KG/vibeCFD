@@ -168,8 +168,10 @@ export default function SubmarineWorkbenchPage() {
     if (
       !shouldPromoteStartedThreadRoute({
         pendingThreadId: pendingThreadRouteId,
+        activeThreadId: threadId,
         isLoading: thread.isLoading,
         persistedMessageCount: streamMeta.persistedMessageCount,
+        visibleMessageCount: thread.messages.length,
       })
     ) {
       return;
@@ -182,8 +184,10 @@ export default function SubmarineWorkbenchPage() {
     setPendingThreadRouteId(null);
   }, [
     isMock,
+    threadId,
     pendingThreadRouteId,
     router,
+    thread.messages.length,
     streamMeta.persistedMessageCount,
     thread.isLoading,
   ]);

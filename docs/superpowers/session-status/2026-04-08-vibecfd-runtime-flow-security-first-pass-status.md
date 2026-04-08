@@ -8,9 +8,9 @@
 
 **Prior Art Survey:** `none`
 
-**Last Updated:** 2026-04-08 21:05 Asia/Shanghai
+**Last Updated:** 2026-04-08 21:28 Asia/Shanghai
 
-**Current Focus:** Hold the repo at a verified checkpoint after extending the first-pass runtime/url/progress/security fixes with cleaner progress previews, thread-title sanitation, and thread-level upload quotas, then re-running browser evidence from the main workspace runtime.
+**Current Focus:** Hold the repo at a verified checkpoint after extending the first-pass runtime/url/progress/security fixes with cleaner progress previews, thread-title sanitation, thread-level upload quotas, and an earlier route-promotion rule for newly created threads.
 
 **Next Recommended Step:** Prioritize the thread route-promotion timing issue in `submarine/new`, then decide whether the following pass should focus on gateway-side auth / deployment hardening or deeper CFD-specific artifact generation and geometry-state UX.
 
@@ -66,7 +66,7 @@
 - The main workspace runtime is stable in the current session, but the historical duplicate-process issue suggests startup orchestration should eventually be scripted so developers do not drift back into split runtime states
 - Frontend session guards are now in place, but any feature that still depends on frontend thread-file routes in an unauthenticated local environment would need an explicit auth story
 - Browser QA shows the system still often sits in a pre-artifact state for a while; the UX is now understandable, but deeper agent/runtime instrumentation may still be needed for CFD users who expect immediate geometry-specific feedback
-- `submarine/new` still does not reliably promote to `/workspace/submarine/{thread_id}` quickly after a fresh submission. In the latest browser retest, the sidebar inserted the new thread and the main canvas showed the new live-progress card, but the page stayed on `/new` and the sidebar label remained `未命名` during the waiting window. This looks like a remaining timing/threshold issue around `shouldPromoteStartedThreadRoute(...)`.
+- Fresh `submarine/new` submissions now promote to `/workspace/submarine/{thread_id}` once the created thread is rebound and visible messages exist, even before persisted-message counts catch up. The remaining issue is title freshness, not route promotion.
 
 ## Relevant Findings / Notes
 - Focused verification completed successfully:
@@ -85,4 +85,5 @@
 - Browser regression after the title cleanup showed:
   - existing polluted Submarine threads no longer leak raw upload protocol text into the heading or recent-thread list
   - newly created Skill Studio threads now show the user’s intent sentence as the visible thread title
-  - newly created Submarine threads still start as `未命名` while the page remains on `/workspace/submarine/new`, so the route-promotion timing issue remains open
+  - after adjusting `shouldPromoteStartedThreadRoute(...)` to use the rebound thread id plus visible message count, fresh Submarine submissions now cut over to `/workspace/submarine/{thread_id}` instead of lingering on `/new`
+  - newly created Submarine threads still often display `未命名` / `潜艇 CFD 会话` during the pre-artifact window, so title generation freshness remains open even though the route timing is improved
