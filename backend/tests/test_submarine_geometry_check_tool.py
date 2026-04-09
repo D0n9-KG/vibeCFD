@@ -140,6 +140,9 @@ def test_submarine_geometry_check_generates_thread_artifacts(tmp_path, monkeypat
     assert payload["geometry"]["geometry_family"] == "Type 209"
     assert payload["candidate_cases"]
     assert "summary_zh" in payload
+    message = result.update["messages"][0].content
+    assert "研究产物" in message
+    assert "DeerFlow artifacts" not in message
 
     markdown = md_path.read_text(encoding="utf-8")
     assert "几何检查" in markdown
@@ -302,7 +305,13 @@ def test_submarine_geometry_check_requires_user_confirmation_before_preflight(
     assert "messages" in result.update
     assert "artifacts" not in result.update
     assert "submarine_runtime" not in result.update
-    assert "user confirmation" in result.update["messages"][0].content.lower()
+    message = result.update["messages"][0].content
+    assert "研究者确认" in message
+    assert "协商区" in message
+    assert "设计简报" in message
+    assert "继续几何预检" in message
+    assert "user confirmation" not in message.lower()
+    assert "submarine_geometry_check" not in message
 
 
 def test_submarine_geometry_check_preserves_confirmed_brief_context(

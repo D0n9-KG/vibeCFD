@@ -1,4 +1,4 @@
-"""Custom OpenAI Codex provider using ChatGPT Codex Responses API.
+﻿"""Custom OpenAI Codex provider using ChatGPT Codex Responses API.
 
 Uses Codex CLI OAuth tokens with chatgpt.com/backend-api/codex/responses endpoint.
 This is the same endpoint that the Codex CLI uses internally.
@@ -13,6 +13,7 @@ Supports:
 
 import json
 import logging
+import re
 import time
 from typing import Any
 
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex"
 MAX_RETRIES = 3
+_UPLOAD_BLOCK_RE = re.compile(r"<uploaded_files>[\s\S]*?</uploaded_files>\n*", re.IGNORECASE)
 
 
 class CodexChatModel(BaseChatModel):
@@ -74,6 +76,10 @@ class CodexChatModel(BaseChatModel):
         """Load access_token and account_id from Codex CLI auth."""
         return load_codex_cli_credential()
 
+    @staticmethod
+    def _contains_cjk(text: str) -> bool:
+        return any("\u4e00" <= char <= "\u9fff" for char in text)
+
     @classmethod
     def _normalize_content(cls, content: Any) -> str:
         """Flatten LangChain content blocks into plain text for Codex."""
@@ -101,6 +107,23 @@ class CodexChatModel(BaseChatModel):
             return json.dumps(content, ensure_ascii=False)
         except TypeError:
             return str(content)
+
+    @classmethod
+    def _latest_user_visible_text(cls, messages: list[BaseMessage]) -> str:
+        for msg in reversed(messages):
+            if not isinstance(msg, HumanMessage):
+                continue
+            normalized = cls._normalize_content(msg.content)
+            visible = _UPLOAD_BLOCK_RE.sub("", normalized).strip()
+            return visible or normalized.strip()
+        return ""
+
+    @classmethod
+    def _build_empty_response_fallback(cls, messages: list[BaseMessage]) -> str:
+        latest_user_text = cls._latest_user_visible_text(messages)
+        if cls._contains_cjk(latest_user_text):
+            return "\u6211\u5148\u6839\u636e\u4f60\u521a\u624d\u7684\u8f93\u5165\u7ee7\u7eed\u63a8\u8fdb\uff1b\u5982\u679c\u9700\u8981\u4f60\u8865\u5145\u4fe1\u606f\uff0c\u6211\u4f1a\u660e\u786e\u544a\u8bc9\u4f60\u3002"
+        return "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
 
     def _convert_messages(self, messages: list[BaseMessage]) -> tuple[str, list[dict]]:
         """Convert LangChain messages to Responses API format.
@@ -349,7 +372,17 @@ class CodexChatModel(BaseChatModel):
         """Generate a response using Codex Responses API."""
         tools = kwargs.get("tools", None)
         response = self._call_codex_api(messages, tools=tools)
-        return self._parse_response(response)
+        result = self._parse_response(response)
+        message = result.generations[0].message
+        if (
+            not self._normalize_content(message.content).strip()
+            and not message.tool_calls
+            and not message.invalid_tool_calls
+        ):
+            result.generations[0].message = message.model_copy(
+                update={"content": self._build_empty_response_fallback(messages)}
+            )
+        return result
 
     def bind_tools(self, tools: list, **kwargs: Any) -> Any:
         """Bind tools for function calling."""
@@ -394,3 +427,4 @@ class CodexChatModel(BaseChatModel):
                     formatted_tools.append(tool)
 
         return RunnableBinding(bound=self, kwargs={"tools": formatted_tools}, **kwargs)
+

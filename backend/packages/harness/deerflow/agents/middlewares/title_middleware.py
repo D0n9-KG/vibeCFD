@@ -29,6 +29,10 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         re.IGNORECASE,
     )
     _UPLOAD_FILENAME_RE = re.compile(r"^\s*-\s+([^\n(]+?)\s*\([^)]*\)\s*$", re.MULTILINE)
+    _PLACEHOLDER_TITLES = {
+        "I'll continue based on your latest request. If I need anything else, I'll ask clearly.",
+        "\u6211\u5148\u6839\u636e\u4f60\u521a\u624d\u7684\u8f93\u5165\u7ee7\u7eed\u63a8\u8fdb\uff1b\u5982\u679c\u9700\u8981\u4f60\u8865\u5145\u4fe1\u606f\uff0c\u6211\u4f1a\u660e\u786e\u544a\u8bc9\u4f60\u3002",
+    }
 
     def _normalize_content(self, content: object) -> str:
         if isinstance(content, str):
@@ -126,6 +130,15 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         title = title_content.strip().strip('"').strip("'")
         return title[: config.max_chars] if len(title) > config.max_chars else title
 
+    def _looks_like_placeholder_title(self, title: str) -> bool:
+        normalized = title.strip()
+        return any(
+            normalized == placeholder
+            or placeholder.startswith(normalized)
+            or normalized.startswith(placeholder)
+            for placeholder in self._PLACEHOLDER_TITLES
+        )
+
     def _fallback_title(self, user_msg: str) -> str:
         config = get_title_config()
         cleaned_user_msg = self._clean_user_message(user_msg)
@@ -146,7 +159,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         try:
             response = model.invoke(prompt)
             title = self._parse_title(response.content)
-            if not title:
+            if not title or self._looks_like_placeholder_title(title):
                 title = self._fallback_title(user_msg)
         except Exception:
             logger.exception("Failed to generate title (sync)")
@@ -166,7 +179,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         try:
             response = await model.ainvoke(prompt)
             title = self._parse_title(response.content)
-            if not title:
+            if not title or self._looks_like_placeholder_title(title):
                 title = self._fallback_title(user_msg)
         except Exception:
             logger.exception("Failed to generate title (async)")

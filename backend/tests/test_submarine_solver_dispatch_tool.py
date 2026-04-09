@@ -336,6 +336,9 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
     )
     assert "solver_results" not in provenance_manifest["artifact_entrypoints"]
     assert md_path.exists()
+    message = result.update["messages"][0].content
+    assert "研究产物" in message
+    assert "DeerFlow artifacts" not in message
 
 
 def test_submarine_solver_dispatch_marks_drifted_but_runnable_environment_parity(
@@ -2211,7 +2214,13 @@ def test_submarine_solver_dispatch_requires_user_confirmation_before_dispatch(
     assert "messages" in result.update
     assert "artifacts" not in result.update
     assert "submarine_runtime" not in result.update
-    assert "user confirmation" in result.update["messages"][0].content.lower()
+    message = result.update["messages"][0].content
+    assert "研究者确认" in message
+    assert "协商区" in message
+    assert "设计简报" in message
+    assert "继续求解准备" in message
+    assert "user confirmation" not in message.lower()
+    assert "submarine_solver_dispatch" not in message
 
 
 def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design_brief_artifact(

@@ -65,6 +65,92 @@ def test_codex_provider_flattens_structured_text_blocks(monkeypatch):
     assert input_items == [{"role": "user", "content": "Hello from blocks"}]
 
 
+def test_codex_provider_emits_visible_fallback_for_empty_final_response(monkeypatch):
+    monkeypatch.setattr(
+        CodexChatModel,
+        "_load_codex_auth",
+        lambda self: CodexCliCredential(access_token="token", account_id="acct"),
+    )
+
+    model = CodexChatModel()
+    monkeypatch.setattr(
+        model,
+        "_call_codex_api",
+        lambda messages, tools=None: {
+            "model": "gpt-5.4",
+            "usage": {
+                "input_tokens": 12,
+                "output_tokens": 3,
+                "total_tokens": 15,
+            },
+            "output": [],
+        },
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    "请先对这个 STL 做几何可用性预检。"
+                )
+            )
+        ]
+    )
+
+    assert (
+        result.generations[0].message.content
+        == "我先根据你刚才的输入继续推进；如果需要你补充信息，我会明确告诉你。"
+    )
+
+
+def test_codex_provider_does_not_inject_fallback_for_tool_call_only_response(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        CodexChatModel,
+        "_load_codex_auth",
+        lambda self: CodexCliCredential(access_token="token", account_id="acct"),
+    )
+
+    model = CodexChatModel()
+    monkeypatch.setattr(
+        model,
+        "_call_codex_api",
+        lambda messages, tools=None: {
+            "model": "gpt-5.4",
+            "usage": {
+                "input_tokens": 12,
+                "output_tokens": 3,
+                "total_tokens": 15,
+            },
+            "output": [
+                {
+                    "type": "function_call",
+                    "name": "submarine_geometry_check",
+                    "call_id": "call_123",
+                    "arguments": "{}",
+                }
+            ],
+        },
+    )
+
+    result = model._generate([HumanMessage(content="Inspect this STL.")])
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_geometry_check",
+            "args": {},
+            "id": "call_123",
+            "type": "tool_call",
+        }
+    ]
+
+
 def test_claude_provider_rejects_non_positive_retry_attempts():
     with pytest.raises(ValueError, match="retry_max_attempts must be >= 1"):
         ClaudeChatModel(model="claude-sonnet-4-6", retry_max_attempts=0)
@@ -319,6 +405,84 @@ def test_openai_cli_provider_generate_handles_sse_string_response(monkeypatch):
     result = model._generate([HumanMessage(content="Reply with exactly DEFAULT_OK")])
 
     assert result.generations[0].message.content == "DEFAULT_OK"
+
+
+def test_openai_cli_provider_emits_visible_fallback_for_empty_final_response(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate([HumanMessage(content="Please keep going with the STL check.")])
+
+    assert result.generations[0].message.content == "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
+
+
+def test_openai_cli_provider_does_not_inject_fallback_for_tool_call_only_response(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "function_call",
+                        "name": "echo_text",
+                        "arguments": "{\"text\":\"DEFAULT_OK\"}",
+                        "call_id": "call_123",
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate([HumanMessage(content="Call echo_text with DEFAULT_OK.")])
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "echo_text",
+            "args": {"text": "DEFAULT_OK"},
+            "id": "call_123",
+            "type": "tool_call",
+        }
+    ]
 
 
 def test_openai_cli_provider_stream_uses_non_stream_fallback(monkeypatch):

@@ -10,17 +10,19 @@ stack while normalizing both shapes into one stable contract.
 from collections.abc import AsyncIterator, Iterator
 import json
 import logging
+import re
 from typing import Any
 
 from langchain_openai import ChatOpenAI
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
-from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage
 from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 
 from deerflow.models.credential_loader import load_openai_api_credential
 
 logger = logging.getLogger(__name__)
+_UPLOAD_BLOCK_RE = re.compile(r"<uploaded_files>[\s\S]*?</uploaded_files>\n*", re.IGNORECASE)
 
 
 class OpenAICliChatModel(ChatOpenAI):
@@ -53,6 +55,71 @@ class OpenAICliChatModel(ChatOpenAI):
         self.openai_api_key = SecretStr(current_key)
         super().model_post_init(__context)
 
+    @staticmethod
+    def _contains_cjk(text: str) -> bool:
+        return any("\u4e00" <= char <= "\u9fff" for char in text)
+
+    @classmethod
+    def _normalize_content(cls, content: Any) -> str:
+        if isinstance(content, str):
+            return content
+
+        if isinstance(content, list):
+            parts = [cls._normalize_content(item) for item in content]
+            return "\n".join(part for part in parts if part)
+
+        if isinstance(content, dict):
+            for key in ("text", "output"):
+                value = content.get(key)
+                if isinstance(value, str):
+                    return value
+            nested_content = content.get("content")
+            if nested_content is not None:
+                return cls._normalize_content(nested_content)
+            try:
+                return json.dumps(content, ensure_ascii=False)
+            except TypeError:
+                return str(content)
+
+        try:
+            return json.dumps(content, ensure_ascii=False)
+        except TypeError:
+            return str(content)
+
+    @classmethod
+    def _latest_user_visible_text(cls, messages: list[BaseMessage]) -> str:
+        for msg in reversed(messages):
+            if not isinstance(msg, HumanMessage):
+                continue
+            normalized = cls._normalize_content(msg.content)
+            visible = _UPLOAD_BLOCK_RE.sub("", normalized).strip()
+            return visible or normalized.strip()
+        return ""
+
+    @classmethod
+    def _build_empty_response_fallback(cls, messages: list[BaseMessage]) -> str:
+        latest_user_text = cls._latest_user_visible_text(messages)
+        if cls._contains_cjk(latest_user_text):
+            return "\u6211\u5148\u6839\u636e\u4f60\u521a\u624d\u7684\u8f93\u5165\u7ee7\u7eed\u63a8\u8fdb\uff1b\u5982\u679c\u9700\u8981\u4f60\u8865\u5145\u4fe1\u606f\uff0c\u6211\u4f1a\u660e\u786e\u544a\u8bc9\u4f60\u3002"
+        return "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
+
+    @classmethod
+    def _apply_empty_response_fallback(cls, result: ChatResult, messages: list[BaseMessage]) -> ChatResult:
+        if not result.generations:
+            return result
+
+        message = result.generations[0].message
+        if (
+            not cls._normalize_content(message.content).strip()
+            and not getattr(message, "tool_calls", None)
+            and not getattr(message, "invalid_tool_calls", None)
+        ):
+            result.generations[0].message = message.model_copy(
+                update={"content": cls._build_empty_response_fallback(messages)}
+            )
+
+        return result
+
     def _generate(
         self,
         messages: list[BaseMessage],
@@ -66,7 +133,8 @@ class OpenAICliChatModel(ChatOpenAI):
 
         raw_response = self.root_client.responses.create(**payload)
         response = self._normalize_responses_api_response(raw_response)
-        return self._build_chat_result_from_response_dict(response)
+        result = self._build_chat_result_from_response_dict(response)
+        return self._apply_empty_response_fallback(result, messages)
 
     async def _agenerate(
         self,
@@ -81,7 +149,8 @@ class OpenAICliChatModel(ChatOpenAI):
 
         raw_response = await self.root_async_client.responses.create(**payload)
         response = self._normalize_responses_api_response(raw_response)
-        return self._build_chat_result_from_response_dict(response)
+        result = self._build_chat_result_from_response_dict(response)
+        return self._apply_empty_response_fallback(result, messages)
 
     def _stream(
         self,

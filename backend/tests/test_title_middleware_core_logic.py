@@ -10,7 +10,6 @@ from deerflow.config.title_config import TitleConfig, get_title_config, set_titl
 
 
 def _clone_title_config(config: TitleConfig) -> TitleConfig:
-    # Avoid mutating shared global config objects across tests.
     return TitleConfig(**config.model_dump())
 
 
@@ -24,7 +23,6 @@ def _set_test_title_config(**overrides) -> TitleConfig:
 
 class TestTitleMiddlewareCoreLogic:
     def setup_method(self):
-        # Title config is a global singleton; snapshot and restore for test isolation.
         self._original = _clone_title_config(get_title_config())
 
     def teardown_method(self):
@@ -35,8 +33,8 @@ class TestTitleMiddlewareCoreLogic:
         middleware = TitleMiddleware()
         state = {
             "messages": [
-                HumanMessage(content="帮我总结这段代码"),
-                AIMessage(content="好的，我先看结构"),
+                HumanMessage(content="Help me summarize this codebase."),
+                AIMessage(content="Sure, I will inspect the structure first."),
             ]
         }
 
@@ -64,10 +62,10 @@ class TestTitleMiddlewareCoreLogic:
         middleware = TitleMiddleware()
         state = {
             "messages": [
-                HumanMessage(content="第一问"),
-                AIMessage(content="第一答"),
-                HumanMessage(content="第二问"),
-                AIMessage(content="第二答"),
+                HumanMessage(content="First question"),
+                AIMessage(content="First answer"),
+                HumanMessage(content="Second question"),
+                AIMessage(content="Second answer"),
             ]
         }
 
@@ -82,8 +80,8 @@ class TestTitleMiddlewareCoreLogic:
 
         state = {
             "messages": [
-                HumanMessage(content="请帮我写一个脚本"),
-                AIMessage(content="好的，先确认需求"),
+                HumanMessage(content="Please help me write a script."),
+                AIMessage(content="Sure, let me confirm the requirements first."),
             ]
         }
         result = asyncio.run(middleware._agenerate_title_result(state))
@@ -98,7 +96,7 @@ class TestTitleMiddlewareCoreLogic:
         middleware = TitleMiddleware()
         fake_model = MagicMock()
         fake_model.ainvoke = AsyncMock(
-            return_value=MagicMock(content=[{"type": "text", "text": '"结构总结"'}]),
+            return_value=MagicMock(content=[{"type": "text", "text": '"Structured Summary"'}]),
         )
         monkeypatch.setattr(
             "deerflow.agents.middlewares.title_middleware.create_chat_model",
@@ -107,8 +105,8 @@ class TestTitleMiddlewareCoreLogic:
 
         state = {
             "messages": [
-                HumanMessage(content=[{"type": "text", "text": "请帮我总结这段代码"}]),
-                AIMessage(content=[{"type": "text", "text": "好的，先看结构"}]),
+                HumanMessage(content=[{"type": "text", "text": "Please summarize this codebase."}]),
+                AIMessage(content=[{"type": "text", "text": "Sure, I will inspect the structure first."}]),
             ]
         }
 
@@ -116,13 +114,12 @@ class TestTitleMiddlewareCoreLogic:
         title = result["title"]
 
         prompt = fake_model.ainvoke.await_args.args[0]
-        assert "请帮我总结这段代码" in prompt
-        assert "好的，先看结构" in prompt
-        # Ensure structured message dict/JSON reprs are not leaking into the prompt.
+        assert "Please summarize this codebase." in prompt
+        assert "Sure, I will inspect the structure first." in prompt
         assert "{'type':" not in prompt
         assert "'type':" not in prompt
         assert '"type":' not in prompt
-        assert title == "结构总结"
+        assert title == "Structured Summary"
 
     def test_generate_title_fallback_when_model_fails(self, monkeypatch):
         _set_test_title_config(max_chars=20)
@@ -133,23 +130,47 @@ class TestTitleMiddlewareCoreLogic:
 
         state = {
             "messages": [
-                HumanMessage(content="这是一个非常长的问题描述，需要被截断以形成fallback标题"),
-                AIMessage(content="收到"),
+                HumanMessage(content="This is a very long prompt that should be truncated into a fallback title."),
+                AIMessage(content="Received."),
             ]
         }
         result = asyncio.run(middleware._agenerate_title_result(state))
         title = result["title"]
 
-        # Assert behavior (truncated fallback + ellipsis) without overfitting exact text.
         assert title.endswith("...")
-        assert title.startswith("这是一个非常长的问题描述")
+        assert title.startswith("This is a very long")
+
+    def test_generate_title_fallback_when_model_returns_placeholder_reply(self, monkeypatch):
+        _set_test_title_config(max_chars=50)
+        middleware = TitleMiddleware()
+        fake_model = MagicMock()
+        fake_model.ainvoke = AsyncMock(
+            return_value=MagicMock(
+                content="I'll continue based on your latest request. If I need anything else, I'll ask clearly."
+            )
+        )
+        monkeypatch.setattr(
+            "deerflow.agents.middlewares.title_middleware.create_chat_model",
+            lambda **kwargs: fake_model,
+        )
+
+        state = {
+            "messages": [
+                HumanMessage(content="Geometry preflight for SUBOFF STL with setup recommendations"),
+                AIMessage(content="Working on it."),
+            ]
+        }
+
+        result = asyncio.run(middleware._agenerate_title_result(state))
+
+        assert result["title"] == "Geometry preflight for SUBOFF STL with setup recom..."
 
     def test_aafter_model_delegates_to_async_helper(self, monkeypatch):
         middleware = TitleMiddleware()
 
-        monkeypatch.setattr(middleware, "_agenerate_title_result", AsyncMock(return_value={"title": "异步标题"}))
+        monkeypatch.setattr(middleware, "_agenerate_title_result", AsyncMock(return_value={"title": "Async title"}))
         result = asyncio.run(middleware.aafter_model({"messages": []}, runtime=MagicMock()))
-        assert result == {"title": "异步标题"}
+        assert result == {"title": "Async title"}
 
         monkeypatch.setattr(middleware, "_agenerate_title_result", AsyncMock(return_value=None))
         assert asyncio.run(middleware.aafter_model({"messages": []}, runtime=MagicMock())) is None
@@ -157,33 +178,31 @@ class TestTitleMiddlewareCoreLogic:
     def test_after_model_sync_delegates_to_sync_helper(self, monkeypatch):
         middleware = TitleMiddleware()
 
-        monkeypatch.setattr(middleware, "_generate_title_result", MagicMock(return_value={"title": "同步标题"}))
+        monkeypatch.setattr(middleware, "_generate_title_result", MagicMock(return_value={"title": "Sync title"}))
         result = middleware.after_model({"messages": []}, runtime=MagicMock())
-        assert result == {"title": "同步标题"}
+        assert result == {"title": "Sync title"}
 
         monkeypatch.setattr(middleware, "_generate_title_result", MagicMock(return_value=None))
         assert middleware.after_model({"messages": []}, runtime=MagicMock()) is None
 
     def test_sync_generate_title_with_model(self, monkeypatch):
-        """Sync path calls model.invoke and produces a title."""
         _set_test_title_config(max_chars=20)
         middleware = TitleMiddleware()
         fake_model = MagicMock()
-        fake_model.invoke = MagicMock(return_value=MagicMock(content='"同步生成的标题"'))
+        fake_model.invoke = MagicMock(return_value=MagicMock(content='"Sync generated title"'))
         monkeypatch.setattr("deerflow.agents.middlewares.title_middleware.create_chat_model", lambda **kwargs: fake_model)
 
         state = {
             "messages": [
-                HumanMessage(content="请帮我写测试"),
-                AIMessage(content="好的"),
+                HumanMessage(content="Please help me write tests"),
+                AIMessage(content="Okay."),
             ]
         }
         result = middleware._generate_title_result(state)
-        assert result == {"title": "同步生成的标题"}
+        assert result == {"title": "Sync generated title"}
         fake_model.invoke.assert_called_once()
 
     def test_empty_title_falls_back(self, monkeypatch):
-        """Empty model response triggers fallback title."""
         _set_test_title_config(max_chars=50)
         middleware = TitleMiddleware()
         fake_model = MagicMock()
@@ -192,9 +211,9 @@ class TestTitleMiddlewareCoreLogic:
 
         state = {
             "messages": [
-                HumanMessage(content="空标题测试"),
-                AIMessage(content="回复"),
+                HumanMessage(content="Empty title fallback test"),
+                AIMessage(content="Reply"),
             ]
         }
         result = middleware._generate_title_result(state)
-        assert result["title"] == "空标题测试"
+        assert result["title"] == "Empty title fallback test"

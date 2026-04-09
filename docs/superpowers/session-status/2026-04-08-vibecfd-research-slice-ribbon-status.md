@@ -8,11 +8,11 @@
 
 **Prior Art Survey:** `docs/superpowers/prior-art/2026-04-08-vibecfd-timeline-workbench-survey.md`
 
-**Last Updated:** 2026-04-09 10:45:00 CST
+**Last Updated:** 2026-04-09 11:25:00 CST
 
-**Current Focus:** research-slice submarine workbench overhaul remains complete; optional follow-up polish has now cleaned the remaining visible DeerFlow-flavored negotiation copy and raw runtime header chrome on the live submarine surface
+**Current Focus:** research-slice submarine workbench overhaul remains complete; this follow-up pass moved down-stack into backend generation/runtime behavior so first-turn submarine negotiation messages no longer disappear, submarine tool/middleware wording is more VibeCFD-native, and placeholder assistant fallbacks no longer pollute thread titles
 
-**Next Recommended Step:** if we continue later, move down-stack into deeper product work such as making assistant-authored negotiation messages themselves more VibeCFD-native at generation time, or revisiting route-level history sharing only if a real product need appears
+**Next Recommended Step:** if we continue later, keep moving down-stack by replacing generic placeholder first-turn replies with more domain-aware VibeCFD acknowledgements or by driving real structured geometry-preflight artifacts earlier in the first exchange, then repeat the same scrutiny on Skill Studio / landing copy
 
 **Read This Order On Resume:**
 1. This session status file
@@ -34,6 +34,7 @@
   - snapshot-summary polish: early `task-establishment` / `geometry-preflight` summaries now compress verbose design-brief prose into short VibeCFD-style research snapshots
   - badge-language polish: center evidence badges now localize raw runtime stage ids like `task-intelligence` into readable research-language labels such as `研究判断整理中`
   - optional chrome/copy follow-up: `workspace-header.tsx` no longer exposes `DeerFlow Runtime` in user-facing header chrome, and `workspace-display.ts` now collapses phrases like `draft brief`, `当前 DeerFlow 的 几何预检`, and `有产物支撑的 预检结果` into cleaner VibeCFD-facing wording in the live negotiation rail
+  - backend generation/runtime follow-up: the active `OpenAICliChatModel` now injects a visible non-tool fallback when Responses API returns an empty final assistant message, the optional `CodexChatModel` fallback has been normalized the same way, submarine geometry/solver/report tool completion messages now say `研究产物` instead of `DeerFlow artifacts`, confirmation-blocked runtime copy now uses VibeCFD-native `研究者确认 / 协商区 / 设计简报` wording, and `TitleMiddleware` now treats generic fallback replies as placeholders and falls back to the first human request summary instead of polluting thread titles
 - In Progress:
   - none
 - Reopened / Invalidated:
@@ -66,6 +67,9 @@
 - `frontend/src/components/workspace/workspace-header.tsx` now says `面向科研仿真的统一工作台 · 当前界面：...` instead of surfacing the raw runtime label `基于 DeerFlow Runtime · 保留当前配色 · 当前界面：...`
 - temporary `.superpowers/brainstorm/...` artifacts have been deleted from the workspace after stopping the leftover brainstorm companion process that was still locking `server.log` / `server.err`
 - viewed-slice inspection remains canvas-local by design for now; no route-level share state has been added
+- `backend/packages/harness/deerflow/models/openai_cli_provider.py` now protects the real live `gpt-5.4` path against empty Responses API final messages, so the first assistant turn in a fresh submarine thread no longer persists as an empty `AIMessage`
+- `backend/packages/harness/deerflow/agents/middlewares/title_middleware.py` now rejects generic placeholder replies as candidate titles and falls back to the first cleaned human request summary instead
+- `backend/packages/harness/deerflow/tools/builtins/submarine_runtime_context.py` now emits confirmation-blocked guidance in VibeCFD wording, and submarine tool success messages in `submarine_geometry_check_tool.py`, `submarine_solver_dispatch_tool.py`, and `submarine_result_report_tool.py` now refer to `研究产物`
 
 ## Verified Commands
 - `node --test frontend/src/core/threads/utils.test.ts frontend/src/core/threads/use-thread-stream.state.test.ts frontend/src/components/workspace/submarine-workbench/index.contract.test.ts frontend/src/components/workspace/submarine-workbench/submarine-session-model.test.ts frontend/src/components/workspace/submarine-workbench/submarine-research-canvas.model.test.ts frontend/src/app/workspace/submarine/[thread_id]/page.test.ts frontend/src/components/workspace/skill-studio-workbench/index.contract.test.ts`
@@ -73,6 +77,8 @@
 - `corepack pnpm --dir frontend exec tsc --noEmit`
 - `corepack pnpm --dir frontend exec eslint src/components/workspace/submarine-workbench src/app/workspace/submarine/[thread_id]/page.tsx src/components/workspace/agentic-workbench/workbench-copy.ts`
 - `corepack pnpm --dir frontend exec eslint src/core/i18n/workspace-display.ts src/core/i18n/workspace-display.test.ts src/components/workspace/messages/message-list-item.tsx src/components/workspace/workspace-header.tsx src/components/workspace/workspace-header.test.ts`
+- `uv run pytest tests/test_cli_auth_providers.py tests/test_title_generation.py tests/test_title_middleware_core_logic.py tests/test_submarine_geometry_check_tool.py tests/test_submarine_solver_dispatch_tool.py tests/test_submarine_result_report_tool.py tests/test_submarine_subagents.py`
+- `python -m py_compile backend/packages/harness/deerflow/models/openai_cli_provider.py backend/packages/harness/deerflow/models/openai_codex_provider.py backend/packages/harness/deerflow/agents/middlewares/title_middleware.py backend/packages/harness/deerflow/tools/builtins/submarine_runtime_context.py backend/packages/harness/deerflow/tools/builtins/submarine_geometry_check_tool.py backend/packages/harness/deerflow/tools/builtins/submarine_solver_dispatch_tool.py backend/packages/harness/deerflow/tools/builtins/submarine_result_report_tool.py`
 
 ## Live Browser Verification
 - `http://127.0.0.1:3000/workspace/submarine/b493d6f4-4c62-48f7-b93e-36403bb6686b` shows only `任务建立 -> 几何预检` in the ribbon while blocked, with `待确认`, `1 项待确认`, `优先确认工况与约束`, and a confirmation-first next action
@@ -84,6 +90,8 @@
 - current and historical `task-establishment` / `geometry-preflight` summaries on `b493...` now read as `对上传的 STL 做几何可用性预检，并给出后续 CFD 准备建议。`
 - the same center card now shows `阶段: 研究判断整理中` instead of the raw backend stage id `task-intelligence`
 - the historical card now shows count-first requested-output notes (`当前最关注 4 项交付输出` / `当前优先确认 ...`) instead of dumping every long output label
+- fresh submarine thread `dfea1dbe-591e-4e54-b194-3a7608682673` now persists a visible first assistant reply instead of an empty AI message; `langgraph /history` shows the fallback text and the browser negotiation rail renders it in both the chat rail and the live-progress card
+- fresh submarine thread `b80cf1c3-1abc-4b4f-8d1f-dcd318a277bc` confirms the title side-effect is also fixed: the persisted thread title falls back to the first cleaned human request summary while the assistant fallback remains visible only as the first assistant reply, not as the thread title
 
 ## Unverified Hypotheses / Next Checks
 - whether the remaining long `requested outputs` note should be compressed in the context-note model or replaced by a count-first phrasing

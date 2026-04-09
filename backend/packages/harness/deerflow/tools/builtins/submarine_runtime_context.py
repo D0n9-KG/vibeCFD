@@ -188,6 +188,27 @@ def requires_user_confirmation(
     )
 
 
+def _localize_blocked_stage_label(blocked_stage_label: str) -> str:
+    mapping = {
+        "Geometry preflight": "几何预检",
+        "Solver dispatch": "求解准备",
+    }
+    return mapping.get(blocked_stage_label, blocked_stage_label)
+
+
+def _localize_retry_action(
+    *, retry_tool_name: str, blocked_stage_label: str
+) -> str:
+    mapping = {
+        "submarine_geometry_check": "继续几何预检",
+        "submarine_solver_dispatch": "继续求解准备",
+    }
+    return mapping.get(
+        retry_tool_name,
+        f"继续{_localize_blocked_stage_label(blocked_stage_label)}",
+    )
+
+
 def build_user_confirmation_block_message(
     *,
     existing_runtime: Mapping[str, Any] | None,
@@ -195,10 +216,15 @@ def build_user_confirmation_block_message(
     blocked_stage_label: str,
     retry_tool_name: str,
 ) -> str:
+    stage_label = _localize_blocked_stage_label(blocked_stage_label)
+    retry_action = _localize_retry_action(
+        retry_tool_name=retry_tool_name,
+        blocked_stage_label=blocked_stage_label,
+    )
     task_summary = (
         (existing_brief or {}).get("task_description")
         or (existing_runtime or {}).get("task_summary")
-        or "the current submarine CFD brief"
+        or "当前潜艇 CFD 研究任务"
     )
     calculation_plan = (
         (existing_runtime or {}).get("calculation_plan")
@@ -207,18 +233,19 @@ def build_user_confirmation_block_message(
     if calculation_plan_requires_confirmation(calculation_plan):
         if calculation_plan_requires_immediate_confirmation(calculation_plan):
             return (
-                f"{blocked_stage_label} is blocked until the researcher resolves the calculation-plan items "
-                f"that require immediate confirmation for {task_summary}. "
-                f"Please clarify or revise those assumptions in chat, update the design brief, and then retry {retry_tool_name}."
+                f"{stage_label}需要先完成研究者确认。"
+                f"当前计算方案里还有需要立即确认的条目，请先在协商区补充或修订相关假设，"
+                f"更新设计简报后，再{retry_action}。"
             )
         return (
-            f"{blocked_stage_label} is blocked until the researcher confirms the current calculation plan for {task_summary}. "
-            f"Please review or revise the pending geometry and case assumptions in chat, update the design brief, and then retry {retry_tool_name}."
+            f"{stage_label}需要先完成研究者确认。"
+            f"请先在协商区确认 {task_summary} 对应的几何、工况与计算方案，"
+            f"更新设计简报后，再{retry_action}。"
         )
     return (
-        f"{blocked_stage_label} is blocked until user confirmation is complete for the current design brief. "
-        f"Please resolve the missing operating-condition questions for {task_summary} in chat, "
-        f"update the design brief, and then retry {retry_tool_name}."
+        f"{stage_label}需要先完成研究者确认。"
+        f"请先在协商区确认 {task_summary} 涉及的工况与约束，"
+        f"更新设计简报后，再{retry_action}。"
     )
 
 
