@@ -66,7 +66,7 @@ export function WorkspaceHeader({ className }: { className?: string }) {
             VibeCFD
           </span>
           <span className={cn("mt-1 block", chrome.brandMetaClassName)}>
-            基于 DeerFlow Runtime · 保留当前配色 · 当前界面：{" "}
+            面向科研仿真的统一工作台 · 当前界面：{" "}
             {activeSurface.label}
           </span>
         </div>

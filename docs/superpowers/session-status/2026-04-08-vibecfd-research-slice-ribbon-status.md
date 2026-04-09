@@ -8,11 +8,11 @@
 
 **Prior Art Survey:** `docs/superpowers/prior-art/2026-04-08-vibecfd-timeline-workbench-survey.md`
 
-**Last Updated:** 2026-04-09 02:28:00 CST
+**Last Updated:** 2026-04-09 10:45:00 CST
 
-**Current Focus:** research-slice submarine workbench overhaul is implemented, verified, and committed; remaining future work is optional polish outside this checkpoint
+**Current Focus:** research-slice submarine workbench overhaul remains complete; optional follow-up polish has now cleaned the remaining visible DeerFlow-flavored negotiation copy and raw runtime header chrome on the live submarine surface
 
-**Next Recommended Step:** if we continue later, focus on optional follow-up polish such as further shortening assistant-authored negotiation copy or revisiting route-level history sharing only if a real product need appears
+**Next Recommended Step:** if we continue later, move down-stack into deeper product work such as making assistant-authored negotiation messages themselves more VibeCFD-native at generation time, or revisiting route-level history sharing only if a real product need appears
 
 **Read This Order On Resume:**
 1. This session status file
@@ -33,6 +33,7 @@
   - historical copy cleanup: `task-establishment` slice copy and context notes now sanitize `/mnt/user-data/...` paths and internal brief ids before they reach the visible card
   - snapshot-summary polish: early `task-establishment` / `geometry-preflight` summaries now compress verbose design-brief prose into short VibeCFD-style research snapshots
   - badge-language polish: center evidence badges now localize raw runtime stage ids like `task-intelligence` into readable research-language labels such as `研究判断整理中`
+  - optional chrome/copy follow-up: `workspace-header.tsx` no longer exposes `DeerFlow Runtime` in user-facing header chrome, and `workspace-display.ts` now collapses phrases like `draft brief`, `当前 DeerFlow 的 几何预检`, and `有产物支撑的 预检结果` into cleaner VibeCFD-facing wording in the live negotiation rail
 - In Progress:
   - none
 - Reopened / Invalidated:
@@ -61,18 +62,23 @@
 - `frontend/src/components/workspace/agentic-workbench/workbench-copy.ts` no longer ships dead `submarine.modules` workflow copy; only shared common copy and the active Skill Studio copy remain
 - `frontend/src/components/workspace/submarine-workbench/submarine-negotiation-rail.model.ts` exposes `getSubmarineNegotiationAttentionKey(...)`, which turns confirmation-blocked runtime state into a stable one-shot attention key
 - `frontend/src/app/workspace/submarine/[thread_id]/page.tsx` auto-opens the negotiation rail when a new confirmation-blocked attention key appears, records that key even if the rail is already open, and resets the key when the blocking state clears so future confirmation gates can surface again
+- `frontend/src/core/i18n/workspace-display.ts` now cleans remaining assistant-visible phrases such as `draft brief`, `当前 DeerFlow 的 几何预检`, and `有产物支撑的 预检结果`, so the negotiation rail no longer shows raw runtime branding or awkward split `草稿 简报` wording on the blocked `b493...` thread
+- `frontend/src/components/workspace/workspace-header.tsx` now says `面向科研仿真的统一工作台 · 当前界面：...` instead of surfacing the raw runtime label `基于 DeerFlow Runtime · 保留当前配色 · 当前界面：...`
 - temporary `.superpowers/brainstorm/...` artifacts have been deleted from the workspace after stopping the leftover brainstorm companion process that was still locking `server.log` / `server.err`
 - viewed-slice inspection remains canvas-local by design for now; no route-level share state has been added
 
 ## Verified Commands
 - `node --test frontend/src/core/threads/utils.test.ts frontend/src/core/threads/use-thread-stream.state.test.ts frontend/src/components/workspace/submarine-workbench/index.contract.test.ts frontend/src/components/workspace/submarine-workbench/submarine-session-model.test.ts frontend/src/components/workspace/submarine-workbench/submarine-research-canvas.model.test.ts frontend/src/app/workspace/submarine/[thread_id]/page.test.ts frontend/src/components/workspace/skill-studio-workbench/index.contract.test.ts`
+- `node --test frontend/src/core/i18n/workspace-display.test.ts frontend/src/components/workspace/workspace-header.test.ts frontend/src/components/workspace/submarine-workbench/index.contract.test.ts frontend/src/app/workspace/submarine/[thread_id]/page.test.ts`
 - `corepack pnpm --dir frontend exec tsc --noEmit`
 - `corepack pnpm --dir frontend exec eslint src/components/workspace/submarine-workbench src/app/workspace/submarine/[thread_id]/page.tsx src/components/workspace/agentic-workbench/workbench-copy.ts`
+- `corepack pnpm --dir frontend exec eslint src/core/i18n/workspace-display.ts src/core/i18n/workspace-display.test.ts src/components/workspace/messages/message-list-item.tsx src/components/workspace/workspace-header.tsx src/components/workspace/workspace-header.test.ts`
 
 ## Live Browser Verification
 - `http://127.0.0.1:3000/workspace/submarine/b493d6f4-4c62-48f7-b93e-36403bb6686b` shows only `任务建立 -> 几何预检` in the ribbon while blocked, with `待确认`, `1 项待确认`, `优先确认工况与约束`, and a confirmation-first next action
 - the same blocked thread no longer renders the empty lower operator board; the center surface ends cleanly after the current slice card when no meaningful secondary layer data exists
 - the same chat thread says `查看其他 7 条过程记录` instead of `查看其他 7 个步骤`
+- the same chat thread now says `草稿简报` instead of `草稿 简报`, no longer exposes `DeerFlow 的 几何预检`, and the header chrome now reads `面向科研仿真的统一工作台 · 当前界面：仿真工作台`
 - with a mobile viewport (`390x844`) on `b493...`, the blocked geometry-preflight thread auto-opens the negotiation rail so the confirmation question is visible beside the current slice card on first load
 - after manually clicking `收起协商区` on that same blocked mobile thread, the rail stays closed and the header button changes to `展开协商区` instead of being immediately re-opened by the same confirmation state
 - current and historical `task-establishment` / `geometry-preflight` summaries on `b493...` now read as `对上传的 STL 做几何可用性预检，并给出后续 CFD 准备建议。`
@@ -84,7 +90,7 @@
 - whether lifting viewed-slice selection from canvas-local state into `submarine-workbench/index.tsx` would help anything real or just add plumbing
 
 ## Open Questions / Risks
-- the center surface is now much closer to the intended VibeCFD feel, but there is still some DeerFlow-flavored wording inside assistant-authored negotiation messages that the center canvas does not control
+- the center surface and visible negotiation rail chrome are now much closer to the intended VibeCFD feel, but assistant-authored message generation still originates downstream in DeerFlow and may need deeper prompt/runtime changes if we want those messages to become natively VibeCFD-flavored instead of relying on display-layer cleanup
 - checkpoint history exposure in the live API may need to be surfaced more explicitly in a later milestone
 - the canvas currently owns inspected-history state locally; if future route/state requirements need shareable history context, this may need one follow-up refactor
 - the durable docs for this feature are still uncommitted and should be included deliberately with the next checkpoint commit
