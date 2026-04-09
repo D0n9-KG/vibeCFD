@@ -2,6 +2,7 @@ from pathlib import Path
 
 from deerflow.tools.builtins.submarine_runtime_context import (
     infer_execution_preference,
+    requires_user_confirmation,
     resolve_bound_geometry_virtual_path,
     resolve_execution_preference,
     resolve_task_summary,
@@ -32,6 +33,47 @@ def test_resolve_execution_preference_falls_back_to_confirm_then_execute_intent(
             task_description="请确认当前方案，然后继续执行这次 CFD 计算。",
         )
         == "preflight_then_execute"
+    )
+
+
+def test_infer_execution_preference_treats_do_not_start_solver_as_plan_only():
+    assert (
+        infer_execution_preference(
+            "请先对这个 STL 做几何可用性预检，并给出后续 CFD 准备建议；当前不要启动求解。"
+        )
+        == "plan_only"
+    )
+
+
+def test_requires_user_confirmation_allows_plan_only_geometry_preflight_before_brief_confirmation():
+    assert (
+        requires_user_confirmation(
+            existing_runtime={
+                "confirmation_status": "draft",
+                "execution_preference": "plan_only",
+                "review_status": "needs_user_confirmation",
+                "next_recommended_stage": "user-confirmation",
+            },
+            existing_brief=None,
+            target_stage="geometry-preflight",
+        )
+        is False
+    )
+
+
+def test_requires_user_confirmation_still_blocks_plan_only_solver_dispatch_before_brief_confirmation():
+    assert (
+        requires_user_confirmation(
+            existing_runtime={
+                "confirmation_status": "draft",
+                "execution_preference": "plan_only",
+                "review_status": "needs_user_confirmation",
+                "next_recommended_stage": "user-confirmation",
+            },
+            existing_brief=None,
+            target_stage="solver-dispatch",
+        )
+        is True
     )
 
 

@@ -152,3 +152,22 @@ void test("evidence badges localize raw runtime stage ids before they reach the 
   assert.ok(badges.includes("阶段: 研究判断整理中"));
   assert.ok(badges.every((badge) => !badge.includes("task-intelligence")));
 });
+
+void test("evidence badges localize geometry-preflight instead of leaking the raw stage id", () => {
+  const badges = buildSliceEvidenceBadgesModel({
+    runtime: {
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      current_stage: "geometry-preflight",
+      runtime_status: "ready",
+    },
+    designBrief: null,
+    finalReport: null,
+    artifactPaths: [
+      "/mnt/user-data/outputs/submarine/geometry-check/suboff_solid/geometry-check.md",
+    ],
+    requestedOutputs: [],
+  });
+
+  assert.ok(badges.includes("阶段: 几何预检"));
+  assert.ok(badges.every((badge) => !badge.includes("geometry-preflight")));
+});

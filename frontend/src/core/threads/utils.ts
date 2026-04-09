@@ -158,6 +158,10 @@ function resolveThreadTitlePreviewFromMessages(
   );
 }
 
+function sanitizeThreadDisplayTitle(title: string) {
+  return title.replace(/[；;]+\.$/, "").trim();
+}
+
 export function resolveThreadDisplayTitle(
   rawTitle: string | null | undefined,
   untitledLabel = "Untitled",
@@ -173,7 +177,9 @@ export function resolveThreadDisplayTitle(
   if (needsFallback) {
     const previewFromMessages = resolveThreadTitlePreviewFromMessages(messages);
     if (previewFromMessages) {
-      return localizeThreadDisplayTitle(previewFromMessages);
+      return sanitizeThreadDisplayTitle(
+        localizeThreadDisplayTitle(previewFromMessages),
+      );
     }
     return untitledLabel;
   }
@@ -184,7 +190,7 @@ export function resolveThreadDisplayTitle(
       content: normalizedTitle,
     }) ?? normalizedTitle;
 
-  return localizeThreadDisplayTitle(preview);
+  return sanitizeThreadDisplayTitle(localizeThreadDisplayTitle(preview));
 }
 
 export function titleOfThread(

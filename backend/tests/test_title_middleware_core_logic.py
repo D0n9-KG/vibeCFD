@@ -217,3 +217,31 @@ class TestTitleMiddlewareCoreLogic:
         }
         result = middleware._generate_title_result(state)
         assert result["title"] == "Empty title fallback test"
+
+    def test_generate_title_strips_orphaned_trailing_punctuation(self, monkeypatch):
+        _set_test_title_config(max_chars=80)
+        middleware = TitleMiddleware()
+        fake_model = MagicMock()
+        fake_model.invoke = MagicMock(
+            return_value=MagicMock(
+                content="请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；."
+            )
+        )
+        monkeypatch.setattr(
+            "deerflow.agents.middlewares.title_middleware.create_chat_model",
+            lambda **kwargs: fake_model,
+        )
+
+        state = {
+            "messages": [
+                HumanMessage(
+                    content="请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；当前不要启动求解。"
+                ),
+                AIMessage(content="Working on it."),
+            ]
+        }
+
+        result = middleware._generate_title_result(state)
+
+        assert result["title"].endswith("SUBOFF 裸艇阻力基线研究")
+        assert not result["title"].endswith("；.")

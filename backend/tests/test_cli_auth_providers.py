@@ -6,7 +6,7 @@ import types
 from types import SimpleNamespace
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
 from deerflow.models.claude_provider import ClaudeChatModel
@@ -441,6 +441,134 @@ def test_openai_cli_provider_emits_visible_fallback_for_empty_final_response(mon
     assert result.generations[0].message.content == "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
 
 
+def test_openai_cli_provider_injects_submarine_geometry_tool_call_for_empty_plan_only_stl_request(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    "请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；当前不要启动求解。"
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "suboff_solid.stl",
+                            "path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            )
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_geometry_check",
+            "args": {
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_description": "请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；当前不要启动求解。",
+                "task_type": "resistance",
+                "geometry_family_hint": "DARPA SUBOFF",
+            },
+            "id": "fallback_submarine_geometry_check_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_keeps_text_fallback_for_empty_non_geometry_request(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- notes.txt (1 KB)\n"
+                    "</uploaded_files>\n\n"
+                    "继续整理一下这次讨论的要点。"
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "notes.txt",
+                            "path": "/mnt/user-data/uploads/notes.txt",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            )
+        ]
+    )
+
+    assert result.generations[0].message.tool_calls == []
+    assert result.generations[0].message.content == "我先根据你刚才的输入继续推进；如果需要你补充信息，我会明确告诉你。"
+
+
 def test_openai_cli_provider_does_not_inject_fallback_for_tool_call_only_response(monkeypatch):
     monkeypatch.setattr(
         "deerflow.models.openai_cli_provider.load_openai_api_credential",
@@ -483,6 +611,87 @@ def test_openai_cli_provider_does_not_inject_fallback_for_tool_call_only_respons
             "type": "tool_call",
         }
     ]
+
+
+def test_openai_cli_provider_reuses_geometry_tool_summary_after_empty_post_tool_response(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    "Please run a geometry preflight on this STL and hold solver execution."
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "suboff_solid.stl",
+                            "path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_geometry_check",
+                        "args": {
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_description": "geometry preflight",
+                            "task_type": "resistance",
+                        },
+                        "id": "fallback_submarine_geometry_check_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Geometry preflight complete; confirm unit interpretation.\n"
+                    "Artifacts are available in the workspace."
+                ),
+                tool_call_id="fallback_submarine_geometry_check_0",
+                name="submarine_geometry_check",
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.tool_calls == []
+    assert result.generations[0].message.content == "Geometry preflight complete; confirm unit interpretation."
 
 
 def test_openai_cli_provider_stream_uses_non_stream_fallback(monkeypatch):

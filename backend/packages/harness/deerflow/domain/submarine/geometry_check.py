@@ -39,6 +39,21 @@ def _slugify(value: str) -> str:
     return slug or "geometry-check"
 
 
+def _localize_case_title_for_summary(title: str) -> str:
+    replacements = (
+        (" Bare Hull Resistance Baseline", " 裸艇阻力基线"),
+        (" Wake Field Baseline", " 尾流基线"),
+        (" Pressure and Velocity Template", " 压力与速度模板"),
+        (" Engineering Drag Workflow", " 工程阻力工作流"),
+        (" Pressure and Velocity OpenFOAM Template", " 压力与速度 OpenFOAM 模板"),
+        (" Drag and Pressure Combo", " 阻力与压力联合方案"),
+    )
+    localized = title.strip()
+    for search, replacement in replacements:
+        localized = localized.replace(search, replacement)
+    return localized
+
+
 def _detect_geometry_family(text: str, hint: str | None) -> str:
     if hint:
         return hint
@@ -409,7 +424,7 @@ def _compose_summary(result: SubmarineGeometryCheckResult) -> str:
     geometry = result.geometry
     candidate = result.candidate_cases[0] if result.candidate_cases else None
     case_text = (
-        f"建议优先复用案例模板“{candidate.title}”。"
+        f"建议优先复用案例模板“{_localize_case_title_for_summary(candidate.title)}”。"
         if candidate
         else "当前没有命中明确案例模板，可先按通用潜艇外流场流程推进。"
     )
@@ -698,4 +713,3 @@ def run_geometry_check(
     html_path.write_text(_render_html(result), encoding="utf-8")
 
     return result, artifacts
-

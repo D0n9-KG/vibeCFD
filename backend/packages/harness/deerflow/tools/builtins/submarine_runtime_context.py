@@ -46,6 +46,13 @@ _PLAN_ONLY_KEYWORDS = (
     "只做预检",
     "不实际计算",
     "不执行计算",
+    "不要启动求解",
+    "不启动求解",
+    "先不要启动求解",
+    "不要启动计算",
+    "不启动计算",
+    "先不要启动计算",
+    "hold solver execution",
     "plan only",
 )
 _CONFIRMATION_KEYWORDS = (
@@ -80,10 +87,12 @@ def _looks_like_confirm_then_execute(description: str) -> bool:
     )
 
 
-def infer_execution_preference(
+def detect_execution_preference_signal(
     task_description: str | None,
-) -> SubmarineExecutionPreference:
+) -> SubmarineExecutionPreference | None:
     description = (task_description or "").strip().lower()
+    if not description:
+        return None
     if _contains_any(description, _PLAN_ONLY_KEYWORDS):
         return "plan_only"
     if _contains_any(description, _PREFLIGHT_THEN_EXECUTE_KEYWORDS) or (
@@ -92,7 +101,13 @@ def infer_execution_preference(
         return "preflight_then_execute"
     if _contains_any(description, _DIRECT_EXECUTION_KEYWORDS):
         return "execute_now"
-    return "plan_only"
+    return None
+
+
+def infer_execution_preference(
+    task_description: str | None,
+) -> SubmarineExecutionPreference:
+    return detect_execution_preference_signal(task_description) or "plan_only"
 
 
 def resolve_execution_preference(
@@ -157,11 +172,29 @@ def requires_user_confirmation(
     *,
     existing_runtime: Mapping[str, Any] | None,
     existing_brief: Mapping[str, Any] | None,
+    target_stage: Literal["geometry-preflight", "solver-dispatch"] = "solver-dispatch",
+    task_description: str | None = None,
 ) -> bool:
     calculation_plan = (
         (existing_runtime or {}).get("calculation_plan")
         or (existing_brief or {}).get("calculation_plan")
     )
+    runtime_preference = str((existing_runtime or {}).get("execution_preference") or "").strip()
+    brief_preference = str((existing_brief or {}).get("execution_preference") or "").strip()
+    explicit_signal = detect_execution_preference_signal(task_description)
+    execution_preference = (
+        runtime_preference
+        or brief_preference
+        or explicit_signal
+    )
+
+    if (
+        target_stage == "geometry-preflight"
+        and execution_preference == "plan_only"
+        and not calculation_plan_requires_immediate_confirmation(calculation_plan)
+    ):
+        return False
+
     if calculation_plan_requires_confirmation(calculation_plan):
         return True
 

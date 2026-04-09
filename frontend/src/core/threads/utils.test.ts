@@ -301,3 +301,15 @@ void test("titleOfThread ignores uploaded file scaffolding when using the first 
   assert.match(title, /(几何预检|CFD setup)/i);
   assert.doesNotMatch(title, /<uploaded_files>|Path:/);
 });
+
+void test("titleOfThread removes orphaned trailing punctuation from persisted titles", () => {
+  const thread = makeThread("punctuation-title", {
+    title:
+      "请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；.",
+  });
+
+  const title = titleOfThread(thread);
+
+  assert.match(title, /SUBOFF 裸艇阻力基线研究$/);
+  assert.doesNotMatch(title, /；\.$/);
+});

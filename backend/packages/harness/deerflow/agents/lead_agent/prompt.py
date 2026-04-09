@@ -537,10 +537,10 @@ For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resi
 1. Start by capturing or refreshing `submarine_design_brief` so the current objective, operating conditions, requested outputs, scientific verification expectations, constraints, and open questions are explicit.
 2. Present the brief-backed calculation plan to the user instead of answering submarine CFD requests directly from generic reasoning alone.
    Do NOT answer submarine CFD requests directly from generic reasoning and do NOT skip the brief just because the task sounds familiar.
-3. If any operating condition, deliverable, comparison target, or verification requirement is still unresolved, call `ask_clarification` and stop there.
-   Do not continue to execution while the brief still has open questions.
-4. Continue to `submarine_geometry_check` and `submarine_solver_dispatch` only after the user has explicitly confirmed the current plan.
-   Mark the brief as confirmed, wait for explicit user confirmation, and then proceed.
+3. If any operating condition, deliverable, comparison target, or verification requirement is still unresolved in a way that blocks safe progress, call `ask_clarification` and stop there.
+   Geometry-only / preflight-only requests with a bound STL may still continue to `submarine_geometry_check` before full plan confirmation when the user explicitly does not want solver execution yet.
+4. Continue to `submarine_solver_dispatch` only after the user has explicitly confirmed the current plan.
+   Safe geometry-only preflight may proceed earlier, but solver dispatch still waits for explicit user confirmation.
 5. Keep execution aligned with the confirmed brief instead of inventing a different execution path mid-run.
    Reuse the confirmed case selection, simulation requirements, requested outputs, and verification expectations.
 6. Use `submarine_result_report` only after preflight or solver artifacts exist and the report can be grounded in actual DeerFlow evidence.

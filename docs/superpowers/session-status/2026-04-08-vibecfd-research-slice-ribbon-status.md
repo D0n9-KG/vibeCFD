@@ -8,11 +8,11 @@
 
 **Prior Art Survey:** `docs/superpowers/prior-art/2026-04-08-vibecfd-timeline-workbench-survey.md`
 
-**Last Updated:** 2026-04-09 11:25:00 CST
+**Last Updated:** 2026-04-09 13:35:00 CST
 
-**Current Focus:** research-slice submarine workbench overhaul remains complete; this follow-up pass moved down-stack into backend generation/runtime behavior so first-turn submarine negotiation messages no longer disappear, submarine tool/middleware wording is more VibeCFD-native, and placeholder assistant fallbacks no longer pollute thread titles
+**Current Focus:** research-slice submarine workbench overhaul remains complete; this follow-up pass now also hardens first-turn STL geometry-preflight delivery so fresh threads produce a real geometry-check result, user-facing case labels no longer fall back to mixed English/Chinese wording, and title cleanup removes orphaned punctuation/no-solver tails from the visible submarine thread list
 
-**Next Recommended Step:** if we continue later, keep moving down-stack by replacing generic placeholder first-turn replies with more domain-aware VibeCFD acknowledgements or by driving real structured geometry-preflight artifacts earlier in the first exchange, then repeat the same scrutiny on Skill Studio / landing copy
+**Next Recommended Step:** if we continue later, reuse this same scrutiny on the next downstream surfaces: solver-dispatch / result-report summaries, then apply the same first-turn and visible-copy hardening to Skill Studio and the landing surfaces
 
 **Read This Order On Resume:**
 1. This session status file
@@ -77,6 +77,8 @@
 - `corepack pnpm --dir frontend exec tsc --noEmit`
 - `corepack pnpm --dir frontend exec eslint src/components/workspace/submarine-workbench src/app/workspace/submarine/[thread_id]/page.tsx src/components/workspace/agentic-workbench/workbench-copy.ts`
 - `corepack pnpm --dir frontend exec eslint src/core/i18n/workspace-display.ts src/core/i18n/workspace-display.test.ts src/components/workspace/messages/message-list-item.tsx src/components/workspace/workspace-header.tsx src/components/workspace/workspace-header.test.ts`
+- `node --test frontend/src/core/threads/utils.test.ts frontend/src/core/i18n/workspace-display.test.ts frontend/src/components/workspace/submarine-workbench/submarine-session-model.test.ts frontend/src/components/workspace/submarine-workbench/submarine-research-canvas.model.test.ts frontend/src/components/workspace/submarine-workbench/index.contract.test.ts frontend/src/app/workspace/submarine/[thread_id]/page.test.ts`
+- `corepack pnpm --dir frontend exec eslint src/core/threads/utils.ts src/core/threads/utils.test.ts src/core/i18n/workspace-display.ts src/core/i18n/workspace-display.test.ts src/components/workspace/submarine-workbench src/app/workspace/submarine/[thread_id]/page.tsx`
 - `uv run pytest tests/test_cli_auth_providers.py tests/test_title_generation.py tests/test_title_middleware_core_logic.py tests/test_submarine_geometry_check_tool.py tests/test_submarine_solver_dispatch_tool.py tests/test_submarine_result_report_tool.py tests/test_submarine_subagents.py`
 - `python -m py_compile backend/packages/harness/deerflow/models/openai_cli_provider.py backend/packages/harness/deerflow/models/openai_codex_provider.py backend/packages/harness/deerflow/agents/middlewares/title_middleware.py backend/packages/harness/deerflow/tools/builtins/submarine_runtime_context.py backend/packages/harness/deerflow/tools/builtins/submarine_geometry_check_tool.py backend/packages/harness/deerflow/tools/builtins/submarine_solver_dispatch_tool.py backend/packages/harness/deerflow/tools/builtins/submarine_result_report_tool.py`
 
@@ -92,6 +94,8 @@
 - the historical card now shows count-first requested-output notes (`当前最关注 4 项交付输出` / `当前优先确认 ...`) instead of dumping every long output label
 - fresh submarine thread `dfea1dbe-591e-4e54-b194-3a7608682673` now persists a visible first assistant reply instead of an empty AI message; `langgraph /history` shows the fallback text and the browser negotiation rail renders it in both the chat rail and the live-progress card
 - fresh submarine thread `b80cf1c3-1abc-4b4f-8d1f-dcd318a277bc` confirms the title side-effect is also fixed: the persisted thread title falls back to the first cleaned human request summary while the assistant fallback remains visible only as the first assistant reply, not as the thread title
+- fresh submarine thread `2ecc83f0-93b7-4e05-b4a5-8b00bc5a2bf3` now completes the whole STL plan-only path from the browser: it auto-promotes from `/workspace/submarine/new`, runs `??????`, shows `??? / 2 ???? / 3 ?????`, and the visible summary now says `DARPA SUBOFF ??????` instead of `DARPA SUBOFF Bare Hull Resistance Baseline`
+- the same fresh thread and the older `8397601a-53c9-47a5-ba76-d65c945979cc` thread list entries now drop both the orphaned `?.` tail and the explicit `?????????` suffix, leaving a clean research-oriented title in the sidebar and page heading
 
 ## Unverified Hypotheses / Next Checks
 - whether the remaining long `requested outputs` note should be compressed in the context-note model or replaced by a count-first phrasing

@@ -60,6 +60,14 @@ void test("localizeWorkspaceDisplayText rewrites runtime ids and standalone resi
   );
 });
 
+void test("localizeWorkspaceDisplayText rewrites capitalized bare-hull baseline titles cleanly", () => {
+  const localized = localizeWorkspaceDisplayText(
+    "DARPA SUBOFF Bare Hull Resistance Baseline",
+  );
+
+  assert.equal(localized, "DARPA SUBOFF 裸艇阻力基线");
+});
+
 void test("localizeWorkspaceDisplayText rewrites submarine geometry skill loading hints", () => {
   const localized = localizeWorkspaceDisplayText(
     "load submarine geometry skill / /mnt/skills/public/submarine-geometry-check/SKILL.md",

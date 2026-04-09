@@ -244,6 +244,69 @@ void test("treats an explicit runtime confirmation gate as a pending geometry-pr
   assert.match(model.currentSlice.nextRecommendedAction, /确认|研究者/);
 });
 
+void test("keeps a completed geometry-check artifact thread in geometry-preflight instead of skipping straight to delivery review", () => {
+  const model = buildModel({
+    runtime: {
+      current_stage: "geometry-preflight",
+      review_status: "needs_user_confirmation",
+      next_recommended_stage: "user-confirmation",
+      task_summary:
+        "请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；当前不要启动求解。",
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      report_virtual_path:
+        "/mnt/user-data/outputs/submarine/geometry-check/suboff_solid/geometry-check.md",
+      artifact_virtual_paths: [
+        "/mnt/user-data/outputs/submarine/geometry-check/suboff_solid/geometry-check.md",
+        "/mnt/user-data/outputs/submarine/geometry-check/suboff_solid/geometry-check.html",
+        "/mnt/user-data/outputs/submarine/geometry-check/suboff_solid/geometry-check.json",
+      ],
+      requested_outputs: [{ label: "几何预检摘要" }],
+      calculation_plan: [
+        {
+          item_id: "geometry.reference_length_m",
+          category: "geometry",
+          label: "参考长度",
+          approval_state: "pending_researcher_confirmation",
+          requires_immediate_confirmation: true,
+        },
+      ],
+      execution_plan: [
+        {
+          role_id: "geometry-preflight",
+          owner: "DeerFlow geometry-preflight",
+          goal: "Inspect the uploaded STL geometry",
+          status: "completed",
+        },
+      ],
+    },
+    designBrief: {
+      summary_zh:
+        "对上传的 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究，并给出后续 CFD 准备建议；当前不启动求解。",
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      confirmation_status: "draft",
+      requested_outputs: [{ label: "几何预检摘要" }],
+      open_questions: [],
+    },
+    artifactCount: 3,
+    messageCount: 4,
+  });
+
+  assert.deepEqual(
+    model.slices.map((slice: { id: string }) => slice.id),
+    ["task-establishment", "geometry-preflight"],
+  );
+  assert.equal(model.activeSliceId, "geometry-preflight");
+  assert.equal(model.currentSlice.id, "geometry-preflight");
+  assert.equal(
+    model.slices.some((slice: { id: string }) => slice.id === "results-and-delivery"),
+    false,
+  );
+  assert.equal(
+    model.slices.some((slice: { id: string }) => slice.id === "simulation-plan"),
+    false,
+  );
+});
+
 void test("prefers the concise runtime task summary over a verbose design-brief summary when presenting the current slice", () => {
   const conciseTaskSummary =
     "对上传的 STL 做几何预检，并先确认是否沿用演示基线工况。";

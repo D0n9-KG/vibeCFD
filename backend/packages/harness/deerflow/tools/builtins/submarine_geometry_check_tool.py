@@ -133,6 +133,8 @@ def submarine_geometry_check_tool(
         if requires_user_confirmation(
             existing_runtime=existing_runtime,
             existing_brief=existing_brief,
+            target_stage="geometry-preflight",
+            task_description=task_description,
         ):
             return Command(
                 update={

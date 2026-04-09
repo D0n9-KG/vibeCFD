@@ -124,6 +124,8 @@ function localizeRuntimeStageLabel(stage?: string | null): string | null {
   switch (stage) {
     case "task-intelligence":
       return "研究判断整理中";
+    case "geometry-preflight":
+      return "几何预检";
     case "solver-dispatch":
       return "求解准备与分发";
     case "result-reporting":

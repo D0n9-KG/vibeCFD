@@ -16,6 +16,7 @@ const DISPLAY_TEXT_REPLACEMENTS: ReadonlyArray<readonly [string, string]> = [
   ["/mnt/skills/public/submarine-geometry-check/SKILL.md", "潜艇几何预检技能"],
   ["Update to-do list", "更新待办列表"],
   ["Update To-do list", "更新待办列表"],
+  ["Bare Hull Resistance Baseline", "裸艇阻力基线"],
   ["bare hull resistance baseline", "裸艇阻力基线"],
   ["bare hull resistance", "裸艇阻力"],
   ["design brief", "设计简报"],

@@ -176,6 +176,7 @@ def submarine_solver_dispatch_tool(
         if requires_user_confirmation(
             existing_runtime=existing_runtime,
             existing_brief=existing_brief,
+            target_stage="solver-dispatch",
         ):
             return Command(
                 update={

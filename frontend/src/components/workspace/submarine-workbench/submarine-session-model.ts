@@ -188,11 +188,14 @@ function hasPostprocessResultSignal(
   const reportLooksLikeDesignBrief =
     typeof reportPath === "string" &&
     (reportPath.includes("/design-brief/") || reportPath.includes("cfd-design-brief."));
+  const reportLooksLikeGeometryCheck =
+    typeof reportPath === "string" &&
+    (reportPath.includes("/geometry-check/") || reportPath.includes("geometry-check."));
 
   return [
     runtime?.current_stage === "result-reporting",
     runtime?.current_stage === "supervisor-review",
-    reportLooksLikeDesignBrief ? null : reportPath,
+    reportLooksLikeDesignBrief || reportLooksLikeGeometryCheck ? null : reportPath,
     finalReport?.figure_delivery_summary,
     finalReport?.experiment_summary,
     finalReport?.scientific_study_summary,
@@ -234,6 +237,14 @@ function hasPlanningSignal({
   runtime: SubmarineRuntimeSnapshotPayload | null;
   designBrief: SubmarineDesignBriefPayload | null;
 }): boolean {
+  if (
+    runtime?.review_status === "needs_user_confirmation" ||
+    runtime?.next_recommended_stage === "user-confirmation" ||
+    hasImmediateConfirmationRequirement(runtime, designBrief)
+  ) {
+    return false;
+  }
+
   const confirmedExecutionOutline =
     designBrief?.confirmation_status === "confirmed" &&
     (designBrief.execution_outline?.length ?? 0) > 0;
@@ -409,7 +420,8 @@ function resolveActiveSlice({
   slices: readonly [SubmarineResearchSlice, ...SubmarineResearchSlice[]];
 }): SubmarineResearchSlice {
   const blockedGeometryPreflight =
-    input.runtime?.current_stage === "task-intelligence" &&
+    (input.runtime?.current_stage === "task-intelligence" ||
+      input.runtime?.current_stage === "geometry-preflight") &&
     input.runtime?.review_status === "needs_user_confirmation" &&
     hasGeometrySignal(input) &&
     !hasExecutionSignal(input.runtime) &&

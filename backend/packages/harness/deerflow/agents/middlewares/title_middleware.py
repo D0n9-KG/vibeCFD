@@ -29,6 +29,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         re.IGNORECASE,
     )
     _UPLOAD_FILENAME_RE = re.compile(r"^\s*-\s+([^\n(]+?)\s*\([^)]*\)\s*$", re.MULTILINE)
+    _TRAILING_ORPHAN_PUNCTUATION_RE = re.compile(r"[;；]+[.。!！?？]*$")
     _PLACEHOLDER_TITLES = {
         "I'll continue based on your latest request. If I need anything else, I'll ask clearly.",
         "\u6211\u5148\u6839\u636e\u4f60\u521a\u624d\u7684\u8f93\u5165\u7ee7\u7eed\u63a8\u8fdb\uff1b\u5982\u679c\u9700\u8981\u4f60\u8865\u5145\u4fe1\u606f\uff0c\u6211\u4f1a\u660e\u786e\u544a\u8bc9\u4f60\u3002",
@@ -80,6 +81,11 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
             return f"Uploaded {preview} and {remaining} more files"
         return f"Uploaded {preview}"
 
+    def _sanitize_title_text(self, text: str) -> str:
+        normalized = text.strip().strip('"').strip("'").strip()
+        normalized = self._TRAILING_ORPHAN_PUNCTUATION_RE.sub("", normalized)
+        return normalized.strip()
+
     def _should_generate_title(self, state: TitleMiddlewareState) -> bool:
         """Check if we should generate a title for this thread."""
         config = get_title_config()
@@ -127,7 +133,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         """Normalize model output into a clean title string."""
         config = get_title_config()
         title_content = self._normalize_content(content)
-        title = title_content.strip().strip('"').strip("'")
+        title = self._sanitize_title_text(title_content)
         return title[: config.max_chars] if len(title) > config.max_chars else title
 
     def _looks_like_placeholder_title(self, title: str) -> bool:
@@ -141,7 +147,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
 
     def _fallback_title(self, user_msg: str) -> str:
         config = get_title_config()
-        cleaned_user_msg = self._clean_user_message(user_msg)
+        cleaned_user_msg = self._sanitize_title_text(self._clean_user_message(user_msg))
         fallback_chars = min(config.max_chars, 50)
         if len(cleaned_user_msg) > fallback_chars:
             return cleaned_user_msg[:fallback_chars].rstrip() + "..."
