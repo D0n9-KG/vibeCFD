@@ -6,7 +6,10 @@ from pathlib import Path
 
 import yaml
 
+from deerflow.config import app_config as app_config_module
+from deerflow.config import extensions_config as extensions_config_module
 from deerflow.config.app_config import get_app_config, reset_app_config
+from deerflow.config.extensions_config import reset_extensions_config
 
 
 def _write_config(path: Path, *, model_name: str, supports_thinking: bool) -> None:
@@ -79,3 +82,34 @@ def test_get_app_config_reloads_when_config_path_changes(tmp_path, monkeypatch):
         assert second is not first
     finally:
         reset_app_config()
+
+
+def test_get_app_config_loads_without_runtime_getcwd_calls(tmp_path, monkeypatch):
+    project_root = tmp_path / "project"
+    backend_dir = project_root / "backend"
+    backend_dir.mkdir(parents=True)
+
+    config_path = project_root / "config.yaml"
+    extensions_path = project_root / "extensions_config.json"
+    _write_extensions_config(extensions_path)
+    _write_config(config_path, model_name="startup-dir-model", supports_thinking=True)
+
+    monkeypatch.delenv("DEER_FLOW_CONFIG_PATH", raising=False)
+    monkeypatch.delenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", raising=False)
+    monkeypatch.setattr(app_config_module, "_PROCESS_START_DIR", backend_dir)
+    monkeypatch.setattr(extensions_config_module, "_PROCESS_START_DIR", backend_dir)
+
+    def _blocked_getcwd() -> str:
+        raise AssertionError("resolve_config_path should not call os.getcwd at runtime")
+
+    monkeypatch.setattr(app_config_module.os, "getcwd", _blocked_getcwd)
+    monkeypatch.setattr(extensions_config_module.os, "getcwd", _blocked_getcwd)
+    reset_app_config()
+    reset_extensions_config()
+
+    try:
+        config = get_app_config()
+        assert config.models[0].name == "startup-dir-model"
+    finally:
+        reset_app_config()
+        reset_extensions_config()

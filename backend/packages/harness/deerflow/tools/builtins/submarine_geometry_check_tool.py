@@ -133,6 +133,8 @@ def submarine_geometry_check_tool(
         if requires_user_confirmation(
             existing_runtime=existing_runtime,
             existing_brief=existing_brief,
+            target_stage="geometry-preflight",
+            task_description=task_description,
         ):
             return Command(
                 update={
@@ -291,7 +293,7 @@ def submarine_geometry_check_tool(
     detail_lines = "\n".join(f"- {artifact}" for artifact in artifacts)
     message = (
         f"{result.summary_zh}\n"
-        f"已登记 {len(artifacts)} 个 DeerFlow artifacts，可在工作区直接查看：\n{detail_lines}"
+        f"已登记 {len(artifacts)} 项研究产物，可在工作区直接查看：\n{detail_lines}"
     )
     return Command(
         update={

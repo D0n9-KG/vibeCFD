@@ -2,8 +2,8 @@ import type { BaseStream } from "@langchain/langgraph-sdk";
 import { useEffect } from "react";
 
 import { useI18n } from "@/core/i18n/hooks";
-import { localizeThreadDisplayTitle } from "@/core/i18n/workspace-display";
 import type { AgentThreadState } from "@/core/threads";
+import { resolveThreadDisplayTitle } from "@/core/threads/utils";
 
 import { useThreadChat } from "./chats";
 import { FlipDisplay } from "./flip-display";
@@ -19,12 +19,12 @@ export function ThreadTitle({
   const { t } = useI18n();
   const { isNewThread } = useThreadChat();
   const rawTitle = thread.values?.title?.trim();
-  const resolvedTitle =
-    !rawTitle || rawTitle === "Untitled"
-      ? isNewThread
-        ? t.pages.newChat
-        : t.pages.untitled
-      : localizeThreadDisplayTitle(rawTitle);
+  const resolvedTitle = resolveThreadDisplayTitle(
+    rawTitle,
+    isNewThread ? t.pages.newChat : t.pages.untitled,
+    thread.values?.messages,
+  );
+  const fallbackTitle = isNewThread ? t.pages.newChat : t.pages.untitled;
 
   useEffect(() => {
     if (thread.isThreadLoading) {
@@ -40,7 +40,7 @@ export function ThreadTitle({
     thread.isThreadLoading,
   ]);
 
-  if (!rawTitle) {
+  if (!rawTitle && resolvedTitle === fallbackTitle) {
     return null;
   }
 

@@ -1,5 +1,5 @@
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from langchain.tools import ToolRuntime, tool
 from langgraph.typing import ContextT
@@ -99,7 +99,18 @@ def _resolve_skills_path(path: str) -> str:
         return skills_host
 
     relative = path[len(skills_container):].lstrip("/")
-    return str(Path(skills_host) / relative) if relative else skills_host
+    return _join_host_path(skills_host, relative) if relative else skills_host
+
+
+def _join_host_path(base_path: str, relative_path: str) -> str:
+    """Join a host path while preserving the base path's slash style."""
+    if not relative_path:
+        return base_path
+
+    if "/" in base_path and "\\" not in base_path:
+        return str(PurePosixPath(base_path) / PurePosixPath(relative_path))
+
+    return str(Path(base_path) / relative_path)
 
 
 def _path_variants(path: str) -> set[str]:
@@ -148,7 +159,7 @@ def replace_virtual_path(path: str, thread_data: ThreadDataState | None) -> str:
             return actual_base
         if path.startswith(f"{virtual_base}/"):
             rest = path[len(virtual_base) :].lstrip("/")
-            return str(Path(actual_base) / rest) if rest else actual_base
+            return _join_host_path(actual_base, rest) if rest else actual_base
 
     return path
 

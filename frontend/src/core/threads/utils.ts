@@ -1,6 +1,7 @@
 import type { Message } from "@langchain/langgraph-sdk";
 
 import { localizeThreadDisplayTitle } from "../i18n/workspace-display.ts";
+import { buildProgressPreviewFromMessage, stripUploadedFilesTag } from "../messages/utils.ts";
 
 import type { AgentThread } from "./types";
 
@@ -126,13 +127,79 @@ export function textOfMessage(message: Message) {
   return null;
 }
 
+function resolveThreadTitlePreviewFromMessages(
+  messages: readonly Message[] | null | undefined,
+) {
+  const firstHumanMessage = messages?.find((message) => message.type === "human");
+  if (!firstHumanMessage) {
+    return null;
+  }
+
+  const rawContent = textOfMessage(firstHumanMessage)?.trim() ?? "";
+  if (!rawContent) {
+    return null;
+  }
+
+  const visibleContent =
+    firstHumanMessage.type === "human"
+      ? stripUploadedFilesTag(rawContent)
+      : rawContent;
+
+  if (!visibleContent) {
+    return null;
+  }
+
+  return buildProgressPreviewFromMessage(
+    {
+      type: "human",
+      content: visibleContent,
+    },
+    96,
+  );
+}
+
+function sanitizeThreadDisplayTitle(title: string) {
+  return title.replace(/[；;]+\.$/, "").trim();
+}
+
+export function resolveThreadDisplayTitle(
+  rawTitle: string | null | undefined,
+  untitledLabel = "Untitled",
+  messages?: readonly Message[] | null,
+) {
+  const normalizedTitle = rawTitle?.trim();
+  const needsFallback =
+    !normalizedTitle ||
+    normalizedTitle === "Untitled" ||
+    normalizedTitle.startsWith("<uploaded_files>") &&
+      !normalizedTitle.includes("</uploaded_files>");
+
+  if (needsFallback) {
+    const previewFromMessages = resolveThreadTitlePreviewFromMessages(messages);
+    if (previewFromMessages) {
+      return sanitizeThreadDisplayTitle(
+        localizeThreadDisplayTitle(previewFromMessages),
+      );
+    }
+    return untitledLabel;
+  }
+
+  const preview =
+    buildProgressPreviewFromMessage({
+      type: "human",
+      content: normalizedTitle,
+    }) ?? normalizedTitle;
+
+  return sanitizeThreadDisplayTitle(localizeThreadDisplayTitle(preview));
+}
+
 export function titleOfThread(
   thread: AgentThread,
   untitledLabel = "Untitled",
 ) {
-  const title = thread.values?.title?.trim();
-  if (!title || title === "Untitled") {
-    return untitledLabel;
-  }
-  return localizeThreadDisplayTitle(title);
+  return resolveThreadDisplayTitle(
+    thread.values?.title,
+    untitledLabel,
+    thread.values?.messages,
+  );
 }

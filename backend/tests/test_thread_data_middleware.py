@@ -1,3 +1,6 @@
+import asyncio
+import threading
+
 import pytest
 from langgraph.runtime import Runtime
 
@@ -68,3 +71,33 @@ class TestThreadDataMiddleware:
         assert tmp_path.joinpath("threads", "thread-lazy", "user-data", "workspace").is_dir()
         assert tmp_path.joinpath("threads", "thread-lazy", "user-data", "uploads").is_dir()
         assert tmp_path.joinpath("threads", "thread-lazy", "user-data", "outputs").is_dir()
+
+    def test_abefore_agent_initializes_thread_directories_off_main_thread(self, tmp_path):
+        middleware = ThreadDataMiddleware(base_dir=str(tmp_path), lazy_init=True)
+        ensure_thread_names: list[str] = []
+
+        class RecordingPaths:
+            def ensure_thread_dirs(self, thread_id: str) -> None:
+                ensure_thread_names.append(threading.current_thread().name)
+
+            def sandbox_work_dir(self, thread_id: str):
+                return tmp_path / "threads" / thread_id / "user-data" / "workspace"
+
+            def sandbox_uploads_dir(self, thread_id: str):
+                return tmp_path / "threads" / thread_id / "user-data" / "uploads"
+
+            def sandbox_outputs_dir(self, thread_id: str):
+                return tmp_path / "threads" / thread_id / "user-data" / "outputs"
+
+        middleware._paths = RecordingPaths()
+
+        result = asyncio.run(
+            middleware.abefore_agent(
+                state={},
+                runtime=Runtime(context={"thread_id": "thread-async"}),
+            )
+        )
+
+        assert result is not None
+        assert ensure_thread_names
+        assert ensure_thread_names[0] != threading.current_thread().name

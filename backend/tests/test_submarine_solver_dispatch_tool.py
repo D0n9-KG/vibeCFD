@@ -316,8 +316,6 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
 
     assert payload["dispatch_status"] == "planned"
     assert payload["execution_readiness"] == "stl_ready"
-    assert payload["recommended_actions"]
-    assert "review_dispatch_artifacts" in payload["recommended_actions"]
     assert payload["geometry"]["geometry_family"] == "Type 209"
     assert payload["selected_case"]["case_id"]
     assert payload["provenance_manifest_virtual_path"].endswith("/provenance-manifest.json")
@@ -338,6 +336,9 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
     )
     assert "solver_results" not in provenance_manifest["artifact_entrypoints"]
     assert md_path.exists()
+    message = result.update["messages"][0].content
+    assert "研究产物" in message
+    assert "DeerFlow artifacts" not in message
 
 
 def test_submarine_solver_dispatch_marks_drifted_but_runnable_environment_parity(
@@ -2213,7 +2214,13 @@ def test_submarine_solver_dispatch_requires_user_confirmation_before_dispatch(
     assert "messages" in result.update
     assert "artifacts" not in result.update
     assert "submarine_runtime" not in result.update
-    assert "user confirmation" in result.update["messages"][0].content.lower()
+    message = result.update["messages"][0].content
+    assert "研究者确认" in message
+    assert "协商区" in message
+    assert "设计简报" in message
+    assert "继续求解准备" in message
+    assert "user confirmation" not in message.lower()
+    assert "submarine_solver_dispatch" not in message
 
 
 def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design_brief_artifact(
@@ -2329,8 +2336,6 @@ def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design
 
     assert fake_sandbox.commands
     assert payload["dispatch_status"] == "executed"
-    assert payload["recommended_actions"]
-    assert "generate_result_report" in payload["recommended_actions"]
     assert payload["task_description"] == design_brief_payload["task_description"]
     assert payload["solver_results"]["solver_completed"] is True
     assert payload["simulation_requirements"]["inlet_velocity_mps"] == 5.0
@@ -2341,4 +2346,3 @@ def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design
         == design_brief_payload["task_description"]
     )
     assert result.update["submarine_runtime"]["stage_status"] == "executed"
-    assert "generate_result_report" in result.update["submarine_runtime"]["recommended_actions"]

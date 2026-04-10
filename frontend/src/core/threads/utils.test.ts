@@ -203,3 +203,113 @@ void test("titleOfThread localizes known workspace-facing English thread titles"
   assert.equal(titleOfThread(draftThread), "潜艇结果验收草稿");
   assert.equal(titleOfThread(overviewThread), "DeerFlow 技能能力说明");
 });
+
+void test("titleOfThread strips uploaded file scaffolding from persisted thread titles", () => {
+  const thread = makeThread("uploaded-title", {
+    title: [
+      "<uploaded_files>",
+      "The following files were uploaded in this message:",
+      "",
+      "- suboff_solid.stl (1677721)",
+      "  Path: /mnt/user-data/uploads/suboff_solid.stl",
+      "</uploaded_files>",
+      "",
+      "Geometry preflight for SUBOFF STL",
+    ].join("\n"),
+  });
+
+  const title = titleOfThread(thread);
+
+  assert.match(title, /SUBOFF STL/);
+  assert.doesNotMatch(title, /<uploaded_files>|Path:/);
+});
+
+void test("titleOfThread falls back to a friendly upload summary when a persisted title only contains file metadata", () => {
+  const thread = makeThread("upload-only-title", {
+    title: [
+      "<uploaded_files>",
+      "The following files were uploaded in this message:",
+      "",
+      "- suboff_solid.stl (1677721)",
+      "  Path: /mnt/user-data/uploads/suboff_solid.stl",
+      "</uploaded_files>",
+    ].join("\n"),
+  });
+
+  const title = titleOfThread(thread);
+
+  assert.match(title, /suboff_solid\.stl/);
+  assert.doesNotMatch(title, /<uploaded_files>|Path:/);
+});
+
+void test("titleOfThread falls back to the untitled label for truncated upload scaffold titles", () => {
+  const thread = makeThread("truncated-upload-title", {
+    title: "<uploaded_files> The following files were uploaded.",
+  });
+
+  assert.equal(titleOfThread(thread, "Untitled Thread"), "Untitled Thread");
+});
+
+void test("titleOfThread falls back to the first human message when a new thread is still untitled", () => {
+  const thread = makeThread("untitled-with-message", {
+    title: "Untitled",
+    messages: [
+      {
+        type: "human",
+        id: "human-1",
+        content: [
+          {
+            type: "text",
+            text: "Geometry preflight for SUBOFF STL at 12 knots and 4 m depth",
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.match(titleOfThread(thread), /SUBOFF STL/);
+});
+
+void test("titleOfThread ignores uploaded file scaffolding when using the first human message as the fallback title", () => {
+  const thread = makeThread("untitled-with-uploaded-file-message", {
+    title: "Untitled",
+    messages: [
+      {
+        type: "human",
+        id: "human-1",
+        content: [
+          {
+            type: "text",
+            text: [
+              "<uploaded_files>",
+              "The following files were uploaded in this message:",
+              "",
+              "- suboff_solid.stl (1677721)",
+              "  Path: /mnt/user-data/uploads/suboff_solid.stl",
+              "</uploaded_files>",
+              "",
+              "Please run a geometry preflight and suggest the next CFD setup.",
+            ].join("\n"),
+          },
+        ],
+      },
+    ],
+  });
+
+  const title = titleOfThread(thread);
+
+  assert.match(title, /(几何预检|CFD setup)/i);
+  assert.doesNotMatch(title, /<uploaded_files>|Path:/);
+});
+
+void test("titleOfThread removes orphaned trailing punctuation from persisted titles", () => {
+  const thread = makeThread("punctuation-title", {
+    title:
+      "请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；.",
+  });
+
+  const title = titleOfThread(thread);
+
+  assert.match(title, /SUBOFF 裸艇阻力基线研究$/);
+  assert.doesNotMatch(title, /；\.$/);
+});

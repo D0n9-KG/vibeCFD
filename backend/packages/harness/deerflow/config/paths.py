@@ -5,6 +5,7 @@ from pathlib import Path
 
 # Virtual path prefix seen by agents inside the sandbox
 VIRTUAL_PATH_PREFIX = "/mnt/user-data"
+_PROCESS_START_DIR = Path.cwd()
 
 _SAFE_THREAD_ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 
@@ -37,7 +38,13 @@ class Paths:
     """
 
     def __init__(self, base_dir: str | Path | None = None) -> None:
-        self._base_dir = Path(base_dir).resolve() if base_dir is not None else None
+        if base_dir is None:
+            self._base_dir = None
+        else:
+            path = Path(base_dir)
+            if not path.is_absolute():
+                path = _PROCESS_START_DIR / path
+            self._base_dir = path.resolve()
 
     @property
     def host_base_dir(self) -> Path:
@@ -61,11 +68,13 @@ class Paths:
             return self._base_dir
 
         if env_home := os.getenv("DEER_FLOW_HOME"):
-            return Path(env_home).resolve()
+            home_path = Path(env_home)
+            if not home_path.is_absolute():
+                home_path = _PROCESS_START_DIR / home_path
+            return home_path.resolve()
 
-        cwd = Path.cwd()
-        if cwd.name == "backend" or (cwd / "pyproject.toml").exists():
-            return cwd / ".deer-flow"
+        if _PROCESS_START_DIR.name == "backend" or (_PROCESS_START_DIR / "pyproject.toml").exists():
+            return _PROCESS_START_DIR / ".deer-flow"
 
         return Path.home() / ".deer-flow"
 

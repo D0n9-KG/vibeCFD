@@ -10,17 +10,22 @@ stack while normalizing both shapes into one stable contract.
 from collections.abc import AsyncIterator, Iterator
 import json
 import logging
+import re
 from typing import Any
 
 from langchain_openai import ChatOpenAI
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
-from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 
 from deerflow.models.credential_loader import load_openai_api_credential
+from deerflow.tools.builtins.submarine_runtime_context import (
+    detect_execution_preference_signal,
+)
 
 logger = logging.getLogger(__name__)
+_UPLOAD_BLOCK_RE = re.compile(r"<uploaded_files>[\s\S]*?</uploaded_files>\n*", re.IGNORECASE)
 
 
 class OpenAICliChatModel(ChatOpenAI):
@@ -53,6 +58,208 @@ class OpenAICliChatModel(ChatOpenAI):
         self.openai_api_key = SecretStr(current_key)
         super().model_post_init(__context)
 
+    @staticmethod
+    def _contains_cjk(text: str) -> bool:
+        return any("\u4e00" <= char <= "\u9fff" for char in text)
+
+    @classmethod
+    def _normalize_content(cls, content: Any) -> str:
+        if isinstance(content, str):
+            return content
+
+        if isinstance(content, list):
+            parts = [cls._normalize_content(item) for item in content]
+            return "\n".join(part for part in parts if part)
+
+        if isinstance(content, dict):
+            for key in ("text", "output"):
+                value = content.get(key)
+                if isinstance(value, str):
+                    return value
+            nested_content = content.get("content")
+            if nested_content is not None:
+                return cls._normalize_content(nested_content)
+            try:
+                return json.dumps(content, ensure_ascii=False)
+            except TypeError:
+                return str(content)
+
+        try:
+            return json.dumps(content, ensure_ascii=False)
+        except TypeError:
+            return str(content)
+
+    @classmethod
+    def _latest_user_visible_text(cls, messages: list[BaseMessage]) -> str:
+        for msg in reversed(messages):
+            if not isinstance(msg, HumanMessage):
+                continue
+            normalized = cls._normalize_content(msg.content)
+            visible = _UPLOAD_BLOCK_RE.sub("", normalized).strip()
+            return visible or normalized.strip()
+        return ""
+
+    @classmethod
+    def _latest_human_index(cls, messages: list[BaseMessage]) -> int | None:
+        for index in range(len(messages) - 1, -1, -1):
+            if isinstance(messages[index], HumanMessage):
+                return index
+        return None
+
+    @classmethod
+    def _latest_tool_result_summary(
+        cls, messages: list[BaseMessage], *, tool_name: str
+    ) -> str | None:
+        latest_human_index = cls._latest_human_index(messages)
+        if latest_human_index is None:
+            return None
+
+        for msg in reversed(messages[latest_human_index + 1 :]):
+            if not isinstance(msg, ToolMessage):
+                continue
+            if getattr(msg, "name", None) != tool_name:
+                continue
+            normalized = cls._normalize_content(msg.content).strip()
+            if not normalized:
+                continue
+            for line in normalized.splitlines():
+                stripped = line.strip()
+                if stripped:
+                    return stripped
+        return None
+
+    @classmethod
+    def _latest_uploaded_file(cls, messages: list[BaseMessage]) -> dict[str, str] | None:
+        for msg in reversed(messages):
+            if not isinstance(msg, HumanMessage):
+                continue
+            files = msg.additional_kwargs.get("files") if isinstance(msg.additional_kwargs, dict) else None
+            if not isinstance(files, list):
+                continue
+            for item in reversed(files):
+                if not isinstance(item, dict):
+                    continue
+                filename = str(item.get("filename") or "").strip()
+                path = str(item.get("path") or "").strip()
+                if filename or path:
+                    return {
+                        "filename": filename,
+                        "path": path,
+                    }
+        return None
+
+    @classmethod
+    def _infer_submarine_task_type(cls, text: str) -> str:
+        normalized = text.lower()
+        if any(keyword in normalized for keyword in ("压力", "pressure")):
+            return "pressure_distribution"
+        if any(keyword in normalized for keyword in ("尾流", "wake")):
+            return "wake_field"
+        return "resistance"
+
+    @classmethod
+    def _infer_geometry_family_hint(cls, text: str) -> str | None:
+        normalized = text.lower()
+        if "suboff" in normalized:
+            return "DARPA SUBOFF"
+        if "type 209" in normalized or "209" in normalized:
+            return "Type 209"
+        return None
+
+    @classmethod
+    def _build_empty_response_recovery_tool_calls(
+        cls, messages: list[BaseMessage]
+    ) -> list[dict[str, Any]]:
+        latest_human_index = cls._latest_human_index(messages)
+        if latest_human_index is None or latest_human_index != len(messages) - 1:
+            return []
+
+        visible_text = cls._latest_user_visible_text(messages)
+        if detect_execution_preference_signal(visible_text) != "plan_only":
+            return []
+
+        normalized = visible_text.lower()
+        if not any(
+            keyword in normalized
+            for keyword in (
+                "几何",
+                "预检",
+                "可用性",
+                "封闭",
+                "尺度",
+                "geometry",
+                "preflight",
+                "stl",
+            )
+        ):
+            return []
+
+        uploaded = cls._latest_uploaded_file(messages)
+        if uploaded is None:
+            return []
+
+        geometry_path = uploaded.get("path") or ""
+        filename = (uploaded.get("filename") or geometry_path.rsplit("/", 1)[-1]).lower()
+        if not filename.endswith(".stl"):
+            return []
+
+        tool_args: dict[str, Any] = {
+            "geometry_path": geometry_path or None,
+            "task_description": visible_text,
+            "task_type": cls._infer_submarine_task_type(visible_text),
+        }
+        geometry_family_hint = cls._infer_geometry_family_hint(visible_text)
+        if geometry_family_hint:
+            tool_args["geometry_family_hint"] = geometry_family_hint
+
+        return [
+            {
+                "name": "submarine_geometry_check",
+                "args": tool_args,
+                "id": "fallback_submarine_geometry_check_0",
+                "type": "tool_call",
+            }
+        ]
+
+    @classmethod
+    def _build_empty_response_fallback(cls, messages: list[BaseMessage]) -> str:
+        if geometry_summary := cls._latest_tool_result_summary(
+            messages, tool_name="submarine_geometry_check"
+        ):
+            return geometry_summary
+
+        latest_user_text = cls._latest_user_visible_text(messages)
+        if cls._contains_cjk(latest_user_text):
+            return "\u6211\u5148\u6839\u636e\u4f60\u521a\u624d\u7684\u8f93\u5165\u7ee7\u7eed\u63a8\u8fdb\uff1b\u5982\u679c\u9700\u8981\u4f60\u8865\u5145\u4fe1\u606f\uff0c\u6211\u4f1a\u660e\u786e\u544a\u8bc9\u4f60\u3002"
+        return "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
+
+    @classmethod
+    def _apply_empty_response_fallback(cls, result: ChatResult, messages: list[BaseMessage]) -> ChatResult:
+        if not result.generations:
+            return result
+
+        message = result.generations[0].message
+        if (
+            not cls._normalize_content(message.content).strip()
+            and not getattr(message, "tool_calls", None)
+            and not getattr(message, "invalid_tool_calls", None)
+        ):
+            recovery_tool_calls = cls._build_empty_response_recovery_tool_calls(messages)
+            if recovery_tool_calls:
+                result.generations[0].message = message.model_copy(
+                    update={
+                        "content": "",
+                        "tool_calls": recovery_tool_calls,
+                        "invalid_tool_calls": [],
+                    }
+                )
+            else:
+                result.generations[0].message = message.model_copy(
+                    update={"content": cls._build_empty_response_fallback(messages)}
+                )
+
+        return result
+
     def _generate(
         self,
         messages: list[BaseMessage],
@@ -66,7 +273,8 @@ class OpenAICliChatModel(ChatOpenAI):
 
         raw_response = self.root_client.responses.create(**payload)
         response = self._normalize_responses_api_response(raw_response)
-        return self._build_chat_result_from_response_dict(response)
+        result = self._build_chat_result_from_response_dict(response)
+        return self._apply_empty_response_fallback(result, messages)
 
     async def _agenerate(
         self,
@@ -81,7 +289,8 @@ class OpenAICliChatModel(ChatOpenAI):
 
         raw_response = await self.root_async_client.responses.create(**payload)
         response = self._normalize_responses_api_response(raw_response)
-        return self._build_chat_result_from_response_dict(response)
+        result = self._build_chat_result_from_response_dict(response)
+        return self._apply_empty_response_fallback(result, messages)
 
     def _stream(
         self,

@@ -141,6 +141,9 @@ def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypat
         ]
         == "fix_setup"
     )
+    message = result.update["messages"][0].content
+    assert "研究产物" in message
+    assert "DeerFlow artifacts" not in message
 
 
 def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):

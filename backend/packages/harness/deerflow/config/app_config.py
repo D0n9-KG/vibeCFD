@@ -24,6 +24,12 @@ from deerflow.config.tool_search_config import ToolSearchConfig, load_tool_searc
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+_PROCESS_START_DIR = Path.cwd()
+
+
+def _default_config_search_dirs() -> tuple[Path, Path]:
+    """Return the process startup directory and its parent for default config lookup."""
+    return _PROCESS_START_DIR, _PROCESS_START_DIR.parent
 
 
 class AppConfig(BaseModel):
@@ -61,14 +67,11 @@ class AppConfig(BaseModel):
                 raise FileNotFoundError(f"Config file specified by environment variable `DEER_FLOW_CONFIG_PATH` not found at {path}")
             return path
         else:
-            # Check if the config.yaml is in the current directory
-            path = Path(os.getcwd()) / "config.yaml"
-            if not path.exists():
-                # Check if the config.yaml is in the parent directory of CWD
-                path = Path(os.getcwd()).parent / "config.yaml"
-                if not path.exists():
-                    raise FileNotFoundError("`config.yaml` file not found at the current directory nor its parent directory")
-            return path
+            for search_dir in _default_config_search_dirs():
+                path = search_dir / "config.yaml"
+                if path.exists():
+                    return path
+            raise FileNotFoundError("`config.yaml` file not found at the current directory nor its parent directory")
 
     @classmethod
     def from_file(cls, config_path: str | None = None) -> Self:

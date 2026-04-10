@@ -3,6 +3,8 @@ import path from "node:path";
 
 import type { NextRequest } from "next/server";
 
+import { requireThreadRouteSession } from "../../../_auth";
+
 function buildCandidatePaths(threadId: string, artifactPath: string) {
   if (!artifactPath.startsWith("mnt/user-data/")) {
     return [];
@@ -55,6 +57,11 @@ export async function GET(
     }>;
   },
 ) {
+  const unauthorizedResponse = await requireThreadRouteSession();
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
+  }
+
   const { thread_id: threadId, artifact_path: artifactPathSegments } =
     await context.params;
   const artifactPath = artifactPathSegments?.join("/") ?? "";

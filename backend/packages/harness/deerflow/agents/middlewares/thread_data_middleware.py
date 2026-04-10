@@ -1,3 +1,4 @@
+import asyncio
 from typing import NotRequired, override
 
 from langchain.agents import AgentState
@@ -70,8 +71,7 @@ class ThreadDataMiddleware(AgentMiddleware[ThreadDataMiddlewareState]):
         self._paths.ensure_thread_dirs(thread_id)
         return self._get_thread_paths(thread_id)
 
-    @override
-    def before_agent(self, state: ThreadDataMiddlewareState, runtime: Runtime) -> dict | None:
+    def _resolve_thread_id(self, runtime: Runtime) -> str:
         context = runtime.context or {}
         thread_id = context.get("thread_id")
         if thread_id is None:
@@ -81,13 +81,39 @@ class ThreadDataMiddleware(AgentMiddleware[ThreadDataMiddlewareState]):
         if thread_id is None:
             raise ValueError("Thread ID is required in runtime context or config.configurable")
 
-        self._paths.ensure_thread_dirs(thread_id)
+        return thread_id
 
+    def _build_thread_data(self, thread_id: str) -> dict[str, str]:
         if self._lazy_init:
-            paths = self._get_thread_paths(thread_id)
-        else:
-            paths = self._create_thread_directories(thread_id)
-            print(f"Created thread data directories for thread {thread_id}")
+            return self._get_thread_paths(thread_id)
+
+        paths = self._get_thread_paths(thread_id)
+        print(f"Created thread data directories for thread {thread_id}")
+        return paths
+
+    @override
+    def before_agent(self, state: ThreadDataMiddlewareState, runtime: Runtime) -> dict | None:
+        thread_id = self._resolve_thread_id(runtime)
+
+        self._paths.ensure_thread_dirs(thread_id)
+        paths = self._build_thread_data(thread_id)
+
+        return {
+            "thread_data": {
+                **paths,
+            }
+        }
+
+    @override
+    async def abefore_agent(
+        self,
+        state: ThreadDataMiddlewareState,
+        runtime: Runtime,
+    ) -> dict | None:
+        thread_id = self._resolve_thread_id(runtime)
+
+        await asyncio.to_thread(self._paths.ensure_thread_dirs, thread_id)
+        paths = self._build_thread_data(thread_id)
 
         return {
             "thread_data": {

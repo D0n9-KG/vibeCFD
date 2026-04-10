@@ -6,33 +6,33 @@
   "gates": [
     {
       "id": "structure",
-      "label": "Skill structure is valid",
+      "label": "技能结构校验通过",
       "status": "passed"
     },
     {
       "id": "trigger",
-      "label": "Trigger description is discoverable",
+      "label": "触发描述可被发现",
       "status": "passed"
     },
     {
       "id": "scenarios",
-      "label": "Scenario tests are prepared",
+      "label": "场景测试已准备",
       "status": "passed"
     },
     {
       "id": "dry-run",
-      "label": "Dry-run handoff is ready",
+      "label": "试跑交接已就绪",
       "status": "passed"
     },
     {
       "id": "ui-metadata",
-      "label": "UI metadata has been generated",
+      "label": "界面元数据已生成",
       "status": "passed"
     }
   ],
   "next_actions": [
-    "Run a dry-run conversation using one of the prepared scenarios.",
-    "Review the generated SKILL.md, domain rules, and UI metadata together.",
-    "Publish only after the expert signs off on the dry-run result."
+    "使用已准备的场景执行一次试跑对话。",
+    "一并复核生成的 SKILL.md、领域规则与界面元数据。",
+    "仅在专家确认试跑结果后再执行发布。"
   ]
 }

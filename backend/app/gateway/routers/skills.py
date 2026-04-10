@@ -5,11 +5,13 @@ import stat
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.gateway.path_utils import resolve_thread_virtual_path
+from deerflow.config.app_config import get_app_config
 from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
 from deerflow.domain.submarine.skill_lifecycle import (
     SkillLifecycleBinding,
@@ -18,6 +20,7 @@ from deerflow.domain.submarine.skill_lifecycle import (
     SkillLifecycleRegistry,
     append_skill_lifecycle_revision,
     apply_skill_lifecycle_revision,
+    bump_skill_runtime_revision,
     get_next_skill_revision_id,
     get_skill_lifecycle_binding_count,
     load_skill_lifecycle_record,
@@ -29,11 +32,15 @@ from deerflow.domain.submarine.skill_lifecycle import (
     save_skill_lifecycle_registry,
     utc_timestamp,
 )
+from deerflow.domain.submarine.skill_studio import (
+    record_skill_studio_dry_run_evidence,
+)
 from deerflow.skills import Skill, analyze_skill_relationships, load_skills
 from deerflow.skills.loader import get_skills_root_path
 from deerflow.skills.validation import _validate_skill_frontmatter
 
 logger = logging.getLogger(__name__)
+DEFAULT_LANGGRAPH_SERVER_URL = "http://localhost:2024"
 
 
 def _is_unsafe_zip_member(info: zipfile.ZipInfo) -> bool:
@@ -227,6 +234,155 @@ class SkillPublishResponse(BaseModel):
     enabled: bool = Field(..., description="Whether the skill is enabled after publishing")
 
 
+class SkillDryRunEvidenceRequest(BaseModel):
+    thread_id: str = Field(
+        ...,
+        description="Thread ID where the Skill Studio draft artifacts live",
+    )
+    path: str = Field(
+        ...,
+        description="Virtual path to the Skill Studio skill-draft.json artifact",
+    )
+    status: Literal["passed", "failed"] = Field(
+        ...,
+        description="Reviewed dry-run result for the current draft",
+    )
+    scenario_id: str | None = Field(
+        default=None,
+        description="Optional scenario identifier used for the reviewed dry run",
+    )
+    message_ids: list[str] = Field(
+        default_factory=list,
+        description="Conversation message IDs that provide traceable dry-run evidence",
+    )
+    reviewer_note: str = Field(
+        default="",
+        description="Optional reviewer note recorded beside the dry-run evidence",
+    )
+
+
+class SkillDryRunEvidenceResponse(BaseModel):
+    success: bool = True
+    skill_name: str
+    dry_run_evidence_status: str
+    dry_run_evidence_virtual_path: str
+    publish_status: str
+    package_archive_virtual_path: str
+    artifact_virtual_paths: list[str] = Field(default_factory=list)
+
+
+def _has_traceable_message_ids(message_ids: object) -> bool:
+    return bool(_normalize_message_ids(message_ids))
+
+
+def _normalize_message_ids(message_ids: object) -> list[str]:
+    if not isinstance(message_ids, list):
+        return []
+
+    normalized: list[str] = []
+    for value in message_ids:
+        if not isinstance(value, str):
+            continue
+        candidate = value.strip()
+        if candidate:
+            normalized.append(candidate)
+    return normalized
+
+
+async def _load_thread_state(thread_id: str) -> dict:
+    from langgraph_sdk import get_client
+
+    client = get_client(url=_get_langgraph_server_url())
+    try:
+        return await client.threads.get_state(thread_id)
+    except Exception as exc:  # pragma: no cover - defensive integration boundary
+        logger.error(
+            "Failed to load LangGraph thread state for %s: %s",
+            thread_id,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Unable to verify dry-run evidence against the LangGraph thread "
+                "state right now."
+            ),
+        ) from exc
+
+
+def _get_langgraph_server_url() -> str:
+    try:
+        app_config = get_app_config()
+    except Exception:
+        return DEFAULT_LANGGRAPH_SERVER_URL
+
+    extra = getattr(app_config, "model_extra", None)
+    if not isinstance(extra, dict):
+        return DEFAULT_LANGGRAPH_SERVER_URL
+
+    channels_config = extra.get("channels")
+    if not isinstance(channels_config, dict):
+        return DEFAULT_LANGGRAPH_SERVER_URL
+
+    configured_url = channels_config.get("langgraph_url")
+    if isinstance(configured_url, str) and configured_url.strip():
+        return configured_url.strip()
+
+    return DEFAULT_LANGGRAPH_SERVER_URL
+
+
+def _extract_thread_message_ids(thread_state: object) -> set[str]:
+    if not isinstance(thread_state, dict):
+        return set()
+
+    values = thread_state.get("values")
+    if not isinstance(values, dict):
+        return set()
+
+    messages = values.get("messages")
+    if not isinstance(messages, list):
+        return set()
+
+    traceable_ids: set[str] = set()
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        message_id = message.get("id")
+        if isinstance(message_id, str) and message_id.strip():
+            traceable_ids.add(message_id.strip())
+    return traceable_ids
+
+
+async def _require_thread_message_ids(
+    *,
+    thread_id: str,
+    message_ids: object,
+    required_detail: str,
+    mismatch_detail: str,
+) -> list[str]:
+    normalized_message_ids = _normalize_message_ids(message_ids)
+    if not normalized_message_ids:
+        raise HTTPException(status_code=400, detail=required_detail)
+
+    thread_state = await _load_thread_state(thread_id)
+    thread_message_ids = _extract_thread_message_ids(thread_state)
+    missing_ids = [
+        message_id
+        for message_id in normalized_message_ids
+        if message_id not in thread_message_ids
+    ]
+    if missing_ids:
+        joined_ids = ", ".join(missing_ids[:3])
+        suffix = "..." if len(missing_ids) > 3 else ""
+        raise HTTPException(
+            status_code=400,
+            detail=f"{mismatch_detail}: {joined_ids}{suffix}",
+        )
+
+    return normalized_message_ids
+
+
 class SkillLifecycleSummaryResponse(BaseModel):
     skill_name: str
     enabled: bool
@@ -328,9 +484,12 @@ def _save_skill_lifecycle_record(
     record: SkillLifecycleRecord,
     *,
     skills_root: Path | None = None,
+    bump_runtime_revision: bool = False,
 ) -> None:
     registry = load_skill_lifecycle_registry(skills_root=skills_root)
     registry.records[record.skill_name] = record
+    if bump_runtime_revision:
+        bump_skill_runtime_revision(registry)
     save_skill_lifecycle_registry(registry, skills_root=skills_root)
 
 
@@ -478,6 +637,91 @@ def _install_skill_archive(skill_file_path: Path, *, overwrite: bool = False) ->
             shutil.copytree(preserved_revisions_dir, restored_revision_dir)
 
     return skill_name, target_dir
+
+
+def _load_archive_root_json_payload(
+    skill_file_path: Path,
+    *,
+    member_name: str,
+    missing_detail: str,
+    invalid_detail_prefix: str,
+) -> dict:
+    if not skill_file_path.exists():
+        raise HTTPException(status_code=404, detail=f"Skill file not found: {skill_file_path}")
+
+    if not skill_file_path.is_file():
+        raise HTTPException(status_code=400, detail=f"Path is not a file: {skill_file_path}")
+
+    if skill_file_path.suffix != ".skill":
+        raise HTTPException(status_code=400, detail="File must have .skill extension")
+
+    if not zipfile.is_zipfile(skill_file_path):
+        raise HTTPException(status_code=400, detail="File is not a valid ZIP archive")
+
+    with zipfile.ZipFile(skill_file_path, "r") as archive:
+        archive_members = [
+            Path(info.filename)
+            for info in archive.infolist()
+            if not info.is_dir() and not _should_ignore_archive_entry(Path(info.filename))
+        ]
+        if len(archive_members) == 0:
+            raise HTTPException(status_code=400, detail="Skill archive is empty")
+
+        top_level_entries = {
+            member.parts[0]
+            for member in archive_members
+            if len(member.parts) > 0
+        }
+        root_prefix = (
+            Path(next(iter(top_level_entries)))
+            if len(top_level_entries) == 1
+            else Path()
+        )
+        expected_member_name = (
+            (root_prefix / member_name).as_posix()
+            if root_prefix != Path()
+            else member_name
+        )
+        archive_member = next(
+            (
+                info
+                for info in archive.infolist()
+                if not info.is_dir() and info.filename == expected_member_name
+            ),
+            None,
+        )
+        if archive_member is None:
+            raise HTTPException(
+                status_code=400,
+                detail=missing_detail,
+            )
+
+        try:
+            with archive.open(archive_member, "r") as file_obj:
+                return json.load(file_obj)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{invalid_detail_prefix}: {exc}",
+            ) from exc
+
+
+def _load_archive_dry_run_evidence(skill_file_path: Path) -> dict:
+    return _load_archive_root_json_payload(
+        skill_file_path,
+        member_name="dry-run-evidence.json",
+        missing_detail="Publish blocked: dry-run evidence is missing or has not passed.",
+        invalid_detail_prefix="Invalid dry-run evidence payload in archive",
+    )
+
+
+def _load_archive_publish_readiness(skill_file_path: Path) -> dict:
+    return _load_archive_root_json_payload(
+        skill_file_path,
+        member_name="publish-readiness.json",
+        missing_detail="Publish blocked: publish readiness is missing or not ready for review.",
+        invalid_detail_prefix="Invalid publish-readiness payload in archive",
+    )
 
 
 @router.get(
@@ -654,6 +898,7 @@ async def update_skill_lifecycle(
             published_path=str(updated_skill.skill_dir),
         )
         registry.records[skill_name] = record
+        bump_skill_runtime_revision(registry)
         save_skill_lifecycle_registry(registry, skills_root=skills_root)
         return _to_skill_lifecycle_detail(record)
     except HTTPException:
@@ -745,6 +990,7 @@ async def rollback_skill_revision(
             revision=revision,
         )
         registry.records[skill_name] = restored_record
+        bump_skill_runtime_revision(registry)
         save_skill_lifecycle_registry(registry, skills_root=skills_root)
         return _to_skill_lifecycle_summary(restored_record)
     except HTTPException:
@@ -873,6 +1119,7 @@ async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillRes
             _save_skill_lifecycle_record(
                 record,
                 skills_root=get_skills_root_path(),
+                bump_runtime_revision=True,
             )
 
         # Reload the skills to get the updated status (for API response)
@@ -947,6 +1194,57 @@ async def install_skill(request: SkillInstallRequest) -> SkillInstallResponse:
 
 
 @router.post(
+    "/skills/dry-run-evidence",
+    response_model=SkillDryRunEvidenceResponse,
+    summary="Record Skill Studio Dry-Run Evidence",
+    description=(
+        "Persist the reviewed dry-run result for a Skill Studio draft, refresh "
+        "publish-readiness artifacts, and rebuild the packaged .skill archive."
+    ),
+)
+async def record_skill_dry_run_evidence(
+    request: SkillDryRunEvidenceRequest,
+) -> SkillDryRunEvidenceResponse:
+    try:
+        draft_path = resolve_thread_virtual_path(request.thread_id, request.path)
+        validated_message_ids = request.message_ids
+        if request.status == "passed" or _has_traceable_message_ids(request.message_ids):
+            validated_message_ids = await _require_thread_message_ids(
+                thread_id=request.thread_id,
+                message_ids=request.message_ids,
+                required_detail="Passed dry-run evidence requires non-empty traceable message_ids.",
+                mismatch_detail=(
+                    "Passed dry-run evidence message_ids do not belong to the "
+                    "requested thread"
+                ),
+            )
+        result = record_skill_studio_dry_run_evidence(
+            draft_path=draft_path,
+            thread_id=request.thread_id,
+            status=request.status,
+            scenario_id=request.scenario_id,
+            message_ids=validated_message_ids,
+            reviewer_note=request.reviewer_note,
+        )
+        return SkillDryRunEvidenceResponse(success=True, **result)
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to record dry-run evidence for %s: %s",
+            request.path,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to record dry-run evidence: {str(exc)}",
+        ) from exc
+
+
+@router.post(
     "/skills/publish",
     response_model=SkillPublishResponse,
     summary="Publish Skill Draft",
@@ -959,6 +1257,37 @@ async def publish_skill(request: SkillPublishRequest) -> SkillPublishResponse:
     """Publish a generated skill package from Skill Studio into the repo."""
     try:
         skill_file_path = resolve_thread_virtual_path(request.thread_id, request.path)
+        dry_run_evidence = _load_archive_dry_run_evidence(skill_file_path)
+        if dry_run_evidence.get("status") != "passed":
+            raise HTTPException(
+                status_code=400,
+                detail="Publish blocked: dry-run evidence is missing or has not passed.",
+            )
+        if not _has_traceable_message_ids(dry_run_evidence.get("message_ids")):
+            raise HTTPException(
+                status_code=400,
+                detail="Publish blocked: dry-run evidence is missing traceable message_ids.",
+            )
+        if str(dry_run_evidence.get("thread_id") or "").strip() != request.thread_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Publish blocked: dry-run evidence thread_id does not match the requested thread.",
+            )
+        dry_run_evidence["message_ids"] = await _require_thread_message_ids(
+            thread_id=request.thread_id,
+            message_ids=dry_run_evidence.get("message_ids"),
+            required_detail="Publish blocked: dry-run evidence is missing traceable message_ids.",
+            mismatch_detail=(
+                "Publish blocked: dry-run evidence message_ids do not belong to "
+                "the requested thread"
+            ),
+        )
+        publish_readiness = _load_archive_publish_readiness(skill_file_path)
+        if publish_readiness.get("status") != "ready_for_review":
+            raise HTTPException(
+                status_code=400,
+                detail="Publish blocked: publish readiness is missing or not ready for review.",
+            )
         skill_name, target_dir = _install_skill_archive(
             skill_file_path,
             overwrite=request.overwrite,
@@ -1002,6 +1331,7 @@ async def publish_skill(request: SkillPublishRequest) -> SkillPublishResponse:
             ),
         )
         registry.records[skill_name] = record
+        bump_skill_runtime_revision(registry)
         save_skill_lifecycle_registry(registry, skills_root=skills_root)
 
         action = "updated" if request.overwrite else "installed"

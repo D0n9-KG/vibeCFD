@@ -1,9 +1,21 @@
+import asyncio
+import threading
 from datetime import datetime
+from pathlib import Path
 
 from deerflow.config.agents_config import load_agent_soul
-from deerflow.domain.submarine.skill_lifecycle import load_skill_lifecycle_registry
+from deerflow.domain.submarine.skill_lifecycle import (
+    get_skill_lifecycle_registry_path,
+    load_skill_lifecycle_registry,
+)
 from deerflow.skills import load_skills
+from deerflow.skills.loader import get_skills_root_path
 from deerflow.skills.relationships import recommend_skills_for_subagent
+
+_CACHED_ENABLED_SKILLS = None
+_CACHED_ENABLED_SKILLS_SOURCE_STATE = None
+_ENABLED_SKILLS_REFRESH_LOCK = threading.Lock()
+_ENABLED_SKILLS_REFRESH_IN_FLIGHT = False
 
 
 _PROJECT_SKILL_BINDING_ROLE_IDS = [
@@ -399,13 +411,271 @@ def _get_memory_context(agent_name: str | None = None) -> str:
         return ""
 
 
-def get_skills_prompt_section(available_skills: set[str] | None = None) -> str:
+def _get_enabled_skills_snapshot_source_state():
+    """Track the inputs that should invalidate the enabled-skills snapshot."""
+    extensions_config_mtime = None
+    try:
+        from deerflow.config.extensions_config import ExtensionsConfig
+
+        config_path = ExtensionsConfig.resolve_config_path()
+        if config_path and config_path.exists():
+            extensions_config_mtime = config_path.stat().st_mtime
+    except Exception:
+        extensions_config_mtime = None
+
+    skills_root_mtime = None
+    try:
+        from deerflow.config import get_app_config
+
+        skills_root = get_app_config().skills.get_skills_path()
+    except Exception:
+        skills_root = get_skills_root_path()
+
+    registry_state = None
+    try:
+        registry_path = get_skill_lifecycle_registry_path(skills_root)
+        registry_state = (
+            str(registry_path),
+            load_skill_lifecycle_registry(registry_path=registry_path).runtime_revision,
+            registry_path.stat().st_mtime if registry_path.exists() else None,
+        )
+    except Exception:
+        registry_state = None
+
+    if skills_root.exists():
+        cached_skills = _CACHED_ENABLED_SKILLS or []
+        tracked_cached_skills = []
+        for skill in cached_skills:
+            skill_file = getattr(skill, "skill_file", None)
+            if skill_file is None:
+                continue
+            try:
+                Path(skill_file).resolve().relative_to(skills_root.resolve())
+            except Exception:
+                continue
+            tracked_cached_skills.append(skill)
+
+        if tracked_cached_skills:
+            watch_paths = {
+                skills_root,
+                skills_root / "public",
+                skills_root / "custom",
+            }
+
+            for skill in tracked_cached_skills:
+                skill_file = getattr(skill, "skill_file", None)
+                if skill_file is not None:
+                    watch_paths.add(Path(skill_file))
+
+                current_path = Path(
+                    getattr(skill, "skill_dir", None)
+                    or getattr(skill, "skill_file", skills_root)
+                )
+                category_root = skills_root / getattr(skill, "category", "public")
+
+                while current_path.exists():
+                    watch_paths.add(current_path)
+                    if current_path == category_root or current_path == skills_root:
+                        break
+                    parent = current_path.parent
+                    if parent == current_path:
+                        break
+                    current_path = parent
+
+            watch_state = tuple(
+                sorted(
+                    (
+                        str(path),
+                        path.stat().st_mtime if path.exists() else None,
+                    )
+                    for path in watch_paths
+                )
+            )
+
+            return (
+                extensions_config_mtime,
+                watch_state,
+                registry_state,
+                len(tracked_cached_skills),
+            )
+
+        if _is_event_loop_running():
+            watch_state = tuple(
+                sorted(
+                    (
+                        str(path),
+                        path.stat().st_mtime if path.exists() else None,
+                    )
+                    for path in (
+                        skills_root,
+                        skills_root / "public",
+                        skills_root / "custom",
+                    )
+                )
+            )
+            return (extensions_config_mtime, watch_state, registry_state, 0)
+
+        skill_files = list(skills_root.rglob("SKILL.md"))
+        if skill_files:
+            watch_state = tuple(
+                sorted((str(skill_file), skill_file.stat().st_mtime) for skill_file in skill_files)
+            )
+        else:
+            watch_state = ((str(skills_root), skills_root.stat().st_mtime),)
+
+        return (extensions_config_mtime, watch_state, registry_state, len(skill_files))
+
+    return (extensions_config_mtime, skills_root_mtime, registry_state, 0)
+
+
+def _is_event_loop_running() -> bool:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return True
+
+
+def _refresh_enabled_skills_snapshot():
+    global _CACHED_ENABLED_SKILLS, _CACHED_ENABLED_SKILLS_SOURCE_STATE
+
+    try:
+        skills = load_skills(enabled_only=True)
+    except Exception:
+        return False
+
+    _CACHED_ENABLED_SKILLS = skills
+    _CACHED_ENABLED_SKILLS_SOURCE_STATE = _get_enabled_skills_snapshot_source_state()
+    return True
+
+
+def _refresh_enabled_skills_snapshot_in_background():
+    global _ENABLED_SKILLS_REFRESH_IN_FLIGHT
+
+    with _ENABLED_SKILLS_REFRESH_LOCK:
+        if _ENABLED_SKILLS_REFRESH_IN_FLIGHT:
+            return
+        _ENABLED_SKILLS_REFRESH_IN_FLIGHT = True
+
+    def _worker():
+        global _ENABLED_SKILLS_REFRESH_IN_FLIGHT
+        try:
+            _refresh_enabled_skills_snapshot()
+        finally:
+            with _ENABLED_SKILLS_REFRESH_LOCK:
+                _ENABLED_SKILLS_REFRESH_IN_FLIGHT = False
+
+    threading.Thread(
+        target=_worker,
+        name="enabled-skills-snapshot-refresh",
+        daemon=True,
+    ).start()
+
+
+def _get_enabled_skills_snapshot():
+    """Return a process-local snapshot of enabled skills.
+
+    LangGraph history requests instantiate the lead agent even when no model call is about
+    to happen. Reading the full skills tree synchronously during those requests trips
+    blockbuster in dev mode, so we warm a simple in-process snapshot and refresh it on
+    module reload instead of rescanning on every call.
+    """
+    global _CACHED_ENABLED_SKILLS, _CACHED_ENABLED_SKILLS_SOURCE_STATE
+    current_source_state = _get_enabled_skills_snapshot_source_state()
+
+    if (
+        _CACHED_ENABLED_SKILLS is not None
+        and _CACHED_ENABLED_SKILLS_SOURCE_STATE == current_source_state
+    ):
+        return list(_CACHED_ENABLED_SKILLS)
+
+    if _is_event_loop_running():
+        _refresh_enabled_skills_snapshot_in_background()
+        return list(_CACHED_ENABLED_SKILLS or [])
+
+    if not _refresh_enabled_skills_snapshot():
+        return list(_CACHED_ENABLED_SKILLS or [])
+
+    return list(_CACHED_ENABLED_SKILLS)
+
+
+if _is_event_loop_running():
+    _refresh_enabled_skills_snapshot_in_background()
+else:
+    _refresh_enabled_skills_snapshot()
+
+
+def get_skills_prompt_section(
+    available_skills: set[str] | None = None,
+    *,
+    skill_snapshot: dict[str, object] | None = None,
+) -> str:
     """Generate the skills prompt section with available skills list.
 
     Returns the <skill_system>...</skill_system> block listing all enabled skills,
     suitable for injection into any agent's system prompt.
     """
-    skills = load_skills(enabled_only=True)
+    snapshot_skill_names = [
+        name
+        for name in (skill_snapshot or {}).get("enabled_skill_names", [])
+        if isinstance(name, str)
+    ]
+    snapshot_skill_entries = [
+        entry
+        for entry in (skill_snapshot or {}).get("skill_prompt_entries", [])
+        if isinstance(entry, dict)
+        and isinstance(entry.get("name"), str)
+        and isinstance(entry.get("description"), str)
+        and isinstance(entry.get("location"), str)
+    ]
+    if skill_snapshot is not None and not snapshot_skill_entries and snapshot_skill_names:
+        snapshot_skill_entries = [
+            {
+                "name": name,
+                "description": "Pinned skill entry from a legacy thread snapshot.",
+                "location": "snapshot-pinned skill metadata unavailable",
+            }
+            for name in snapshot_skill_names
+        ]
+    if snapshot_skill_entries:
+        if available_skills is not None:
+            snapshot_skill_entries = [
+                entry
+                for entry in snapshot_skill_entries
+                if entry["name"] in available_skills
+            ]
+        if not snapshot_skill_entries:
+            return ""
+
+        skill_items = "\n".join(
+            "    <skill>\n"
+            f"        <name>{entry['name']}</name>\n"
+            f"        <description>{entry['description']}</description>\n"
+            f"        <location>{entry['location']}</location>\n"
+            "    </skill>"
+            for entry in snapshot_skill_entries
+        )
+        skills_list = f"<available_skills>\n{skill_items}\n</available_skills>"
+        return f"""<skill_system>
+You have access to skills that provide optimized workflows for specific tasks. Each skill contains best practices, frameworks, and references to additional resources.
+
+**Progressive Loading Pattern:**
+1. When a user query matches a skill's use case, immediately call `read_file` on the skill's main file using the path attribute provided in the skill tag below
+2. Read and understand the skill's workflow and instructions
+3. The skill file contains references to external resources under the same folder
+4. Load referenced resources only when needed during execution
+5. Follow the skill's instructions precisely
+
+**Skills are located at:** snapshot-pinned skill entries
+
+{skills_list}
+
+</skill_system>"""
+
+    if skill_snapshot is None:
+        skills = _get_enabled_skills_snapshot()
+    else:
+        skills = []
 
     try:
         from deerflow.config import get_app_config
@@ -486,8 +756,54 @@ Recommended starting skill groups:
 </subagent_skill_routing>"""
 
 
-def get_project_skill_bindings_prompt_section() -> str:
+def get_project_skill_bindings_prompt_section(
+    skill_snapshot: dict[str, object] | None = None,
+) -> str:
     """Render persisted project-local explicit bindings for later routing decisions."""
+
+    if skill_snapshot is not None:
+        resolved_bindings = {
+            entry["role_id"]: sorted(
+                target
+                for target in entry.get("target_skills", [])
+                if isinstance(target, str) and target
+            )
+            for entry in (skill_snapshot.get("resolved_binding_targets") or [])
+            if isinstance(entry, dict)
+            and isinstance(entry.get("role_id"), str)
+        }
+        applied_roles = sorted(
+            role_id
+            for role_id in (skill_snapshot.get("binding_targets_applied") or [])
+            if isinstance(role_id, str) and role_id
+        )
+        runtime_revision = skill_snapshot.get("runtime_revision")
+        lines = []
+        for role_id in _PROJECT_SKILL_BINDING_ROLE_IDS:
+            if resolved_bindings.get(role_id):
+                lines.append(
+                    f"- {role_id} -> {', '.join(resolved_bindings[role_id])}"
+                )
+            elif role_id in applied_roles:
+                lines.append(
+                    f"- {role_id} -> explicit binding captured in this thread snapshot"
+                )
+            else:
+                lines.append(f"- {role_id} -> captured enabled skill pool")
+
+        revision_text = (
+            f"runtime revision {runtime_revision}"
+            if runtime_revision is not None
+            else "an earlier runtime revision"
+        )
+        return f"""<project_skill_bindings>
+This thread is pinned to a captured skill snapshot from {revision_text}.
+Use the captured enabled skill pool when routing work for this thread. The
+roles below mark whether an explicit binding was already active when the
+snapshot was captured.
+
+{chr(10).join(lines)}
+</project_skill_bindings>"""
 
     try:
         registry = load_skill_lifecycle_registry()
@@ -539,14 +855,34 @@ For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resi
 2. Do NOT answer submarine CFD requests directly from general reasoning when a domain tool or structured artifact would materially improve reliability.
    Choose tools dynamically based on the user's goal rather than forcing every task through the same linear stage order.
 3. If operating conditions, deliverables, comparison targets, or verification requirements are still unresolved, call `ask_clarification` and stop.
+   Geometry-only / preflight-only requests with a bound STL may still continue to `submarine_geometry_check` before full plan confirmation when the user explicitly does not want solver execution yet.
    Do not continue to risky execution while the plan still has open questions.
 4. `submarine_geometry_check` is recommended when geometry quality, scale, or runtime readiness is uncertain.
    Use it before solver execution whenever the geometry must be validated, but do not assume every task needs to proceed immediately from planning into geometry preflight.
 5. `submarine_solver_dispatch` is the high-risk execution-preparation or execution tool.
-   Only use it when the user has approved execution, the required inputs are present, and the resulting run can stay inside the DeerFlow sandbox and artifact boundary.
+   Only use it when the user has explicitly approved execution, the required inputs are present, and the resulting run can stay inside the DeerFlow sandbox and artifact boundary.
+   Safe geometry-only preflight may proceed earlier, but solver dispatch still waits for explicit user confirmation.
 6. `submarine_result_report` is recommended only after geometry or solver artifacts exist and the report can be grounded in actual DeerFlow evidence.
    Keep scientific-claim language bounded by the available evidence and the structured runtime outputs.
 </submarine_workflow_protocol>"""
+
+
+def get_skill_studio_workflow_prompt_section(agent_name: str | None) -> str:
+    """Describe the required artifact-first workflow for Skill Studio agents."""
+
+    if not agent_name or not agent_name.endswith("skill-creator"):
+        return ""
+
+    return """<skill_studio_workflow_protocol>
+For Skill Studio authoring, validation, and publish-readiness requests, the primary agent should treat `submarine_skill_studio` as the default first structured action once the user has provided enough information for a credible first draft.
+
+1. Do not stop at a conversational acknowledgement once the user has given a usable skill-authoring request or uploaded relevant evidence.
+2. Call `submarine_skill_studio` in the current turn to materialize the structured Skill Studio package.
+3. Infer a practical initial `skill_name`, `skill_purpose`, `trigger_conditions`, `workflow_steps`, `expert_rules`, `acceptance_criteria`, and `test_scenarios` from the user's request and uploaded files when possible.
+4. Ask `ask_clarification` before the tool call only when a missing domain judgment truly blocks a credible first draft. Otherwise, draft the package first and surface uncertainties inside the structured outputs.
+5. Successful Skill Studio progress means producing structured artifacts such as `skill-draft.json`, `validation-report.json`, `test-matrix.json`, `publish-readiness.json`, and `skill-package.json`, not merely replying with free-form chat text.
+6. After the package exists, use follow-up conversation to refine the draft, review validation findings, and prepare publish / rollback decisions.
+</skill_studio_workflow_protocol>"""
 
 
 def get_agent_soul(agent_name: str | None) -> str:
@@ -582,7 +918,14 @@ def get_deferred_tools_prompt_section() -> str:
     return f"<available-deferred-tools>\n{names}\n</available-deferred-tools>"
 
 
-def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagents: int = 3, *, agent_name: str | None = None, available_skills: set[str] | None = None) -> str:
+def apply_prompt_template(
+    subagent_enabled: bool = False,
+    max_concurrent_subagents: int = 3,
+    *,
+    agent_name: str | None = None,
+    available_skills: set[str] | None = None,
+    skill_snapshot: dict[str, object] | None = None,
+) -> str:
     # Get memory context
     memory_context = _get_memory_context(agent_name)
 
@@ -609,12 +952,28 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
     )
 
     # Get skills section
-    skills_section = get_skills_prompt_section(available_skills)
+    if skill_snapshot is None:
+        skills_section = get_skills_prompt_section(available_skills)
+        project_skill_bindings_section = get_project_skill_bindings_prompt_section()
+    else:
+        skills_section = get_skills_prompt_section(
+            available_skills,
+            skill_snapshot=skill_snapshot,
+        )
+        project_skill_bindings_section = get_project_skill_bindings_prompt_section(
+            skill_snapshot=skill_snapshot,
+        )
     skill_routing_section = (
         get_subagent_skill_routing_prompt_section() if subagent_enabled else ""
     )
-    project_skill_bindings_section = get_project_skill_bindings_prompt_section()
-    submarine_workflow_section = get_submarine_workflow_prompt_section()
+    submarine_workflow_section = "\n\n".join(
+        section
+        for section in [
+            get_submarine_workflow_prompt_section(),
+            get_skill_studio_workflow_prompt_section(agent_name),
+        ]
+        if section
+    )
 
     # Get deferred tools section (tool_search)
     deferred_tools_section = get_deferred_tools_prompt_section()

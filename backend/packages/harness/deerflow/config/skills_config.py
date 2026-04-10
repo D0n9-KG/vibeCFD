@@ -2,6 +2,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+_PROCESS_START_DIR = Path.cwd()
+
 
 class SkillsConfig(BaseModel):
     """Configuration for skills system"""
@@ -26,9 +28,9 @@ class SkillsConfig(BaseModel):
             # Use configured path (can be absolute or relative)
             path = Path(self.path)
             if not path.is_absolute():
-                # If relative, resolve from current working directory
-                path = Path.cwd() / path
-            return path.resolve()
+                # If relative, resolve from the process startup directory.
+                path = _PROCESS_START_DIR / path
+            return path
         else:
             # Default: ../skills relative to backend directory
             from deerflow.skills.loader import get_skills_root_path

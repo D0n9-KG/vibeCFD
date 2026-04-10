@@ -2,6 +2,7 @@ from pathlib import Path
 
 from deerflow.tools.builtins.submarine_runtime_context import (
     infer_execution_preference,
+    requires_user_confirmation,
     resolve_bound_geometry_virtual_path,
     resolve_execution_preference,
     resolve_task_summary,
@@ -35,10 +36,51 @@ def test_resolve_execution_preference_falls_back_to_confirm_then_execute_intent(
     )
 
 
-def test_resolve_task_summary_falls_back_to_design_brief_when_explicit_update_missing():
+def test_infer_execution_preference_treats_do_not_start_solver_as_plan_only():
+    assert (
+        infer_execution_preference(
+            "请先对这个 STL 做几何可用性预检，并给出后续 CFD 准备建议；当前不要启动求解。"
+        )
+        == "plan_only"
+    )
+
+
+def test_requires_user_confirmation_allows_plan_only_geometry_preflight_before_brief_confirmation():
+    assert (
+        requires_user_confirmation(
+            existing_runtime={
+                "confirmation_status": "draft",
+                "execution_preference": "plan_only",
+                "review_status": "needs_user_confirmation",
+                "next_recommended_stage": "user-confirmation",
+            },
+            existing_brief=None,
+            target_stage="geometry-preflight",
+        )
+        is False
+    )
+
+
+def test_requires_user_confirmation_still_blocks_plan_only_solver_dispatch_before_brief_confirmation():
+    assert (
+        requires_user_confirmation(
+            existing_runtime={
+                "confirmation_status": "draft",
+                "execution_preference": "plan_only",
+                "review_status": "needs_user_confirmation",
+                "next_recommended_stage": "user-confirmation",
+            },
+            existing_brief=None,
+            target_stage="solver-dispatch",
+        )
+        is True
+    )
+
+
+def test_resolve_task_summary_prefers_design_brief_contract():
     assert (
         resolve_task_summary(
-            explicit_task_description=None,
+            explicit_task_description="Run geometry preflight for the confirmed brief",
             existing_runtime={
                 "task_summary": "Geometry preflight completed for the uploaded STL."
             },
@@ -51,22 +93,6 @@ def test_resolve_task_summary_falls_back_to_design_brief_when_explicit_update_mi
     )
 
 
-def test_resolve_task_summary_prefers_latest_explicit_update_over_stale_brief():
-    assert (
-        resolve_task_summary(
-            explicit_task_description="Switch the plan from resistance baseline to wake-field comparison.",
-            existing_runtime={
-                "task_summary": "Geometry preflight completed for the uploaded STL."
-            },
-            existing_brief={
-                "task_description": "Execute the confirmed 5 m/s baseline CFD study."
-            },
-            fallback_task_description="Prepare a submarine CFD run",
-        )
-        == "Switch the plan from resistance baseline to wake-field comparison."
-    )
-
-
 def test_resolve_task_summary_falls_back_when_no_design_brief_exists():
     assert (
         resolve_task_summary(
@@ -76,6 +102,20 @@ def test_resolve_task_summary_falls_back_when_no_design_brief_exists():
             fallback_task_description="Prepare a submarine CFD run",
         )
         == "Inspect the uploaded geometry for resistance CFD."
+    )
+
+
+def test_resolve_task_summary_prefers_explicit_task_over_stale_runtime_when_no_brief_exists():
+    assert (
+        resolve_task_summary(
+            explicit_task_description="Run a fresh wake-field preflight for the new user request.",
+            existing_runtime={
+                "task_summary": "Keep preparing the previous baseline resistance dispatch."
+            },
+            existing_brief=None,
+            fallback_task_description="Prepare a submarine CFD run",
+        )
+        == "Run a fresh wake-field preflight for the new user request."
     )
 
 

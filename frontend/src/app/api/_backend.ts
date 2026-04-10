@@ -4,6 +4,10 @@ const DEFAULT_BACKEND_BASE_URL = "http://localhost:8001";
 const DEFAULT_LANGGRAPH_BASE_URL = "http://localhost:2024";
 const LANGGRAPH_PROXY_PREFIX = "/api/langgraph";
 
+type ProxyTargetOverrides = {
+  langGraphProxyBaseURL?: string;
+};
+
 const HOP_BY_HOP_HEADERS = [
   "connection",
   "content-length",
@@ -17,6 +21,11 @@ const HOP_BY_HOP_HEADERS = [
   "upgrade",
 ];
 
+function normalizeProxyBaseURL(url?: string) {
+  const trimmed = url?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
 function backendBaseURL() {
   const configured = env.NEXT_PUBLIC_BACKEND_BASE_URL?.trim();
   return configured && configured.length > 0
@@ -25,6 +34,11 @@ function backendBaseURL() {
 }
 
 function langGraphBaseURL() {
+  const serverOverride = env.LANGGRAPH_PROXY_BASE_URL?.trim();
+  if (serverOverride && serverOverride.length > 0) {
+    return serverOverride;
+  }
+
   const configured = env.NEXT_PUBLIC_LANGGRAPH_BASE_URL?.trim();
   return configured && configured.length > 0
     ? configured
@@ -48,11 +62,18 @@ function stripLangGraphProxyPrefix(path: string) {
   return stripped;
 }
 
-export function buildProxyTargetURL(path: string, requestURL: string | URL) {
+export function buildProxyTargetURL(
+  path: string,
+  requestURL: string | URL,
+  overrides: ProxyTargetOverrides = {},
+) {
   const incomingURL =
     requestURL instanceof URL ? requestURL : new URL(requestURL);
   const useLangGraphBase = isLangGraphProxyPath(path);
-  const proxyBaseURL = useLangGraphBase ? langGraphBaseURL() : backendBaseURL();
+  const proxyBaseURL = useLangGraphBase
+    ? normalizeProxyBaseURL(overrides.langGraphProxyBaseURL) ??
+      langGraphBaseURL()
+    : backendBaseURL();
   const proxyPath = stripLangGraphProxyPrefix(path);
   const targetURL = new URL(proxyPath, ensureTrailingSlash(proxyBaseURL));
   targetURL.search = incomingURL.search;

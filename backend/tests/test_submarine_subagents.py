@@ -36,7 +36,7 @@ def test_subagent_prompt_mentions_submarine_roles():
     assert "submarine-scientific-followup" in prompt
 
 
-def test_submarine_workflow_prompt_section_requires_approval_before_high_risk_execution():
+def test_submarine_workflow_prompt_section_requires_approval_for_solver_execution_but_allows_safe_preflight():
     section = prompt_module.get_submarine_workflow_prompt_section()
 
     assert "submarine_design_brief" in section
@@ -46,6 +46,8 @@ def test_submarine_workflow_prompt_section_requires_approval_before_high_risk_ex
     assert "Do NOT answer submarine CFD requests directly" in section
     assert "approved execution" in section
     assert "high-risk execution" in section
+    assert "geometry-only" in section
+    assert "solver dispatch still waits for explicit user confirmation" in section
 
 
 def test_submarine_workflow_prompt_section_is_guidance_first_not_stage_mandatory():

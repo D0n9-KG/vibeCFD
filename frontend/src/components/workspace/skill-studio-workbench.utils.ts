@@ -70,6 +70,21 @@ export const SKILL_STUDIO_BINDING_ROLE_IDS = [
 export type SkillStudioBindingRoleId =
   (typeof SKILL_STUDIO_BINDING_ROLE_IDS)[number];
 
+const BINDING_ROLE_LABELS: Record<string, string> = {
+  "task-intelligence": "任务理解",
+  "geometry-preflight": "几何预检",
+  "solver-dispatch": "求解派发",
+  "scientific-study": "科学研究",
+  "experiment-compare": "实验对比",
+  "scientific-verification": "科学验证",
+  "result-reporting": "结果整理",
+  "scientific-followup": "后续研究",
+};
+
+export function labelOfSkillStudioBindingRoleId(roleId: string) {
+  return BINDING_ROLE_LABELS[roleId] ?? roleId;
+}
+
 export type SkillStudioLifecycleBindingTarget = {
   role_id: string;
   mode: string;

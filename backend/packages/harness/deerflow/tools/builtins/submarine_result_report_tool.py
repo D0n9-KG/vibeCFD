@@ -157,7 +157,7 @@ def submarine_result_report_tool(
     detail_lines = "\n".join(f"- {artifact}" for artifact in artifacts)
     message = (
         f"{payload['summary_zh']}\n"
-        f"已登记 {len(artifacts)} 个 DeerFlow artifacts，可在工作区直接查看：\n{detail_lines}"
+        f"已登记 {len(artifacts)} 项研究产物，可在工作区直接查看：\n{detail_lines}"
     )
     return Command(
         update={

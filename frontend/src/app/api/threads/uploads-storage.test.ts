@@ -60,3 +60,56 @@ void test("upload storage routes files into the backend thread uploads directory
     force: true,
   });
 });
+
+void test("upload storage rejects files above the per-file size limit", async () => {
+  const hugeFile = new File(
+    [new Uint8Array(25 * 1024 * 1024 + 1)],
+    "oversized.stl",
+    {
+      type: "model/stl",
+    },
+  );
+
+  await assert.rejects(
+    () => storageModule.saveUploadedFiles("upload-test-thread", [hugeFile]),
+    /File too large/i,
+  );
+});
+
+void test("upload storage rejects blocked executable extensions", async () => {
+  const blockedFile = new File(["echo nope"], "payload.exe", {
+    type: "application/octet-stream",
+  });
+
+  await assert.rejects(
+    () => storageModule.saveUploadedFiles("upload-test-thread", [blockedFile]),
+    /File type is not allowed/i,
+  );
+});
+
+void test("upload storage rejects thread budgets that exceed the configured count or size quota", () => {
+  assert.throws(
+    () =>
+      storageModule.assertThreadUploadQuota({
+        existingFiles: [
+          { filename: "a.stl", size: 4 },
+          { filename: "b.stl", size: 4 },
+        ],
+        incomingFiles: [{ filename: "c.stl", size: 2 }],
+        maxFileCount: 2,
+        maxTotalBytes: 20,
+      }),
+    /Too many uploaded files/i,
+  );
+
+  assert.throws(
+    () =>
+      storageModule.assertThreadUploadQuota({
+        existingFiles: [{ filename: "a.stl", size: 8 }],
+        incomingFiles: [{ filename: "b.stl", size: 5 }],
+        maxFileCount: 4,
+        maxTotalBytes: 10,
+      }),
+    /Total upload quota exceeded/i,
+  );
+});

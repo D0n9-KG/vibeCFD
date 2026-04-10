@@ -22,3 +22,13 @@ void test("buildProxyTargetURL routes langgraph API calls to the langgraph servi
 
   assert.equal(url.toString(), "http://localhost:2024/threads/search?limit=1");
 });
+
+void test("buildProxyTargetURL prefers a server-only langgraph proxy target override", () => {
+  const url = buildProxyTargetURL(
+    "/api/langgraph/threads/search",
+    "http://127.0.0.1:3200/api/langgraph/threads/search?limit=1",
+    { langGraphProxyBaseURL: "http://127.0.0.1:2124" },
+  );
+
+  assert.equal(url.toString(), "http://127.0.0.1:2124/threads/search?limit=1");
+});

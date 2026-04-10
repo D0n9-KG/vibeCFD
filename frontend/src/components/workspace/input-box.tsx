@@ -91,6 +91,7 @@ import { Tooltip } from "./tooltip";
 
 export function InputBox({
   className,
+  textareaClassName,
   disabled,
   autoFocus,
   status = "ready",
@@ -108,6 +109,7 @@ export function InputBox({
   assistantId?: string | null;
   status?: ChatStatus;
   disabled?: boolean;
+  textareaClassName?: string;
   context: Omit<
     AgentThreadContext,
     "thread_id" | "is_plan_mode" | "thinking_enabled" | "subagent_enabled"
@@ -425,7 +427,7 @@ export function InputBox({
         </PromptInputAttachments>
         <PromptInputBody className="absolute top-0 right-0 left-0 z-3">
           <PromptInputTextarea
-            className={cn("size-full")}
+            className={cn("size-full", textareaClassName)}
             disabled={disabled}
             placeholder={t.inputBox.placeholder}
             autoFocus={autoFocus}

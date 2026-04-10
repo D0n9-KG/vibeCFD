@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from deerflow.skills import loader as loader_module
 from deerflow.skills.loader import get_skills_root_path, load_skills
 
 
@@ -19,6 +20,17 @@ def test_get_skills_root_path_points_to_project_root_skills():
     assert (path.parent / "backend").is_dir(), (
         f"Expected skills path's parent to be project root containing 'backend/', but got {path}"
     )
+
+
+def test_get_skills_root_path_does_not_require_runtime_path_resolve(monkeypatch):
+    def _blocked_resolve(self, strict=False):  # noqa: ARG001
+        raise AssertionError("get_skills_root_path should not call Path.resolve at runtime")
+
+    monkeypatch.setattr(loader_module.Path, "resolve", _blocked_resolve)
+
+    path = loader_module.get_skills_root_path()
+
+    assert path.name == "skills"
 
 
 def test_load_skills_discovers_nested_skills_and_sets_container_paths(tmp_path: Path):

@@ -59,6 +59,8 @@ def _build_skill_archive(*, draft_dir: Path, archive_path: Path, skill_slug: str
     package_files = [
         draft_dir / "SKILL.md",
         draft_dir / "agents" / "openai.yaml",
+        draft_dir / "dry-run-evidence.json",
+        draft_dir / "publish-readiness.json",
     ]
     package_dirs = [
         draft_dir / "references",
@@ -274,7 +276,16 @@ def _build_publish_readiness(
     validation: dict,
     test_matrix: dict,
     ui_metadata_virtual_path: str,
+    dry_run_evidence_status: str | None = None,
 ) -> dict:
+    dry_run_gate_status = (
+        "passed" if test_matrix["status"] == "ready_for_dry_run" else "failed"
+    )
+    if dry_run_evidence_status is not None and dry_run_gate_status == "passed":
+        dry_run_gate_status = (
+            "passed" if dry_run_evidence_status == "passed" else "blocked"
+        )
+
     gates = [
         {
             "id": "structure",
@@ -298,7 +309,7 @@ def _build_publish_readiness(
         {
             "id": "dry-run",
             "label": "Dry-run handoff is ready",
-            "status": "passed" if test_matrix["status"] == "ready_for_dry_run" else "failed",
+            "status": dry_run_gate_status,
         },
         {
             "id": "ui-metadata",
@@ -309,17 +320,26 @@ def _build_publish_readiness(
 
     blocking_count = sum(1 for gate in gates if gate["status"] != "passed")
     status = "ready_for_review" if blocking_count == 0 else "blocked"
-    next_actions = (
-        [
+    if status == "ready_for_review":
+        next_actions = [
             "Run a dry-run conversation using one of the prepared scenarios.",
             "Review the generated SKILL.md, domain rules, and UI metadata together.",
             "Publish only after the expert signs off on the dry-run result.",
         ]
-        if status == "ready_for_review"
-        else [
+    elif dry_run_evidence_status == "failed":
+        next_actions = [
+            "Review the failed dry-run conversation and fix the skill draft before recording a new result.",
+            "Record a new passing dry run after the evidence matches the acceptance rubric.",
+        ]
+    elif dry_run_evidence_status == "not_recorded":
+        next_actions = [
+            "Run a dry-run conversation using one of the prepared scenarios.",
+            "Record the reviewed dry-run result before publishing the skill.",
+        ]
+    else:
+        next_actions = [
             "Fix failing structure or scenario gates before asking the expert to review the package.",
         ]
-    )
     return {
         "skill_name": skill_slug,
         "status": status,
@@ -463,6 +483,167 @@ def _render_publish_readiness_markdown(payload: dict) -> str:
     return "\n".join(lines)
 
 
+def _build_dry_run_evidence(
+    *,
+    skill_slug: str,
+    source_thread_id: str | None,
+) -> dict:
+    return {
+        "skill_name": skill_slug,
+        "status": "not_recorded",
+        "recorded_at": None,
+        "recorded_by": None,
+        "thread_id": source_thread_id,
+        "scenario_id": None,
+        "message_ids": [],
+        "reviewer_note": "",
+    }
+
+
+def _load_json_file(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _write_json_file(path: Path, payload: dict) -> None:
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _normalize_message_ids(message_ids: object) -> list[str]:
+    if not isinstance(message_ids, list):
+        return []
+
+    normalized: list[str] = []
+    for value in message_ids:
+        if not isinstance(value, str):
+            continue
+        candidate = value.strip()
+        if candidate:
+            normalized.append(candidate)
+    return normalized
+
+
+def record_skill_studio_dry_run_evidence(
+    *,
+    draft_path: Path,
+    thread_id: str,
+    status: str,
+    scenario_id: str | None = None,
+    message_ids: list[str] | None = None,
+    reviewer_note: str = "",
+    recorded_by: str = "skill-studio-ui",
+) -> dict:
+    if not draft_path.exists():
+        raise FileNotFoundError(f"Skill Studio draft not found: {draft_path}")
+    if not draft_path.is_file():
+        raise ValueError(f"Skill Studio draft path must be a file: {draft_path}")
+    if draft_path.name != "skill-draft.json":
+        raise ValueError(
+            "Dry-run evidence can only be recorded for a Skill Studio skill-draft.json artifact.",
+        )
+
+    draft_dir = draft_path.parent
+    draft_payload = _load_json_file(draft_path)
+    skill_slug = str(draft_payload.get("skill_name") or draft_dir.name)
+    dry_run_evidence_path = draft_dir / "dry-run-evidence.json"
+    existing_evidence = (
+        _load_json_file(dry_run_evidence_path)
+        if dry_run_evidence_path.is_file()
+        else _build_dry_run_evidence(
+            skill_slug=skill_slug,
+            source_thread_id=thread_id,
+        )
+    )
+    validation_payload = _load_json_file(draft_dir / "validation-report.json")
+    test_matrix = _load_json_file(draft_dir / "test-matrix.json")
+
+    skill_package_path = draft_dir / "skill-package.json"
+    skill_package_payload = (
+        _load_json_file(skill_package_path)
+        if skill_package_path.is_file()
+        else {}
+    )
+    normalized_message_ids = (
+        _normalize_message_ids(message_ids)
+        if message_ids is not None
+        else _normalize_message_ids(existing_evidence.get("message_ids"))
+    )
+    if status == "passed" and not normalized_message_ids:
+        raise ValueError(
+            "Passed dry-run evidence requires non-empty traceable message_ids.",
+        )
+
+    dry_run_evidence = {
+        **existing_evidence,
+        "skill_name": skill_slug,
+        "status": status,
+        "recorded_at": _utc_timestamp(),
+        "recorded_by": recorded_by,
+        "thread_id": thread_id,
+        "scenario_id": scenario_id,
+        "message_ids": normalized_message_ids,
+        "reviewer_note": reviewer_note,
+    }
+    publish_readiness = _build_publish_readiness(
+        skill_slug=skill_slug,
+        validation=validation_payload,
+        test_matrix=test_matrix,
+        ui_metadata_virtual_path=str(
+            draft_payload.get("ui_metadata_virtual_path")
+            or skill_package_payload.get("ui_metadata_virtual_path")
+            or ""
+        ),
+        dry_run_evidence_status=dry_run_evidence["status"],
+    )
+
+    dry_run_evidence_virtual_path = str(
+        draft_payload.get("dry_run_evidence_virtual_path")
+        or _artifact_virtual_path(skill_slug, "dry-run-evidence.json")
+    )
+    package_archive_virtual_path = str(
+        draft_payload.get("package_archive_virtual_path")
+        or skill_package_payload.get("package_archive_virtual_path")
+        or skill_package_payload.get("archive_virtual_path")
+        or _artifact_virtual_path(skill_slug, f"{skill_slug}.skill")
+    )
+    archive_path = draft_dir / Path(package_archive_virtual_path).name
+
+    draft_payload["dry_run_evidence_status"] = dry_run_evidence["status"]
+    draft_payload["dry_run_evidence_virtual_path"] = dry_run_evidence_virtual_path
+    draft_payload["publish_status"] = publish_readiness["status"]
+    draft_payload["package_archive_virtual_path"] = package_archive_virtual_path
+
+    skill_package_payload["publish_status"] = publish_readiness["status"]
+    skill_package_payload["dry_run_evidence_status"] = dry_run_evidence["status"]
+    skill_package_payload["package_archive_virtual_path"] = package_archive_virtual_path
+    skill_package_payload["archive_virtual_path"] = package_archive_virtual_path
+
+    _write_json_file(dry_run_evidence_path, dry_run_evidence)
+    _write_json_file(skill_package_path, skill_package_payload)
+    _write_json_file(draft_path, draft_payload)
+    _write_json_file(draft_dir / "publish-readiness.json", publish_readiness)
+    (draft_dir / "publish-readiness.md").write_text(
+        _render_publish_readiness_markdown(publish_readiness),
+        encoding="utf-8",
+    )
+    _build_skill_archive(
+        draft_dir=draft_dir,
+        archive_path=archive_path,
+        skill_slug=skill_slug,
+    )
+
+    return {
+        "skill_name": skill_slug,
+        "dry_run_evidence_status": dry_run_evidence["status"],
+        "dry_run_evidence_virtual_path": dry_run_evidence_virtual_path,
+        "publish_status": publish_readiness["status"],
+        "package_archive_virtual_path": package_archive_virtual_path,
+        "artifact_virtual_paths": draft_payload.get("artifact_virtual_paths") or [],
+    }
+
+
 def run_skill_studio(
     *,
     outputs_dir: Path,
@@ -524,10 +705,15 @@ def run_skill_studio(
     archive_virtual_path = _artifact_virtual_path(skill_slug, archive_filename)
     draft_virtual_path = _artifact_virtual_path(skill_slug, "skill-draft.json")
     lifecycle_virtual_path = _artifact_virtual_path(skill_slug, "skill-lifecycle.json")
+    dry_run_evidence_virtual_path = _artifact_virtual_path(
+        skill_slug,
+        "dry-run-evidence.json",
+    )
 
     artifact_virtual_paths = [
         draft_virtual_path,
         lifecycle_virtual_path,
+        dry_run_evidence_virtual_path,
         _artifact_virtual_path(skill_slug, "skill-package.json"),
         _artifact_virtual_path(skill_slug, "SKILL.md"),
         _artifact_virtual_path(skill_slug, "agents/openai.yaml"),
@@ -567,6 +753,7 @@ def run_skill_studio(
         "package_archive_virtual_path": archive_virtual_path,
         "test_virtual_path": _artifact_virtual_path(skill_slug, "test-matrix.json"),
         "publish_virtual_path": _artifact_virtual_path(skill_slug, "publish-readiness.json"),
+        "dry_run_evidence_virtual_path": dry_run_evidence_virtual_path,
     }
 
     validation_payload = {
@@ -581,6 +768,10 @@ def run_skill_studio(
         skill_slug=skill_slug,
         test_scenarios=cleaned_scenarios,
         validation=validation,
+    )
+    dry_run_evidence = _build_dry_run_evidence(
+        skill_slug=skill_slug,
+        source_thread_id=source_thread_id,
     )
     publish_readiness = _build_publish_readiness(
         skill_slug=skill_slug,
@@ -616,6 +807,7 @@ def run_skill_studio(
     payload["version_note"] = ""
     payload["bindings"] = []
     payload["published_revisions"] = []
+    payload["dry_run_evidence_status"] = dry_run_evidence["status"]
 
     lifecycle_payload = SkillLifecycleRecord(
         skill_name=skill_slug,
@@ -638,6 +830,10 @@ def run_skill_studio(
     )
     (draft_dir / "skill-lifecycle.json").write_text(
         json.dumps(lifecycle_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (draft_dir / "dry-run-evidence.json").write_text(
+        json.dumps(dry_run_evidence, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     (draft_dir / "skill-package.json").write_text(

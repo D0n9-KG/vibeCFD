@@ -1,5 +1,6 @@
 import importlib
 import json
+import zipfile
 from types import SimpleNamespace
 
 from deerflow.config.paths import Paths
@@ -74,6 +75,7 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
     assert any(path.endswith("/validation-report.md") for path in artifacts)
     assert any(path.endswith("/publish-readiness.json") for path in artifacts)
     assert any(path.endswith("/publish-readiness.md") for path in artifacts)
+    assert any(path.endswith("/dry-run-evidence.json") for path in artifacts)
     assert any(path.endswith("/references/domain-rules.md") for path in artifacts)
     assert any(path.endswith("/submarine-result-acceptance.skill") for path in artifacts)
 
@@ -93,6 +95,9 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
     )
     publish_readiness = json.loads(
         (draft_dir / "publish-readiness.json").read_text(encoding="utf-8"),
+    )
+    dry_run_evidence = json.loads(
+        (draft_dir / "dry-run-evidence.json").read_text(encoding="utf-8"),
     )
     skill_markdown = (draft_dir / "SKILL.md").read_text(encoding="utf-8")
     openai_yaml = (draft_dir / "agents" / "openai.yaml").read_text(
@@ -129,7 +134,17 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
 
     assert publish_readiness["status"] == "ready_for_review"
     assert publish_readiness["publish_gate_count"] >= 4
+    assert dry_run_evidence["status"] == "not_recorded"
+    assert dry_run_evidence["thread_id"] == thread_id
+    assert dry_run_evidence["scenario_id"] is None
+    assert dry_run_evidence["message_ids"] == []
     assert archive_path.is_file() is True
+
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        archive_entries = set(archive.namelist())
+
+    assert "submarine-result-acceptance/dry-run-evidence.json" in archive_entries
+    assert "submarine-result-acceptance/publish-readiness.json" in archive_entries
 
     assert skill_markdown.startswith("---\nname: submarine-result-acceptance\n")
     assert "description: Use when" in skill_markdown
@@ -148,6 +163,10 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
     assert studio_state["error_count"] == 0
     assert studio_state["report_virtual_path"].endswith("/validation-report.md")
     assert studio_state["lifecycle_virtual_path"].endswith("/skill-lifecycle.json")
+    assert studio_state["dry_run_evidence_status"] == "not_recorded"
+    assert studio_state["dry_run_evidence_virtual_path"].endswith(
+        "/dry-run-evidence.json"
+    )
     assert studio_state["active_revision_id"] is None
     assert studio_state["published_revision_id"] is None
     assert studio_state["version_note"] == ""

@@ -27,12 +27,12 @@ const SURFACE_ACTIONS: Record<
 > = {
   submarine: {
     href: "/workspace/submarine/new",
-    label: "新建仿真",
+    label: "新建仿真任务",
     icon: WavesIcon,
   },
   "skill-studio": {
-    href: "/workspace/skill-studio",
-    label: "进入技能工作台",
+    href: "/workspace/skill-studio/new",
+    label: "新建技能资产",
     icon: SparklesIcon,
   },
   chats: {
@@ -61,14 +61,12 @@ export function WorkspaceHeader({ className }: { className?: string }) {
       <WorkspaceActivityBar orientation="horizontal" className="md:hidden" />
       <div className={cn("flex flex-col gap-3", chrome.headerPanelClassName)}>
         <div className="min-w-0 leading-tight">
-          <span className={chrome.brandEyebrowClassName}>
-            Engineering Research Workspace
-          </span>
+          <span className={chrome.brandEyebrowClassName}>中文科研指挥台</span>
           <span className="text-primary mt-1 block truncate text-lg font-semibold tracking-[0.02em]">
             VibeCFD
           </span>
           <span className={cn("mt-1 block", chrome.brandMetaClassName)}>
-            基于 DeerFlow Runtime · 融合 SkillNet 工作流 · 当前界面：{" "}
+            面向科研仿真的统一工作台 · 当前界面：{" "}
             {activeSurface.label}
           </span>
         </div>

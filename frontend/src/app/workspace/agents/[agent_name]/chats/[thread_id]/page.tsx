@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { LayoutPanelLeftIcon, PlusSquareIcon } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -24,13 +24,11 @@ import {
   getAgentToolGroupLabel,
 } from "@/core/agents/display";
 import { useI18n } from "@/core/i18n/hooks";
-import { localizeThreadDisplayTitle } from "@/core/i18n/workspace-display";
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings } from "@/core/settings";
-import { getThreadErrorMessage } from "@/core/threads/error";
 import { useThreadStream } from "@/core/threads/hooks";
 import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
-import { textOfMessage } from "@/core/threads/utils";
+import { resolveThreadDisplayTitle, textOfMessage } from "@/core/threads/utils";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +75,10 @@ export default function AgentChatPage() {
                 : textContent;
           }
         }
-        showNotification(state.title, { body });
+        showNotification(
+          resolveThreadDisplayTitle(state.title, t.pages.untitled, state.messages),
+          { body },
+        );
       }
     },
   });
@@ -86,8 +87,10 @@ export default function AgentChatPage() {
     if (
       !shouldPromoteStartedThreadRoute({
         pendingThreadId: pendingThreadRouteId,
+        activeThreadId: threadId,
         isLoading: thread.isLoading,
         persistedMessageCount: streamMeta.persistedMessageCount,
+        visibleMessageCount: thread.messages.length,
       })
     ) {
       return;
@@ -101,6 +104,8 @@ export default function AgentChatPage() {
     agent_name,
     pendingThreadRouteId,
     router,
+    threadId,
+    thread.messages.length,
     streamMeta.persistedMessageCount,
     thread.isLoading,
   ]);
@@ -127,15 +132,20 @@ export default function AgentChatPage() {
   const artifactCount = Array.isArray(thread.values.artifacts)
     ? thread.values.artifacts.length
     : 0;
-  const threadErrorMessage = thread.error
-    ? getThreadErrorMessage(thread.error, "线程发生未知错误。")
-    : null;
+  const threadErrorMessage =
+    thread.error instanceof Error
+      ? thread.error.message
+      : typeof thread.error === "string"
+        ? thread.error
+        : null;
   const threadLabel =
     isNewThread && (!thread.values.title || thread.values.title === "Untitled")
       ? t.pages.newChat
-      : thread.values.title && thread.values.title !== "Untitled"
-        ? localizeThreadDisplayTitle(thread.values.title)
-        : t.pages.untitled;
+      : resolveThreadDisplayTitle(
+          thread.values.title,
+          t.pages.untitled,
+          thread.values.messages,
+        );
   const agentDisplayName = getAgentDisplayName(agent, agent_name);
 
   return (

@@ -6,6 +6,7 @@ import {
   loadSkillLifecycle,
   loadSkillLifecycleSummaries,
   publishSkill,
+  recordDryRunEvidence,
   rollbackSkillRevision,
   updateSkillLifecycle,
 } from "./api";
@@ -47,6 +48,46 @@ export function usePublishSkill() {
       void queryClient.invalidateQueries({ queryKey: ["skills", "lifecycle"] });
       void queryClient.invalidateQueries({ queryKey: ["skills"] });
       void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+    },
+  });
+}
+
+export function useRecordDryRunEvidence() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      variables: Parameters<typeof recordDryRunEvidence>[0] & {
+        isMock?: boolean;
+        publishReadinessPath?: string | null;
+        dryRunEvidencePath?: string | null;
+      },
+    ) => recordDryRunEvidence(variables),
+    onSuccess: (_data, variables) => {
+      const isMock = Boolean(variables.isMock);
+      void queryClient.invalidateQueries({
+        queryKey: ["artifact", variables.path, variables.thread_id, isMock],
+      });
+      if (variables.publishReadinessPath) {
+        void queryClient.invalidateQueries({
+          queryKey: [
+            "artifact",
+            variables.publishReadinessPath,
+            variables.thread_id,
+            isMock,
+          ],
+        });
+      }
+      if (variables.dryRunEvidencePath) {
+        void queryClient.invalidateQueries({
+          queryKey: [
+            "artifact",
+            variables.dryRunEvidencePath,
+            variables.thread_id,
+            isMock,
+          ],
+        });
+      }
+      void queryClient.invalidateQueries({ queryKey: ["skills", "lifecycle"] });
     },
   });
 }

@@ -7,6 +7,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+_PROCESS_START_DIR = Path.cwd()
+
+
+def _default_extensions_search_dirs() -> tuple[Path, Path]:
+    """Return the process startup directory and its parent for default extensions lookup."""
+    return _PROCESS_START_DIR, _PROCESS_START_DIR.parent
+
 
 class McpOAuthConfig(BaseModel):
     """OAuth configuration for an MCP server (HTTP/SSE transports)."""
@@ -94,24 +101,15 @@ class ExtensionsConfig(BaseModel):
                 raise FileNotFoundError(f"Extensions config file specified by environment variable `DEER_FLOW_EXTENSIONS_CONFIG_PATH` not found at {path}")
             return path
         else:
-            # Check if the extensions_config.json is in the current directory
-            path = Path(os.getcwd()) / "extensions_config.json"
-            if path.exists():
-                return path
+            for search_dir in _default_extensions_search_dirs():
+                path = search_dir / "extensions_config.json"
+                if path.exists():
+                    return path
 
-            # Check if the extensions_config.json is in the parent directory of CWD
-            path = Path(os.getcwd()).parent / "extensions_config.json"
-            if path.exists():
-                return path
-
-            # Backward compatibility: check for mcp_config.json
-            path = Path(os.getcwd()) / "mcp_config.json"
-            if path.exists():
-                return path
-
-            path = Path(os.getcwd()).parent / "mcp_config.json"
-            if path.exists():
-                return path
+            for search_dir in _default_extensions_search_dirs():
+                path = search_dir / "mcp_config.json"
+                if path.exists():
+                    return path
 
             # Extensions are optional, so return None if not found
             return None

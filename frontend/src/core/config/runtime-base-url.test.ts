@@ -7,7 +7,7 @@ const {
 } = await import(new URL("./runtime-base-url.ts", import.meta.url).href);
 
 void test(
-  "resolveBackendBaseURL keeps browser requests on the frontend origin",
+  "resolveBackendBaseURL keeps standalone localhost browser requests on the frontend same origin",
   () => {
     assert.equal(
       resolveBackendBaseURL({
@@ -24,7 +24,41 @@ void test(
 );
 
 void test(
-  "resolveLangGraphBaseURL falls back to the local LangGraph server when the frontend dev server runs standalone on port 3000",
+  "resolveBackendBaseURL keeps standalone 127.0.0.1 browser requests on the frontend same origin",
+  () => {
+    assert.equal(
+      resolveBackendBaseURL({
+        backendBaseURL: undefined,
+        location: {
+          origin: "http://127.0.0.1:3000",
+          hostname: "127.0.0.1",
+          port: "3000",
+        },
+      }),
+      "",
+    );
+  },
+);
+
+void test(
+  "resolveBackendBaseURL keeps same-origin routing for the reverse-proxied local frontend",
+  () => {
+    assert.equal(
+      resolveBackendBaseURL({
+        backendBaseURL: undefined,
+        location: {
+          origin: "http://localhost:2026",
+          hostname: "localhost",
+          port: "2026",
+        },
+      }),
+      "",
+    );
+  },
+);
+
+void test(
+  "resolveLangGraphBaseURL uses the frontend LangGraph proxy when the standalone dev server runs on localhost",
   () => {
     assert.equal(
       resolveLangGraphBaseURL({
@@ -36,7 +70,25 @@ void test(
           port: "3000",
         },
       }),
-      "http://localhost:2024",
+      "http://localhost:3000/api/langgraph",
+    );
+  },
+);
+
+void test(
+  "resolveLangGraphBaseURL uses the frontend LangGraph proxy when the standalone dev server runs on 127.0.0.1",
+  () => {
+    assert.equal(
+      resolveLangGraphBaseURL({
+        langGraphBaseURL: undefined,
+        isMock: false,
+        location: {
+          origin: "http://127.0.0.1:3000",
+          hostname: "127.0.0.1",
+          port: "3000",
+        },
+      }),
+      "http://127.0.0.1:3000/api/langgraph",
     );
   },
 );
@@ -75,7 +127,7 @@ void test(
 );
 
 void test(
-  "resolveBackendBaseURL still prefers the frontend origin even when a browser runtime receives an explicit backend URL",
+  "resolveBackendBaseURL prefers an explicit backend URL in the browser",
   () => {
     assert.equal(
       resolveBackendBaseURL({
@@ -86,7 +138,7 @@ void test(
           port: "3000",
         },
       }),
-      "",
+      "https://gateway.example.test",
     );
   },
 );
@@ -140,15 +192,15 @@ void test("explicit LangGraph environment URLs are trimmed before being returned
 });
 
 void test(
-  "whitespace-only backend URLs fall back to the frontend origin in the browser and localhost server-side",
+  "whitespace-only backend URLs fall back to same-origin browser routing and localhost server-side",
   () => {
     assert.equal(
       resolveBackendBaseURL({
         backendBaseURL: "   ",
         location: {
-          origin: "http://localhost:3000",
+          origin: "http://localhost:3100",
           hostname: "localhost",
-          port: "3000",
+          port: "3100",
         },
       }),
       "",
@@ -169,11 +221,11 @@ void test("whitespace-only LangGraph URLs fall back to standalone local defaults
       langGraphBaseURL: "   ",
       isMock: false,
       location: {
-        origin: "http://localhost:3000",
+        origin: "http://localhost:3100",
         hostname: "localhost",
-        port: "3000",
+        port: "3100",
       },
     }),
-    "http://localhost:2024",
+    "http://localhost:3100/api/langgraph",
   );
 });

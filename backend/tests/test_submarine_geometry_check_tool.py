@@ -140,6 +140,9 @@ def test_submarine_geometry_check_generates_thread_artifacts(tmp_path, monkeypat
     assert payload["geometry"]["geometry_family"] == "Type 209"
     assert payload["candidate_cases"]
     assert "summary_zh" in payload
+    message = result.update["messages"][0].content
+    assert "研究产物" in message
+    assert "DeerFlow artifacts" not in message
 
     markdown = md_path.read_text(encoding="utf-8")
     assert "几何检查" in markdown
@@ -204,12 +207,80 @@ def test_submarine_geometry_check_includes_review_fields(tmp_path, monkeypatch):
 
     assert payload["review_status"] == "needs_user_confirmation"
     assert payload["next_recommended_stage"] == "user-confirmation"
-    assert payload["recommended_actions"]
-    assert "clarify_geometry_assumptions" in payload["recommended_actions"]
     assert payload["report_virtual_path"].endswith("/geometry-check.md")
     assert payload["geometry_findings"]
     assert payload["reference_value_suggestions"]
     assert payload["clarification_required"] is True
+
+
+def test_submarine_geometry_check_artifacts_use_readable_utf8_copy(tmp_path, monkeypatch):
+    paths = Paths(tmp_path)
+    thread_id = "thread-utf8-geometry-check"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "utf8-demo.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    tool_module.submarine_geometry_check_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/utf8-demo.stl",
+        task_description="请先完成这个 STL 的几何预检，不要启动求解。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        tool_call_id="tc-geometry-utf8",
+    )
+
+    artifact_dir = outputs_dir / "submarine" / "geometry-check" / "utf8-demo"
+    payload = json.loads((artifact_dir / "geometry-check.json").read_text(encoding="utf-8"))
+    markdown = (artifact_dir / "geometry-check.md").read_text(encoding="utf-8")
+
+    assert payload["summary_zh"].startswith("已完成对 `utf8-demo.stl` 的几何检查")
+    assert payload["geometry"]["notes"][0] == "检测到 STL 网格几何。"
+    assert payload["scale_assessment"]["summary_zh"]
+    assert "妫" not in payload["summary_zh"]
+    assert "鍑" not in payload["summary_zh"]
+    assert "# 潜艇几何检查结果" in markdown
+    assert "## 中文摘要" in markdown
+    assert "检测到 STL 网格几何。" in markdown
+
+
+def test_submarine_geometry_check_summary_localizes_recommended_case_title(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-case-title-copy"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "suboff-localized.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    result = tool_module.submarine_geometry_check_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/suboff-localized.stl",
+        task_description="请先对这个 STL 做几何预检，并给出后续 CFD 准备建议。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        tool_call_id="tc-geometry-case-title",
+    )
+
+    artifact_dir = outputs_dir / "submarine" / "geometry-check" / "suboff-localized"
+    payload = json.loads((artifact_dir / "geometry-check.json").read_text(encoding="utf-8"))
+    tool_message = result.update["messages"][0].content
+
+    assert "DARPA SUBOFF 裸艇阻力基线" in payload["summary_zh"]
+    assert "Bare Hull Resistance Baseline" not in payload["summary_zh"]
+    assert "DARPA SUBOFF 裸艇阻力基线" in tool_message
+    assert "Bare Hull Resistance Baseline" not in tool_message
 
 
 def test_submarine_geometry_check_updates_runtime_state(tmp_path, monkeypatch):
@@ -240,8 +311,6 @@ def test_submarine_geometry_check_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["task_type"] == "resistance"
     assert runtime_state["geometry_virtual_path"] == "/mnt/user-data/uploads/runtime-demo.stl"
     assert runtime_state["next_recommended_stage"] == "user-confirmation"
-    assert runtime_state["recommended_actions"]
-    assert "clarify_geometry_assumptions" in runtime_state["recommended_actions"]
     assert runtime_state["report_virtual_path"].endswith("/geometry-check.md")
     assert runtime_state["artifact_virtual_paths"]
     assert runtime_state["geometry_findings"]
@@ -306,7 +375,68 @@ def test_submarine_geometry_check_requires_user_confirmation_before_preflight(
     assert "messages" in result.update
     assert "artifacts" not in result.update
     assert "submarine_runtime" not in result.update
-    assert "user confirmation" in result.update["messages"][0].content.lower()
+    message = result.update["messages"][0].content
+    assert "研究者确认" in message
+    assert "协商区" in message
+    assert "设计简报" in message
+    assert "继续几何预检" in message
+    assert "user confirmation" not in message.lower()
+    assert "submarine_geometry_check" not in message
+
+
+def test_submarine_geometry_check_allows_plan_only_preflight_before_solver_confirmation(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-plan-only-preflight"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "plan-only-preflight.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["submarine_runtime"] = {
+        "current_stage": "task-intelligence",
+        "task_summary": "Inspect the uploaded STL and do not launch the solver yet",
+        "task_type": "resistance",
+        "geometry_virtual_path": "/mnt/user-data/uploads/plan-only-preflight.stl",
+        "confirmation_status": "draft",
+        "execution_preference": "plan_only",
+        "review_status": "needs_user_confirmation",
+        "next_recommended_stage": "user-confirmation",
+        "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/plan-only-preflight/cfd-design-brief.md",
+        "artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/design-brief/plan-only-preflight/cfd-design-brief.json"
+        ],
+    }
+
+    result = tool_module.submarine_geometry_check_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/plan-only-preflight.stl",
+        task_description="Please run only the geometry preflight and hold solver execution.",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        tool_call_id="tc-geometry-plan-only-preflight",
+    )
+
+    geometry_check_path = (
+        outputs_dir
+        / "submarine"
+        / "geometry-check"
+        / "plan-only-preflight"
+        / "geometry-check.json"
+    )
+
+    assert geometry_check_path.exists()
+    assert "artifacts" in result.update
+    assert "submarine_runtime" in result.update
+    assert "messages" in result.update
+    assert "已登记" in result.update["messages"][0].content
 
 
 def test_submarine_geometry_check_preserves_confirmed_brief_context(
@@ -375,7 +505,7 @@ def test_submarine_geometry_check_preserves_confirmed_brief_context(
 
     assert runtime_state["confirmation_status"] == "confirmed"
     assert runtime_state["execution_preference"] == "preflight_then_execute"
-    assert runtime_state["task_summary"] == "Run geometry preflight for the already confirmed brief"
+    assert runtime_state["task_summary"] == design_brief_payload["task_description"]
     assert runtime_state["selected_case_id"] == "user-confirmed-case"
     assert runtime_state["simulation_requirements"]["inlet_velocity_mps"] == 5.0
     assert runtime_state["geometry_family"] == "DARPA SUBOFF"

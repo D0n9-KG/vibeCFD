@@ -472,32 +472,6 @@
       inset 0 1px 0 rgba(148, 163, 184, 0.08);
   }
 
-  .submarine-workbench-frame {
-    container-type: inline-size;
-  }
-
-  @container (max-width: 1260px) {
-    .submarine-workbench-shell {
-      grid-template-columns: minmax(0, 1fr) !important;
-    }
-
-    .submarine-workbench-shell__mission-rail {
-      display: none !important;
-    }
-
-    .submarine-workbench-shell__overview-grid {
-      grid-template-columns: minmax(0, 1fr) !important;
-    }
-
-    .submarine-workbench-shell__focus-grid {
-      grid-template-columns: minmax(0, 1fr) !important;
-    }
-
-    .submarine-workbench-shell__focus-rail {
-      border-right: 0 !important;
-      border-bottom: 1px solid color-mix(in oklab, var(--color-border) 82%, transparent) !important;
-    }
-  }
 }
 
 :root {

@@ -1,5 +1,5 @@
-import { SkillStudioDashboard } from "@/components/workspace/skill-studio-dashboard";
+import { redirect } from "next/navigation";
 
 export default function SkillStudioPage() {
-  return <SkillStudioDashboard />;
+  redirect("/workspace/skill-studio/new");
 }

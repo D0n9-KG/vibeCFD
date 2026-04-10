@@ -12,6 +12,17 @@ export type UploadedFileInfo = {
 };
 
 const SAFE_THREAD_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+export const MAX_THREAD_UPLOAD_BYTES = 200 * 1024 * 1024;
+export const MAX_THREAD_UPLOAD_FILES = 20;
+export const BLOCKED_UPLOAD_EXTENSIONS = new Set([
+  ".bat",
+  ".cmd",
+  ".com",
+  ".exe",
+  ".ps1",
+  ".scr",
+]);
 
 function assertSafeThreadId(threadId: string) {
   if (!SAFE_THREAD_ID_PATTERN.test(threadId)) {
@@ -84,10 +95,83 @@ export function sanitizeUploadFilename(filename: string) {
   return safeFilename;
 }
 
+function validateUploadFile(file: File, filename: string) {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new UploadStorageError(
+      400,
+      `File too large: ${filename}. Max ${Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024))} MB per file.`,
+    );
+  }
+
+  const extension = path.extname(filename).toLowerCase();
+  if (extension && BLOCKED_UPLOAD_EXTENSIONS.has(extension)) {
+    throw new UploadStorageError(
+      400,
+      `File type is not allowed: ${extension}`,
+    );
+  }
+}
+
+export function assertThreadUploadQuota({
+  existingFiles,
+  incomingFiles,
+  maxFileCount = MAX_THREAD_UPLOAD_FILES,
+  maxTotalBytes = MAX_THREAD_UPLOAD_BYTES,
+}: {
+  existingFiles: readonly { filename: string; size: number }[];
+  incomingFiles: readonly { filename: string; size: number }[];
+  maxFileCount?: number;
+  maxTotalBytes?: number;
+}) {
+  const projectedFiles = new Map<string, number>(
+    existingFiles.map((file) => [file.filename, file.size]),
+  );
+
+  for (const file of incomingFiles) {
+    projectedFiles.set(file.filename, file.size);
+  }
+
+  if (projectedFiles.size > maxFileCount) {
+    throw new UploadStorageError(
+      400,
+      `Too many uploaded files for this thread. Max ${maxFileCount} files allowed.`,
+    );
+  }
+
+  const projectedBytes = [...projectedFiles.values()].reduce(
+    (total, size) => total + size,
+    0,
+  );
+
+  if (projectedBytes > maxTotalBytes) {
+    throw new UploadStorageError(
+      400,
+      `Total upload quota exceeded for this thread. Max ${Math.floor(
+        maxTotalBytes / (1024 * 1024),
+      )} MB allowed.`,
+    );
+  }
+}
+
 async function ensureUploadsDir(threadId: string) {
   const uploadsDir = uploadsDirForThread(threadId);
   await fs.mkdir(uploadsDir, { recursive: true });
   return uploadsDir;
+}
+
+async function listExistingUploadEntries(uploadsDir: string) {
+  const entries = await fs.readdir(uploadsDir, { withFileTypes: true });
+  return Promise.all(
+    entries
+      .filter((entry) => entry.isFile())
+      .map(async (entry) => {
+        const stat = await fs.stat(path.join(uploadsDir, entry.name));
+        return {
+          filename: entry.name,
+          size: stat.size,
+        };
+      }),
+  );
 }
 
 async function toUploadedFileInfo(
@@ -114,10 +198,26 @@ export async function saveUploadedFiles(threadId: string, files: File[]) {
   }
 
   const uploadsDir = await ensureUploadsDir(threadId);
+  const preparedFiles = files.map((file) => {
+    const filename = sanitizeUploadFilename(file.name);
+    validateUploadFile(file, filename);
+    return {
+      file,
+      filename,
+      size: file.size,
+    };
+  });
+  const existingFiles = await listExistingUploadEntries(uploadsDir);
+  assertThreadUploadQuota({
+    existingFiles,
+    incomingFiles: preparedFiles.map(({ filename, size }) => ({
+      filename,
+      size,
+    })),
+  });
   const uploadedFiles: UploadedFileInfo[] = [];
 
-  for (const file of files) {
-    const filename = sanitizeUploadFilename(file.name);
+  for (const { file, filename } of preparedFiles) {
     const outputPath = path.join(uploadsDir, filename);
     const buffer = Buffer.from(await file.arrayBuffer());
     await fs.writeFile(outputPath, buffer);

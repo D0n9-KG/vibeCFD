@@ -1,3 +1,4 @@
+import { requireThreadRouteSession } from "../../../_auth";
 import { listThreadUploads, UploadStorageError } from "../storage";
 
 export async function GET(
@@ -8,6 +9,11 @@ export async function GET(
     }>;
   },
 ) {
+  const unauthorizedResponse = await requireThreadRouteSession();
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
+  }
+
   const { thread_id: threadId } = await context.params;
 
   try {

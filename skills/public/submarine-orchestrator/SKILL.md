@@ -18,9 +18,9 @@ This skill does not restore the legacy executor. It helps the primary agent deci
 
 Use it to keep the system specialized for submarine CFD instead of generic chat while still letting the primary agent control the order of work.
 
-## When The Primary Agent Should Use It
+## Guidance For The Primary Agent
 
-When the task is a real submarine CFD task, prefer the specialized DeerFlow subagents instead of generic delegation if the work is worth decomposing:
+When the primary agent should coordinate a real submarine CFD workflow, prefer the specialized DeerFlow subagents instead of generic delegation if the work is worth decomposing:
 
 - `submarine-task-intelligence`
 - `submarine-geometry-preflight`

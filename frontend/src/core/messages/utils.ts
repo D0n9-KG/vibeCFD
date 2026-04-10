@@ -325,6 +325,12 @@ export interface FileInMessage {
   status?: "uploading" | "uploaded";
 }
 
+function truncatePreviewText(content: string, maxLength = 220) {
+  return content.length > maxLength
+    ? `${content.slice(0, maxLength)}...`
+    : content;
+}
+
 /**
  * Strip <uploaded_files> tag from message content.
  * Returns the content with the tag removed.
@@ -372,4 +378,38 @@ export function parseUploadedFiles(content: string): FileInMessage[] {
   }
 
   return files;
+}
+
+export function buildProgressPreviewFromMessage(
+  message: Pick<Message, "content" | "type">,
+  maxLength = 220,
+) {
+  const rawContent =
+    typeof message.content === "string"
+      ? message.content
+      : Array.isArray(message.content)
+        ? message.content
+            .map((content) => (content.type === "text" ? content.text : ""))
+            .join("\n")
+        : "";
+
+  const visibleContent =
+    message.type === "human" ? stripUploadedFilesTag(rawContent) : rawContent.trim();
+
+  if (visibleContent) {
+    return truncatePreviewText(visibleContent, maxLength);
+  }
+
+  const uploadedFiles = parseUploadedFiles(rawContent);
+  if (uploadedFiles.length === 0) {
+    return null;
+  }
+
+  const filenames = uploadedFiles.slice(0, 2).map((file) => file.filename).join("、");
+  const uploadSummary =
+    uploadedFiles.length === 1
+      ? `已上传 ${filenames}，等待主智能体继续处理。`
+      : `已上传 ${filenames} 等 ${uploadedFiles.length} 个文件，等待主智能体继续处理。`;
+
+  return truncatePreviewText(uploadSummary, maxLength);
 }
