@@ -118,6 +118,42 @@ class TestAgentConfig:
 
 
 class TestLoadAgentConfig:
+    @pytest.mark.parametrize(
+        ("agent_name", "display_name", "model", "description"),
+        [
+            (
+                "codex-skill-creator",
+                "Codex · Skill Creator",
+                "gpt-5.4",
+                "Dedicated Codex agent for Skill Studio authoring, validation, testing, and publishing workflows.",
+            ),
+            (
+                "claude-code-skill-creator",
+                "Claude Code · Skill Creator",
+                "claude-sonnet-4-6",
+                "Dedicated Claude Code agent for Skill Studio authoring, validation, testing, and publishing workflows.",
+            ),
+        ],
+    )
+    def test_load_builtin_skill_creator_config_without_agent_directory(
+        self,
+        tmp_path,
+        agent_name,
+        display_name,
+        model,
+        description,
+    ):
+        with patch("deerflow.config.agents_config.get_paths", return_value=_make_paths(tmp_path)):
+            from deerflow.config.agents_config import load_agent_config
+
+            cfg = load_agent_config(agent_name)
+
+        assert cfg.name == agent_name
+        assert cfg.display_name == display_name
+        assert cfg.model == model
+        assert cfg.description == description
+        assert cfg.tool_groups == ["workspace", "skills"]
+
     def test_load_valid_config(self, tmp_path):
         config_dict = {
             "name": "code-reviewer",
@@ -200,6 +236,28 @@ class TestLoadAgentConfig:
 
 
 class TestLoadAgentSoul:
+    @pytest.mark.parametrize(
+        ("agent_name", "marker"),
+        [
+            ("codex-skill-creator", "You are Codex · Skill Creator"),
+            ("claude-code-skill-creator", "You are Claude Code · Skill Creator"),
+        ],
+    )
+    def test_builtin_skill_creator_soul_is_available_without_agent_directory(
+        self,
+        tmp_path,
+        agent_name,
+        marker,
+    ):
+        with patch("deerflow.config.agents_config.get_paths", return_value=_make_paths(tmp_path)):
+            from deerflow.config.agents_config import load_agent_soul
+
+            soul = load_agent_soul(agent_name)
+
+        assert soul is not None
+        assert marker in soul
+        assert "publish readiness" in soul
+
     def test_reads_soul_file(self, tmp_path):
         expected_soul = "You are a specialized code review expert."
         _write_agent(tmp_path, "code-reviewer", {"name": "code-reviewer"}, soul=expected_soul)

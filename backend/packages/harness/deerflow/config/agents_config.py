@@ -25,6 +25,70 @@ class AgentConfig(BaseModel):
     tool_groups: list[str] | None = None
 
 
+BUILTIN_AGENT_CONFIGS: dict[str, dict[str, Any]] = {
+    "codex-skill-creator": {
+        "name": "codex-skill-creator",
+        "description": "Dedicated Codex agent for Skill Studio authoring, validation, testing, and publishing workflows.",
+        "display_name": "Codex · Skill Creator",
+        "model": "gpt-5.4",
+        "tool_groups": ["workspace", "skills"],
+    },
+    "claude-code-skill-creator": {
+        "name": "claude-code-skill-creator",
+        "description": "Dedicated Claude Code agent for Skill Studio authoring, validation, testing, and publishing workflows.",
+        "display_name": "Claude Code · Skill Creator",
+        "model": "claude-sonnet-4-6",
+        "tool_groups": ["workspace", "skills"],
+    },
+}
+
+BUILTIN_AGENT_SOULS: dict[str, str] = {
+    "codex-skill-creator": "\n".join(
+        [
+            "You are Codex · Skill Creator, the dedicated agent for DeerFlow Skill Studio.",
+            "",
+            "Your job is to help domain experts turn raw rules, heuristics, workflows, and acceptance criteria into publishable DeerFlow/Codex skills.",
+            "",
+            "Operating rules:",
+            "- Stay focused on skill authoring, validation, scenario testing, and publish readiness.",
+            "- Treat the human as a domain expert collaborator. Ask for the missing domain judgment when a rule, threshold, or exception is unclear.",
+            "- Always shape the work so it aligns with the skill-creator and writing-skills disciplines:",
+            "  - concise trigger descriptions",
+            "  - explicit workflow steps",
+            "  - realistic validation scenarios",
+            "  - reviewable artifacts",
+            "- Prefer structured outputs over vague summaries. Surface what changed, what still blocks publishing, and what should be tested next.",
+            "- Do not drift into general CFD execution unless it is directly necessary to author or validate a skill.",
+        ],
+    ),
+    "claude-code-skill-creator": "\n".join(
+        [
+            "You are Claude Code · Skill Creator, the dedicated agent for DeerFlow Skill Studio.",
+            "",
+            "Your job is to help domain experts turn raw rules, heuristics, workflows, and acceptance criteria into publishable DeerFlow/Codex skills.",
+            "",
+            "Operating rules:",
+            "- Stay focused on skill authoring, validation, scenario testing, and publish readiness.",
+            "- Treat the human as a domain expert collaborator. Ask for the missing domain judgment when a rule, threshold, or exception is unclear.",
+            "- Always shape the work so it aligns with the skill-creator and writing-skills disciplines:",
+            "  - concise trigger descriptions",
+            "  - explicit workflow steps",
+            "  - realistic validation scenarios",
+            "  - reviewable artifacts",
+            "- Prefer structured outputs over vague summaries. Surface what changed, what still blocks publishing, and what should be tested next.",
+            "- Do not drift into general CFD execution unless it is directly necessary to author or validate a skill.",
+        ],
+    ),
+}
+
+
+def _load_builtin_agent_config(name: str) -> AgentConfig | None:
+    data = BUILTIN_AGENT_CONFIGS.get(name)
+    if data is None:
+        return None
+    return AgentConfig(**data)
+
+
 def load_agent_config(name: str | None) -> AgentConfig | None:
     """Load the custom or default agent's config from its directory.
 
@@ -44,6 +108,11 @@ def load_agent_config(name: str | None) -> AgentConfig | None:
 
     if not AGENT_NAME_PATTERN.match(name):
         raise ValueError(f"Invalid agent name '{name}'. Must match pattern: {AGENT_NAME_PATTERN.pattern}")
+
+    builtin_config = _load_builtin_agent_config(name)
+    if builtin_config is not None:
+        return builtin_config
+
     agent_dir = get_paths().agent_dir(name)
     config_file = agent_dir / "config.yaml"
 
@@ -82,6 +151,9 @@ def load_agent_soul(agent_name: str | None) -> str | None:
     Returns:
         The SOUL.md content as a string, or None if the file does not exist.
     """
+    if agent_name in BUILTIN_AGENT_SOULS:
+        return BUILTIN_AGENT_SOULS[agent_name]
+
     agent_dir = get_paths().agent_dir(agent_name) if agent_name else get_paths().base_dir
     soul_path = agent_dir / SOUL_FILENAME
     if not soul_path.exists():

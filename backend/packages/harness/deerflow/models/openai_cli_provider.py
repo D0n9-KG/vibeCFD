@@ -19,6 +19,7 @@ from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, Huma
 from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 
+from deerflow.config import get_app_config
 from deerflow.models.credential_loader import load_openai_api_credential
 from deerflow.tools.builtins.submarine_runtime_context import (
     detect_execution_preference_signal,
@@ -88,6 +89,29 @@ class OpenAICliChatModel(ChatOpenAI):
             return json.dumps(content, ensure_ascii=False)
         except TypeError:
             return str(content)
+
+    @classmethod
+    def _extract_visible_text_content(cls, content: Any) -> str:
+        if isinstance(content, str):
+            return content
+
+        if isinstance(content, list):
+            parts = [cls._extract_visible_text_content(item) for item in content]
+            return "".join(part for part in parts if part)
+
+        if isinstance(content, dict):
+            item_type = content.get("type")
+            if item_type in {"text", "output_text"}:
+                text = content.get("text")
+                return text if isinstance(text, str) else ""
+            if item_type in {"thinking", "tool_use"}:
+                return ""
+            nested_content = content.get("content")
+            if nested_content is not None:
+                return cls._extract_visible_text_content(nested_content)
+            return ""
+
+        return ""
 
     @classmethod
     def _latest_user_visible_text(cls, messages: list[BaseMessage]) -> str:
@@ -234,17 +258,187 @@ class OpenAICliChatModel(ChatOpenAI):
         return "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
 
     @classmethod
-    def _apply_empty_response_fallback(cls, result: ChatResult, messages: list[BaseMessage]) -> ChatResult:
+    def _message_has_visible_output(cls, message: AIMessage) -> bool:
+        return bool(
+            cls._extract_visible_text_content(message.content).strip()
+            or getattr(message, "tool_calls", None)
+        )
+
+    @staticmethod
+    def _chat_result_from_message(message: AIMessage) -> ChatResult:
+        visible_message = message.model_copy(
+            update={"content": OpenAICliChatModel._extract_visible_text_content(message.content)}
+        )
+        model_name = (
+            visible_message.response_metadata.get("model")
+            or visible_message.response_metadata.get("model_name")
+            or ""
+        )
+        usage = visible_message.response_metadata.get("usage", {})
+        return ChatResult(
+            generations=[ChatGeneration(message=visible_message)],
+            llm_output={
+                "token_usage": {
+                    "prompt_tokens": usage.get("input_tokens", 0),
+                    "completion_tokens": usage.get("output_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
+                },
+                "model_name": model_name,
+            },
+        )
+
+    def _retry_empty_response_with_alternate_model(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult | None:
+        from deerflow.models.factory import create_chat_model
+
+        current_model_names = {str(getattr(self, "model_name", "")).strip(), str(getattr(self, "model", "")).strip()}
+        current_model_names.discard("")
+        tools = kwargs.get("tools")
+        thinking_enabled = getattr(self, "reasoning_effort", "none") != "none"
+
+        try:
+            configured_models = list(get_app_config().models)
+        except Exception as exc:
+            logger.warning("Skipping alternate model recovery because config is unavailable: %s", exc)
+            return None
+
+        for candidate in configured_models:
+            if candidate.name in current_model_names:
+                continue
+            if candidate.use == "deerflow.models.openai_cli_provider:OpenAICliChatModel":
+                continue
+
+            try:
+                alternate_model = create_chat_model(
+                    name=candidate.name,
+                    thinking_enabled=thinking_enabled,
+                    reasoning_effort=getattr(self, "reasoning_effort", None),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Skipping alternate model %s after empty OpenAI response: %s",
+                    candidate.name,
+                    exc,
+                )
+                continue
+
+            try:
+                if tools and hasattr(alternate_model, "bind_tools"):
+                    message = alternate_model.bind_tools(tools).invoke(messages)
+                else:
+                    alternate_result = alternate_model._generate(
+                        messages,
+                        stop=stop,
+                        run_manager=run_manager,
+                    )
+                    message = alternate_result.generations[0].message
+            except Exception as exc:
+                logger.warning(
+                    "Alternate model %s failed after empty OpenAI response: %s",
+                    candidate.name,
+                    exc,
+                )
+                continue
+
+            if isinstance(message, AIMessage) and self._message_has_visible_output(message):
+                logger.warning(
+                    "Recovered empty OpenAI response by retrying with alternate model %s",
+                    candidate.name,
+                )
+                return self._chat_result_from_message(message)
+
+        return None
+
+    async def _aretry_empty_response_with_alternate_model(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult | None:
+        from deerflow.models.factory import create_chat_model
+
+        current_model_names = {str(getattr(self, "model_name", "")).strip(), str(getattr(self, "model", "")).strip()}
+        current_model_names.discard("")
+        tools = kwargs.get("tools")
+        thinking_enabled = getattr(self, "reasoning_effort", "none") != "none"
+
+        try:
+            configured_models = list(get_app_config().models)
+        except Exception as exc:
+            logger.warning("Skipping alternate model recovery because config is unavailable: %s", exc)
+            return None
+
+        for candidate in configured_models:
+            if candidate.name in current_model_names:
+                continue
+            if candidate.use == "deerflow.models.openai_cli_provider:OpenAICliChatModel":
+                continue
+
+            try:
+                alternate_model = create_chat_model(
+                    name=candidate.name,
+                    thinking_enabled=thinking_enabled,
+                    reasoning_effort=getattr(self, "reasoning_effort", None),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Skipping alternate model %s after empty OpenAI response: %s",
+                    candidate.name,
+                    exc,
+                )
+                continue
+
+            try:
+                if tools and hasattr(alternate_model, "bind_tools"):
+                    message = await alternate_model.bind_tools(tools).ainvoke(messages)
+                else:
+                    alternate_result = await alternate_model._agenerate(
+                        messages,
+                        stop=stop,
+                        run_manager=run_manager,
+                    )
+                    message = alternate_result.generations[0].message
+            except Exception as exc:
+                logger.warning(
+                    "Alternate model %s failed after empty OpenAI response: %s",
+                    candidate.name,
+                    exc,
+                )
+                continue
+
+            if isinstance(message, AIMessage) and self._message_has_visible_output(message):
+                logger.warning(
+                    "Recovered empty OpenAI response by retrying with alternate model %s",
+                    candidate.name,
+                )
+                return self._chat_result_from_message(message)
+
+        return None
+
+    def _apply_empty_response_fallback(
+        self,
+        result: ChatResult,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
         if not result.generations:
             return result
 
         message = result.generations[0].message
         if (
-            not cls._normalize_content(message.content).strip()
+            not self._normalize_content(message.content).strip()
             and not getattr(message, "tool_calls", None)
             and not getattr(message, "invalid_tool_calls", None)
         ):
-            recovery_tool_calls = cls._build_empty_response_recovery_tool_calls(messages)
+            recovery_tool_calls = self._build_empty_response_recovery_tool_calls(messages)
             if recovery_tool_calls:
                 result.generations[0].message = message.model_copy(
                     update={
@@ -253,9 +447,16 @@ class OpenAICliChatModel(ChatOpenAI):
                         "invalid_tool_calls": [],
                     }
                 )
+            elif alternate_result := self._retry_empty_response_with_alternate_model(
+                messages,
+                stop=stop,
+                run_manager=run_manager,
+                **kwargs,
+            ):
+                return alternate_result
             else:
                 result.generations[0].message = message.model_copy(
-                    update={"content": cls._build_empty_response_fallback(messages)}
+                    update={"content": self._build_empty_response_fallback(messages)}
                 )
 
         return result
@@ -274,7 +475,13 @@ class OpenAICliChatModel(ChatOpenAI):
         raw_response = self.root_client.responses.create(**payload)
         response = self._normalize_responses_api_response(raw_response)
         result = self._build_chat_result_from_response_dict(response)
-        return self._apply_empty_response_fallback(result, messages)
+        return self._apply_empty_response_fallback(
+            result,
+            messages,
+            stop=stop,
+            run_manager=run_manager,
+            **kwargs,
+        )
 
     async def _agenerate(
         self,
@@ -290,7 +497,37 @@ class OpenAICliChatModel(ChatOpenAI):
         raw_response = await self.root_async_client.responses.create(**payload)
         response = self._normalize_responses_api_response(raw_response)
         result = self._build_chat_result_from_response_dict(response)
-        return self._apply_empty_response_fallback(result, messages)
+        if not result.generations:
+            return result
+
+        message = result.generations[0].message
+        if (
+            not self._normalize_content(message.content).strip()
+            and not getattr(message, "tool_calls", None)
+            and not getattr(message, "invalid_tool_calls", None)
+        ):
+            recovery_tool_calls = self._build_empty_response_recovery_tool_calls(messages)
+            if recovery_tool_calls:
+                result.generations[0].message = message.model_copy(
+                    update={
+                        "content": "",
+                        "tool_calls": recovery_tool_calls,
+                        "invalid_tool_calls": [],
+                    }
+                )
+            elif alternate_result := await self._aretry_empty_response_with_alternate_model(
+                messages,
+                stop=stop,
+                run_manager=run_manager,
+                **kwargs,
+            ):
+                return alternate_result
+            else:
+                result.generations[0].message = message.model_copy(
+                    update={"content": self._build_empty_response_fallback(messages)}
+                )
+
+        return result
 
     def _stream(
         self,

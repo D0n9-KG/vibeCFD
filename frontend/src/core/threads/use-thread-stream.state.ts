@@ -76,7 +76,7 @@ export function shouldPromoteStartedThreadRoute({
   activeThreadId,
   isLoading,
   persistedMessageCount,
-  visibleMessageCount,
+  visibleMessageCount: _visibleMessageCount,
 }: {
   pendingThreadId?: string | null;
   activeThreadId?: string | null;
@@ -88,7 +88,11 @@ export function shouldPromoteStartedThreadRoute({
     pendingThreadId != null &&
     pendingThreadId.length > 0 &&
     activeThreadId === pendingThreadId &&
-    (visibleMessageCount > 0 || (!isLoading && persistedMessageCount > 0))
+    // Keep the `/new` route mounted until the server-backed thread history exists.
+    // Navigating away mid-stream drops the active hook before resumable run metadata
+    // is available on the destination page, which leaves the negotiation rail empty.
+    !isLoading &&
+    persistedMessageCount > 0
   );
 }
 

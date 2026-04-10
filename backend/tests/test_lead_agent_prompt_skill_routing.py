@@ -82,6 +82,7 @@ def test_skill_studio_workflow_prompt_section_is_only_included_for_skill_creator
     assert "submarine_skill_studio" in section
     assert "skill-draft.json" in section
     assert "Do not stop at a conversational acknowledgement" in section
+    assert "minimal validation or test-skill request is usually enough" in section
 
     assert prompt_module.get_skill_studio_workflow_prompt_section("tester") == ""
 

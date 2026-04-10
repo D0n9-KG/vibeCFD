@@ -383,7 +383,7 @@ void test("shouldPromoteStartedThreadRoute waits for the created thread binding 
   );
 });
 
-void test("shouldPromoteStartedThreadRoute promotes as soon as the rebound thread shows visible messages", () => {
+void test("shouldPromoteStartedThreadRoute does not promote while the rebound thread is still streaming, even if optimistic messages are visible", () => {
   assert.equal(
     shouldPromoteStartedThreadRoute({
       pendingThreadId: "thread-123",
@@ -392,7 +392,20 @@ void test("shouldPromoteStartedThreadRoute promotes as soon as the rebound threa
       persistedMessageCount: 0,
       visibleMessageCount: 1,
     }),
-    true,
+    false,
+  );
+});
+
+void test("shouldPromoteStartedThreadRoute does not promote after loading if only optimistic messages remain visible", () => {
+  assert.equal(
+    shouldPromoteStartedThreadRoute({
+      pendingThreadId: "thread-123",
+      activeThreadId: "thread-123",
+      isLoading: false,
+      persistedMessageCount: 0,
+      visibleMessageCount: 1,
+    }),
+    false,
   );
 });
 

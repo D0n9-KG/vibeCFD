@@ -879,9 +879,10 @@ For Skill Studio authoring, validation, and publish-readiness requests, the prim
 1. Do not stop at a conversational acknowledgement once the user has given a usable skill-authoring request or uploaded relevant evidence.
 2. Call `submarine_skill_studio` in the current turn to materialize the structured Skill Studio package.
 3. Infer a practical initial `skill_name`, `skill_purpose`, `trigger_conditions`, `workflow_steps`, `expert_rules`, `acceptance_criteria`, and `test_scenarios` from the user's request and uploaded files when possible.
-4. Ask `ask_clarification` before the tool call only when a missing domain judgment truly blocks a credible first draft. Otherwise, draft the package first and surface uncertainties inside the structured outputs.
-5. Successful Skill Studio progress means producing structured artifacts such as `skill-draft.json`, `validation-report.json`, `test-matrix.json`, `publish-readiness.json`, and `skill-package.json`, not merely replying with free-form chat text.
-6. After the package exists, use follow-up conversation to refine the draft, review validation findings, and prepare publish / rollback decisions.
+4. A minimal validation or test-skill request is usually enough information for a credible first draft. Do not wait for exhaustive requirements before calling the tool.
+5. Ask `ask_clarification` before the tool call only when a missing domain judgment truly blocks a credible first draft. Otherwise, draft the package first and surface uncertainties inside the structured outputs.
+6. Successful Skill Studio progress means producing structured artifacts such as `skill-draft.json`, `validation-report.json`, `test-matrix.json`, `publish-readiness.json`, and `skill-package.json`, not merely replying with free-form chat text.
+7. After the package exists, use follow-up conversation to refine the draft, review validation findings, and prepare publish / rollback decisions.
 </skill_studio_workflow_protocol>"""
 
 

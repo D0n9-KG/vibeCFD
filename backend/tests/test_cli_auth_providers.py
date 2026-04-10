@@ -415,6 +415,11 @@ def test_openai_cli_provider_emits_visible_fallback_for_empty_final_response(mon
             source="codex-auth-file",
         ),
     )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
 
     model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
     model.__dict__["root_client"] = SimpleNamespace(
@@ -439,6 +444,286 @@ def test_openai_cli_provider_emits_visible_fallback_for_empty_final_response(mon
     result = model._generate([HumanMessage(content="Please keep going with the STL check.")])
 
     assert result.generations[0].message.content == "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
+
+
+def test_openai_cli_provider_retries_empty_response_with_alternate_model_text(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: ChatResult(
+            generations=[
+                ChatGeneration(
+                    message=AIMessage(
+                        content="DEFAULT_OK",
+                        response_metadata={
+                            "model": "claude-sonnet-4-6",
+                            "usage": {
+                                "input_tokens": 11,
+                                "output_tokens": 2,
+                                "total_tokens": 13,
+                            },
+                        },
+                    )
+                )
+            ],
+            llm_output={"model_name": "claude-sonnet-4-6"},
+        ),
+        raising=False,
+    )
+
+    result = model._generate([HumanMessage(content="Please keep going with the skill draft.")])
+
+    assert result.generations[0].message.content == "DEFAULT_OK"
+    assert result.generations[0].message.tool_calls == []
+
+
+def test_openai_cli_provider_retries_empty_response_with_alternate_model_tool_call(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: ChatResult(
+            generations=[
+                ChatGeneration(
+                    message=AIMessage(
+                        content="",
+                        tool_calls=[
+                            {
+                                "name": "submarine_skill_studio",
+                                "args": {
+                                    "skill_name": "pipeline-check",
+                                    "skill_purpose": "Verify Skill Studio end-to-end flow",
+                                },
+                                "id": "tool_123",
+                                "type": "tool_call",
+                            }
+                        ],
+                        response_metadata={
+                            "model": "claude-sonnet-4-6",
+                            "usage": {
+                                "input_tokens": 21,
+                                "output_tokens": 8,
+                                "total_tokens": 29,
+                            },
+                        },
+                    )
+                )
+            ],
+            llm_output={"model_name": "claude-sonnet-4-6"},
+        ),
+        raising=False,
+    )
+
+    result = model._generate([HumanMessage(content="Please draft the test skill now.")])
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_skill_studio",
+            "args": {
+                "skill_name": "pipeline-check",
+                "skill_purpose": "Verify Skill Studio end-to-end flow",
+            },
+            "id": "tool_123",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_ignores_hidden_only_alternate_retry_and_keeps_fallback(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    class _HiddenOnlyAlternate:
+        def _generate(self, messages, stop=None, run_manager=None):
+            return ChatResult(
+                generations=[
+                    ChatGeneration(
+                        message=AIMessage(
+                            content=[{"type": "thinking", "thinking": "internal deliberation"}],
+                            response_metadata={
+                                "model": "claude-sonnet-4-6",
+                                "usage": {
+                                    "input_tokens": 10,
+                                    "output_tokens": 5,
+                                    "total_tokens": 15,
+                                },
+                            },
+                        )
+                    )
+                ],
+                llm_output={"model_name": "claude-sonnet-4-6"},
+            )
+
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.get_app_config",
+        lambda: SimpleNamespace(
+            models=[
+                SimpleNamespace(name="gpt-5.4", use="deerflow.models.openai_cli_provider:OpenAICliChatModel"),
+                SimpleNamespace(name="claude-sonnet-4-6", use="deerflow.models.claude_provider:ClaudeChatModel"),
+            ]
+        ),
+    )
+    monkeypatch.setattr(
+        "deerflow.models.factory.create_chat_model",
+        lambda name, thinking_enabled=False, reasoning_effort=None: _HiddenOnlyAlternate(),
+    )
+
+    result = model._generate([HumanMessage(content="Please keep going with the skill draft.")])
+
+    assert (
+        result.generations[0].message.content
+        == "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
+    )
+    assert result.generations[0].message.tool_calls == []
+
+
+def test_openai_cli_provider_ignores_invalid_tool_only_alternate_retry_and_keeps_fallback(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    class _InvalidToolOnlyAlternate:
+        def _generate(self, messages, stop=None, run_manager=None):
+            return ChatResult(
+                generations=[
+                    ChatGeneration(
+                        message=AIMessage(
+                            content="",
+                            invalid_tool_calls=[
+                                {
+                                    "type": "invalid_tool_call",
+                                    "name": "submarine_skill_studio",
+                                    "args": "{bad json",
+                                    "id": "invalid-tool-1",
+                                    "error": "Failed to parse tool arguments",
+                                }
+                            ],
+                            response_metadata={
+                                "model": "claude-sonnet-4-6",
+                                "usage": {
+                                    "input_tokens": 10,
+                                    "output_tokens": 5,
+                                    "total_tokens": 15,
+                                },
+                            },
+                        )
+                    )
+                ],
+                llm_output={"model_name": "claude-sonnet-4-6"},
+            )
+
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.get_app_config",
+        lambda: SimpleNamespace(
+            models=[
+                SimpleNamespace(name="gpt-5.4", use="deerflow.models.openai_cli_provider:OpenAICliChatModel"),
+                SimpleNamespace(name="claude-sonnet-4-6", use="deerflow.models.claude_provider:ClaudeChatModel"),
+            ]
+        ),
+    )
+    monkeypatch.setattr(
+        "deerflow.models.factory.create_chat_model",
+        lambda name, thinking_enabled=False, reasoning_effort=None: _InvalidToolOnlyAlternate(),
+    )
+
+    result = model._generate([HumanMessage(content="Please keep going with the skill draft.")])
+
+    assert (
+        result.generations[0].message.content
+        == "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
+    )
+    assert result.generations[0].message.tool_calls == []
 
 
 def test_openai_cli_provider_injects_submarine_geometry_tool_call_for_empty_plan_only_stl_request(
@@ -520,6 +805,11 @@ def test_openai_cli_provider_keeps_text_fallback_for_empty_non_geometry_request(
             api_key="sk-openai-test",
             source="codex-auth-file",
         ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
     )
 
     model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
@@ -622,6 +912,11 @@ def test_openai_cli_provider_reuses_geometry_tool_summary_after_empty_post_tool_
             api_key="sk-openai-test",
             source="codex-auth-file",
         ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
     )
 
     model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
