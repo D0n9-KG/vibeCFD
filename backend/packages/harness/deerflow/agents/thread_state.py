@@ -68,12 +68,24 @@ class SubmarineSkillStudioState(TypedDict):
     lifecycle_virtual_path: NotRequired[str]
     test_virtual_path: NotRequired[str]
     publish_virtual_path: NotRequired[str]
+    dry_run_evidence_status: NotRequired[str]
+    dry_run_evidence_virtual_path: NotRequired[str]
     ui_metadata_virtual_path: NotRequired[str]
     active_revision_id: NotRequired[str | None]
     published_revision_id: NotRequired[str | None]
     version_note: NotRequired[str]
     bindings: NotRequired[list[dict] | None]
     artifact_virtual_paths: NotRequired[list[str] | None]
+
+
+class SkillRuntimeSnapshotState(TypedDict):
+    runtime_revision: int
+    captured_at: str
+    enabled_skill_names: list[str]
+    binding_targets_applied: list[str]
+    source_registry_path: str
+    skill_prompt_entries: NotRequired[list[dict[str, str]]]
+    resolved_binding_targets: NotRequired[list[dict[str, object]]]
 
 
 class ViewedImageData(TypedDict):
@@ -336,6 +348,7 @@ class ThreadState(AgentState):
     thread_data: NotRequired[ThreadDataState | None]
     submarine_runtime: Annotated[SubmarineRuntimeState | None, merge_submarine_runtime]
     submarine_skill_studio: NotRequired[SubmarineSkillStudioState | None]
+    skill_runtime_snapshot: NotRequired[SkillRuntimeSnapshotState | None]
     title: NotRequired[str | None]
     artifacts: Annotated[list[str], merge_artifacts]
     todos: NotRequired[list | None]

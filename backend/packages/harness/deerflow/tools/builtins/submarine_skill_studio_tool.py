@@ -100,6 +100,8 @@ def submarine_skill_studio_tool(
         "lifecycle_virtual_path": payload["lifecycle_virtual_path"],
         "test_virtual_path": payload["test_virtual_path"],
         "publish_virtual_path": payload["publish_virtual_path"],
+        "dry_run_evidence_status": payload["dry_run_evidence_status"],
+        "dry_run_evidence_virtual_path": payload["dry_run_evidence_virtual_path"],
         "ui_metadata_virtual_path": payload["ui_metadata_virtual_path"],
         "active_revision_id": payload["active_revision_id"],
         "published_revision_id": payload["published_revision_id"],

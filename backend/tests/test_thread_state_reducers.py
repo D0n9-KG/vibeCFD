@@ -251,3 +251,31 @@ def test_thread_state_prefers_blocked_runtime_truth_when_parallel_updates_disagr
     )
     assert solver_dispatch["status"] == "blocked"
     assert solver_dispatch["target_skills"] == ["submarine-solver-dispatch"]
+
+
+def test_thread_state_preserves_skill_runtime_snapshot():
+    def passthrough(_: ThreadState) -> dict:
+        return {}
+
+    graph = StateGraph(ThreadState)
+    graph.add_node("passthrough", passthrough)
+    graph.add_edge(START, "passthrough")
+    graph.add_edge("passthrough", END)
+
+    result = graph.compile().invoke(
+        {
+            "messages": [],
+            "skill_runtime_snapshot": {
+                "runtime_revision": 4,
+                "captured_at": "2026-04-10T08:00:00Z",
+                "enabled_skill_names": ["submarine-result-acceptance"],
+                "binding_targets_applied": ["scientific-verification"],
+                "source_registry_path": "skills/custom/.skill-studio-registry.json",
+            },
+        }
+    )
+
+    assert result["skill_runtime_snapshot"]["runtime_revision"] == 4
+    assert result["skill_runtime_snapshot"]["enabled_skill_names"] == [
+        "submarine-result-acceptance"
+    ]

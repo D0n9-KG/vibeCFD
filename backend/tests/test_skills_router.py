@@ -100,7 +100,7 @@ description: "Curly quotes: \u201cutf8\u201d"
 def _build_skill_archive(
     tmp_path: Path,
     thread_id: str = "thread-1",
-) -> tuple[str, Path]:
+) -> tuple[dict[tuple[str, str], Path], dict[str, str]]:
     paths = Paths(tmp_path)
     outputs_dir = paths.sandbox_outputs_dir(thread_id)
     outputs_dir.mkdir(parents=True, exist_ok=True)
@@ -137,13 +137,28 @@ def _build_skill_archive(
     archive_path = (
         outputs_dir / "submarine" / "skill-studio" / skill_slug / f"{skill_slug}.skill"
     )
-    return archive_virtual_path, archive_path
+    draft_virtual_path = (
+        f"/mnt/user-data/outputs/submarine/skill-studio/{skill_slug}/skill-draft.json"
+    )
+    draft_path = (
+        outputs_dir / "submarine" / "skill-studio" / skill_slug / "skill-draft.json"
+    )
+    return (
+        {
+            (thread_id, archive_virtual_path): archive_path,
+            (thread_id, draft_virtual_path): draft_path,
+        },
+        {
+            "archive": archive_virtual_path,
+            "draft": draft_virtual_path,
+        },
+    )
 
 
 def _create_router_client(
     tmp_path: Path,
     monkeypatch,
-    archive_path: Path,
+    resolved_paths: dict[tuple[str, str], Path],
 ) -> TestClient:
     skills_root = tmp_path / "skills"
     config_path = tmp_path / "extensions_config.json"
@@ -151,23 +166,23 @@ def _create_router_client(
     monkeypatch.setattr(
         skills,
         "resolve_thread_virtual_path",
-        lambda _thread_id, _path: archive_path,
+        lambda thread_id, path: resolved_paths[(thread_id, path)],
     )
     monkeypatch.setattr(skills, "get_skills_root_path", lambda: skills_root)
     monkeypatch.setattr(
         skills.ExtensionsConfig,
         "resolve_config_path",
-        classmethod(lambda _cls: config_path),
+        staticmethod(lambda *_args, **_kwargs: config_path),
     )
     monkeypatch.setattr(skills, "reload_extensions_config", lambda: None)
     monkeypatch.setattr(skills, "get_extensions_config", lambda: ExtensionsConfig())
     monkeypatch.setattr(
         skills,
         "load_skills",
-        lambda enabled_only=False: load_skills_from_path(
+        lambda *args, **kwargs: load_skills_from_path(
             skills_path=skills_root,
             use_config=False,
-            enabled_only=enabled_only,
+            enabled_only=kwargs.get("enabled_only", False),
         ),
     )
 
@@ -180,14 +195,25 @@ def test_skill_lifecycle_routes_round_trip_publish_management_state(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    archive_virtual_path, archive_path = _build_skill_archive(tmp_path)
+    resolved_paths, virtual_paths = _build_skill_archive(tmp_path)
 
-    with _create_router_client(tmp_path, monkeypatch, archive_path) as client:
+    with _create_router_client(tmp_path, monkeypatch, resolved_paths) as client:
+        evidence_response = client.post(
+            "/api/skills/dry-run-evidence",
+            json={
+                "thread_id": "thread-1",
+                "path": virtual_paths["draft"],
+                "status": "passed",
+                "scenario_id": "scenario-1",
+                "message_ids": ["msg-1"],
+                "reviewer_note": "Lifecycle round-trip evidence.",
+            },
+        )
         publish_response = client.post(
             "/api/skills/publish",
             json={
                 "thread_id": "thread-1",
-                "path": archive_virtual_path,
+                "path": virtual_paths["archive"],
                 "overwrite": False,
                 "enable": True,
                 "version_note": "Promote acceptance skill",
@@ -219,6 +245,7 @@ def test_skill_lifecycle_routes_round_trip_publish_management_state(
             },
         )
 
+    assert evidence_response.status_code == 200
     assert publish_response.status_code == 200
 
     assert list_response.status_code == 200

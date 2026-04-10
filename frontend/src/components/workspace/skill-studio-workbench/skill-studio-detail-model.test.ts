@@ -13,6 +13,7 @@ void test("keeps define, evaluate, publish, and graph lifecycle detail explicit"
       validation_status: "needs_revision",
       test_status: "ready_for_dry_run",
       publish_status: "blocked",
+      dry_run_evidence_status: "failed",
       error_count: 2,
       warning_count: 1,
       package_archive_virtual_path:
@@ -235,6 +236,7 @@ void test("keeps define, evaluate, publish, and graph lifecycle detail explicit"
   assert.equal(model.evaluate.errorCount, 2);
   assert.equal(model.evaluate.warningCount, 1);
   assert.equal(model.evaluate.scenarioMatrix.blockedCount, 1);
+  assert.equal(model.evaluate.dryRun.status, "failed");
   assert.equal(model.evaluate.dryRun.ready, false);
   assert.equal(model.publish.enabled, true);
   assert.equal(model.publish.activeRevisionId, "rev-2");

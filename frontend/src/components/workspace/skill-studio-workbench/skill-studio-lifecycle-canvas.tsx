@@ -48,6 +48,8 @@ type SkillStudioLifecycleCanvasProps = {
   onVersionNoteChange: (nextValue: string) => void;
   onToggleBindingRole: (roleId: string) => void;
   onSaveLifecycle: () => void;
+  onRecordDryRunPassed: () => void;
+  onRecordDryRunFailed: () => void;
   onPublish: () => void;
   onRollback: () => void;
 };
@@ -66,6 +68,8 @@ export function SkillStudioLifecycleCanvas({
   onVersionNoteChange,
   onToggleBindingRole,
   onSaveLifecycle,
+  onRecordDryRunPassed,
+  onRecordDryRunFailed,
   onPublish,
   onRollback,
 }: SkillStudioLifecycleCanvasProps) {
@@ -92,7 +96,15 @@ export function SkillStudioLifecycleCanvas({
       {
         id: "testing",
         label: "验证与试跑证据",
-        content: <SkillStudioTestingEvidence evaluate={detail.evaluate} />,
+        content: (
+          <SkillStudioTestingEvidence
+            evaluate={detail.evaluate}
+            busy={busy}
+            isMock={isMock}
+            onRecordDryRunPassed={onRecordDryRunPassed}
+            onRecordDryRunFailed={onRecordDryRunFailed}
+          />
+        ),
       },
       {
         id: "publish",
@@ -105,7 +117,7 @@ export function SkillStudioLifecycleCanvas({
         content: <GraphDrawer detail={detail} />,
       },
     ],
-    [detail],
+    [busy, detail, isMock, onRecordDryRunFailed, onRecordDryRunPassed],
   );
 
   return (

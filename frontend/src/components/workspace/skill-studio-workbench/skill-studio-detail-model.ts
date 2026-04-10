@@ -25,6 +25,8 @@ export type SkillStudioThreadState = {
   validation_status?: string | null;
   test_status?: string | null;
   publish_status?: string | null;
+  dry_run_evidence_status?: string | null;
+  dry_run_evidence_virtual_path?: string | null;
   error_count?: number | null;
   warning_count?: number | null;
   package_virtual_path?: string | null;
@@ -89,6 +91,16 @@ export type PublishReadinessPayload = {
   next_actions?: string[] | null;
 };
 
+export type DryRunEvidencePayload = {
+  status?: string;
+  recorded_at?: string | null;
+  recorded_by?: string | null;
+  thread_id?: string | null;
+  scenario_id?: string | null;
+  message_ids?: string[] | null;
+  reviewer_note?: string | null;
+};
+
 export type SkillPackagePayload = {
   assistant_mode?: string;
   assistant_label?: string;
@@ -136,6 +148,7 @@ export type SkillStudioDetailModel = {
       }>;
     };
     dryRun: {
+      status: string;
       ready: boolean;
       nextActions: string[];
     };
@@ -162,6 +175,7 @@ export type BuildSkillStudioDetailModelInput = {
   skillPackage: SkillPackagePayload | null;
   validation: ValidationPayload | null;
   testMatrix: TestMatrixPayload | null;
+  dryRunEvidence?: DryRunEvidencePayload | null;
   publishReadiness: PublishReadinessPayload | null;
   lifecycleSummary: SkillLifecycleSummary | null;
   lifecycleDetail: SkillLifecycleRecord | null;
@@ -241,8 +255,12 @@ export function buildSkillStudioDetailModel(
       expectedOutcome: scenario?.expected_outcome ?? "Outcome not declared.",
       blockingReasons: scenario?.blocking_reasons ?? [],
     })) ?? [];
+  const dryRunStatus =
+    input.dryRunEvidence?.status ??
+    input.studioState?.dry_run_evidence_status ??
+    "not_recorded";
   const blockedGateCount =
-    input.publishReadiness?.gates?.filter((gate) => gate?.status === "blocked")
+    input.publishReadiness?.gates?.filter((gate) => gate?.status !== "passed")
       .length ?? 0;
 
   return {
@@ -294,7 +312,9 @@ export function buildSkillStudioDetailModel(
         scenarios,
       },
       dryRun: {
+        status: dryRunStatus,
         ready:
+          dryRunStatus === "passed" &&
           (input.testMatrix?.blocking_count ?? 0) === 0 &&
           (input.publishReadiness?.blocking_count ?? 0) === 0 &&
           readiness.blockingCount === 0,

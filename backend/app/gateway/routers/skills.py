@@ -5,6 +5,7 @@ import stat
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -18,6 +19,7 @@ from deerflow.domain.submarine.skill_lifecycle import (
     SkillLifecycleRegistry,
     append_skill_lifecycle_revision,
     apply_skill_lifecycle_revision,
+    bump_skill_runtime_revision,
     get_next_skill_revision_id,
     get_skill_lifecycle_binding_count,
     load_skill_lifecycle_record,
@@ -28,6 +30,9 @@ from deerflow.domain.submarine.skill_lifecycle import (
     merge_skill_lifecycle_record,
     save_skill_lifecycle_registry,
     utc_timestamp,
+)
+from deerflow.domain.submarine.skill_studio import (
+    record_skill_studio_dry_run_evidence,
 )
 from deerflow.skills import Skill, analyze_skill_relationships, load_skills
 from deerflow.skills.loader import get_skills_root_path
@@ -227,6 +232,43 @@ class SkillPublishResponse(BaseModel):
     enabled: bool = Field(..., description="Whether the skill is enabled after publishing")
 
 
+class SkillDryRunEvidenceRequest(BaseModel):
+    thread_id: str = Field(
+        ...,
+        description="Thread ID where the Skill Studio draft artifacts live",
+    )
+    path: str = Field(
+        ...,
+        description="Virtual path to the Skill Studio skill-draft.json artifact",
+    )
+    status: Literal["passed", "failed"] = Field(
+        ...,
+        description="Reviewed dry-run result for the current draft",
+    )
+    scenario_id: str | None = Field(
+        default=None,
+        description="Optional scenario identifier used for the reviewed dry run",
+    )
+    message_ids: list[str] = Field(
+        default_factory=list,
+        description="Conversation message IDs that provide traceable dry-run evidence",
+    )
+    reviewer_note: str = Field(
+        default="",
+        description="Optional reviewer note recorded beside the dry-run evidence",
+    )
+
+
+class SkillDryRunEvidenceResponse(BaseModel):
+    success: bool = True
+    skill_name: str
+    dry_run_evidence_status: str
+    dry_run_evidence_virtual_path: str
+    publish_status: str
+    package_archive_virtual_path: str
+    artifact_virtual_paths: list[str] = Field(default_factory=list)
+
+
 class SkillLifecycleSummaryResponse(BaseModel):
     skill_name: str
     enabled: bool
@@ -328,9 +370,12 @@ def _save_skill_lifecycle_record(
     record: SkillLifecycleRecord,
     *,
     skills_root: Path | None = None,
+    bump_runtime_revision: bool = False,
 ) -> None:
     registry = load_skill_lifecycle_registry(skills_root=skills_root)
     registry.records[record.skill_name] = record
+    if bump_runtime_revision:
+        bump_skill_runtime_revision(registry)
     save_skill_lifecycle_registry(registry, skills_root=skills_root)
 
 
@@ -478,6 +523,91 @@ def _install_skill_archive(skill_file_path: Path, *, overwrite: bool = False) ->
             shutil.copytree(preserved_revisions_dir, restored_revision_dir)
 
     return skill_name, target_dir
+
+
+def _load_archive_root_json_payload(
+    skill_file_path: Path,
+    *,
+    member_name: str,
+    missing_detail: str,
+    invalid_detail_prefix: str,
+) -> dict:
+    if not skill_file_path.exists():
+        raise HTTPException(status_code=404, detail=f"Skill file not found: {skill_file_path}")
+
+    if not skill_file_path.is_file():
+        raise HTTPException(status_code=400, detail=f"Path is not a file: {skill_file_path}")
+
+    if skill_file_path.suffix != ".skill":
+        raise HTTPException(status_code=400, detail="File must have .skill extension")
+
+    if not zipfile.is_zipfile(skill_file_path):
+        raise HTTPException(status_code=400, detail="File is not a valid ZIP archive")
+
+    with zipfile.ZipFile(skill_file_path, "r") as archive:
+        archive_members = [
+            Path(info.filename)
+            for info in archive.infolist()
+            if not info.is_dir() and not _should_ignore_archive_entry(Path(info.filename))
+        ]
+        if len(archive_members) == 0:
+            raise HTTPException(status_code=400, detail="Skill archive is empty")
+
+        top_level_entries = {
+            member.parts[0]
+            for member in archive_members
+            if len(member.parts) > 0
+        }
+        root_prefix = (
+            Path(next(iter(top_level_entries)))
+            if len(top_level_entries) == 1
+            else Path()
+        )
+        expected_member_name = (
+            (root_prefix / member_name).as_posix()
+            if root_prefix != Path()
+            else member_name
+        )
+        archive_member = next(
+            (
+                info
+                for info in archive.infolist()
+                if not info.is_dir() and info.filename == expected_member_name
+            ),
+            None,
+        )
+        if archive_member is None:
+            raise HTTPException(
+                status_code=400,
+                detail=missing_detail,
+            )
+
+        try:
+            with archive.open(archive_member, "r") as file_obj:
+                return json.load(file_obj)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{invalid_detail_prefix}: {exc}",
+            ) from exc
+
+
+def _load_archive_dry_run_evidence(skill_file_path: Path) -> dict:
+    return _load_archive_root_json_payload(
+        skill_file_path,
+        member_name="dry-run-evidence.json",
+        missing_detail="Publish blocked: dry-run evidence is missing or has not passed.",
+        invalid_detail_prefix="Invalid dry-run evidence payload in archive",
+    )
+
+
+def _load_archive_publish_readiness(skill_file_path: Path) -> dict:
+    return _load_archive_root_json_payload(
+        skill_file_path,
+        member_name="publish-readiness.json",
+        missing_detail="Publish blocked: publish readiness is missing or not ready for review.",
+        invalid_detail_prefix="Invalid publish-readiness payload in archive",
+    )
 
 
 @router.get(
@@ -654,6 +784,7 @@ async def update_skill_lifecycle(
             published_path=str(updated_skill.skill_dir),
         )
         registry.records[skill_name] = record
+        bump_skill_runtime_revision(registry)
         save_skill_lifecycle_registry(registry, skills_root=skills_root)
         return _to_skill_lifecycle_detail(record)
     except HTTPException:
@@ -745,6 +876,7 @@ async def rollback_skill_revision(
             revision=revision,
         )
         registry.records[skill_name] = restored_record
+        bump_skill_runtime_revision(registry)
         save_skill_lifecycle_registry(registry, skills_root=skills_root)
         return _to_skill_lifecycle_summary(restored_record)
     except HTTPException:
@@ -873,6 +1005,7 @@ async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillRes
             _save_skill_lifecycle_record(
                 record,
                 skills_root=get_skills_root_path(),
+                bump_runtime_revision=True,
             )
 
         # Reload the skills to get the updated status (for API response)
@@ -947,6 +1080,46 @@ async def install_skill(request: SkillInstallRequest) -> SkillInstallResponse:
 
 
 @router.post(
+    "/skills/dry-run-evidence",
+    response_model=SkillDryRunEvidenceResponse,
+    summary="Record Skill Studio Dry-Run Evidence",
+    description=(
+        "Persist the reviewed dry-run result for a Skill Studio draft, refresh "
+        "publish-readiness artifacts, and rebuild the packaged .skill archive."
+    ),
+)
+async def record_skill_dry_run_evidence(
+    request: SkillDryRunEvidenceRequest,
+) -> SkillDryRunEvidenceResponse:
+    try:
+        draft_path = resolve_thread_virtual_path(request.thread_id, request.path)
+        result = record_skill_studio_dry_run_evidence(
+            draft_path=draft_path,
+            thread_id=request.thread_id,
+            status=request.status,
+            scenario_id=request.scenario_id,
+            message_ids=request.message_ids,
+            reviewer_note=request.reviewer_note,
+        )
+        return SkillDryRunEvidenceResponse(success=True, **result)
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "Failed to record dry-run evidence for %s: %s",
+            request.path,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to record dry-run evidence: {str(exc)}",
+        ) from exc
+
+
+@router.post(
     "/skills/publish",
     response_model=SkillPublishResponse,
     summary="Publish Skill Draft",
@@ -959,6 +1132,18 @@ async def publish_skill(request: SkillPublishRequest) -> SkillPublishResponse:
     """Publish a generated skill package from Skill Studio into the repo."""
     try:
         skill_file_path = resolve_thread_virtual_path(request.thread_id, request.path)
+        dry_run_evidence = _load_archive_dry_run_evidence(skill_file_path)
+        if dry_run_evidence.get("status") != "passed":
+            raise HTTPException(
+                status_code=400,
+                detail="Publish blocked: dry-run evidence is missing or has not passed.",
+            )
+        publish_readiness = _load_archive_publish_readiness(skill_file_path)
+        if publish_readiness.get("status") != "ready_for_review":
+            raise HTTPException(
+                status_code=400,
+                detail="Publish blocked: publish readiness is missing or not ready for review.",
+            )
         skill_name, target_dir = _install_skill_archive(
             skill_file_path,
             overwrite=request.overwrite,
@@ -1002,6 +1187,7 @@ async def publish_skill(request: SkillPublishRequest) -> SkillPublishResponse:
             ),
         )
         registry.records[skill_name] = record
+        bump_skill_runtime_revision(registry)
         save_skill_lifecycle_registry(registry, skills_root=skills_root)
 
         action = "updated" if request.overwrite else "installed"

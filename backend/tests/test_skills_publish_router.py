@@ -1,3 +1,5 @@
+import json
+import zipfile
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -16,7 +18,7 @@ def _build_skill_archive(
     *,
     skill_purpose_suffix: str = "",
     workflow_suffix: str = "",
-) -> tuple[Paths, str, Path]:
+) -> tuple[dict[tuple[str, str], Path], dict[str, str]]:
     paths = Paths(tmp_path)
     outputs_dir = paths.sandbox_outputs_dir(thread_id)
     outputs_dir.mkdir(parents=True, exist_ok=True)
@@ -55,17 +57,32 @@ def _build_skill_archive(
     archive_path = (
         outputs_dir / "submarine" / "skill-studio" / skill_slug / f"{skill_slug}.skill"
     )
-    return paths, archive_virtual_path, archive_path
+    draft_virtual_path = (
+        f"/mnt/user-data/outputs/submarine/skill-studio/{skill_slug}/skill-draft.json"
+    )
+    draft_path = outputs_dir / "submarine" / "skill-studio" / skill_slug / "skill-draft.json"
+    return (
+        {
+            (thread_id, archive_virtual_path): archive_path,
+            (thread_id, draft_virtual_path): draft_path,
+        },
+        {
+            "archive": archive_virtual_path,
+            "draft": draft_virtual_path,
+        },
+    )
 
 
-def _create_client(tmp_path: Path, monkeypatch, archive_paths) -> TestClient:
+def _create_client(
+    tmp_path: Path,
+    monkeypatch,
+    resolved_paths: dict[tuple[str, str], Path],
+) -> TestClient:
     skills_root = tmp_path / "skills"
     config_path = tmp_path / "extensions_config.json"
 
-    def resolve_archive(thread_id: str, _path: str) -> Path:
-        if isinstance(archive_paths, dict):
-            return archive_paths[thread_id]
-        return archive_paths
+    def resolve_archive(thread_id: str, path: str) -> Path:
+        return resolved_paths[(thread_id, path)]
 
     monkeypatch.setattr(
         skills,
@@ -87,14 +104,25 @@ def _create_client(tmp_path: Path, monkeypatch, archive_paths) -> TestClient:
 
 
 def test_publish_skill_route_installs_and_enables_skill(tmp_path: Path, monkeypatch) -> None:
-    _, archive_virtual_path, archive_path = _build_skill_archive(tmp_path)
+    resolved_paths, virtual_paths = _build_skill_archive(tmp_path)
 
-    with _create_client(tmp_path, monkeypatch, archive_path) as client:
+    with _create_client(tmp_path, monkeypatch, resolved_paths) as client:
+        evidence = client.post(
+            "/api/skills/dry-run-evidence",
+            json={
+                "thread_id": "thread-1",
+                "path": virtual_paths["draft"],
+                "status": "passed",
+                "scenario_id": "scenario-1",
+                "message_ids": ["msg-1", "msg-2"],
+                "reviewer_note": "Dry run matches the acceptance rubric.",
+            },
+        )
         response = client.post(
             "/api/skills/publish",
             json={
                 "thread_id": "thread-1",
-                "path": archive_virtual_path,
+                "path": virtual_paths["archive"],
                 "overwrite": False,
                 "enable": True,
                 "version_note": "Promote acceptance skill",
@@ -108,6 +136,7 @@ def test_publish_skill_route_installs_and_enables_skill(tmp_path: Path, monkeypa
             },
         )
 
+    assert evidence.status_code == 200
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
@@ -130,7 +159,7 @@ def test_publish_skill_route_installs_and_enables_skill(tmp_path: Path, monkeypa
 
 
 def test_publish_skill_route_supports_overwrite(tmp_path: Path, monkeypatch) -> None:
-    _, archive_virtual_path, archive_path = _build_skill_archive(tmp_path)
+    resolved_paths, virtual_paths = _build_skill_archive(tmp_path)
     installed_dir = tmp_path / "skills" / "custom" / "submarine-result-acceptance"
     installed_dir.mkdir(parents=True, exist_ok=True)
     (installed_dir / "SKILL.md").write_text(
@@ -138,12 +167,23 @@ def test_publish_skill_route_supports_overwrite(tmp_path: Path, monkeypatch) -> 
         encoding="utf-8",
     )
 
-    with _create_client(tmp_path, monkeypatch, archive_path) as client:
+    with _create_client(tmp_path, monkeypatch, resolved_paths) as client:
+        evidence = client.post(
+            "/api/skills/dry-run-evidence",
+            json={
+                "thread_id": "thread-1",
+                "path": virtual_paths["draft"],
+                "status": "passed",
+                "scenario_id": "scenario-1",
+                "message_ids": ["msg-1"],
+                "reviewer_note": "Evidence recorded before publish.",
+            },
+        )
         conflict = client.post(
             "/api/skills/publish",
             json={
                 "thread_id": "thread-1",
-                "path": archive_virtual_path,
+                "path": virtual_paths["archive"],
                 "overwrite": False,
                 "enable": True,
                 "version_note": "",
@@ -154,7 +194,7 @@ def test_publish_skill_route_supports_overwrite(tmp_path: Path, monkeypatch) -> 
             "/api/skills/publish",
             json={
                 "thread_id": "thread-1",
-                "path": archive_virtual_path,
+                "path": virtual_paths["archive"],
                 "overwrite": True,
                 "enable": True,
                 "version_note": "Overwrite publish",
@@ -168,6 +208,7 @@ def test_publish_skill_route_supports_overwrite(tmp_path: Path, monkeypatch) -> 
             },
         )
 
+    assert evidence.status_code == 200
     assert conflict.status_code == 409
     assert overwritten.status_code == 200
     assert "updated successfully" in overwritten.json()["message"]
@@ -184,12 +225,12 @@ def test_publish_skill_route_tracks_revisions_and_supports_rollback(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    _, archive_virtual_path_one, archive_path_one = _build_skill_archive(
+    resolved_paths_one, virtual_paths_one = _build_skill_archive(
         tmp_path,
         "thread-1",
         skill_purpose_suffix=" First release for reviewers.",
     )
-    _, archive_virtual_path_two, archive_path_two = _build_skill_archive(
+    resolved_paths_two, virtual_paths_two = _build_skill_archive(
         tmp_path,
         "thread-2",
         skill_purpose_suffix=" Second release with rollback coverage.",
@@ -199,16 +240,24 @@ def test_publish_skill_route_tracks_revisions_and_supports_rollback(
     with _create_client(
         tmp_path,
         monkeypatch,
-        {
-            "thread-1": archive_path_one,
-            "thread-2": archive_path_two,
-        },
+        resolved_paths_one | resolved_paths_two,
     ) as client:
+        first_evidence = client.post(
+            "/api/skills/dry-run-evidence",
+            json={
+                "thread_id": "thread-1",
+                "path": virtual_paths_one["draft"],
+                "status": "passed",
+                "scenario_id": "scenario-1",
+                "message_ids": ["msg-1"],
+                "reviewer_note": "First revision passed dry run.",
+            },
+        )
         first_publish = client.post(
             "/api/skills/publish",
             json={
                 "thread_id": "thread-1",
-                "path": archive_virtual_path_one,
+                "path": virtual_paths_one["archive"],
                 "overwrite": False,
                 "enable": True,
                 "version_note": "First release",
@@ -221,11 +270,22 @@ def test_publish_skill_route_tracks_revisions_and_supports_rollback(
                 ],
             },
         )
+        second_evidence = client.post(
+            "/api/skills/dry-run-evidence",
+            json={
+                "thread_id": "thread-2",
+                "path": virtual_paths_two["draft"],
+                "status": "passed",
+                "scenario_id": "scenario-1",
+                "message_ids": ["msg-2"],
+                "reviewer_note": "Second revision passed dry run.",
+            },
+        )
         second_publish = client.post(
             "/api/skills/publish",
             json={
                 "thread_id": "thread-2",
-                "path": archive_virtual_path_two,
+                "path": virtual_paths_two["archive"],
                 "overwrite": True,
                 "enable": False,
                 "version_note": "Second release",
@@ -244,7 +304,9 @@ def test_publish_skill_route_tracks_revisions_and_supports_rollback(
             json={"revision_id": "rev-001"},
         )
 
+    assert first_evidence.status_code == 200
     assert first_publish.status_code == 200
+    assert second_evidence.status_code == 200
     assert second_publish.status_code == 200
     assert rollback.status_code == 200
 
@@ -271,8 +333,9 @@ def test_publish_skill_route_tracks_revisions_and_supports_rollback(
     installed_skill = (
         tmp_path / "skills" / "custom" / "submarine-result-acceptance" / "SKILL.md"
     ).read_text(encoding="utf-8")
-    assert "First release for reviewers." in installed_skill
+    assert "review mesh, residual, and force summaries from the current run" in installed_skill
     assert "Second release with rollback coverage." not in installed_skill
+    assert "compare against the rollback baseline" not in installed_skill
 
     rollback_data = rollback.json()
     assert rollback_data["skill_name"] == "submarine-result-acceptance"
@@ -280,3 +343,155 @@ def test_publish_skill_route_tracks_revisions_and_supports_rollback(
     assert rollback_data["rollback_target_id"] == "rev-002"
     assert rollback_data["revision_count"] == 2
     assert rollback_data["binding_count"] == 1
+
+
+def test_publish_skill_route_rejects_archive_without_passing_dry_run_evidence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    resolved_paths, virtual_paths = _build_skill_archive(tmp_path)
+
+    with _create_client(tmp_path, monkeypatch, resolved_paths) as client:
+        response = client.post(
+            "/api/skills/publish",
+            json={
+                "thread_id": "thread-1",
+                "path": virtual_paths["archive"],
+                "overwrite": False,
+                "enable": True,
+                "version_note": "",
+                "binding_targets": [],
+            },
+        )
+
+    assert response.status_code == 400
+    assert "dry-run evidence" in response.json()["detail"]
+
+    registry = load_skill_lifecycle_registry(
+        registry_path=tmp_path / "skills" / "custom" / ".skill-studio-registry.json",
+    )
+    assert registry.records == {}
+    assert (
+        tmp_path / "skills" / "custom" / "submarine-result-acceptance"
+    ).exists() is False
+
+
+def test_publish_skill_route_rejects_archive_without_ready_for_review_publish_status(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    resolved_paths, virtual_paths = _build_skill_archive(tmp_path)
+    archive_path = resolved_paths[("thread-1", virtual_paths["archive"])]
+
+    with _create_client(tmp_path, monkeypatch, resolved_paths) as client:
+        evidence = client.post(
+            "/api/skills/dry-run-evidence",
+            json={
+                "thread_id": "thread-1",
+                "path": virtual_paths["draft"],
+                "status": "passed",
+                "scenario_id": "scenario-1",
+                "message_ids": ["msg-1"],
+                "reviewer_note": "Dry run passed, but readiness is intentionally corrupted.",
+            },
+        )
+
+        rewritten_archive_path = archive_path.with_name("blocked-publish-readiness.skill")
+        with zipfile.ZipFile(archive_path, "r") as source_archive:
+            with zipfile.ZipFile(
+                rewritten_archive_path,
+                "w",
+                compression=zipfile.ZIP_DEFLATED,
+            ) as target_archive:
+                for member in source_archive.infolist():
+                    if member.is_dir():
+                        continue
+
+                    contents = source_archive.read(member)
+                    if Path(member.filename).name == "publish-readiness.json":
+                        payload = json.loads(contents)
+                        payload["status"] = "blocked"
+                        payload["blocking_count"] = max(
+                            int(payload.get("blocking_count", 0)),
+                            1,
+                        )
+                        contents = json.dumps(payload, ensure_ascii=False, indent=2).encode(
+                            "utf-8"
+                        )
+
+                    target_archive.writestr(member.filename, contents)
+
+        archive_path.unlink()
+        rewritten_archive_path.replace(archive_path)
+
+        response = client.post(
+            "/api/skills/publish",
+            json={
+                "thread_id": "thread-1",
+                "path": virtual_paths["archive"],
+                "overwrite": False,
+                "enable": True,
+                "version_note": "",
+                "binding_targets": [],
+            },
+        )
+
+    assert evidence.status_code == 200
+    assert response.status_code == 400
+    assert "publish readiness" in response.json()["detail"]
+
+    registry = load_skill_lifecycle_registry(
+        registry_path=tmp_path / "skills" / "custom" / ".skill-studio-registry.json",
+    )
+    assert registry.records == {}
+
+
+def test_publish_skill_route_rejects_nested_dry_run_evidence_outside_archive_root(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    resolved_paths, virtual_paths = _build_skill_archive(tmp_path)
+    archive_path = resolved_paths[("thread-1", virtual_paths["archive"])]
+    rewritten_archive_path = archive_path.with_name("nested-evidence.skill")
+
+    with zipfile.ZipFile(archive_path, "r") as source_archive:
+        with zipfile.ZipFile(
+            rewritten_archive_path,
+            "w",
+            compression=zipfile.ZIP_DEFLATED,
+        ) as target_archive:
+            for member in source_archive.infolist():
+                if member.is_dir():
+                    continue
+                if Path(member.filename).name == "dry-run-evidence.json":
+                    continue
+                target_archive.writestr(member.filename, source_archive.read(member))
+
+            target_archive.writestr(
+                "submarine-result-acceptance/assets/dry-run-evidence.json",
+                json.dumps(
+                    {
+                        "skill_name": "submarine-result-acceptance",
+                        "status": "passed",
+                    }
+                ),
+            )
+
+    archive_path.unlink()
+    rewritten_archive_path.replace(archive_path)
+
+    with _create_client(tmp_path, monkeypatch, resolved_paths) as client:
+        response = client.post(
+            "/api/skills/publish",
+            json={
+                "thread_id": "thread-1",
+                "path": virtual_paths["archive"],
+                "overwrite": False,
+                "enable": True,
+                "version_note": "",
+                "binding_targets": [],
+            },
+        )
+
+    assert response.status_code == 400
+    assert "dry-run evidence" in response.json()["detail"]

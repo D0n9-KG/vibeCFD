@@ -70,6 +70,19 @@ def test_load_skill_lifecycle_registry_returns_empty_registry_when_missing(tmp_p
     assert loaded_registry.records == {}
 
 
+def test_skill_lifecycle_registry_round_trip_preserves_runtime_revision(tmp_path) -> None:
+    registry_path = tmp_path / "skills" / "custom" / ".skill-studio-registry.json"
+    registry = SkillLifecycleRegistry()
+
+    written_path = save_skill_lifecycle_registry(registry, registry_path=registry_path)
+    loaded_registry = load_skill_lifecycle_registry(registry_path=written_path)
+
+    on_disk = json.loads(written_path.read_text(encoding="utf-8"))
+
+    assert on_disk.get("runtime_revision") == 0
+    assert getattr(loaded_registry, "runtime_revision", None) == 0
+
+
 def test_merge_skill_lifecycle_record_syncs_bindings_and_publish_metadata(tmp_path) -> None:
     existing_record = SkillLifecycleRecord(
         skill_name="submarine-result-acceptance",

@@ -63,6 +63,7 @@ class SkillLifecycleRecord(SkillLifecycleDraftState):
 
 class SkillLifecycleRegistry(BaseModel):
     version: str = "1.0"
+    runtime_revision: int = 0
     records: dict[str, SkillLifecycleRecord] = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid")
@@ -73,6 +74,13 @@ _REVISION_ID_PATTERN = re.compile(r"^rev-(\d+)$")
 
 def utc_timestamp() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
+def bump_skill_runtime_revision(
+    registry: SkillLifecycleRegistry,
+) -> SkillLifecycleRegistry:
+    registry.runtime_revision += 1
+    return registry
 
 
 def get_skill_revision_directory(

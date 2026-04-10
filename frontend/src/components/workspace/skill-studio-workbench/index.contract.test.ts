@@ -63,3 +63,8 @@ void test("skill studio scrolls the center canvas while keeping a larger fixed c
   assert.match(source, /id="skill-studio-chat-rail" className="min-h-0 flex-1 overflow-hidden"/);
   assert.match(source, /className="border-t border-slate-200\/80 p-2.5"/);
 });
+
+void test("skill studio records dry-run evidence with traceable message ids", () => {
+  assert.match(source, /const dryRunEvidenceMessageIds = useMemo/);
+  assert.match(source, /message_ids: dryRunEvidenceMessageIds/);
+});

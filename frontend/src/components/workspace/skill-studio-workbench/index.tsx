@@ -37,6 +37,7 @@ import type {
 } from "@/core/skills/api";
 import {
   usePublishSkill,
+  useRecordDryRunEvidence,
   useRollbackSkillRevision,
   useSkillGraph,
   useSkillLifecycle,
@@ -49,6 +50,7 @@ import { env } from "@/env";
 
 import {
   buildSkillStudioDetailModel,
+  type DryRunEvidencePayload,
   type PublishReadinessPayload,
   type SkillDraftPayload,
   type SkillPackagePayload,
@@ -176,6 +178,18 @@ export function SkillStudioAgenticWorkbench({
       ? buildProgressPreviewFromMessage(latestVisibleMessage)
       : null;
   }, [thread.messages]);
+  const dryRunEvidenceMessageIds = useMemo(
+    () =>
+      thread.messages
+        .filter((message) => message.type === "ai" || message.type === "human")
+        .slice(-6)
+        .map((message) => {
+          const messageId = (message as { id?: unknown }).id;
+          return typeof messageId === "string" && messageId ? messageId : null;
+        })
+        .filter((messageId): messageId is string => Boolean(messageId)),
+    [thread.messages],
+  );
   const threadErrorMessage =
     thread.error instanceof Error
       ? thread.error.message
@@ -205,6 +219,9 @@ export function SkillStudioAgenticWorkbench({
   const testMatrixPath = studioArtifacts.find((item) =>
     item.includes("/test-matrix."),
   );
+  const dryRunEvidencePath =
+    studioState?.dry_run_evidence_virtual_path ??
+    pickArtifact(studioArtifacts, "/dry-run-evidence.json");
   const publishReadinessPath = studioArtifacts.find((item) =>
     item.includes("/publish-readiness."),
   );
@@ -228,6 +245,11 @@ export function SkillStudioAgenticWorkbench({
     threadId,
     enabled: Boolean(testMatrixPath),
   });
+  const { content: dryRunEvidenceContent } = useArtifactContent({
+    filepath: dryRunEvidencePath ?? "",
+    threadId,
+    enabled: Boolean(dryRunEvidencePath),
+  });
   const { content: publishReadinessContent } = useArtifactContent({
     filepath: publishReadinessPath ?? "",
     threadId,
@@ -250,6 +272,10 @@ export function SkillStudioAgenticWorkbench({
   const testMatrix = useMemo(
     () => safeJsonParse<TestMatrixPayload>(testMatrixContent),
     [testMatrixContent],
+  );
+  const dryRunEvidence = useMemo(
+    () => safeJsonParse<DryRunEvidencePayload>(dryRunEvidenceContent),
+    [dryRunEvidenceContent],
   );
   const publishReadiness = useMemo(
     () => safeJsonParse<PublishReadinessPayload>(publishReadinessContent),
@@ -293,6 +319,7 @@ export function SkillStudioAgenticWorkbench({
         skillPackage,
         validation,
         testMatrix,
+        dryRunEvidence,
         publishReadiness,
         lifecycleSummary,
         lifecycleDetail,
@@ -301,6 +328,7 @@ export function SkillStudioAgenticWorkbench({
       }),
     [
       draft,
+      dryRunEvidence,
       lifecycleDetail,
       lifecycleSummary,
       publishReadiness,
@@ -376,9 +404,11 @@ export function SkillStudioAgenticWorkbench({
 
   const updateLifecycle = useUpdateSkillLifecycle();
   const publishSkillMutation = usePublishSkill();
+  const recordDryRunEvidenceMutation = useRecordDryRunEvidence();
   const rollbackSkillRevision = useRollbackSkillRevision();
   const busy =
     updateLifecycle.isPending ||
+    recordDryRunEvidenceMutation.isPending ||
     publishSkillMutation.isPending ||
     rollbackSkillRevision.isPending;
 
@@ -410,6 +440,39 @@ export function SkillStudioAgenticWorkbench({
       toast.error(error instanceof Error ? error.message : "保存技能生命周期设置失败。");
     }
   }, [bindingTargets, publishEnabled, skillName, updateLifecycle, versionNote]);
+
+  const recordDryRun = useCallback(
+    async (status: "passed" | "failed") => {
+      if (!draftPath) return;
+      try {
+        await recordDryRunEvidenceMutation.mutateAsync({
+          thread_id: threadId,
+          path: draftPath,
+          status,
+          scenario_id: detail.evaluate.scenarioMatrix.scenarios[0]?.id,
+          message_ids: dryRunEvidenceMessageIds,
+          reviewer_note: versionNote,
+          publishReadinessPath,
+          dryRunEvidencePath,
+          isMock: Boolean(isMock),
+        });
+        toast.success(status === "passed" ? "已记录试跑通过。" : "已记录试跑失败。");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "记录试跑证据失败。");
+      }
+    },
+    [
+      detail.evaluate.scenarioMatrix.scenarios,
+      draftPath,
+      dryRunEvidencePath,
+      dryRunEvidenceMessageIds,
+      isMock,
+      publishReadinessPath,
+      recordDryRunEvidenceMutation,
+      threadId,
+      versionNote,
+    ],
+  );
 
   const publish = useCallback(async () => {
     if (!packageArchivePath) return;
@@ -504,7 +567,11 @@ export function SkillStudioAgenticWorkbench({
           versionNote={versionNote}
           explicitBindingRoleIds={explicitBindingRoleIds}
           busy={busy}
-          canPublish={Boolean(packageArchivePath)}
+          canPublish={
+            Boolean(packageArchivePath) &&
+            detail.evaluate.dryRun.status === "passed" &&
+            detail.publish.blockedGateCount === 0
+          }
           canRollback={Boolean(detail.publish.rollbackTargetId)}
           onEnabledChange={setPublishEnabled}
           onVersionNoteChange={setVersionNote}
@@ -516,6 +583,8 @@ export function SkillStudioAgenticWorkbench({
             )
           }
           onSaveLifecycle={saveLifecycle}
+          onRecordDryRunPassed={() => void recordDryRun("passed")}
+          onRecordDryRunFailed={() => void recordDryRun("failed")}
           onPublish={publish}
           onRollback={rollback}
         />

@@ -1,6 +1,7 @@
 import { getBackendBaseURL } from "@/core/config";
 import { env } from "@/env";
 
+import { buildSkillGraphRequestURL } from "./request-url";
 import type { Skill } from "./type";
 
 export async function loadSkills() {
@@ -51,6 +52,25 @@ export interface PublishSkillResponse {
   message: string;
   published_path: string;
   enabled: boolean;
+}
+
+export interface RecordDryRunEvidenceRequest {
+  thread_id: string;
+  path: string;
+  status: "passed" | "failed";
+  scenario_id?: string;
+  message_ids?: string[];
+  reviewer_note?: string;
+}
+
+export interface RecordDryRunEvidenceResponse {
+  success: boolean;
+  skill_name: string;
+  dry_run_evidence_status: string;
+  dry_run_evidence_virtual_path: string;
+  publish_status: string;
+  package_archive_virtual_path: string;
+  artifact_virtual_paths: string[];
 }
 
 export interface SkillLifecycleBindingTarget {
@@ -217,6 +237,33 @@ export async function publishSkill(
   return response.json();
 }
 
+export async function recordDryRunEvidence(
+  request: RecordDryRunEvidenceRequest,
+): Promise<RecordDryRunEvidenceResponse> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/skills/dry-run-evidence`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        reviewer_note: "",
+        ...request,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage =
+      errorData.detail ?? `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
 export async function loadSkillLifecycleSummaries(): Promise<
   SkillLifecycleSummary[]
 > {
@@ -331,11 +378,12 @@ export async function loadSkillGraph({
     };
   }
 
-  const url = new URL(`${getBackendBaseURL()}/api/skills/graph`);
-  if (skillName) {
-    url.searchParams.set("skill_name", skillName);
-  }
-  const response = await fetch(url.toString());
+  const response = await fetch(
+    buildSkillGraphRequestURL({
+      backendBaseURL: getBackendBaseURL(),
+      skillName,
+    }),
+  );
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
