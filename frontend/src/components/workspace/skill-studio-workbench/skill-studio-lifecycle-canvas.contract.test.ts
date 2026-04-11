@@ -17,3 +17,8 @@ void test("skill studio wires dry-run evidence actions into the testing drawer",
   assert.match(source, /onRecordDryRunFailed/);
   assert.match(source, /<SkillStudioTestingEvidence[\s\S]*onRecordDryRunPassed=/);
 });
+
+void test("skill studio gives the version note textarea a stable id and name", () => {
+  assert.match(source, /id="skill-version-note"/);
+  assert.match(source, /name="version_note"/);
+});

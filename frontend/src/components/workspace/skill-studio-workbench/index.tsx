@@ -26,6 +26,7 @@ import type { SkillStudioAgentOption } from "@/components/workspace/skill-studio
 import {
   buildSkillStudioBindingTargets,
   findSkillLifecycleSummary,
+  shouldLoadSkillLifecycleDetail,
   type SkillStudioLifecycleBindingTarget,
 } from "@/components/workspace/skill-studio-workbench.utils";
 import { WorkspaceStatePanel } from "@/components/workspace/workspace-state-panel";
@@ -225,6 +226,7 @@ export function SkillStudioAgenticWorkbench({
   const dryRunEvidencePath =
     studioState?.dry_run_evidence_virtual_path ??
     pickArtifact(studioArtifacts, "/dry-run-evidence.json");
+  const lifecyclePath = pickArtifact(studioArtifacts, "/skill-lifecycle.json");
   const publishReadinessPath = studioArtifacts.find((item) =>
     item.includes("/publish-readiness."),
   );
@@ -253,6 +255,12 @@ export function SkillStudioAgenticWorkbench({
     threadId,
     enabled: Boolean(dryRunEvidencePath),
   });
+  const { content: lifecycleContent, isLoading: isLifecycleArtifactLoading } =
+    useArtifactContent({
+      filepath: lifecyclePath ?? "",
+      threadId,
+      enabled: Boolean(lifecyclePath),
+    });
   const { content: publishReadinessContent } = useArtifactContent({
     filepath: publishReadinessPath ?? "",
     threadId,
@@ -280,6 +288,10 @@ export function SkillStudioAgenticWorkbench({
     () => safeJsonParse<DryRunEvidencePayload>(dryRunEvidenceContent),
     [dryRunEvidenceContent],
   );
+  const lifecycleRecord = useMemo(
+    () => safeJsonParse<SkillLifecycleRecord>(lifecycleContent),
+    [lifecycleContent],
+  );
   const publishReadiness = useMemo(
     () => safeJsonParse<PublishReadinessPayload>(publishReadinessContent),
     [publishReadinessContent],
@@ -290,7 +302,10 @@ export function SkillStudioAgenticWorkbench({
   );
 
   const skillName = draft?.skill_name ?? studioState?.skill_name ?? null;
-  const { lifecycleSummaries } = useSkillLifecycleSummaries({ enabled: !isMock });
+  const {
+    lifecycleSummaries,
+    isLoading: areLifecycleSummariesLoading,
+  } = useSkillLifecycleSummaries({ enabled: !isMock });
   const lifecycleSummary = useMemo<SkillLifecycleSummary | null>(() => {
     const summary = findSkillLifecycleSummary(lifecycleSummaries, skillName);
     return summary
@@ -303,7 +318,16 @@ export function SkillStudioAgenticWorkbench({
 
   const lifecycleQuery = useSkillLifecycle({
     skillName: skillName ?? undefined,
-    enabled: Boolean(skillName) && !isMock,
+    enabled:
+      shouldLoadSkillLifecycleDetail({
+        skillName,
+        lifecycleSummary,
+        areLifecycleSummariesLoading,
+        isThreadLoading: thread.isLoading,
+        hasLifecycleArtifactPath: Boolean(lifecyclePath),
+        isLifecycleArtifactLoading,
+        lifecycleRecord,
+      }) && !isMock,
   });
   const lifecycleDetail: SkillLifecycleRecord | null = lifecycleQuery.data ?? null;
 

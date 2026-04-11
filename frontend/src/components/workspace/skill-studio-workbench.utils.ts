@@ -117,6 +117,13 @@ export type SkillStudioLifecycleSummary = {
   version_note?: string | null;
 };
 
+export type SkillStudioLifecycleRecordLike = {
+  draft_status?: SkillStudioStatusValue | null;
+  published_path?: string | null;
+  active_revision_id?: string | null;
+  published_revision_id?: string | null;
+};
+
 export type SkillStudioPublishPanelModel = {
   enabled: boolean;
   versionNote: string;
@@ -361,6 +368,60 @@ export function findSkillLifecycleSummary(
     lifecycleSummaries.find((summary) => summary.skill_name === skillName) ??
     null
   );
+}
+
+export function shouldLoadSkillLifecycleDetail(input: {
+  skillName?: string | null;
+  lifecycleSummary?: SkillStudioLifecycleSummary | null;
+  areLifecycleSummariesLoading?: boolean;
+  isThreadLoading?: boolean;
+  hasLifecycleArtifactPath?: boolean;
+  isLifecycleArtifactLoading?: boolean;
+  lifecycleRecord?: SkillStudioLifecycleRecordLike | null;
+}): boolean {
+  if (!input.skillName) {
+    return false;
+  }
+  if (input.lifecycleSummary) {
+    return true;
+  }
+
+  const lifecycleRecord = input.lifecycleRecord;
+  if (input.hasLifecycleArtifactPath) {
+    if (input.isLifecycleArtifactLoading) {
+      return false;
+    }
+    if (!lifecycleRecord) {
+      return false;
+    }
+  }
+
+  if (input.isThreadLoading || input.areLifecycleSummariesLoading) {
+    return false;
+  }
+  if (!lifecycleRecord) {
+    return true;
+  }
+
+  if (
+    lifecycleRecord.published_path ||
+    lifecycleRecord.active_revision_id ||
+    lifecycleRecord.published_revision_id
+  ) {
+    return true;
+  }
+
+  switch (lifecycleRecord.draft_status) {
+    case "draft_only":
+    case "draft_ready":
+    case "needs_revision":
+    case "ready_for_review":
+    case "ready_for_dry_run":
+    case "blocked":
+      return false;
+    default:
+      return true;
+  }
 }
 
 export function buildSkillStudioBindingTargets(

@@ -410,6 +410,9 @@ function renderLifecycleContent({
             <h4 className="text-sm font-semibold text-slate-950">版本说明</h4>
             <Textarea
               className="min-h-28"
+              id="skill-version-note"
+              name="version_note"
+              aria-label="版本说明"
               value={versionNote}
               onChange={(event) => onVersionNoteChange(event.target.value)}
               placeholder="记录这一版解决了什么问题，还保留了哪些边界。"

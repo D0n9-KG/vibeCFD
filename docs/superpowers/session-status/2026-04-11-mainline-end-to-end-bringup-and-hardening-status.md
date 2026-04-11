@@ -6,65 +6,56 @@
 
 **Context Summary:** `docs/superpowers/context-summaries/2026-04-11-mainline-end-to-end-bringup-and-hardening-summary.md`
 
-**Last Updated:** 2026-04-11 07:15:00 Asia/Shanghai
+**Last Updated:** 2026-04-11 21:30:27 Asia/Shanghai
 
-**Current Focus:** Publication prep for the now-validated mainline stack in the clean `codex/main-bringup` worktree.
+**Current Focus:** Close the current runtime-closure milestone on `main`, refresh the durable handoff with the latest verified evidence, and prepare a clean commit / remote-sync attempt.
 
-**Next Recommended Step:** Stage the validated bring-up diff, create one clean commit on `codex/main-bringup`, and push it to `origin`.
+**Next Recommended Step:** Stage the currently verified frontend/runtime closure fixes into a clean commit on `main`, then attempt the remote sync path again and record whether GitHub TLS remains the only blocker.
 
 ## Progress Snapshot
-- Completed Tasks: Task 1 bootstrap, Task 2 runtime bring-up and failure capture, Task 3 blocker reduction and targeted fixes
-- In Progress: commit / push handoff
-- Reopened / Invalidated: none
+- Completed Tasks: previous clean-worktree bring-up and post-merge hardening; branch cleanup of merged local feature branches; primary-workspace baseline repro; fresh Skill Studio, submarine, agents, and chats route smokes; loading-aware Skill Studio lifecycle-query fix under TDD; Skill Studio version-note accessibility cleanup; reviewer checkpoint for the current milestone
+- In Progress: clean commit / remote-sync preparation from the verified primary workspace on `main`
+- Reopened / Invalidated: the old publication-prep handoff assumptions tied to `codex/main-bringup` and the retired temporary worktrees
 
 ## Execution / Review Trace
-- Latest Implementation Mode: local execution in `.worktrees/main-bringup`
-- Latest Review Mode: reviewer subagent re-check completed with no actionable findings
-- Latest Delegation Note: reviewer subagent caught two late risks (lossy Skill Studio list normalization and invalid-tool alternate recovery); both were fixed locally under TDD and then re-reviewed cleanly
+- Latest Implementation Mode: local execution in the primary workspace on `main`
+- Latest Review Mode: local verification complete for the current frontend milestone; reviewer subagent returned no findings after the latest loading-aware gate update and noted only one residual dependency risk
+- Latest Delegation Note: current work stayed local because the immediate critical path is tightly coupled runtime repro and verification on the live main workspace
 
 ## Latest Verified State
-- `main` was merged and pushed at commit `c302c81`
-- The clean bring-up worktree remains isolated on `codex/main-bringup`
-- Backend empty-response recovery is hardened:
-  - `OpenAICliChatModel` now retries empty Responses API completions with an alternate configured model before falling back to canned text
-  - hidden-only reasoning payloads and invalid-tool-only payloads from alternate models are now ignored, so the fallback path only treats visible text or valid tool calls as recovery success
-  - the recovery path is covered by targeted regression tests and the backend full suite
-- Skill Studio tool argument normalization is hardened:
-  - `submarine_skill_studio` now accepts list-like arguments emitted as native lists / JSON-stringified lists / newline lists without lossy content rewriting
-  - normalization is now conservative enough to preserve comma-bearing prose and numeric prefixes instead of silently corrupting content
-  - the normalization path is covered by dedicated regression tests
-- Lead-agent Skill Studio routing is hardened:
-  - built-in `codex-skill-creator` and `claude-code-skill-creator` agent configs / souls are available without on-disk agent folders
-  - the built-in Skill Creator agents now resolve with `tool_groups=["workspace", "skills"]`, matching the frontend contract instead of inheriting unrestricted tool exposure
-  - the prompt contract now explicitly treats minimal validation / smoke-test requests as sufficient for a first Skill Studio draft
-- Frontend Skill Studio new-thread promotion is hardened:
-  - `/workspace/skill-studio/new` now stays mounted until server-backed thread history exists and the stream finishes, preventing premature route promotion that dropped structured workbench state
-  - the promotion rule change is covered by frontend thread-stream regression tests
-- Live end-to-end Skill Studio verification succeeded:
-  - existing thread `53ca0d88-8d6a-446e-9f1a-487545239e4d` renders full Skill Studio status, publish gates, and artifacts in the browser
-  - a fresh thread created from `/workspace/skill-studio/new` (`9367b8d9-c226-45ef-85a3-cfa4515066b0`) completed successfully, auto-promoted to `/workspace/skill-studio/9367b8d9-c226-45ef-85a3-cfa4515066b0`, and surfaced 15 generated artifacts in the workbench UI
-  - a second fresh thread created after the final reviewer-driven backend fixes (`a6b38162-d3f6-46ba-8816-458ed84394b6`) also auto-promoted and reached `ready_for_review` with 15 generated artifacts
-- Additional UI smoke checks succeeded:
-  - `/workspace/submarine/new` loads cleanly with no console errors
-  - `/workspace/agents` loads cleanly and shows the two built-in Skill Creator agents
-- Verification commands completed successfully:
-  - backend targeted regression suite: `97 passed`
-  - backend full suite with explicit config env: `942 passed, 1 skipped`
-  - frontend thread-stream test file: `15 passed`
-  - frontend `lint`: passed
-  - frontend `typecheck`: passed
-  - frontend production `build`: passed when `BETTER_AUTH_SECRET` is provided
-  - final reviewer re-check: no actionable findings remain in the diff
+- The active workspace is `C:\Users\D0n9\Desktop\颠覆性大赛` on branch `main`
+- Local merged feature branches were retired; the remaining local branches are:
+  - `main`
+  - `codex/primary-workspace-snapshot-20260411`
+- The safety snapshot branch remains intentionally preserved at `e8b7e31`
+- `main` currently points at `81a2f81 docs: refresh main branch handoff state`
+- `origin/main` still points at `1ed86cb`; pushing from this machine is currently blocked by GitHub TLS handshake failures
+- Local deletion of merged branches succeeded, but remote branch deletion for `origin/codex/competition-agent-executor` and `origin/codex/main-bringup` is still blocked by the same TLS issue
+- The workspace currently carries the revised runtime-closure docs plus targeted frontend fixes for Skill Studio lifecycle gating and the version-note form field
+- Fresh primary-workspace runtime evidence in this pass:
+  - `http://127.0.0.1:3000` -> `200`
+  - `http://127.0.0.1:8001/health` -> `200 {"status":"healthy","service":"deer-flow-gateway"}`
+  - `http://127.0.0.1:2127/ok` -> `200 {"ok":true}`
+  - `/workspace/agents` loads with the built-in Skill Creator agents visible
+  - `/workspace/chats` loads and lists the recent conversation inventory
+  - fresh Skill Studio thread `1b189b10-4e59-4bba-9d82-7f5cacae7a67` completed and surfaced draft, lifecycle, validation, test-matrix, publish-readiness, and packaged-skill artifacts
+  - fresh submarine thread `45252fd3-62fb-45ce-913e-7145d886c50e` completed and surfaced `cfd-design-brief.json/.md/.html` artifacts
+  - fresh Skill Studio direct-thread repro `17b90809-fd7c-419d-bc8d-7ff3fc40f218` completed end-to-end and surfaced draft, lifecycle, dry-run, package, validation, publish-readiness, and `.skill` artifacts for `cfd-submarine-cfd-result-acceptance`
+- First concrete blocker identified and fixed:
+  - Root cause: the Skill Studio workbench could still request `/api/skills/lifecycle/{skillName}` for fresh draft-only skills before lifecycle summary / artifact state had fully settled, producing repeated browser-side `404` noise for draft skills such as `cfd-submarine-cfd-result-acceptance`
+  - Fix: lifecycle detail queries now wait for stable lifecycle signals, stay paused while the thread or lifecycle-summary/artifact state is still loading, and continue to skip draft-only lifecycle states; the Skill Studio version-note textarea also now exposes a stable `id` / `name`
+  - Browser repro after the fix: a hard reload of the fresh direct thread route requested only `/api/skills/lifecycle` summary, the thread artifacts, and `/api/skills/graph?skill_name=cfd-submarine-cfd-result-acceptance`; it did not issue `/api/skills/lifecycle/cfd-submarine-cfd-result-acceptance`, and the console remained empty
+- Fresh verification for this fix slice is green:
+  - targeted frontend Skill Studio node/contract tests: `27 passed`
+  - targeted `eslint` on the touched frontend files: pass
+  - frontend `typecheck`: pass
+  - reviewer subagent follow-up: no findings
 
 ## Open Questions / Risks
-- Full backend verification still depends on explicit local config env:
-  - `DEER_FLOW_CONFIG_PATH=C:\Users\D0n9\Desktop\颠覆性大赛\config.yaml`
-  - `DEER_FLOW_EXTENSIONS_CONFIG_PATH=C:\Users\D0n9\Desktop\颠覆性大赛\extensions_config.json`
-- Frontend production build still expects `BETTER_AUTH_SECRET`; without it, `next build` fails during env validation
-- Better Auth still warns when `BETTER_AUTH_BASE_URL` is unset during build, so auth callback / redirect flows should be validated in a fully configured environment if that surface is part of the next milestone
-- Third-party dependency deprecation warnings remain in the backend full suite, but they are not currently failing tests
-- Alternate-model empty-response recovery still trades extra latency / token cost for resilience when upstream OpenAI completions come back empty, so that path should remain under observation if empty responses become frequent
+- GitHub push/delete operations from this machine are still blocked by TLS handshake failures
+- Local frontend dev still depends on the previously discovered convention of running `next dev` without `BETTER_AUTH_SECRET`; this must be revalidated if frontend services need restart during this pass
+- The lifecycle-404 suppression for fresh Skill Studio drafts still depends on `skill-lifecycle.json` being surfaced in thread artifact metadata; the current fresh-thread repro confirms that active flow still emits it
 
 ## Artifact Hygiene / Retirement
-- Keep / Promote: this plan/status/context-summary chain until the final commit and push are complete
-- Archive / Delete / Replace Next: retire temporary browser screenshots, stale bring-up logs, and any ad-hoc scratch files before or immediately after the final publication step
+- Keep / Promote: this revised plan/status/context-summary chain; the safety snapshot branch until the repaired `main` state is clearly stable
+- Delete / Replace Next: unreferenced temporary PNG artifacts and any new scratch probes created during this runtime-closure pass once durable evidence exists

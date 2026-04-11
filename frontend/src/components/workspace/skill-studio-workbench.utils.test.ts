@@ -5,6 +5,7 @@ const {
   buildSkillStudioBindingTargets,
   buildSkillStudioPublishPanelModel,
   findSkillLifecycleSummary,
+  shouldLoadSkillLifecycleDetail,
   buildSkillStudioReadinessSummary,
   formatSkillStudioStatus,
   groupSkillStudioArtifacts,
@@ -137,6 +138,102 @@ void test("finds lifecycle summaries with explicit bindings for the focused skil
 
   assert.equal(summary?.skill_name, "submarine-result-acceptance");
   assert.equal(summary?.binding_targets[0]?.role_id, "scientific-verification");
+});
+
+void test("skips lifecycle detail fetches for draft-only skills that are not in the registry", () => {
+  assert.equal(
+    shouldLoadSkillLifecycleDetail({
+      skillName: "cfd",
+      lifecycleSummary: null,
+      lifecycleRecord: {
+        draft_status: "draft_ready",
+        published_path: null,
+        active_revision_id: null,
+        published_revision_id: null,
+      },
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldLoadSkillLifecycleDetail({
+      skillName: "submarine-result-acceptance",
+      lifecycleSummary: {
+        skill_name: "submarine-result-acceptance",
+        enabled: true,
+        binding_targets: [],
+        revision_count: 1,
+        binding_count: 0,
+        active_revision_id: "rev-001",
+        rollback_target_id: null,
+        draft_status: "published",
+        published_path: "skills/custom/submarine-result-acceptance",
+        last_published_at: "2026-04-04T00:00:00Z",
+        version_note: "Published",
+      },
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldLoadSkillLifecycleDetail({
+      skillName: "submarine-result-acceptance",
+      lifecycleSummary: null,
+      lifecycleRecord: {
+        draft_status: "published",
+        published_path: "skills/custom/submarine-result-acceptance",
+        active_revision_id: "rev-001",
+        published_revision_id: "rev-001",
+      },
+    }),
+    true,
+  );
+
+  assert.equal(
+    shouldLoadSkillLifecycleDetail({
+      skillName: "cfd",
+      lifecycleSummary: null,
+      hasLifecycleArtifactPath: false,
+      lifecycleRecord: null,
+      isThreadLoading: true,
+    } as Parameters<typeof shouldLoadSkillLifecycleDetail>[0] & {
+      isThreadLoading: boolean;
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldLoadSkillLifecycleDetail({
+      skillName: "cfd",
+      lifecycleSummary: null,
+      hasLifecycleArtifactPath: false,
+      lifecycleRecord: null,
+      areLifecycleSummariesLoading: true,
+    } as Parameters<typeof shouldLoadSkillLifecycleDetail>[0] & {
+      areLifecycleSummariesLoading: boolean;
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldLoadSkillLifecycleDetail({
+      skillName: "submarine-result-acceptance",
+      lifecycleSummary: null,
+      hasLifecycleArtifactPath: true,
+      lifecycleRecord: null,
+    }),
+    false,
+  );
+
+  assert.equal(
+    shouldLoadSkillLifecycleDetail({
+      skillName: "submarine-result-acceptance",
+      lifecycleSummary: null,
+      hasLifecycleArtifactPath: false,
+      lifecycleRecord: null,
+    }),
+    true,
+  );
 });
 
 void test("builds publish panel state with no explicit bindings configured", () => {
