@@ -10,8 +10,8 @@
 - Goal / Mainline: keep `main` as the single active workspace, preserve the integrated Skill Studio/runtime contract plus the selected submarine semantics, and publish from the primary workspace without reintroducing worktree sprawl
 - Current Verified State:
   - the temporary `main-finalize` worktree is gone; the primary workspace itself is now on `main`
-  - `main` includes `f72e08c fix: recover missing workspace threads gracefully`
-  - the only remaining uncommitted code is the follow-up `isMissingThreadError()` improvement plus its regression test
+  - `main` and `origin/main` both point at `1ed86cb fix: harden missing thread recovery detection`
+  - the working tree is clean after the follow-up `isMissingThreadError()` improvement and its regression test were committed
   - stale-thread recovery UX works on both Skill Studio and submarine pages
   - real Skill Studio and submarine flows both complete from the primary workspace and surface their generated artifacts
   - frontend targeted tests (`19`), frontend `typecheck`, frontend `lint`, frontend production `build`, and backend focused runtime tests (`41`) are green after the follow-up fix
@@ -33,6 +33,6 @@
   - backend config/path/skills/thread-data startup-dir-safe files and tests
 
 ## Next Step
-- Commit the final nested-missing-thread follow-up on `main`
-- Push `origin main`
-- Refresh these artifacts one last time with the published commit and branch-cleanup state
+- Continue the next runtime/product slice directly from the primary workspace on `main`
+- Keep local frontend dev runs free of `BETTER_AUTH_SECRET`
+- Retire the safety snapshot branch later if it is no longer needed

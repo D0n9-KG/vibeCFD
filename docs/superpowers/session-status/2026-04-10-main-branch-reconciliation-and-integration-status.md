@@ -6,15 +6,15 @@
 
 **Context Summary:** `docs/superpowers/context-summaries/2026-04-10-main-branch-reconciliation-and-integration-summary.md`
 
-**Last Updated:** 2026-04-11 19:55:27 Asia/Shanghai
+**Last Updated:** 2026-04-11 20:01:21 Asia/Shanghai
 
-**Current Focus:** Stage the remaining `main` follow-up fix, create a clean commit from the primary workspace, and push the verified `main` branch.
+**Current Focus:** Record the published `main` state cleanly and hand off from the now-single primary workspace.
 
-**Next Recommended Step:** Stage the current `frontend/src/core/threads/error.ts` and `frontend/src/core/threads/error.test.ts` follow-up fix, commit it on `main`, push `origin main`, and keep the dev runtime convention that local frontend runs without `BETTER_AUTH_SECRET`.
+**Next Recommended Step:** Continue from `main` in the primary workspace for the next runtime/product slice; keep the local dev convention that frontend `next dev` runs without `BETTER_AUTH_SECRET`.
 
 ## Progress Snapshot
 - Completed Tasks: Task 1 baseline worktree; Task 2 keep/drop matrix; Task 3 merge and conflict resolution; Task 4 integrated verification; temporary worktree retirement back into the primary workspace
-- In Progress: Task 5 final publication from the primary workspace
+- In Progress: none
 - Reopened / Invalidated: none
 
 ## Execution / Review Trace
@@ -24,7 +24,8 @@
 
 ## Latest Verified State
 - The temporary `.worktrees/main-finalize` checkout has been retired; the only active checkout is the primary workspace at `C:\Users\D0n9\Desktop\颠覆性大赛` on branch `main`
-- `main` currently points at `f72e08c fix: recover missing workspace threads gracefully`
+- `main` currently points at `1ed86cb fix: harden missing thread recovery detection`
+- `origin/main` is updated to the same commit (`1ed86cb`)
 - A safety snapshot branch preserves the former dirty primary-workspace state: `codex/primary-workspace-snapshot-20260411` at `e8b7e31`
 - The active working-tree follow-up fix is limited to:
   - `frontend/src/core/threads/error.ts`
@@ -51,9 +52,8 @@
   - local production-style build validation may still set `BETTER_AUTH_SECRET` and `BETTER_AUTH_BASE_URL` just for the build command
 
 ## Open Questions / Risks
-- Final push may still hit the previously observed TLS handshake problem and may need a retry
 - The default `gpt-5.4` provider occasionally returned transient upstream timeout / empty-response conditions during the live submarine smoke; the current runtime recovered and the run still completed, but upstream stability remains an operational risk rather than a local code regression
 
 ## Artifact Hygiene / Retirement
-- Keep / Promote: this plan/status/context-summary chain, `main` as the single active workspace, and the safety snapshot branch until publication is complete
-- Archive / Delete / Replace Next: after `main` is pushed cleanly, the snapshot branch can be retained or deleted based on whether the older dirty state is still needed; do not recreate a temporary integration worktree unless a new isolation need appears
+- Keep / Promote: this plan/status/context-summary chain, `main` as the single active workspace, and the safety snapshot branch until the older dirty state is no longer needed
+- Archive / Delete / Replace Next: the temporary integration worktree is already gone; if the snapshot branch `codex/primary-workspace-snapshot-20260411` is confirmed unnecessary later, it can be deleted without touching `main`
