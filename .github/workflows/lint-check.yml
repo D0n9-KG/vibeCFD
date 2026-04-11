@@ -65,7 +65,12 @@ jobs:
           cd frontend
           pnpm typecheck
 
+      - name: Run frontend contract tests
+        run: |
+          cd frontend
+          node --experimental-strip-types --test 'src/server/better-auth/env.contract.test.ts'
+
       - name: Build frontend
         run: |
           cd frontend
-          BETTER_AUTH_SECRET=local-dev-secret pnpm build
+          BETTER_AUTH_SECRET=local-dev-secret BETTER_AUTH_BASE_URL=http://127.0.0.1:3000 pnpm build

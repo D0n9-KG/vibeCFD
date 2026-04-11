@@ -1,6 +1,10 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
+const betterAuthBaseURL =
+  process.env.BETTER_AUTH_BASE_URL?.trim() ||
+  process.env.BETTER_AUTH_URL?.trim();
+
 export const env = createEnv({
   /**
    * Specify your server-side environment variables schema here. This way you can ensure the app
@@ -11,7 +15,10 @@ export const env = createEnv({
       process.env.NODE_ENV === "production"
         ? z.string()
         : z.string().optional(),
-    BETTER_AUTH_BASE_URL: z.string().url().optional(),
+    BETTER_AUTH_BASE_URL:
+      process.env.NODE_ENV === "production"
+        ? z.string().url()
+        : z.string().url().optional(),
     BETTER_AUTH_GITHUB_CLIENT_ID: z.string().optional(),
     BETTER_AUTH_GITHUB_CLIENT_SECRET: z.string().optional(),
     GITHUB_OAUTH_TOKEN: z.string().optional(),
@@ -38,7 +45,8 @@ export const env = createEnv({
    */
   runtimeEnv: {
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
-    BETTER_AUTH_BASE_URL: process.env.BETTER_AUTH_BASE_URL,
+    // Accept Better Auth's upstream BETTER_AUTH_URL name as a deployment alias.
+    BETTER_AUTH_BASE_URL: betterAuthBaseURL,
     BETTER_AUTH_GITHUB_CLIENT_ID: process.env.BETTER_AUTH_GITHUB_CLIENT_ID,
     BETTER_AUTH_GITHUB_CLIENT_SECRET:
       process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET,
