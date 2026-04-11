@@ -68,3 +68,10 @@ void test("skill studio records dry-run evidence with traceable message ids", ()
   assert.match(source, /const dryRunEvidenceMessageIds = useMemo/);
   assert.match(source, /message_ids: dryRunEvidenceMessageIds/);
 });
+
+void test("skill studio surfaces a recovery panel when the backing thread has expired", () => {
+  assert.match(source, /WorkspaceStatePanel/);
+  assert.match(source, /isMissingThreadError/);
+  assert.match(source, /新建技能线程/);
+  assert.match(source, /workspace\/skill-studio\/new/);
+});

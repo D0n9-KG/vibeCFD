@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { getThreadErrorMessage } = await import(
-  new URL("./error.ts", import.meta.url).href
+const { getThreadErrorMessage, isMissingThreadError } = await import(
+  new URL("./error.ts", import.meta.url).href,
 );
 
 void test("extracts nested provider error messages for user-facing feedback", () => {
@@ -39,13 +39,13 @@ void test("unwraps python-style API error wrappers down to the provider message"
 
 void test("extracts provider detail from stringified 503 error payloads", () => {
   const message = getThreadErrorMessage(
-    "InternalServerError(\"Error code: 503 - {'error': {'message': '所有供应商暂时不可用，请稍后重试 (cch_session_id: 019d3eef-c7b7-7ca6-ba5c-e53ea1345f07)', 'type': 'service_unavailable_error', 'code': 'service_unavailable_error'}}\")",
+    "InternalServerError(\"Error code: 503 - {'error': {'message': '鎵€鏈変緵搴斿晢鏆傛椂涓嶅彲鐢紝璇风◢鍚庨噸璇?(cch_session_id: 019d3eef-c7b7-7ca6-ba5c-e53ea1345f07)', 'type': 'service_unavailable_error', 'code': 'service_unavailable_error'}}\")",
     "Request failed.",
   );
 
   assert.equal(
     message,
-    "所有供应商暂时不可用，请稍后重试 (cch_session_id: 019d3eef-c7b7-7ca6-ba5c-e53ea1345f07)",
+    "鎵€鏈変緵搴斿晢鏆傛椂涓嶅彲鐢紝璇风◢鍚庨噸璇?(cch_session_id: 019d3eef-c7b7-7ca6-ba5c-e53ea1345f07)",
   );
 });
 
@@ -77,4 +77,22 @@ void test("normalizes stream rebind bootstrap failures into retry guidance", () 
   );
 
   assert.equal(message, "新建线程后未能完成流绑定，请在当前潜艇工作台直接重试。");
+});
+
+void test("detects missing LangGraph threads from history 404 payloads", () => {
+  assert.equal(
+    isMissingThreadError(
+      'HTTP 404: {"detail":"Thread with ID a6b38162-d3f6-46ba-8816-458ed84394b6 not found"}',
+    ),
+    true,
+  );
+});
+
+void test("does not mark unrelated provider errors as missing threads", () => {
+  assert.equal(
+    isMissingThreadError(
+      new Error("Upstream authentication failed, please contact administrator"),
+    ),
+    false,
+  );
 });

@@ -85,6 +85,20 @@ function extractErrorMessage(error: unknown, depth = 0): string | null {
   return null;
 }
 
+const MISSING_THREAD_PATTERNS = [
+  /Thread with ID [^"'`\s]+ not found/i,
+  /thread not found/i,
+] as const;
+
+export function isMissingThreadError(error: unknown): boolean {
+  const message = extractErrorMessage(error);
+  if (!message) {
+    return false;
+  }
+
+  return MISSING_THREAD_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 export function getThreadErrorMessage(
   error: unknown,
   fallback = "Request failed.",

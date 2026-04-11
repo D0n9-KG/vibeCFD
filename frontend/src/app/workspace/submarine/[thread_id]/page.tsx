@@ -25,8 +25,10 @@ import type { SubmarineRuntimeSnapshotPayload } from "@/components/workspace/sub
 import { SubmarineAgenticWorkbench } from "@/components/workspace/submarine-workbench";
 import { getSubmarineNegotiationAttentionKey } from "@/components/workspace/submarine-workbench/submarine-negotiation-rail.model";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
+import { WorkspaceStatePanel } from "@/components/workspace/workspace-state-panel";
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings } from "@/core/settings";
+import { isMissingThreadError } from "@/core/threads/error";
 import { useThreadStream } from "@/core/threads/hooks";
 import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
 import { resolveThreadDisplayTitle, textOfMessage } from "@/core/threads/utils";
@@ -45,6 +47,7 @@ type SubmarineNegotiationRailBodyProps = {
   onSubmit: (message: PromptInputMessage) => Promise<void> | void;
   onStop: () => Promise<void>;
   errorMessage: string | null;
+  recoveryHref: string | null;
 };
 
 function SubmarineNegotiationRailBody({
@@ -57,6 +60,7 @@ function SubmarineNegotiationRailBody({
   onSubmit,
   onStop,
   errorMessage,
+  recoveryHref,
 }: SubmarineNegotiationRailBodyProps) {
   const inputStatus = errorMessage
     ? "error"
@@ -77,9 +81,31 @@ function SubmarineNegotiationRailBody({
           右侧协商区负责所有修改、追问和重新协商，中央主画布只负责讲清楚研究推进过程。
         </div>
         {errorMessage ? (
-          <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-800">
-            {errorMessage}
-          </div>
+          <WorkspaceStatePanel
+            state="data-interrupted"
+            className="mt-3 rounded-2xl border-sky-200 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(255,255,255,0.98))] p-4 shadow-none"
+            title={recoveryHref ? "原仿真线程已失效" : "协商线程暂时中断"}
+            description={
+              recoveryHref
+                ? `${errorMessage}。这个运行时线程在服务重启后已经失效，如需继续推进请新建仿真线程。`
+                : errorMessage
+            }
+            actions={[
+              {
+                label: "重试当前线程",
+                onClick: () => window.location.reload(),
+              },
+              ...(recoveryHref
+                ? [
+                    {
+                      label: "新建仿真线程",
+                      href: recoveryHref,
+                      variant: "default" as const,
+                    },
+                  ]
+                : []),
+            ]}
+          />
         ) : null}
       </div>
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -100,7 +126,11 @@ function SubmarineNegotiationRailBody({
           autoFocus={isNewThread}
           status={inputStatus}
           context={context}
-          disabled={env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || isUploading}
+          disabled={
+            env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
+            isUploading ||
+            Boolean(recoveryHref)
+          }
           onContextChange={onContextChange}
           onSubmit={onSubmit}
           onStop={onStop}
@@ -266,6 +296,12 @@ export default function SubmarineWorkbenchPage() {
         ? thread.error
         : "Thread failed with an unknown error."
     : null;
+  const missingRuntimeThread = isMissingThreadError(thread.error);
+  const recoveryHref = missingRuntimeThread
+    ? isMock
+      ? "/workspace/submarine/new?mock=true"
+      : "/workspace/submarine/new"
+    : null;
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
@@ -319,6 +355,7 @@ export default function SubmarineWorkbenchPage() {
                     onSubmit={(message) => sendMessage(threadId, message)}
                     onStop={handleStop}
                     errorMessage={chatRailErrorMessage}
+                    recoveryHref={recoveryHref}
                   />
                 }
               />

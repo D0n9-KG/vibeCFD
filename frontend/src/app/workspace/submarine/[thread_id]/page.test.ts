@@ -33,3 +33,10 @@ void test("submarine route uses a fixed viewport shell instead of scrolling the 
     /<main className="[^"]*overflow-y-auto[^"]*">/,
   );
 });
+
+void test("submarine route offers recovery actions when a restarted runtime loses the backing thread", () => {
+  assert.match(pageSource, /WorkspaceStatePanel/);
+  assert.match(pageSource, /isMissingThreadError/);
+  assert.match(pageSource, /新建仿真线程/);
+  assert.match(pageSource, /workspace\/submarine\/new/);
+});

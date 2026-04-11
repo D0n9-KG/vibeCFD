@@ -28,6 +28,7 @@ import {
   findSkillLifecycleSummary,
   type SkillStudioLifecycleBindingTarget,
 } from "@/components/workspace/skill-studio-workbench.utils";
+import { WorkspaceStatePanel } from "@/components/workspace/workspace-state-panel";
 import { useArtifactContent } from "@/core/artifacts/hooks";
 import { buildProgressPreviewFromMessage } from "@/core/messages/utils";
 import type {
@@ -45,6 +46,7 @@ import {
   useUpdateSkillLifecycle,
 } from "@/core/skills/hooks";
 import type { AgentThreadContext } from "@/core/threads";
+import { isMissingThreadError } from "@/core/threads/error";
 import { resolveThreadDisplayTitle } from "@/core/threads/utils";
 import { env } from "@/env";
 
@@ -196,6 +198,7 @@ export function SkillStudioAgenticWorkbench({
       : typeof thread.error === "string"
         ? thread.error
         : null;
+  const hasMissingRuntimeThread = isMissingThreadError(thread.error);
 
   const studioState =
     thread.values.submarine_skill_studio != null &&
@@ -516,6 +519,19 @@ export function SkillStudioAgenticWorkbench({
     thread.values.messages,
   );
   const showAssistantSelector = agentSelectorEnabled && !agentSelectionLocked;
+  const recoveryHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (activeAgentName) {
+      params.set("agent", activeAgentName);
+    }
+    if (isMock) {
+      params.set("mock", "true");
+    }
+
+    return `/workspace/skill-studio/new${
+      params.size > 0 ? `?${params.toString()}` : ""
+    }`;
+  }, [activeAgentName, isMock]);
 
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
@@ -558,6 +574,32 @@ export function SkillStudioAgenticWorkbench({
           </div>
         }
       />
+      {threadErrorMessage ? (
+        <WorkspaceStatePanel
+          state="data-interrupted"
+          title={
+            hasMissingRuntimeThread
+              ? "原技能线程已失效"
+              : "技能线程暂时中断"
+          }
+          description={
+            hasMissingRuntimeThread
+              ? `${threadErrorMessage}。当前页面上的技能产物仍可查看，但要继续协商或补做验证，需要新建技能线程。`
+              : threadErrorMessage
+          }
+          actions={[
+            {
+              label: "重试当前线程",
+              onClick: () => window.location.reload(),
+            },
+            {
+              label: hasMissingRuntimeThread ? "新建技能线程" : "返回技能总览",
+              href: recoveryHref,
+              variant: "default",
+            },
+          ]}
+        />
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <SkillStudioLifecycleCanvas
           session={session}
@@ -619,7 +661,11 @@ export function SkillStudioAgenticWorkbench({
               autoFocus={isNewThread}
               status={thread.error ? "error" : thread.isLoading ? "streaming" : "ready"}
               context={context}
-              disabled={env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || isUploading}
+              disabled={
+                env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
+                isUploading ||
+                hasMissingRuntimeThread
+              }
               onContextChange={onContextChange}
               onSubmit={onSubmit}
               onStop={onStop}
