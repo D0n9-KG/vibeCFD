@@ -7,16 +7,19 @@
 **Related Session Status:** `docs/superpowers/session-status/2026-04-10-main-branch-reconciliation-and-integration-status.md`
 
 ## Canonical Snapshot
-- Goal / Mainline: land a verified `main` that keeps the current branch's Skill Studio/runtime contract, preserves only the `main` submarine semantics that still matter, and retires the temporary worktree after push
+- Goal / Mainline: keep `main` as the single active workspace, preserve the integrated Skill Studio/runtime contract plus the selected submarine semantics, and publish from the primary workspace without reintroducing worktree sprawl
 - Current Verified State:
-  - the merge is resolved in `.worktrees/main-integration` and still uncommitted
-  - lead-agent-first / judgment-first submarine wording is preserved
-  - same-origin `runtime-base-url` defaults are preserved while explicit browser overrides still win
-  - the frontend auth/proxy slice and backend startup-dir-safe config slice from the previously verified runtime-security work were ported into the worktree
-  - backend full suite is green at `929 passed, 1 skipped, 10 warnings`
-  - frontend full Node contract suite is green at `295 passed`, with `tsc`, `eslint`, and `git diff --check` also clean
-  - the final reviewer pass cleared the integrated diff with no Critical or Important issues
-- Key Constraint: the dirty primary workspace remains untouched; its local `config.yaml` and `extensions_config.json` were only referenced as environment inputs for backend verification
+  - the temporary `main-finalize` worktree is gone; the primary workspace itself is now on `main`
+  - `main` includes `f72e08c fix: recover missing workspace threads gracefully`
+  - the only remaining uncommitted code is the follow-up `isMissingThreadError()` improvement plus its regression test
+  - stale-thread recovery UX works on both Skill Studio and submarine pages
+  - real Skill Studio and submarine flows both complete from the primary workspace and surface their generated artifacts
+  - frontend targeted tests (`19`), frontend `typecheck`, frontend `lint`, frontend production `build`, and backend focused runtime tests (`41`) are green after the follow-up fix
+  - reviewer follow-up reduced to one valid nested-error edge case, now covered by test
+- Key Constraints:
+  - keep local frontend dev runs anonymous: do not inject `BETTER_AUTH_SECRET` into `next dev`
+  - the safety snapshot branch `codex/primary-workspace-snapshot-20260411` preserves the older dirty state and should not be rewritten casually before push
+  - `config.yaml` and `extensions_config.json` remain local environment prerequisites for runtime verification
 
 ## Keep / Retire Decisions
 - Keep: `0050c2d` runtime-default hardening intent for submarine subagents
@@ -30,7 +33,6 @@
   - backend config/path/skills/thread-data startup-dir-safe files and tests
 
 ## Next Step
-- Commit the merge on `main`
+- Commit the final nested-missing-thread follow-up on `main`
 - Push `origin main`
-- Remove `.worktrees/main-integration`
-- Refresh the artifacts one last time with the published commit and cleanup state
+- Refresh these artifacts one last time with the published commit and branch-cleanup state

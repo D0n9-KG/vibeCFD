@@ -85,18 +85,45 @@ function extractErrorMessage(error: unknown, depth = 0): string | null {
   return null;
 }
 
+function hasMatchingErrorMessage(
+  error: unknown,
+  predicate: (message: string) => boolean,
+  depth = 0,
+): boolean {
+  if (depth > 4 || error == null) {
+    return false;
+  }
+
+  if (typeof error === "string") {
+    const trimmed = error.trim();
+    return trimmed ? predicate(trimmed) : false;
+  }
+
+  if (error instanceof Error) {
+    const trimmed = error.message.trim();
+    if (trimmed && predicate(trimmed)) {
+      return true;
+    }
+  }
+
+  if (typeof error === "object") {
+    return ["message", "error", "detail", "cause"].some((key) =>
+      hasMatchingErrorMessage(Reflect.get(error, key), predicate, depth + 1),
+    );
+  }
+
+  return false;
+}
+
 const MISSING_THREAD_PATTERNS = [
   /Thread with ID [^"'`\s]+ not found/i,
   /thread not found/i,
 ] as const;
 
 export function isMissingThreadError(error: unknown): boolean {
-  const message = extractErrorMessage(error);
-  if (!message) {
-    return false;
-  }
-
-  return MISSING_THREAD_PATTERNS.some((pattern) => pattern.test(message));
+  return MISSING_THREAD_PATTERNS.some((pattern) =>
+    hasMatchingErrorMessage(error, (message) => pattern.test(message)),
+  );
 }
 
 export function getThreadErrorMessage(

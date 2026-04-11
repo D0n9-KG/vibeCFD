@@ -88,6 +88,16 @@ void test("detects missing LangGraph threads from history 404 payloads", () => {
   );
 });
 
+void test("detects missing LangGraph threads when the 404 detail is nested in the error cause", () => {
+  const error = new Error("HTTP 404", {
+    cause: {
+      detail: "Thread with ID a6b38162-d3f6-46ba-8816-458ed84394b6 not found",
+    },
+  });
+
+  assert.equal(isMissingThreadError(error), true);
+});
+
 void test("does not mark unrelated provider errors as missing threads", () => {
   assert.equal(
     isMissingThreadError(
