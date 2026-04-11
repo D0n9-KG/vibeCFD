@@ -1,26 +1,26 @@
 # Mainline End-To-End Bring-Up And Hardening Session Status
 
-**Status:** active
+**Status:** completed
 
 **Plan:** `docs/superpowers/plans/2026-04-11-mainline-end-to-end-bringup-and-hardening.md`
 
 **Context Summary:** `docs/superpowers/context-summaries/2026-04-11-mainline-end-to-end-bringup-and-hardening-summary.md`
 
-**Last Updated:** 2026-04-11 21:30:27 Asia/Shanghai
+**Last Updated:** 2026-04-11 21:42:10 Asia/Shanghai
 
-**Current Focus:** Close the current runtime-closure milestone on `main`, refresh the durable handoff with the latest verified evidence, and prepare a clean commit / remote-sync attempt.
+**Current Focus:** This runtime-closure milestone is closed; `main` is now the verified, pushed mainline.
 
-**Next Recommended Step:** Stage the currently verified frontend/runtime closure fixes into a clean commit on `main`, then attempt the remote sync path again and record whether GitHub TLS remains the only blocker.
+**Next Recommended Step:** Start the next feature or product slice from the clean pushed `main` state; if a future session resumes this area, treat this file and its companion summary as the current baseline.
 
 ## Progress Snapshot
-- Completed Tasks: previous clean-worktree bring-up and post-merge hardening; branch cleanup of merged local feature branches; primary-workspace baseline repro; fresh Skill Studio, submarine, agents, and chats route smokes; loading-aware Skill Studio lifecycle-query fix under TDD; Skill Studio version-note accessibility cleanup; reviewer checkpoint for the current milestone
-- In Progress: clean commit / remote-sync preparation from the verified primary workspace on `main`
+- Completed Tasks: previous clean-worktree bring-up and post-merge hardening; branch cleanup of merged local feature branches; primary-workspace baseline repro; fresh Skill Studio, submarine, agents, and chats route smokes; loading-aware Skill Studio lifecycle-query fix under TDD; Skill Studio version-note accessibility cleanup; reviewer checkpoint for the current milestone; clean commit on `main`; successful remote sync; remote default-branch correction and stale remote-branch retirement
+- In Progress: none
 - Reopened / Invalidated: the old publication-prep handoff assumptions tied to `codex/main-bringup` and the retired temporary worktrees
 
 ## Execution / Review Trace
 - Latest Implementation Mode: local execution in the primary workspace on `main`
 - Latest Review Mode: local verification complete for the current frontend milestone; reviewer subagent returned no findings after the latest loading-aware gate update and noted only one residual dependency risk
-- Latest Delegation Note: current work stayed local because the immediate critical path is tightly coupled runtime repro and verification on the live main workspace
+- Latest Delegation Note: current work stayed local because the immediate critical path was tightly coupled runtime repro and verification on the live main workspace; GitHub repo hygiene used the existing authenticated local credential path only after direct `git push` proved connectivity
 
 ## Latest Verified State
 - The active workspace is `C:\Users\D0n9\Desktop\颠覆性大赛` on branch `main`
@@ -28,10 +28,13 @@
   - `main`
   - `codex/primary-workspace-snapshot-20260411`
 - The safety snapshot branch remains intentionally preserved at `e8b7e31`
-- `main` currently points at `81a2f81 docs: refresh main branch handoff state`
-- `origin/main` still points at `1ed86cb`; pushing from this machine is currently blocked by GitHub TLS handshake failures
-- Local deletion of merged branches succeeded, but remote branch deletion for `origin/codex/competition-agent-executor` and `origin/codex/main-bringup` is still blocked by the same TLS issue
-- The workspace currently carries the revised runtime-closure docs plus targeted frontend fixes for Skill Studio lifecycle gating and the version-note form field
+- `main` currently points at `772fe04 fix skill studio lifecycle bringup regressions`
+- `origin/main` now also points at `772fe04`; push to `https://github.com/D0n9-KG/vibeCFD.git` succeeded in this pass
+- GitHub repo hygiene is complete for the current milestone:
+  - default branch is `main`
+  - remote stale branches `codex/main-bringup` and `codex/competition-agent-executor` are deleted
+  - local remote-tracking refs now show only `origin/main`
+- The workspace is currently clean after the runtime-closure commit and push
 - Fresh primary-workspace runtime evidence in this pass:
   - `http://127.0.0.1:3000` -> `200`
   - `http://127.0.0.1:8001/health` -> `200 {"status":"healthy","service":"deer-flow-gateway"}`
@@ -52,7 +55,6 @@
   - reviewer subagent follow-up: no findings
 
 ## Open Questions / Risks
-- GitHub push/delete operations from this machine are still blocked by TLS handshake failures
 - Local frontend dev still depends on the previously discovered convention of running `next dev` without `BETTER_AUTH_SECRET`; this must be revalidated if frontend services need restart during this pass
 - The lifecycle-404 suppression for fresh Skill Studio drafts still depends on `skill-lifecycle.json` being surfaced in thread artifact metadata; the current fresh-thread repro confirms that active flow still emits it
 

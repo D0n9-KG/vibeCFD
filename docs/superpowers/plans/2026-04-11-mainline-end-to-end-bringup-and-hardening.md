@@ -236,7 +236,7 @@ Expected: a future session can continue without rediscovering the same boundary
 
 **Goal:** Once the critical paths are green, leave `main` in a clean, verified, low-confusion state.
 
-- [ ] **Step 1: Remove stale temporary artifacts created during this closure pass**
+- [x] **Step 1: Remove stale temporary artifacts created during this closure pass**
 
 Expected: scratch files, screenshots, and unreferenced probes are deleted or explicitly kept
 
