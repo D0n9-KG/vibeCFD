@@ -14,6 +14,7 @@ from langgraph.typing import ContextT
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
 from deerflow.domain.submarine.calculation_plan import (
+    calculation_plan_requires_confirmation,
     calculation_plan_requires_immediate_confirmation,
 )
 from deerflow.domain.submarine.contracts import (
@@ -268,6 +269,13 @@ def submarine_design_brief_tool(
             status=payload["confirmation_status"],
         ),
     )
+    clarified_calculation_plan = payload.get("calculation_plan")
+    clarification_required = calculation_plan_requires_confirmation(
+        clarified_calculation_plan
+    ) or bool(payload.get("open_questions"))
+    requires_immediate_confirmation = calculation_plan_requires_immediate_confirmation(
+        clarified_calculation_plan
+    )
     runtime_snapshot = build_runtime_snapshot(
         current_stage="task-intelligence",
         task_summary=payload["task_description"],
@@ -283,16 +291,9 @@ def submarine_design_brief_tool(
         reference_value_suggestions=(
             (existing_runtime or {}).get("reference_value_suggestions")
         ),
-        clarification_required=bool(
-            (existing_runtime or {}).get("clarification_required")
-        ),
-        calculation_plan=payload.get("calculation_plan"),
-        requires_immediate_confirmation=(
-            calculation_plan_requires_immediate_confirmation(
-                payload.get("calculation_plan")
-            )
-            or bool((existing_runtime or {}).get("requires_immediate_confirmation"))
-        ),
+        clarification_required=clarification_required,
+        calculation_plan=clarified_calculation_plan,
+        requires_immediate_confirmation=requires_immediate_confirmation,
         selected_case_id=payload.get("selected_case_id"),
         simulation_requirements=payload.get("simulation_requirements"),
         requested_outputs=payload.get("requested_outputs"),

@@ -27,6 +27,51 @@ from deerflow.tools.builtins.submarine_runtime_context import (
 
 logger = logging.getLogger(__name__)
 _UPLOAD_BLOCK_RE = re.compile(r"<uploaded_files>[\s\S]*?</uploaded_files>\n*", re.IGNORECASE)
+_SUBMARINE_CONFIRMATION_KEYWORDS = (
+    "\u786e\u8ba4",
+    "\u540c\u610f",
+    "confirm",
+)
+_SUBMARINE_REFERENCE_KEYWORDS = (
+    "\u53c2\u8003\u957f\u5ea6",
+    "\u53c2\u8003\u9762\u79ef",
+    "reference length",
+    "reference area",
+)
+_SUBMARINE_PENDING_CONFIRMATION_MARKERS = (
+    "\u53c2\u8003\u957f\u5ea6",
+    "\u53c2\u8003\u9762\u79ef",
+    "reference length",
+    "reference area",
+    "needs_user_confirmation",
+    "needs_confirmation",
+    "user-confirmation",
+    "confirmation_status",
+    "approval_state",
+    "review_status",
+)
+_SUBMARINE_FOLLOWUP_KEYWORDS = (
+    "\u7ee7\u7eed",
+    "\u4e0b\u4e00\u6b65",
+    "\u57fa\u7ebf",
+    "\u5de5\u51b5",
+    "baseline",
+    "next step",
+)
+_SUBMARINE_MEASUREMENT_RE = re.compile(
+    r"\d+(?:\.\d+)?\s*(?:m/s|m\^2|m2|m)",
+    re.IGNORECASE,
+)
+_SUBMARINE_INLET_VELOCITY_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*m\s*/\s*s",
+    re.IGNORECASE,
+)
+_SUBMARINE_CASE_HINTS: dict[tuple[str, str], str] = {
+    ("darpa suboff", "resistance"): "darpa_suboff_bare_hull_resistance",
+    ("darpa suboff", "pressure_distribution"): "darpa_suboff_pressure_distribution",
+    ("type 209", "resistance"): "type209_engineering_drag",
+    ("type 209", "pressure_distribution"): "type209_pressure_velocity_openfoam",
+}
 
 
 class OpenAICliChatModel(ChatOpenAI):
@@ -124,6 +169,22 @@ class OpenAICliChatModel(ChatOpenAI):
         return ""
 
     @classmethod
+    def _latest_prior_user_visible_text(cls, messages: list[BaseMessage]) -> str:
+        latest_human_index = cls._latest_human_index(messages)
+        if latest_human_index is None:
+            return ""
+
+        for msg in reversed(messages[:latest_human_index]):
+            if not isinstance(msg, HumanMessage):
+                continue
+            normalized = cls._normalize_content(msg.content)
+            visible = _UPLOAD_BLOCK_RE.sub("", normalized).strip()
+            prior_text = visible or normalized.strip()
+            if prior_text:
+                return prior_text
+        return ""
+
+    @classmethod
     def _latest_human_index(cls, messages: list[BaseMessage]) -> int | None:
         for index in range(len(messages) - 1, -1, -1):
             if isinstance(messages[index], HumanMessage):
@@ -153,7 +214,48 @@ class OpenAICliChatModel(ChatOpenAI):
         return None
 
     @classmethod
-    def _latest_uploaded_file(cls, messages: list[BaseMessage]) -> dict[str, str] | None:
+    def _has_tool_activity_since_latest_human(
+        cls, messages: list[BaseMessage], *, tool_name: str
+    ) -> bool:
+        latest_human_index = cls._latest_human_index(messages)
+        if latest_human_index is None:
+            return False
+
+        for msg in messages[latest_human_index + 1 :]:
+            if isinstance(msg, ToolMessage) and getattr(msg, "name", None) == tool_name:
+                return True
+            if not isinstance(msg, AIMessage):
+                continue
+            for tool_call in getattr(msg, "tool_calls", []) or []:
+                if tool_call.get("name") == tool_name:
+                    return True
+        return False
+
+    @classmethod
+    def _has_tool_activity_before_latest_human(
+        cls, messages: list[BaseMessage], *, tool_name: str
+    ) -> bool:
+        latest_human_index = cls._latest_human_index(messages)
+        if latest_human_index is None:
+            return False
+
+        for msg in messages[:latest_human_index]:
+            if isinstance(msg, ToolMessage) and getattr(msg, "name", None) == tool_name:
+                return True
+            if not isinstance(msg, AIMessage):
+                continue
+            for tool_call in getattr(msg, "tool_calls", []) or []:
+                if tool_call.get("name") == tool_name:
+                    return True
+        return False
+
+    @classmethod
+    def _latest_uploaded_file(
+        cls,
+        messages: list[BaseMessage],
+        *,
+        allowed_suffixes: tuple[str, ...] | None = None,
+    ) -> dict[str, str] | None:
         for msg in reversed(messages):
             if not isinstance(msg, HumanMessage):
                 continue
@@ -165,12 +267,56 @@ class OpenAICliChatModel(ChatOpenAI):
                     continue
                 filename = str(item.get("filename") or "").strip()
                 path = str(item.get("path") or "").strip()
+                candidate_name = (filename or path.rsplit("/", 1)[-1]).strip().lower()
+                if allowed_suffixes and not candidate_name.endswith(allowed_suffixes):
+                    continue
                 if filename or path:
                     return {
                         "filename": filename,
                         "path": path,
                     }
         return None
+
+    @classmethod
+    def _latest_submarine_geometry_path_before_latest_human(
+        cls, messages: list[BaseMessage]
+    ) -> str:
+        for tool_name in ("submarine_geometry_check", "submarine_design_brief"):
+            tool_args = cls._latest_tool_call_args_before_latest_human(
+                messages,
+                tool_name=tool_name,
+            )
+            geometry_path = str(tool_args.get("geometry_path") or "").strip()
+            if geometry_path.lower().endswith(".stl"):
+                return geometry_path
+
+        uploaded = cls._latest_uploaded_file(
+            messages,
+            allowed_suffixes=(".stl",),
+        )
+        if uploaded is None:
+            return ""
+        return str(uploaded.get("path") or "").strip()
+
+    @classmethod
+    def _latest_tool_call_args_before_latest_human(
+        cls, messages: list[BaseMessage], *, tool_name: str
+    ) -> dict[str, Any]:
+        latest_human_index = cls._latest_human_index(messages)
+        if latest_human_index is None:
+            return {}
+
+        for msg in reversed(messages[:latest_human_index]):
+            if not isinstance(msg, AIMessage):
+                continue
+            tool_calls = getattr(msg, "tool_calls", []) or []
+            for tool_call in reversed(tool_calls):
+                if tool_call.get("name") != tool_name:
+                    continue
+                args = tool_call.get("args")
+                if isinstance(args, dict):
+                    return args
+        return {}
 
     @classmethod
     def _infer_submarine_task_type(cls, text: str) -> str:
@@ -191,12 +337,204 @@ class OpenAICliChatModel(ChatOpenAI):
         return None
 
     @classmethod
+    def _normalize_geometry_family_hint(cls, value: str | None) -> str | None:
+        hint = str(value or "").strip()
+        if not hint:
+            return None
+        return cls._infer_geometry_family_hint(hint) or hint
+
+    @staticmethod
+    def _extract_inlet_velocity_mps(text: str) -> float | None:
+        match = _SUBMARINE_INLET_VELOCITY_RE.search(text)
+        if match is None:
+            return None
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return None
+
+    @classmethod
+    def _infer_selected_case_id(
+        cls, *, task_type: str, geometry_family_hint: str | None
+    ) -> str | None:
+        if not geometry_family_hint:
+            return None
+        return _SUBMARINE_CASE_HINTS.get((geometry_family_hint.strip().lower(), task_type))
+
+    @classmethod
+    def _has_pending_submarine_confirmation_context(
+        cls, messages: list[BaseMessage]
+    ) -> bool:
+        latest_human_index = cls._latest_human_index(messages)
+        if latest_human_index is None:
+            return False
+
+        if not cls._has_tool_activity_before_latest_human(
+            messages,
+            tool_name="submarine_geometry_check",
+        ):
+            return False
+
+        for msg in reversed(messages[:latest_human_index]):
+            normalized = cls._normalize_content(getattr(msg, "content", "")).lower()
+            if not normalized:
+                continue
+            if any(
+                marker in normalized
+                for marker in _SUBMARINE_PENDING_CONFIRMATION_MARKERS
+            ):
+                return True
+        return False
+
+    @classmethod
+    def _looks_like_submarine_confirmation_reply(
+        cls, text: str, messages: list[BaseMessage] | None = None
+    ) -> bool:
+        normalized = text.lower()
+        has_confirmation = any(
+            keyword in normalized for keyword in _SUBMARINE_CONFIRMATION_KEYWORDS
+        )
+        if not has_confirmation:
+            return False
+
+        has_reference_context = any(
+            keyword in normalized for keyword in _SUBMARINE_REFERENCE_KEYWORDS
+        )
+        has_followup = any(
+            keyword in normalized for keyword in _SUBMARINE_FOLLOWUP_KEYWORDS
+        )
+        has_measurement = bool(_SUBMARINE_MEASUREMENT_RE.search(normalized))
+        if has_reference_context and (has_followup or has_measurement):
+            return True
+        if messages is None:
+            return False
+        return cls._has_pending_submarine_confirmation_context(messages)
+
+    @classmethod
+    def _build_submarine_confirmation_task_description(
+        cls,
+        *,
+        latest_text: str,
+        prior_text: str,
+    ) -> str:
+        latest_text = latest_text.strip()
+        if not latest_text:
+            return prior_text.strip()
+
+        normalized = latest_text.lower()
+        is_context_light = (
+            len(latest_text) <= 16
+            and not any(
+                keyword in normalized for keyword in _SUBMARINE_REFERENCE_KEYWORDS
+            )
+            and not bool(_SUBMARINE_MEASUREMENT_RE.search(normalized))
+        )
+        if not prior_text or not is_context_light:
+            return latest_text
+
+        confirmation_label = (
+            "\u7528\u6237\u786e\u8ba4"
+            if cls._contains_cjk(prior_text + latest_text)
+            else "User confirmation"
+        )
+        return f"{prior_text.strip()}\n\n{confirmation_label}\uff1a{latest_text}"
+
+    @classmethod
+    def _build_submarine_confirmation_recovery_tool_calls(
+        cls, messages: list[BaseMessage]
+    ) -> list[dict[str, Any]]:
+        visible_text = cls._latest_user_visible_text(messages)
+        if not cls._looks_like_submarine_confirmation_reply(visible_text, messages):
+            return []
+
+        if not cls._has_tool_activity_before_latest_human(
+            messages,
+            tool_name="submarine_geometry_check",
+        ):
+            return []
+
+        if cls._has_tool_activity_since_latest_human(
+            messages,
+            tool_name="submarine_design_brief",
+        ):
+            return []
+
+        geometry_path = cls._latest_submarine_geometry_path_before_latest_human(
+            messages
+        )
+        if not geometry_path:
+            return []
+
+        prior_visible_text = cls._latest_prior_user_visible_text(messages)
+        context_text = "\n".join(
+            part for part in (prior_visible_text, visible_text) if part
+        )
+        latest_geometry_args = cls._latest_tool_call_args_before_latest_human(
+            messages,
+            tool_name="submarine_geometry_check",
+        )
+        task_type = str(latest_geometry_args.get("task_type") or "").strip()
+        if not task_type:
+            task_type = cls._infer_submarine_task_type(context_text or visible_text)
+
+        geometry_family_hint = cls._normalize_geometry_family_hint(
+            latest_geometry_args.get("geometry_family_hint")
+        ) or cls._infer_geometry_family_hint(visible_text) or cls._infer_geometry_family_hint(
+            context_text
+        )
+        task_description = cls._build_submarine_confirmation_task_description(
+            latest_text=visible_text,
+            prior_text=prior_visible_text,
+        )
+        tool_args: dict[str, Any] = {
+            "task_description": task_description,
+            "geometry_path": geometry_path or None,
+            "task_type": task_type,
+            "confirmation_status": "confirmed",
+        }
+        if geometry_family_hint:
+            tool_args["geometry_family_hint"] = geometry_family_hint
+        selected_case_id = str(
+            latest_geometry_args.get("selected_case_id") or ""
+        ).strip() or cls._infer_selected_case_id(
+            task_type=task_type,
+            geometry_family_hint=geometry_family_hint,
+        )
+        if selected_case_id:
+            tool_args["selected_case_id"] = selected_case_id
+        inlet_velocity_mps = cls._extract_inlet_velocity_mps(visible_text)
+        if inlet_velocity_mps is None and prior_visible_text:
+            inlet_velocity_mps = cls._extract_inlet_velocity_mps(prior_visible_text)
+        raw_inlet_velocity = latest_geometry_args.get("inlet_velocity_mps")
+        if inlet_velocity_mps is None and raw_inlet_velocity is not None:
+            try:
+                inlet_velocity_mps = float(raw_inlet_velocity)
+            except (TypeError, ValueError):
+                inlet_velocity_mps = None
+        if inlet_velocity_mps is not None:
+            tool_args["inlet_velocity_mps"] = inlet_velocity_mps
+
+        return [
+            {
+                "name": "submarine_design_brief",
+                "args": tool_args,
+                "id": "fallback_submarine_design_brief_0",
+                "type": "tool_call",
+            }
+        ]
+
+    @classmethod
     def _build_empty_response_recovery_tool_calls(
         cls, messages: list[BaseMessage]
     ) -> list[dict[str, Any]]:
         latest_human_index = cls._latest_human_index(messages)
-        if latest_human_index is None or latest_human_index != len(messages) - 1:
+        if latest_human_index is None:
             return []
+
+        if confirmation_recovery := cls._build_submarine_confirmation_recovery_tool_calls(
+            messages
+        ):
+            return confirmation_recovery
 
         visible_text = cls._latest_user_visible_text(messages)
         if detect_execution_preference_signal(visible_text) != "plan_only":
@@ -218,13 +556,16 @@ class OpenAICliChatModel(ChatOpenAI):
         ):
             return []
 
-        uploaded = cls._latest_uploaded_file(messages)
-        if uploaded is None:
+        geometry_path = cls._latest_submarine_geometry_path_before_latest_human(
+            messages
+        )
+        if not geometry_path:
             return []
 
-        geometry_path = uploaded.get("path") or ""
-        filename = (uploaded.get("filename") or geometry_path.rsplit("/", 1)[-1]).lower()
-        if not filename.endswith(".stl"):
+        if cls._has_tool_activity_since_latest_human(
+            messages,
+            tool_name="submarine_geometry_check",
+        ):
             return []
 
         tool_args: dict[str, Any] = {
@@ -247,6 +588,10 @@ class OpenAICliChatModel(ChatOpenAI):
 
     @classmethod
     def _build_empty_response_fallback(cls, messages: list[BaseMessage]) -> str:
+        if design_brief_summary := cls._latest_tool_result_summary(
+            messages, tool_name="submarine_design_brief"
+        ):
+            return design_brief_summary
         if geometry_summary := cls._latest_tool_result_summary(
             messages, tool_name="submarine_geometry_check"
         ):

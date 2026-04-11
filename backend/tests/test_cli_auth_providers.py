@@ -796,6 +796,627 @@ def test_openai_cli_provider_injects_submarine_geometry_tool_call_for_empty_plan
     ]
 
 
+def test_openai_cli_provider_recovers_geometry_tool_call_after_wrong_intermediate_tools(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    "Please do a geometry preflight on this STL and hold solver execution."
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "suboff_solid.stl",
+                            "path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "read_file",
+                        "args": {"path": "/mnt/user-data/uploads/suboff_solid.stl"},
+                        "id": "call_read_file",
+                        "type": "tool_call",
+                    },
+                    {
+                        "name": "bash",
+                        "args": {"command": "mesh-info /mnt/user-data/uploads/suboff_solid.stl"},
+                        "id": "call_bash",
+                        "type": "tool_call",
+                    },
+                ],
+            ),
+            ToolMessage(
+                content="solid suboff_solid",
+                tool_call_id="call_read_file",
+                name="read_file",
+            ),
+            ToolMessage(
+                content="triangles: 2048",
+                tool_call_id="call_bash",
+                name="bash",
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_geometry_check",
+            "args": {
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_description": "Please do a geometry preflight on this STL and hold solver execution.",
+                "task_type": "resistance",
+            },
+            "id": "fallback_submarine_geometry_check_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_recovers_geometry_tool_call_after_later_non_stl_attachment(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    "Please do a SUBOFF geometry preflight on this STL and hold solver execution."
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "suboff_solid.stl",
+                            "path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "read_file",
+                        "args": {"path": "/mnt/user-data/uploads/suboff_solid.stl"},
+                        "id": "call_read_file",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content="solid suboff_solid",
+                tool_call_id="call_read_file",
+                name="read_file",
+            ),
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- notes.txt (1 KB)\n"
+                    "</uploaded_files>\n\n"
+                    "Please continue the SUBOFF geometry preflight on the uploaded STL and hold solver execution."
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "notes.txt",
+                            "path": "/mnt/user-data/uploads/notes.txt",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_geometry_check",
+            "args": {
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_description": "Please continue the SUBOFF geometry preflight on the uploaded STL and hold solver execution.",
+                "task_type": "resistance",
+                "geometry_family_hint": "DARPA SUBOFF",
+            },
+            "id": "fallback_submarine_geometry_check_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_injects_confirmed_design_brief_after_geometry_confirmation_reply(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    confirmation_text = (
+        "我确认参考长度取 4.356 m，参考面积取 0.370988 m^2。"
+        "请继续完成几何预检，并基于 DARPA SUBOFF 裸艇 5 m/s 阻力基线给出下一步工况草案。"
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    "Please do a geometry preflight on this STL and hold solver execution."
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "suboff_solid.stl",
+                            "path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_geometry_check",
+                        "args": {
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_description": "geometry preflight",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF bare hull",
+                        },
+                        "id": "fallback_submarine_geometry_check_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Geometry preflight complete.\n"
+                    "Please confirm the reference length and reference area before proceeding."
+                ),
+                tool_call_id="fallback_submarine_geometry_check_0",
+                name="submarine_geometry_check",
+            ),
+            HumanMessage(content=confirmation_text),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_design_brief",
+            "args": {
+                "task_description": confirmation_text,
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_type": "resistance",
+                "confirmation_status": "confirmed",
+                "geometry_family_hint": "DARPA SUBOFF",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "inlet_velocity_mps": 5.0,
+            },
+            "id": "fallback_submarine_design_brief_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_recovers_confirmed_design_brief_after_later_non_stl_attachment(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    confirmation_text = (
+        "I confirm reference length 4.356 m and reference area 0.370988 m^2. "
+        "Please continue with the SUBOFF 5 m/s baseline plan."
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    "Please do a geometry preflight on this STL and hold solver execution."
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "suboff_solid.stl",
+                            "path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_geometry_check",
+                        "args": {
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_description": "geometry preflight",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF bare hull",
+                        },
+                        "id": "fallback_submarine_geometry_check_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Geometry preflight complete.\n"
+                    "Please confirm the reference length and reference area before proceeding."
+                ),
+                tool_call_id="fallback_submarine_geometry_check_0",
+                name="submarine_geometry_check",
+            ),
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- notes.txt (1 KB)\n"
+                    "</uploaded_files>\n\n"
+                    f"{confirmation_text}"
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "notes.txt",
+                            "path": "/mnt/user-data/uploads/notes.txt",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_design_brief",
+            "args": {
+                "task_description": confirmation_text,
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_type": "resistance",
+                "confirmation_status": "confirmed",
+                "geometry_family_hint": "DARPA SUBOFF",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "inlet_velocity_mps": 5.0,
+            },
+            "id": "fallback_submarine_design_brief_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_recovers_confirmed_design_brief_from_short_confirmation_reply(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    prior_task = (
+        "请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 DARPA SUBOFF 裸艇 5 m/s 阻力基线研究；"
+        "当前不要启动求解。"
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    f"{prior_task}"
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "suboff_solid.stl",
+                            "path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_geometry_check",
+                        "args": {
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_description": "geometry preflight",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF bare hull",
+                        },
+                        "id": "fallback_submarine_geometry_check_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Geometry preflight complete.\n"
+                    "Please confirm the reference length and reference area before proceeding."
+                ),
+                tool_call_id="fallback_submarine_geometry_check_0",
+                name="submarine_geometry_check",
+            ),
+            HumanMessage(content="确认"),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_design_brief",
+            "args": {
+                "task_description": f"{prior_task}\n\n用户确认：确认",
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_type": "resistance",
+                "confirmation_status": "confirmed",
+                "geometry_family_hint": "DARPA SUBOFF",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "inlet_velocity_mps": 5.0,
+            },
+            "id": "fallback_submarine_design_brief_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_prefers_design_brief_tool_summary_for_empty_follow_up(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="确认"),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_design_brief",
+                        "args": {
+                            "task_description": "确认 baseline 研究简报",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "confirmation_status": "confirmed",
+                        },
+                        "id": "fallback_submarine_design_brief_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "已整理 CFD 设计简报：确认 baseline 研究简报。\n"
+                    "已更新 3 个设计简报 artifacts。"
+                ),
+                tool_call_id="fallback_submarine_design_brief_0",
+                name="submarine_design_brief",
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.tool_calls == []
+    assert result.generations[0].message.content == "已整理 CFD 设计简报：确认 baseline 研究简报。"
+
+
 def test_openai_cli_provider_keeps_text_fallback_for_empty_non_geometry_request(
     monkeypatch,
 ):

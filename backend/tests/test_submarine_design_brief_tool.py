@@ -195,6 +195,8 @@ def test_submarine_design_brief_tool_merges_existing_brief_context(tmp_path, mon
     assert runtime_state["review_status"] == "ready_for_supervisor"
     assert runtime_state["approval_state"] == "approved"
     assert runtime_state["goal_status"] == "ready_for_execution"
+    assert runtime_state["clarification_required"] is False
+    assert runtime_state["requires_immediate_confirmation"] is False
     assert runtime_state["stage_hints"]["suggested_next"] == "geometry-preflight"
     assert runtime_state["next_recommended_stage"] == "geometry-preflight"
     assert len(runtime_state["activity_timeline"]) == 2
@@ -253,6 +255,100 @@ def test_submarine_design_brief_normalizes_requested_outputs(tmp_path, monkeypat
     assert requested_outputs[2]["support_level"] == "not_yet_supported"
     assert requested_outputs[3]["support_level"] == "supported"
     assert runtime_state["requested_outputs"] == requested_outputs
+
+
+def test_submarine_design_brief_clears_geometry_preflight_confirmation_flags(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-confirmed-preflight"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "confirmed-preflight.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["submarine_runtime"] = {
+        "current_stage": "geometry-preflight",
+        "approval_state": "needs_confirmation",
+        "confirmation_status": "draft",
+        "goal_status": "planning",
+        "execution_preference": "plan_only",
+        "task_type": "resistance",
+        "geometry_virtual_path": "/mnt/user-data/uploads/confirmed-preflight.stl",
+        "geometry_family": "DARPA SUBOFF bare hull",
+        "clarification_required": True,
+        "requires_immediate_confirmation": True,
+        "review_status": "needs_user_confirmation",
+        "next_recommended_stage": "user-confirmation",
+        "calculation_plan": [
+            {
+                "item_id": "geometry.reference_length_m",
+                "category": "geometry",
+                "label": "参考长度",
+                "proposed_value": 4.356,
+                "proposed_range": None,
+                "unit": "m",
+                "source_label": "geometry-preflight",
+                "source_url": None,
+                "confidence": "low",
+                "applicability_conditions": [],
+                "evidence_gap_note": "建议参考长度已生成，但当前尺度解释仍需研究者确认。",
+                "origin": "ai_suggestion",
+                "approval_state": "pending_researcher_confirmation",
+                "requires_immediate_confirmation": True,
+                "researcher_note": None,
+            },
+            {
+                "item_id": "geometry.reference_area_m2",
+                "category": "geometry",
+                "label": "参考面积",
+                "proposed_value": 0.370988,
+                "proposed_range": None,
+                "unit": "m^2",
+                "source_label": "geometry-preflight",
+                "source_url": None,
+                "confidence": "low",
+                "applicability_conditions": [],
+                "evidence_gap_note": "建议参考面积已生成，但当前几何尺度仍需确认。",
+                "origin": "ai_suggestion",
+                "approval_state": "pending_researcher_confirmation",
+                "requires_immediate_confirmation": True,
+                "researcher_note": None,
+            },
+        ],
+    }
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/confirmed-preflight.stl",
+        task_description="我确认参考长度取 4.356 m，参考面积取 0.370988 m^2。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        confirmation_status="confirmed",
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        inlet_velocity_mps=5.0,
+        tool_call_id="tc-design-brief-confirmed-preflight",
+    )
+
+    runtime_state = result.update["submarine_runtime"]
+
+    assert runtime_state["approval_state"] == "approved"
+    assert runtime_state["goal_status"] == "ready_for_execution"
+    assert runtime_state["clarification_required"] is False
+    assert runtime_state["requires_immediate_confirmation"] is False
+    assert runtime_state["review_status"] == "ready_for_supervisor"
+    assert runtime_state["next_recommended_stage"] != "user-confirmation"
+    assert all(
+        item["approval_state"] == "researcher_confirmed"
+        for item in runtime_state["calculation_plan"]
+    )
 
 
 def test_submarine_design_brief_assigns_default_postprocess_specs(tmp_path, monkeypatch):

@@ -239,9 +239,180 @@ void test("treats an explicit runtime confirmation gate as a pending geometry-pr
   assert.equal(model.activeSliceId, "geometry-preflight");
   assert.equal(model.currentSlice.id, "geometry-preflight");
   assert.equal(model.currentSlice.statusLabel, "待确认");
-  assert.equal(model.negotiation.pendingApprovalCount, 1);
+  assert.equal(model.negotiation.pendingApprovalCount, 3);
   assert.match(model.currentSlice.agentInterpretation, /确认|协商区/);
   assert.match(model.currentSlice.nextRecommendedAction, /确认|研究者/);
+});
+
+void test("surfaces concrete negotiation items and input guidance instead of only a pending count", () => {
+  const model = buildModel({
+    runtime: {
+      current_stage: "geometry-preflight",
+      review_status: "needs_user_confirmation",
+      next_recommended_stage: "user-confirmation",
+      requires_immediate_confirmation: true,
+      calculation_plan: [
+        {
+          item_id: "reference-length",
+          category: "geometry",
+          label: "参考长度",
+          proposed_value: 4.356,
+          unit: "m",
+          source_label: "几何预检",
+          approval_state: "pending_researcher_confirmation",
+          requires_immediate_confirmation: true,
+          evidence_gap_note: "请确认当前 STL 尺度是否按毫米转米解释。",
+        },
+        {
+          item_id: "inlet-velocity",
+          category: "condition",
+          label: "入口速度",
+          proposed_value: 5,
+          unit: "m/s",
+          source_label: "DARPA SUBOFF 基线",
+          approval_state: "pending_researcher_confirmation",
+          requires_immediate_confirmation: false,
+        },
+      ],
+    },
+    designBrief: {
+      summary_zh: "请先确认尺度解释与首个基线工况。",
+      confirmation_status: "draft",
+      open_questions: ["是否沿用 5 m/s 演示基线工况？"],
+    },
+    messageCount: 6,
+    artifactCount: 2,
+  });
+
+  assert.equal(model.negotiation.pendingApprovalCount, 3);
+  assert.equal(model.negotiation.pendingItems.length, 3);
+  assert.deepEqual(
+    model.negotiation.pendingItems.map((item) => item.label),
+    ["参考长度", "入口速度", "是否沿用 5 m/s 演示基线工况？"],
+  );
+  assert.match(model.negotiation.pendingItems[0]?.detail ?? "", /4\.356 m|毫米转米|几何预检/);
+  assert.match(model.negotiation.summary ?? "", /3 项待确认|关键确认/);
+  assert.match(model.negotiation.inputGuidance ?? "", /下方输入框|立即显示/);
+});
+
+void test("keeps design-brief pending approvals visible when the runtime plan is temporarily empty", () => {
+  const model = buildModel({
+    runtime: {
+      current_stage: "geometry-preflight",
+      review_status: "needs_user_confirmation",
+      next_recommended_stage: "user-confirmation",
+      calculation_plan: [],
+    },
+    designBrief: {
+      summary_zh: "请先确认前置参数。",
+      confirmation_status: "draft",
+      calculation_plan: [
+        {
+          item_id: "reference-area",
+          category: "geometry",
+          label: "参考面积",
+          proposed_value: 0.370988,
+          unit: "m^2",
+          source_label: "设计简报",
+          approval_state: "pending_researcher_confirmation",
+          requires_immediate_confirmation: true,
+        },
+      ],
+      open_questions: ["是否只保留单一 baseline 工况？"],
+    },
+    messageCount: 4,
+    artifactCount: 1,
+  });
+
+  assert.equal(model.negotiation.pendingApprovalCount, 2);
+  assert.equal(model.negotiation.pendingItems[0]?.label, "参考面积");
+  assert.match(
+    model.negotiation.pendingItems[1]?.label ?? "",
+    /是否只保留单一 .*工况？/,
+  );
+});
+
+void test("lists each blocking reason when structured confirmation items are unavailable", () => {
+  const model = buildModel({
+    runtime: {
+      current_stage: "geometry-preflight",
+      review_status: "needs_user_confirmation",
+      next_recommended_stage: "user-confirmation",
+      requires_immediate_confirmation: true,
+    },
+    messageCount: 2,
+  });
+
+  assert.equal(model.negotiation.pendingApprovalCount, 4);
+  assert.deepEqual(
+    model.negotiation.pendingItems.map((item) => item.label),
+    [
+      "当前存在待你确认的研究决策，主智能体会先停在协商区。",
+      "当前建议先完成研究者确认，再继续推进计算。",
+      "存在需要立刻确认的参数或边界条件。",
+      "还有 4 项待确认事项。",
+    ],
+  );
+});
+
+void test("does not collapse same-label pending plan items coming from different snapshots", () => {
+  const model = buildModel({
+    runtime: {
+      current_stage: "geometry-preflight",
+      calculation_plan: [
+        {
+          label: "参考长度",
+          proposed_value: 4.356,
+          unit: "m",
+          source_label: "运行时快照",
+          approval_state: "pending_researcher_confirmation",
+        },
+      ],
+    },
+    designBrief: {
+      confirmation_status: "draft",
+      calculation_plan: [
+        {
+          label: "参考长度",
+          proposed_value: 4.4,
+          unit: "m",
+          source_label: "设计简报",
+          approval_state: "pending_researcher_confirmation",
+        },
+      ],
+      open_questions: [],
+    },
+  });
+
+  assert.deepEqual(
+    model.negotiation.pendingItems.map((item) => item.detail),
+    [
+      "建议值：4.4 m；来源：设计简报",
+      "建议值：4.356 m；来源：运行时快照",
+    ],
+  );
+});
+
+void test("keeps open questions visible even when their label matches a pending plan item", () => {
+  const model = buildModel({
+    designBrief: {
+      confirmation_status: "draft",
+      calculation_plan: [
+        {
+          item_id: "reference-length",
+          label: "参考长度",
+          approval_state: "pending_researcher_confirmation",
+          requires_immediate_confirmation: true,
+        },
+      ],
+      open_questions: ["参考长度"],
+    },
+  });
+
+  assert.deepEqual(
+    model.negotiation.pendingItems.map((item) => item.label),
+    ["参考长度", "参考长度"],
+  );
 });
 
 void test("keeps a completed geometry-check artifact thread in geometry-preflight instead of skipping straight to delivery review", () => {

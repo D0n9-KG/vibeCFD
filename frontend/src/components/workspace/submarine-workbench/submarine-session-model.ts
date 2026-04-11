@@ -1,4 +1,6 @@
-﻿import type {
+﻿import { localizeWorkspaceDisplayText } from "../../../core/i18n/workspace-display.ts";
+import type {
+  SubmarineCalculationPlanItem,
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
   SubmarineRuntimeSnapshotPayload,
@@ -25,6 +27,14 @@ export type SubmarineResearchSlice = {
   keyEvidenceSummary: string;
   agentInterpretation: string;
   nextRecommendedAction: string;
+};
+
+export type SubmarineNegotiationPendingItem = {
+  id: string;
+  label: string;
+  detail: string | null;
+  kind: "plan-item" | "open-question" | "blocking-reason";
+  urgency: "immediate" | "normal";
 };
 
 export type SubmarineSessionModel = {
@@ -54,6 +64,9 @@ export type SubmarineSessionModel = {
     pendingApprovalCount: number;
     interruptionVisible: boolean;
     question: string | null;
+    summary: string | null;
+    inputGuidance: string | null;
+    pendingItems: readonly SubmarineNegotiationPendingItem[];
   };
   trustSurface: {
     provenanceAvailable: boolean;
@@ -80,13 +93,62 @@ export type BuildSubmarineSessionModelInput = {
   viewedSliceId?: SubmarineResearchSliceId | null;
 };
 
+function resolveCalculationPlanItemKey(
+  item: SubmarineCalculationPlanItem | null | undefined,
+  index: number,
+  source: "runtime" | "design-brief",
+): string {
+  const itemId = normalizeNegotiationText(item?.item_id);
+  if (itemId) {
+    return itemId;
+  }
+
+  const label = normalizeNegotiationText(item?.label);
+  if (label) {
+    return `${source}:label:${label}:${index}`;
+  }
+
+  const category = normalizeNegotiationText(item?.category);
+  if (category) {
+    return `${source}:category:${category}:${index}`;
+  }
+
+  return `${source}:${index}`;
+}
+
+function collectCalculationPlanItems(
+  runtime: SubmarineRuntimeSnapshotPayload | null,
+  designBrief: SubmarineDesignBriefPayload | null,
+): SubmarineCalculationPlanItem[] {
+  const mergedItems = new Map<string, SubmarineCalculationPlanItem>();
+  const merge = (
+    items: SubmarineCalculationPlanItem[] | null | undefined,
+    source: "runtime" | "design-brief",
+  ) => {
+    items?.forEach((item, index) => {
+      if (!item) {
+        return;
+      }
+
+      const key = resolveCalculationPlanItemKey(item, index, source);
+      const previous = mergedItems.get(key);
+      mergedItems.set(key, previous ? { ...previous, ...item } : { ...item });
+    });
+  };
+
+  merge(designBrief?.calculation_plan, "design-brief");
+  merge(runtime?.calculation_plan, "runtime");
+
+  return Array.from(mergedItems.values());
+}
+
 function countPendingApprovals({
   runtime,
   designBrief,
 }: Pick<BuildSubmarineSessionModelInput, "runtime" | "designBrief">): number {
   const openQuestions =
     designBrief?.open_questions?.filter((question) => Boolean(question)).length ?? 0;
-  const planItems = runtime?.calculation_plan ?? designBrief?.calculation_plan ?? [];
+  const planItems = collectCalculationPlanItems(runtime, designBrief);
   const unconfirmedPlanItems = planItems.filter(
     (item) => item?.approval_state !== "researcher_confirmed",
   ).length;
@@ -115,12 +177,175 @@ function hasImmediateConfirmationRequirement(
     return true;
   }
 
-  const planItems = runtime?.calculation_plan ?? designBrief?.calculation_plan ?? [];
+  const planItems = collectCalculationPlanItems(runtime, designBrief);
   return planItems.some(
     (item) =>
       item?.requires_immediate_confirmation === true &&
       item?.approval_state !== "researcher_confirmed",
   );
+}
+
+function normalizeNegotiationText(value?: string | null): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const localized = localizeWorkspaceDisplayText(value).trim();
+  return localized.length > 0 ? localized : null;
+}
+
+function formatPlanScalarValue(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Number(value.toFixed(Math.abs(value) >= 1 ? 3 : 6)).toString();
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+
+  return null;
+}
+
+function formatPlanValue(
+  proposedValue: unknown,
+  proposedRange: unknown[] | Record<string, unknown> | null | undefined,
+  unit?: string | null,
+): string | null {
+  const scalarValue = formatPlanScalarValue(proposedValue);
+  if (scalarValue) {
+    return unit ? `${scalarValue} ${unit}` : scalarValue;
+  }
+
+  if (Array.isArray(proposedRange)) {
+    const values = proposedRange
+      .map((value) => formatPlanScalarValue(value))
+      .filter((value): value is string => value != null);
+    if (values.length > 0) {
+      return `${values.join(" to ")}${unit ? ` ${unit}` : ""}`;
+    }
+  }
+
+  if (proposedRange && typeof proposedRange === "object") {
+    const minValue = formatPlanScalarValue(
+      (proposedRange as Record<string, unknown>).min,
+    );
+    const maxValue = formatPlanScalarValue(
+      (proposedRange as Record<string, unknown>).max,
+    );
+
+    if (minValue || maxValue) {
+      return `${minValue ?? "--"} to ${maxValue ?? "--"}${unit ? ` ${unit}` : ""}`;
+    }
+  }
+
+  return null;
+}
+
+function collectPendingNegotiationItems({
+  runtime,
+  designBrief,
+  blockingReasons,
+}: Pick<BuildSubmarineSessionModelInput, "runtime" | "designBrief"> & {
+  blockingReasons: readonly string[];
+}): SubmarineNegotiationPendingItem[] {
+  const planItems = collectCalculationPlanItems(runtime, designBrief);
+  const pendingPlanItems: SubmarineNegotiationPendingItem[] = planItems
+    .filter((item) => item?.approval_state !== "researcher_confirmed")
+    .map((item, index): SubmarineNegotiationPendingItem => {
+      const label =
+        normalizeNegotiationText(item?.label) ??
+        normalizeNegotiationText(item?.category) ??
+        `待确认计算项 ${index + 1}`;
+      const suggestedValue = formatPlanValue(
+        item?.proposed_value,
+        item?.proposed_range,
+        item?.unit,
+      );
+      const evidenceGap =
+        normalizeNegotiationText(item?.evidence_gap_note) ??
+        normalizeNegotiationText(item?.researcher_note);
+      const sourceLabel = normalizeNegotiationText(item?.source_label);
+      const detailSegments = [
+        item?.requires_immediate_confirmation ? "需要立即确认" : null,
+        suggestedValue ? `建议值：${suggestedValue}` : null,
+        evidenceGap,
+        sourceLabel ? `来源：${sourceLabel}` : null,
+      ].filter((segment): segment is string => Boolean(segment));
+
+      return {
+        id: item?.item_id ?? `plan-item-${index}`,
+        label,
+        detail: detailSegments.length > 0 ? detailSegments.join("；") : null,
+        kind: "plan-item" as const,
+        urgency: item?.requires_immediate_confirmation ? "immediate" : "normal",
+      };
+    });
+
+  const openQuestions: SubmarineNegotiationPendingItem[] = (designBrief?.open_questions ?? []).flatMap(
+    (question, index): SubmarineNegotiationPendingItem[] => {
+      const label = normalizeNegotiationText(question);
+      if (!label) {
+        return [];
+      }
+
+      return [
+        {
+          id: `open-question-${index}`,
+          label,
+          detail: null,
+          kind: "open-question",
+          urgency: "normal",
+        },
+      ];
+    },
+  );
+
+  const items = [
+    ...pendingPlanItems.filter((item) => item.urgency === "immediate"),
+    ...pendingPlanItems.filter((item) => item.urgency !== "immediate"),
+    ...openQuestions,
+  ];
+
+  if (items.length > 0) {
+    return items;
+  }
+
+  const fallbackLabels = blockingReasons
+    .map((reason) => normalizeNegotiationText(reason))
+    .filter((reason, index, all): reason is string => {
+      return reason != null && all.indexOf(reason) === index;
+    });
+
+  if (fallbackLabels.length === 0) {
+    return [];
+  }
+
+  return fallbackLabels.map((label, index) => ({
+    id: `blocking-reason-${index}`,
+    label,
+    detail: null,
+    kind: "blocking-reason",
+    urgency: "normal",
+  }));
+}
+
+function buildNegotiationSummary(
+  items: readonly SubmarineNegotiationPendingItem[],
+): string | null {
+  if (items.length === 0) {
+    return null;
+  }
+
+  const immediateCount = items.filter((item) => item.urgency === "immediate").length;
+  if (immediateCount > 0) {
+    return `当前有 ${items.length} 项待确认事项，其中 ${immediateCount} 项属于关键确认。`;
+  }
+
+  return `当前有 ${items.length} 项待确认事项，请先逐项确认后再继续推进计算。`;
 }
 
 function resolveBlockingReasons({
@@ -440,12 +665,37 @@ function resolveActiveSlice({
 export function buildSubmarineSessionModel(
   input: BuildSubmarineSessionModelInput,
 ): SubmarineSessionModel {
-  const pendingApprovalCount = countPendingApprovals(input);
-  const blockingReasons = resolveBlockingReasons({
+  const basePendingApprovalCount = countPendingApprovals(input);
+  const initialBlockingReasons = resolveBlockingReasons({
     runtime: input.runtime,
     designBrief: input.designBrief,
-    pendingApprovalCount,
+    pendingApprovalCount: basePendingApprovalCount,
   });
+  const initialPendingItems = collectPendingNegotiationItems({
+    runtime: input.runtime,
+    designBrief: input.designBrief,
+    blockingReasons: initialBlockingReasons,
+  });
+  const pendingApprovalCount = Math.max(
+    basePendingApprovalCount,
+    initialPendingItems.length,
+  );
+  const blockingReasons =
+    pendingApprovalCount === basePendingApprovalCount
+      ? initialBlockingReasons
+      : resolveBlockingReasons({
+          runtime: input.runtime,
+          designBrief: input.designBrief,
+          pendingApprovalCount,
+        });
+  const pendingItems =
+    pendingApprovalCount === basePendingApprovalCount
+      ? initialPendingItems
+      : collectPendingNegotiationItems({
+          runtime: input.runtime,
+          designBrief: input.designBrief,
+          blockingReasons,
+        });
   const skillNames = collectSkillNames(input.runtime);
   const evidenceReady = Boolean(input.finalReport);
   const currentObjective =
@@ -511,6 +761,12 @@ export function buildSubmarineSessionModel(
       pendingApprovalCount,
       interruptionVisible: blockingReasons.length > 0,
       question: blockingReasons[0] ?? null,
+      summary: buildNegotiationSummary(pendingItems),
+      inputGuidance:
+        pendingItems.length > 0
+          ? "请直接在下方输入框逐项确认、补充或修订；你的消息会立即显示在本线程中。"
+          : null,
+      pendingItems,
     },
     trustSurface: {
       provenanceAvailable: Boolean(

@@ -39,7 +39,11 @@ void test("submarine workbench removes the extra summary bar and verbose chat he
   assert.doesNotMatch(source, /SessionSummaryBar/);
   assert.match(source, /px-1 text-sm font-semibold text-slate-900/);
   assert.match(source, /协商区/);
-  assert.doesNotMatch(source, /negotiationQuestion/);
+  assert.match(source, /buildSubmarineNegotiationPanelModel\(session\.negotiation\)/);
+  assert.doesNotMatch(source, /question=\{null\}/);
+  assert.match(source, /question=\{railPrompt\}/);
+  assert.match(source, /railPanel\.ctaLabel/);
+  assert.match(source, /onClick=\{onOpenChat\}/);
 });
 
 void test("submarine workbench renders a research ribbon and slice card instead of a flow-based center surface", () => {

@@ -2,6 +2,7 @@
 
 import { type ReactNode, useMemo } from "react";
 
+import { Button } from "@/components/ui/button";
 import {
   NegotiationRail,
   ThreadHeader,
@@ -22,6 +23,7 @@ import type {
 } from "../submarine-runtime-panel.contract";
 
 import { buildSubmarineDetailModel } from "./submarine-detail-model";
+import { buildSubmarineNegotiationPanelModel } from "./submarine-negotiation-panel.model";
 import { SubmarineResearchCanvas } from "./submarine-research-canvas";
 import { buildSubmarineSessionModel } from "./submarine-session-model";
 
@@ -51,6 +53,7 @@ export function SubmarineAgenticWorkbench({
   threadId,
   isNewThread,
   showChatRail = true,
+  onOpenChat,
   negotiationContent,
   headerActions = null,
 }: SubmarineAgenticWorkbenchProps) {
@@ -199,6 +202,10 @@ export function SubmarineAgenticWorkbench({
       }),
     [finalReport, runtime],
   );
+  const railPanel = useMemo(
+    () => buildSubmarineNegotiationPanelModel(session.negotiation),
+    [session.negotiation],
+  );
 
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
@@ -221,11 +228,69 @@ export function SubmarineAgenticWorkbench({
     </div>
   );
 
+  const railPrompt =
+    railPanel.visible ? (
+      <div className="rounded-[22px] border border-amber-200/80 bg-[linear-gradient(180deg,rgba(255,251,235,0.98),rgba(255,255,255,0.98))] px-4 py-3 shadow-[0_18px_38px_-30px_rgba(217,119,6,0.55)]">
+        <div className="flex flex-col gap-1">
+          <div className="text-[11px] font-semibold tracking-[0.18em] text-amber-700 uppercase">
+            {railPanel.title}
+          </div>
+          {railPanel.summary ? (
+            <p className="text-sm font-medium text-slate-900">
+              {railPanel.summary}
+            </p>
+          ) : null}
+          {railPanel.inputGuidance ? (
+            <p className="text-xs leading-5 text-slate-600">
+              {railPanel.inputGuidance}
+            </p>
+          ) : null}
+        </div>
+        <ol className="mt-3 flex flex-col gap-2">
+          {railPanel.items.map((item, index) => (
+            <li
+              key={item.id}
+              className="rounded-[18px] border border-white/80 bg-white/88 px-3 py-2 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.5)]"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[11px] font-semibold text-amber-700">
+                  {index + 1}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-slate-900">{item.label}</p>
+                    {item.urgency === "immediate" ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                        立即确认
+                      </span>
+                    ) : null}
+                  </div>
+                  {item.detail ? (
+                    <p className="mt-1 text-xs leading-5 text-slate-600">{item.detail}</p>
+                  ) : null}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    ) : null;
+
+  const railActions =
+    railPanel.visible && railPanel.ctaLabel ? (
+      <div className="px-1">
+        <Button type="button" size="sm" variant="outline" onClick={onOpenChat}>
+          {railPanel.ctaLabel}
+        </Button>
+      </div>
+    ) : null;
+
   const negotiation = (
     <NegotiationRail
       className="gap-2 p-2.5"
       title={<div className="px-1 text-sm font-semibold text-slate-900">协商区</div>}
-      question={null}
+      question={railPrompt}
+      actions={railActions}
       body={
         <div
           id="submarine-chat-rail"
