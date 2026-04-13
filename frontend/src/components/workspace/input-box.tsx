@@ -84,10 +84,11 @@ import {
   getResolvedMode,
   type InputMode,
 } from "./input-box.chrome";
-import { resolvePromptInputSubmission } from "./input-box.submit";
+import { resolveInputBoxSubmitAction } from "./input-box.submit";
 import { useThread } from "./messages/context";
 import { ModeHoverGuide } from "./mode-hover-guide";
 import { Tooltip } from "./tooltip";
+import { toast } from "sonner";
 
 export function InputBox({
   className,
@@ -262,22 +263,27 @@ export function InputBox({
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
-      const resolvedMessage = resolvePromptInputSubmission({
+      const decision = resolveInputBoxSubmitAction({
+        status,
         message,
         attachments: attachments.files,
       });
 
-      if (status === "streaming") {
+      if (decision.kind === "stop_stream") {
         onStop?.();
         return;
       }
-      if (!resolvedMessage.text) {
+      if (decision.kind === "preserve_draft_while_streaming") {
+        toast.message("当前智能体仍在处理中，请等待完成后再发送，草稿已保留。");
+        throw new Error("input-box:preserve-draft-while-streaming");
+      }
+      if (decision.kind === "ignore_empty") {
         return;
       }
       setFollowups([]);
       setFollowupsHidden(false);
       setFollowupsLoading(false);
-      await onSubmit?.(resolvedMessage);
+      await onSubmit?.(decision.message);
     },
     [attachments.files, onSubmit, onStop, status],
   );

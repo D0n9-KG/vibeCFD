@@ -32,6 +32,8 @@ _DIRECT_EXECUTION_KEYWORDS = (
     "真实求解",
     "actual openfoam",
     "real openfoam",
+    "execute_now",
+    "execution_preference=execute_now",
 )
 _PREFLIGHT_THEN_EXECUTE_KEYWORDS = (
     "先做预检",
@@ -39,6 +41,8 @@ _PREFLIGHT_THEN_EXECUTE_KEYWORDS = (
     "若通过再继续",
     "预检后再执行",
     "preflight then execute",
+    "preflight_then_execute",
+    "execution_preference=preflight_then_execute",
 )
 _PLAN_ONLY_KEYWORDS = (
     "仅做几何预检",
@@ -61,6 +65,8 @@ _PLAN_ONLY_KEYWORDS = (
     "wait for my confirmation before execution",
     "hold solver execution",
     "plan only",
+    "plan_only",
+    "execution_preference=plan_only",
 )
 _CONFIRMATION_KEYWORDS = (
     "确认方案",

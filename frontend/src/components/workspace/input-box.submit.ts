@@ -1,3 +1,5 @@
+import type { ChatStatus } from "ai";
+
 import {
   preparePromptInputSubmitFiles,
   type PromptInputAttachment,
@@ -18,5 +20,60 @@ export function resolvePromptInputSubmission({
   return {
     ...message,
     files: preparePromptInputSubmitFiles(attachments),
+  };
+}
+
+export type InputBoxSubmitAction =
+  | {
+      kind: "submit_message";
+      message: PromptInputMessage;
+    }
+  | {
+      kind: "stop_stream";
+    }
+  | {
+      kind: "ignore_empty";
+      message: PromptInputMessage;
+    }
+  | {
+      kind: "preserve_draft_while_streaming";
+      message: PromptInputMessage;
+    };
+
+export function resolveInputBoxSubmitAction({
+  status,
+  message,
+  attachments,
+}: {
+  status: ChatStatus;
+  message: PromptInputMessage;
+  attachments: PromptInputAttachment[];
+}): InputBoxSubmitAction {
+  const resolvedMessage = resolvePromptInputSubmission({
+    message,
+    attachments,
+  });
+  const hasDraft =
+    resolvedMessage.text.trim().length > 0 || resolvedMessage.files.length > 0;
+
+  if (status === "streaming") {
+    return hasDraft
+      ? {
+          kind: "preserve_draft_while_streaming",
+          message: resolvedMessage,
+        }
+      : { kind: "stop_stream" };
+  }
+
+  if (!hasDraft) {
+    return {
+      kind: "ignore_empty",
+      message: resolvedMessage,
+    };
+  }
+
+  return {
+    kind: "submit_message",
+    message: resolvedMessage,
   };
 }

@@ -118,6 +118,18 @@ _SUBMARINE_SCIENTIFIC_FOLLOWUP_REQUEST_KEYWORDS = (
     "missing solver metrics",
     "solver metrics are unavailable",
 )
+_SUBMARINE_SCIENTIFIC_FOLLOWUP_HANDOFF_KEYWORDS = (
+    "\u79d1\u5b66\u5ba1\u67e5",
+    "\u79d1\u5b66\u4ea4\u4ed8\u95e8",
+    "\u5efa\u8bae\u7684\u4fee\u6b63\u6d41\u7a0b",
+    "\u7ee7\u7eed\u5efa\u8bae\u7684\u4fee\u6b63\u6d41\u7a0b",
+    "remediation handoff",
+    "recommended remediation",
+    "solver metrics",
+    "\u5237\u65b0\u7ed3\u679c\u62a5\u544a",
+    "refresh the report",
+    "\u7ed3\u679c\u62a5\u544a",
+)
 _SUBMARINE_MEASUREMENT_RE = re.compile(
     r"\d+(?:\.\d+)?\s*(?:m/s|m\^2|m2|m)",
     re.IGNORECASE,
@@ -545,9 +557,16 @@ class OpenAICliChatModel(ChatOpenAI):
         cls, messages: list[BaseMessage]
     ) -> list[dict[str, Any]]:
         visible_text = cls._latest_user_visible_text(messages)
-        if cls._looks_like_submarine_execution_request(visible_text, messages):
+        looks_like_confirmation = cls._looks_like_submarine_confirmation_reply(
+            visible_text, messages
+        )
+        if not looks_like_confirmation:
             return []
-        if not cls._looks_like_submarine_confirmation_reply(visible_text, messages):
+
+        if cls._looks_like_submarine_execution_request(visible_text, messages) and cls._has_tool_activity_before_latest_human(
+            messages,
+            tool_name="submarine_design_brief",
+        ):
             return []
 
         if not cls._has_tool_activity_before_latest_human(
@@ -616,6 +635,9 @@ class OpenAICliChatModel(ChatOpenAI):
                 inlet_velocity_mps = None
         if inlet_velocity_mps is not None:
             tool_args["inlet_velocity_mps"] = inlet_velocity_mps
+        execution_preference = detect_execution_preference_signal(visible_text)
+        if execution_preference is not None:
+            tool_args["execution_preference"] = execution_preference
 
         return [
             {
@@ -671,22 +693,36 @@ class OpenAICliChatModel(ChatOpenAI):
     ) -> bool:
         if messages is None:
             return False
-        if not cls._has_tool_activity_before_latest_human(
+        has_result_report_context = cls._has_tool_activity_before_latest_human(
             messages,
             tool_name="submarine_result_report",
-        ):
+        )
+        has_solver_dispatch_context = cls._has_tool_activity_before_latest_human(
+            messages,
+            tool_name="submarine_solver_dispatch",
+        )
+        if not has_result_report_context and not has_solver_dispatch_context:
             return False
 
         normalized = text.lower()
-        if any(
+        has_followup_keyword = any(
             keyword in normalized
             for keyword in _SUBMARINE_SCIENTIFIC_FOLLOWUP_REQUEST_KEYWORDS
-        ):
-            return True
-
-        return cls._looks_like_submarine_execution_request(text, messages) and any(
-            keyword in normalized for keyword in _SUBMARINE_FOLLOWUP_KEYWORDS
         )
+        is_execution_followup = cls._looks_like_submarine_execution_request(
+            text, messages
+        ) and any(keyword in normalized for keyword in _SUBMARINE_FOLLOWUP_KEYWORDS)
+
+        if has_result_report_context:
+            return has_followup_keyword or is_execution_followup
+
+        if not any(
+            keyword in normalized
+            for keyword in _SUBMARINE_SCIENTIFIC_FOLLOWUP_HANDOFF_KEYWORDS
+        ):
+            return False
+
+        return has_followup_keyword or is_execution_followup
 
     @classmethod
     def _looks_like_generic_continue_ack(cls, text: str) -> bool:

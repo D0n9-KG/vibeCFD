@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { resolvePromptInputSubmission } = await import(
+const { resolveInputBoxSubmitAction, resolvePromptInputSubmission } = await import(
   new URL("./input-box.submit.ts", import.meta.url).href
 );
 
@@ -62,4 +62,34 @@ void test("resolvePromptInputSubmission falls back to controller attachments whe
       file,
     },
   ]);
+});
+
+void test("resolveInputBoxSubmitAction preserves a typed draft while the assistant is still streaming", () => {
+  const decision = resolveInputBoxSubmitAction({
+    status: "streaming",
+    message: {
+      text: "确认采用参考长度 4.356 m 和参考面积 0.370988 m^2",
+      files: [],
+    },
+    attachments: [],
+  });
+
+  assert.equal(decision.kind, "preserve_draft_while_streaming");
+  assert.equal(
+    decision.message.text,
+    "确认采用参考长度 4.356 m 和参考面积 0.370988 m^2",
+  );
+});
+
+void test("resolveInputBoxSubmitAction allows stop semantics only when the streaming draft is empty", () => {
+  const decision = resolveInputBoxSubmitAction({
+    status: "streaming",
+    message: {
+      text: "   ",
+      files: [],
+    },
+    attachments: [],
+  });
+
+  assert.equal(decision.kind, "stop_stream");
 });

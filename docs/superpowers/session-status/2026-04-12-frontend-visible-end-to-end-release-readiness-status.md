@@ -152,3 +152,28 @@
 - Fresh combined submarine proof thread: `9304f03d-37e8-410f-b001-8c9b14ce8f58`
 - Existing submarine browser-proof threads: `091cd6ed-8a23-487e-a2fc-bb12ea8196cf`, `6737a8b6-2022-4e1b-a85c-955e818a31a4`
 - External manual-test STL fixture: `C:\Users\D0n9\Desktop\suboff_solid.stl`
+
+## 2026-04-13 Late Addendum
+- Fresh re-proof thread on the latest restarted services: `d84b80ef-ed26-4fa9-b1a8-a55a2745df91`
+- Verified browser-visible chain on that thread:
+  - upload `suboff_solid.stl`
+  - geometry preflight with explicit pending confirmation items
+  - confirmation reply containing `confirmation_status=confirmed` + `execution_preference=execute_now`
+  - visible `submarine_design_brief` artifacts and a main-canvas `开始实际求解执行` action
+  - visible execution request through chat history, followed by successful `submarine_solver_dispatch`
+  - visible `生成最终结果报告` action, followed by `final-report.*`, `delivery-readiness.*`, `research-evidence-summary.json`, `supervisor-scientific-gate.json`, and remediation artifacts
+  - visible `继续建议修正并重跑` action, followed by successful `submarine_scientific_followup`, refreshed solver/report artifacts, and `scientific-followup-history.json`
+- Important UI behavior now re-proven:
+  - the main-canvas visible actions already send a chat-visible message directly; the user should click the action once and does not need to press the bottom submit button again
+  - every important step leaves visible chat evidence and visible file-rail artifacts
+- Latest backend/frontend verification after the follow-up recovery fix:
+  - `uv run --project backend pytest backend/tests/test_cli_auth_providers.py backend/tests/test_submarine_solver_dispatch_tool.py backend/tests/test_submarine_result_report_tool.py backend/tests/test_submarine_scientific_followup_tool.py -v`
+    - result: `136 passed`
+  - `corepack pnpm --dir frontend exec node --experimental-strip-types --test "src/components/workspace/input-box.submit.test.ts" "src/components/workspace/submarine-workbench/submarine-visible-actions.test.ts" "src/components/workspace/submarine-workbench/index.contract.test.ts" "src/app/workspace/submarine/[thread_id]/page.test.ts" "src/core/threads/use-thread-stream.state.test.ts"`
+    - result: `39 passed`
+  - `corepack pnpm --dir frontend typecheck`
+    - result: clean
+- New durable decision:
+  - provider scientific-followup recovery must not rely only on a prior `submarine_result_report` tool message being present in history, because an interrupted but artifact-producing report run can leave the remediation handoff visible in the UI while the prior report tool activity is missing from persisted history
+- Remaining honest risk:
+  - the workflow is now re-proven from the frontend, but the fresh thread still ends in an honest `blocked_by_setup` / `delivery_only` scientific judgment because the case evidence/benchmark scope is not yet sufficient for a research-valid claim

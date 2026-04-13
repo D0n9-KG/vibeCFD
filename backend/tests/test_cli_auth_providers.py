@@ -1534,6 +1534,134 @@ def test_openai_cli_provider_recovers_confirmed_design_brief_from_short_confirma
     ]
 
 
+def test_openai_cli_provider_recovers_confirmed_design_brief_when_confirmation_also_requests_execute_now(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": "我先根据你刚才的输入继续推进；如果需要你补充信息，我会明确告诉你。",
+                            }
+                        ],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    confirmation_text = (
+        "确认两项关键值并继续：参考长度=4.356 m；参考面积=0.370988 m^2；"
+        "confirmation_status=confirmed；execution_preference=execute_now。"
+        "请立即继续生成设计简报，并在设计简报完成后显示前端可见的“开始实际求解执行”按钮。"
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    "请基于我上传的 suboff_solid.stl，做一轮 DARPA SUBOFF 裸艇阻力基线 CFD 分析。"
+                    "默认采用水下直航工况，自由来流速度 5 m/s，流体为水。"
+                    "请先做几何预检并把你需要我确认的事项完整列出来。"
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "suboff_solid.stl",
+                            "path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_geometry_check",
+                        "args": {
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_description": "DARPA SUBOFF 裸艇阻力基线 CFD 分析几何预检，水下直航工况，U=5 m/s，流体为水",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                        },
+                        "id": "fallback_submarine_geometry_check_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "已完成对 `suboff_solid.stl` 的几何检查，识别格式为 `stl`，几何家族倾向于 `DARPA SUBOFF`。"
+                    "估计艇体长度约 4.356 m。共记录 2 条几何信任发现。"
+                    "建议优先复用案例模板“DARPA SUBOFF 裸艇阻力基线”。下一步需要研究者确认计算草案。\n"
+                    "参考长度\n"
+                    "参考面积\n"
+                    "needs_user_confirmation"
+                ),
+                tool_call_id="fallback_submarine_geometry_check_0",
+                name="submarine_geometry_check",
+            ),
+            AIMessage(
+                content=(
+                    "已完成对 `suboff_solid.stl` 的几何检查，识别格式为 `stl`，几何家族倾向于 `DARPA SUBOFF`。"
+                    "估计艇体长度约 4.356 m。共记录 2 条几何信任发现。"
+                    "建议优先复用案例模板“DARPA SUBOFF 裸艇阻力基线”。下一步需要研究者确认计算草案。"
+                )
+            ),
+            HumanMessage(content=confirmation_text),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_design_brief",
+            "args": {
+                "task_description": confirmation_text,
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_type": "resistance",
+                "confirmation_status": "confirmed",
+                "execution_preference": "execute_now",
+                "geometry_family_hint": "DARPA SUBOFF",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "inlet_velocity_mps": 5.0,
+            },
+            "id": "fallback_submarine_design_brief_0",
+            "type": "tool_call",
+        }
+    ]
+
+
 def test_openai_cli_provider_recovers_solver_dispatch_after_ready_design_brief(
     monkeypatch,
 ):
@@ -2635,6 +2763,104 @@ def test_openai_cli_provider_rewrites_misrouted_result_report_to_scientific_foll
                 content=(
                     "这是修复后的前端可见恢复验证。请基于当前线程已有的 remediation handoff，"
                     "立即重新执行当前潜艇求解并刷新结果报告；如果线程仍不能继续，请先明确说明真实阻塞原因。"
+                )
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_scientific_followup",
+            "args": {},
+            "id": "fallback_submarine_scientific_followup_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_rewrites_misrouted_design_brief_to_scientific_followup_when_report_handoff_is_visible_but_prior_report_message_is_missing(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "function_call",
+                        "name": "submarine_design_brief",
+                        "call_id": "call_wrong_design_brief_after_followup_handoff",
+                        "arguments": json.dumps(
+                            {
+                                "task_description": (
+                                    "请继续建议的修正流程：基于当前科学审查给出的 remediation handoff，"
+                                    "复用现有几何、案例和已确认设置，立即重跑当前求解并补齐缺失的 solver metrics，"
+                                    "然后刷新结果报告。整个过程请保持在当前线程中可追踪。"
+                                ),
+                                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                                "task_type": "resistance",
+                            }
+                        ),
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="请按当前已经确认或已规划好的潜艇 CFD 方案开始实际求解执行，并继续完成必要的后处理准备。"),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "请按当前已经确认或已规划好的潜艇 CFD 方案开始实际求解执行，并继续完成必要的后处理准备。",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "execute_now": True,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "已执行 sandbox 内求解派发命令。\n"
+                    "后处理 artifacts 已生成。\n"
+                    "Scientific remediation handoff is now visible in the frontend."
+                ),
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+            HumanMessage(
+                content=(
+                    "请继续建议的修正流程：基于当前科学审查给出的 remediation handoff，"
+                    "复用现有几何、案例和已确认设置，立即重跑当前求解并补齐缺失的 solver metrics，"
+                    "然后刷新结果报告。整个过程请保持在当前线程中可追踪。"
                 )
             ),
         ]

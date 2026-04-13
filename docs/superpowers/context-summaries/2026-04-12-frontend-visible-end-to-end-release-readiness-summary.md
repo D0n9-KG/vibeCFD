@@ -52,3 +52,18 @@
 - one natural Chinese confirmation phrasing initially fell back to the generic visible ack before a second, more explicit confirmation sentence advanced to `submarine_design_brief`; treat that as a residual UX sharp edge unless a later hardening pass broadens confirmation recovery further
 - reviewer feedback could still uncover a small regression in the new runtime snapshot visibility layer or the fresh Windows path-length hardening
 - the implementation plan checkbox state is stale relative to the repo; use the session status file as the real resume source until the plan is refreshed
+
+## 2026-04-13 Late Addendum
+- Fresh thread `d84b80ef-ed26-4fa9-b1a8-a55a2745df91` now re-proves the visible submarine chain on the latest restarted services:
+  - upload -> geometry preflight -> explicit pending confirmations
+  - confirmation with `confirmation_status=confirmed` + `execution_preference=execute_now`
+  - design brief artifacts + visible execute CTA
+  - chat-visible execution request + successful solver dispatch
+  - visible report CTA + final report artifacts
+  - visible remediation CTA + `scientific-followup-history.json`
+- The scientific-followup recovery logic is now hardened for the real browser case where a remediation handoff is visible to the user but a prior `submarine_result_report` tool message is missing from persisted history.
+- Wider verification after this late delta is green:
+  - backend release-hardening subset: `136 passed`
+  - frontend focused visible-action/input/thread-state subset: `39 passed`
+  - frontend typecheck: clean
+- The remaining gap is no longer workflow completeness. It is release positioning and docs cleanup, because the fresh thread still ends honestly blocked at `delivery_only` rather than as a benchmark-validated research case.

@@ -299,6 +299,97 @@ class _FakeAsyncCompletionSandbox(_FakeSandbox):
         return super().execute_command(command)
 
 
+class _FakePreprocessEndAsyncCompletionSandbox(_FakeSandbox):
+    def __init__(self, case_dir: Path, delay_seconds: float = 0.05) -> None:
+        super().__init__(
+            output="\n".join(
+                [
+                    "[submarine-cfd] Running snappyHexMesh",
+                    "[... Observation truncated due to length ...]",
+                ]
+            )
+        )
+        self.case_dir = case_dir
+        self.delay_seconds = delay_seconds
+
+    def execute_command(self, command: str) -> str:
+        case_dir = _platform_fs_path(self.case_dir)
+        case_dir.mkdir(parents=True, exist_ok=True)
+        raw_log_path = case_dir / ".deerflow-raw-command.log"
+        status_path = case_dir / ".deerflow-command-exit-status"
+        status_path.unlink(missing_ok=True)
+        raw_log_path.write_text(
+            "\n".join(
+                [
+                    "[submarine-cfd] Extracting features",
+                    "ExecutionTime = 0.110134 s  ClockTime = 0 s",
+                    "End",
+                    "[submarine-cfd] Running snappyHexMesh",
+                    "Mesh snapped in = 23.862714 s.",
+                    "Checking final mesh ...",
+                    "End",
+                    "Time = 0s",
+                    "smoothSolver:  Solving for Ux, Initial residual = 0.02, Final residual = 1e-05, No Iterations 2",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        def _finish_run() -> None:
+            time.sleep(self.delay_seconds)
+
+            coeffs_dir = case_dir / "postProcessing" / "forceCoeffsHull" / "0"
+            coeffs_dir.mkdir(parents=True, exist_ok=True)
+            (coeffs_dir / "forceCoeffs.dat").write_text(
+                "\n".join(
+                    [
+                        "# Time Cd Cs Cl CmRoll CmPitch CmYaw",
+                        "0 0.18 0.00 0.00 0.00 0.01 0.00",
+                        "200 0.12 0.00 0.00 0.00 0.01 0.00",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            forces_dir = case_dir / "postProcessing" / "forcesHull" / "0"
+            forces_dir.mkdir(parents=True, exist_ok=True)
+            (forces_dir / "forces.dat").write_text(
+                "\n".join(
+                    [
+                        "# Time forces(pressure viscous) moments(pressure viscous)",
+                        "0 ((0 0 0) (12 0 0)) ((0 0 0) (0 1 0))",
+                        "200 ((0 0 0) (8 0 0)) ((0 0 0) (0 0.5 0))",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            raw_log_path.write_text(
+                "\n".join(
+                    [
+                        "[submarine-cfd] Extracting features",
+                        "ExecutionTime = 0.110134 s  ClockTime = 0 s",
+                        "End",
+                        "[submarine-cfd] Running snappyHexMesh",
+                        "Mesh snapped in = 23.862714 s.",
+                        "Checking final mesh ...",
+                        "End",
+                        "Time = 0s",
+                        "smoothSolver:  Solving for Ux, Initial residual = 0.02, Final residual = 1e-05, No Iterations 2",
+                        "GAMG:  Solving for p, Initial residual = 0.3, Final residual = 0.002, No Iterations 6",
+                        "Time = 200s",
+                        "smoothSolver:  Solving for Ux, Initial residual = 0.00031, Final residual = 3e-08, No Iterations 2",
+                        "GAMG:  Solving for p, Initial residual = 0.012, Final residual = 0.00014, No Iterations 5",
+                        "ExecutionTime = 18.1 s  ClockTime = 19 s",
+                        "End",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            status_path.write_text("0", encoding="utf-8")
+
+        threading.Thread(target=_finish_run, daemon=True).start()
+        return super().execute_command(command)
+
+
 class _FakeMeshOnlySandbox(_FakeSandbox):
     def __init__(self, case_dir: Path) -> None:
         super().__init__(
@@ -1662,6 +1753,72 @@ def test_submarine_solver_dispatch_waits_for_workspace_completion_before_collect
     assert result.update["submarine_runtime"]["stage_status"] == "executed"
 
 
+def test_submarine_solver_dispatch_waits_past_preprocess_end_markers_before_collecting_results(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-preprocess-end-async-completion"
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "preprocess-end-async-completion.stl"
+    _write_ascii_stl(geometry_path)
+
+    case_dir = (
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "preprocess-end-async-completion"
+        / "openfoam-case"
+    )
+    fake_sandbox = _FakePreprocessEndAsyncCompletionSandbox(case_dir=case_dir)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(tool_module, "get_sandbox_provider", lambda: _FakeProvider(fake_sandbox))
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/preprocess-end-async-completion.stl",
+        task_description="Wait for the real solver completion instead of trusting preprocess End markers",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=True,
+        solver_command=(
+            "bash /mnt/user-data/workspace/submarine/solver-dispatch/"
+            "preprocess-end-async-completion/openfoam-case/Allrun"
+        ),
+        tool_call_id="tc-dispatch-preprocess-end-async-completion",
+    )
+
+    request_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "preprocess-end-async-completion"
+        / "openfoam-request.json"
+    )
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    solver_results = payload["solver_results"]
+
+    assert payload["dispatch_status"] == "executed"
+    assert solver_results["solver_completed"] is True
+    assert solver_results["final_time_seconds"] == 200.0
+    assert solver_results["residual_summary"]["field_count"] == 2
+    assert solver_results["latest_force_coefficients"]["Cd"] == 0.12
+    assert "Time = 200s" in (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "preprocess-end-async-completion"
+        / "openfoam-run.log"
+    ).read_text(encoding="utf-8")
+    assert result.update["submarine_runtime"]["stage_status"] == "executed"
+
+
 def test_submarine_solver_dispatch_clears_stale_postprocessing_before_incomplete_rerun(
     tmp_path, monkeypatch
 ):
@@ -2818,6 +2975,98 @@ def test_solver_dispatch_decomposition_results_module_prefers_later_plain_mesh_c
     assert results["mesh_summary"]["points"] == 183378
     assert results["mesh_summary"]["cells"] == 141249
     assert results["mesh_summary"]["faces"] == 465265
+
+
+def test_solver_dispatch_decomposition_results_module_does_not_treat_preprocess_end_markers_as_solver_completion():
+    results_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch_results"
+    )
+
+    command_output = "\n".join(
+        [
+            "[submarine-cfd] Extracting features",
+            "ExecutionTime = 0.110134 s  ClockTime = 0 s",
+            "End",
+            "[submarine-cfd] Running snappyHexMesh",
+            "Mesh snapped in = 23.862714 s.",
+            "Checking final mesh ...",
+            "End",
+        ]
+    )
+
+    results = results_module.collect_solver_results(
+        case_dir=Path("."),
+        run_dir_name="preprocess-end-only",
+        command_output=command_output,
+        reference_values={
+            "reference_length_m": 4.0,
+            "reference_area_m2": 1.0,
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1000.0,
+        },
+        simulation_requirements={
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1000.0,
+            "kinematic_viscosity_m2ps": 1e-06,
+            "end_time_seconds": 200.0,
+            "delta_t_seconds": 1.0,
+            "write_interval_steps": 50,
+        },
+    )
+
+    assert results["solver_completed"] is False
+    assert results["final_time_seconds"] is None
+    assert results["residual_summary"] is None
+    assert results["latest_force_coefficients"] is None
+    assert results["latest_forces"] is None
+
+
+def test_solver_dispatch_decomposition_results_module_requires_terminal_end_after_solver_evidence():
+    results_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch_results"
+    )
+
+    command_output = "\n".join(
+        [
+            "[submarine-cfd] Extracting features",
+            "ExecutionTime = 0.110134 s  ClockTime = 0 s",
+            "End",
+            "[submarine-cfd] Running snappyHexMesh",
+            "Mesh snapped in = 23.862714 s.",
+            "Checking final mesh ...",
+            "End",
+            "Time = 0s",
+            "smoothSolver:  Solving for Ux, Initial residual = 0.02, Final residual = 1e-05, No Iterations 2",
+        ]
+    )
+
+    assert results_module.solver_output_looks_complete(command_output) is False
+
+    results = results_module.collect_solver_results(
+        case_dir=Path("."),
+        run_dir_name="preprocess-end-plus-partial-solver",
+        command_output=command_output,
+        reference_values={
+            "reference_length_m": 4.0,
+            "reference_area_m2": 1.0,
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1000.0,
+        },
+        simulation_requirements={
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1000.0,
+            "kinematic_viscosity_m2ps": 1e-06,
+            "end_time_seconds": 200.0,
+            "delta_t_seconds": 1.0,
+            "write_interval_steps": 50,
+        },
+    )
+
+    assert results["solver_completed"] is False
+    assert results["final_time_seconds"] == 0.0
+    assert results["residual_summary"]["field_count"] == 1
+    assert results["latest_force_coefficients"] is None
+    assert results["latest_forces"] is None
 
 
 def test_submarine_solver_dispatch_requires_user_confirmation_before_dispatch(

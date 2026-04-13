@@ -64,6 +64,7 @@ from .solver_dispatch_results import (
     collect_solver_results,
     looks_like_solver_failure,
     render_solver_results_markdown_enriched,
+    solver_output_looks_complete,
     solver_reference_values,
 )
 from .studies import (
@@ -337,7 +338,7 @@ def _read_workspace_command_exit_status(
 
 
 def _command_output_looks_complete(command_output: str) -> bool:
-    return "\nEnd" in command_output or command_output.rstrip().endswith("End")
+    return solver_output_looks_complete(command_output)
 
 
 def _wait_for_workspace_command_completion(

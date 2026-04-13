@@ -189,8 +189,49 @@ def _parse_final_time_seconds(command_output: str) -> float | None:
         return None
 
 
-def _solver_completed_successfully(command_output: str) -> bool:
+def _has_end_marker(command_output: str) -> bool:
     return "\nEnd" in command_output or command_output.rstrip().endswith("End")
+
+
+def _latest_end_marker_position(command_output: str) -> int:
+    latest_position = -1
+    for match in re.finditer(r"^End\s*$", command_output, flags=re.MULTILINE):
+        latest_position = match.start()
+    return latest_position
+
+
+def _has_solver_stage_evidence(command_output: str) -> bool:
+    return _parse_final_time_seconds(command_output) is not None or bool(
+        _parse_residual_history(command_output)
+    )
+
+
+def _latest_solver_evidence_position(command_output: str) -> int:
+    latest_position = -1
+    for match in re.finditer(r"^Time = [0-9.+-eE]+s?$", command_output, flags=re.MULTILINE):
+        latest_position = match.start()
+    residual_pattern = re.compile(
+        r"^(?P<solver>[^:]+):\s+Solving for (?P<field>[^,]+), Initial residual = (?P<initial>[-+0-9.eE]+), "
+        r"Final residual = (?P<final>[-+0-9.eE]+), No Iterations (?P<iterations>\d+)$",
+        flags=re.MULTILINE,
+    )
+    for match in residual_pattern.finditer(command_output):
+        latest_position = max(latest_position, match.start())
+    return latest_position
+
+
+def _solver_completed_successfully(command_output: str) -> bool:
+    if not _has_end_marker(command_output) or not _has_solver_stage_evidence(command_output):
+        return False
+
+    latest_solver_position = _latest_solver_evidence_position(command_output)
+    if latest_solver_position < 0:
+        return False
+    return _latest_end_marker_position(command_output) > latest_solver_position
+
+
+def solver_output_looks_complete(command_output: str) -> bool:
+    return _solver_completed_successfully(command_output)
 
 
 def _latest_int_match(
@@ -551,5 +592,6 @@ __all__ = [
     "collect_solver_results",
     "looks_like_solver_failure",
     "render_solver_results_markdown_enriched",
+    "solver_output_looks_complete",
     "solver_reference_values",
 ]
