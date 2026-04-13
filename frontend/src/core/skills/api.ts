@@ -123,6 +123,8 @@ export interface UpdateSkillLifecycleRequest {
   enabled: boolean;
   version_note?: string;
   binding_targets: SkillLifecycleBindingTarget[];
+  thread_id?: string;
+  path?: string;
 }
 
 export interface RollbackSkillRevisionRequest {

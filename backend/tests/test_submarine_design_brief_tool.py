@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from deerflow.config.paths import Paths
 
 tool_module = importlib.import_module("deerflow.tools.builtins.submarine_design_brief_tool")
+design_brief_module = importlib.import_module("deerflow.domain.submarine.design_brief")
 
 
 def _make_runtime(paths: Paths, thread_id: str = "thread-1") -> SimpleNamespace:
@@ -206,6 +207,84 @@ def test_submarine_design_brief_tool_merges_existing_brief_context(tmp_path, mon
     assert payload["execution_outline"][2]["status"] == "ready"
     assert runtime_state["execution_plan"][0]["status"] == "completed"
     assert runtime_state["execution_plan"][1]["status"] == "ready"
+
+
+def test_submarine_design_brief_preserves_existing_followup_handoff_state(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-preserve-followup"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "preserve-followup.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["submarine_runtime"] = {
+        "current_stage": "result-reporting",
+        "task_summary": "Continue the scientific CFD remediation flow",
+        "confirmation_status": "confirmed",
+        "approval_state": "approved",
+        "goal_status": "ready_for_execution",
+        "execution_preference": "execute_now",
+        "task_type": "resistance",
+        "geometry_virtual_path": "/mnt/user-data/uploads/preserve-followup.stl",
+        "geometry_family": "DARPA SUBOFF",
+        "execution_readiness": "stl_ready",
+        "selected_case_id": "darpa_suboff_bare_hull_resistance",
+        "simulation_requirements": {
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1000.0,
+        },
+        "stage_status": "blocked",
+        "next_recommended_stage": "result-reporting",
+        "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/preserve-followup/final-report.md",
+        "artifact_virtual_paths": [
+            "/mnt/user-data/outputs/submarine/reports/preserve-followup/final-report.json"
+        ],
+        "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/preserve-followup/provenance-manifest.json",
+        "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/preserve-followup/scientific-remediation-handoff.json",
+        "scientific_gate_virtual_path": "/mnt/user-data/outputs/submarine/reports/preserve-followup/supervisor-scientific-gate.json",
+        "review_status": "blocked",
+        "execution_plan": [],
+        "activity_timeline": [],
+    }
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/preserve-followup.stl",
+        task_description=(
+            "请继续建议的修正流程：基于当前科学审查给出的 remediation handoff，"
+            "复用现有几何、案例和已确认设置，立即重跑当前求解并补齐缺失的 solver metrics，"
+            "然后刷新结果报告。整个过程请保持在当前线程中可追踪。"
+        ),
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        confirmation_status="confirmed",
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        tool_call_id="tc-design-brief-preserve-followup",
+    )
+
+    runtime_state = result.update["submarine_runtime"]
+
+    assert runtime_state["current_stage"] == "task-intelligence"
+    assert (
+        runtime_state["supervisor_handoff_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/preserve-followup/scientific-remediation-handoff.json"
+    )
+    assert (
+        runtime_state["scientific_gate_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/preserve-followup/supervisor-scientific-gate.json"
+    )
+    assert (
+        runtime_state["provenance_manifest_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/solver-dispatch/preserve-followup/provenance-manifest.json"
+    )
 
 
 def test_submarine_design_brief_normalizes_requested_outputs(tmp_path, monkeypatch):
@@ -546,3 +625,77 @@ def test_submarine_design_brief_captures_direct_execution_preference(
 
     assert payload["execution_preference"] == "execute_now"
     assert runtime_state["execution_preference"] == "execute_now"
+
+
+def test_submarine_design_brief_caps_fallback_run_dir_name_on_long_task_description(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-long-run-basis"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    long_task_description = (
+        "DARPA SUBOFF 5 mps CFD scientific verification "
+        "submarine result acceptance visible preflight then execute "
+    ) * 3
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path=None,
+        task_description=long_task_description.strip(),
+        task_type="resistance",
+        confirmation_status="confirmed",
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        tool_call_id="tc-design-brief-long-run-basis",
+    )
+
+    json_artifact = next(
+        path
+        for path in result.update["artifacts"]
+        if path.endswith("/cfd-design-brief.json")
+    )
+    run_dir_name = json_artifact.split("/")[-2]
+    json_path = (
+        outputs_dir
+        / "submarine"
+        / "design-brief"
+        / run_dir_name
+        / "cfd-design-brief.json"
+    )
+
+    assert json_path.exists()
+    assert len(run_dir_name) <= 80
+    assert len(str(json_path)) < 240
+
+
+def test_submarine_design_brief_run_dir_budget_respects_near_limit_output_root():
+    outputs_dir = (
+        Path("C:/near-limit-root")
+        / ("solver-segment-" * 4)
+        / ("artifact-segment-" * 4)
+    )
+    run_basis = (
+        "DARPA SUBOFF 5 mps CFD scientific verification "
+        "submarine result acceptance visible preflight then execute "
+    ) * 4
+
+    run_dir_name = design_brief_module._build_run_dir_name(
+        outputs_dir=outputs_dir,
+        run_basis=run_basis,
+    )
+    artifact_path = (
+        outputs_dir
+        / "submarine"
+        / "design-brief"
+        / run_dir_name
+        / "cfd-design-brief.json"
+    )
+
+    assert len(run_dir_name) <= design_brief_module._resolve_run_dir_name_budget(outputs_dir)
+    assert len(run_dir_name.rsplit("-", 1)[-1]) == design_brief_module._RUN_DIR_HASH_CHARS
+    assert len(str(artifact_path)) <= design_brief_module._MAX_ARTIFACT_PATH_CHARS

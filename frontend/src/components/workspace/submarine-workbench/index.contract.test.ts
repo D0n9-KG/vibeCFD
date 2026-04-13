@@ -19,6 +19,10 @@ const historyBannerSource = await readFile(
   new URL("./submarine-research-slice-history-banner.tsx", import.meta.url),
   "utf8",
 );
+const visibleActionsSource = await readFile(
+  new URL("./submarine-visible-actions.ts", import.meta.url),
+  "utf8",
+);
 
 void test("submarine workbench mounts the research canvas instead of stage tabs", () => {
   assert.match(source, /SubmarineResearchCanvas/);
@@ -62,6 +66,23 @@ void test("submarine workbench exposes live progress before structured artifacts
   assert.match(source, /latestAssistantPreview/);
   assert.match(source, /latestUserPreview/);
   assert.match(canvasSource, /data-live-progress="submarine"/);
+});
+
+void test("submarine workbench adds visible action buttons that send execution and report requests through chat history", () => {
+  assert.match(source, /buildSubmarineVisibleActions/);
+  assert.match(source, /onSubmitVisibleAction/);
+  assert.match(canvasSource, /data-submarine-visible-actions="submarine"/);
+  assert.match(canvasSource, /data-submarine-visible-action=/);
+  assert.match(visibleActionsSource, /开始实际求解执行/);
+  assert.match(visibleActionsSource, /生成最终结果报告/);
+});
+
+void test("submarine workbench exposes a visible runtime skill snapshot for binding proof", () => {
+  assert.match(source, /skill_runtime_snapshot/);
+  assert.match(source, /skillRuntimeSnapshot/);
+  assert.match(canvasSource, /data-submarine-runtime-snapshot="submarine"/);
+  assert.match(canvasSource, /data-submarine-runtime-binding=/);
+  assert.match(canvasSource, /resolved_binding_targets/);
 });
 
 void test("submarine center surface no longer renders raw DeerFlow stage ids as visible evidence badges", () => {

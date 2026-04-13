@@ -10,6 +10,7 @@ from deerflow.tools.builtins import (
     submarine_design_brief_tool,
     submarine_geometry_check_tool,
     submarine_result_report_tool,
+    submarine_scientific_followup_tool,
     submarine_skill_studio_tool,
     submarine_solver_dispatch_tool,
     task_tool,
@@ -25,6 +26,7 @@ BUILTIN_TOOLS = [
     submarine_design_brief_tool,
     submarine_geometry_check_tool,
     submarine_result_report_tool,
+    submarine_scientific_followup_tool,
     submarine_skill_studio_tool,
     submarine_solver_dispatch_tool,
 ]

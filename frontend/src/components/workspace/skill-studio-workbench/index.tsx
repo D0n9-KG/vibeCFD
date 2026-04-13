@@ -452,21 +452,37 @@ export function SkillStudioAgenticWorkbench({
     skillPackage?.package_archive_virtual_path ??
     skillPackage?.archive_virtual_path ??
     null;
+  const canSaveLifecycle = Boolean(
+    skillName &&
+      (lifecyclePath || draftPath || lifecycleSummary || lifecycleDetail),
+  );
 
   const saveLifecycle = useCallback(async () => {
-    if (!skillName) return;
+    if (!skillName || !canSaveLifecycle) return;
     try {
       await updateLifecycle.mutateAsync({
         skillName,
         enabled: publishEnabled,
         version_note: versionNote,
         binding_targets: bindingTargets,
+        thread_id: threadId,
+        path: lifecyclePath ?? draftPath ?? undefined,
       });
       toast.success("技能生命周期设置已保存。");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存技能生命周期设置失败。");
     }
-  }, [bindingTargets, publishEnabled, skillName, updateLifecycle, versionNote]);
+  }, [
+    bindingTargets,
+    canSaveLifecycle,
+    draftPath,
+    lifecyclePath,
+    publishEnabled,
+    skillName,
+    threadId,
+    updateLifecycle,
+    versionNote,
+  ]);
 
   const recordDryRun = useCallback(
     async (status: "passed" | "failed") => {
@@ -633,6 +649,7 @@ export function SkillStudioAgenticWorkbench({
           versionNote={versionNote}
           explicitBindingRoleIds={explicitBindingRoleIds}
           busy={busy}
+          canSaveLifecycle={canSaveLifecycle}
           canPublish={
             Boolean(packageArchivePath) &&
             detail.evaluate.dryRun.status === "passed" &&

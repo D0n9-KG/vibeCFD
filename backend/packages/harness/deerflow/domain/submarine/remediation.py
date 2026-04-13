@@ -37,12 +37,31 @@ def _merge_artifact_paths(*groups: object) -> list[str]:
     return merged
 
 
-def _collect_missing_study_types(scientific_study_summary: Mapping[str, Any]) -> list[str]:
+def _collect_actionable_study_types(
+    scientific_study_summary: Mapping[str, Any],
+) -> list[str]:
     study_types: list[str] = []
     for item in scientific_study_summary.get("studies") or []:
         if not isinstance(item, Mapping):
             continue
-        if str(item.get("verification_status") or "") != "missing_evidence":
+        verification_status = str(item.get("verification_status") or "")
+        if verification_status not in {"missing_evidence", "blocked"}:
+            continue
+        actionable = False
+        for field_name in (
+            "planned_variant_run_ids",
+            "in_progress_variant_run_ids",
+            "blocked_variant_run_ids",
+            "planned_compare_variant_run_ids",
+            "missing_metrics_variant_run_ids",
+        ):
+            value = item.get(field_name)
+            if isinstance(value, list) and any(
+                isinstance(entry, str) and entry for entry in value
+            ):
+                actionable = True
+                break
+        if not actionable and verification_status != "missing_evidence":
             continue
         study_type = str(item.get("study_type") or "scientific_study")
         if study_type not in study_types:
@@ -98,7 +117,7 @@ def build_scientific_remediation_summary(
     recommended_stage = str(gate.get("recommended_stage") or "supervisor-review")
     evidence_gaps = _as_string_list(research.get("evidence_gaps"))
     missing_evidence = _as_string_list(verification.get("missing_evidence"))
-    missing_study_types = _collect_missing_study_types(study_summary)
+    actionable_study_types = _collect_actionable_study_types(study_summary)
     plan_artifacts = _as_string_list(artifact_virtual_paths)
     gate_artifacts = _as_string_list(gate.get("artifact_virtual_paths"))
 
@@ -114,18 +133,27 @@ def build_scientific_remediation_summary(
             "actions": [],
         }
 
-    if missing_evidence or missing_study_types:
+    if missing_evidence or actionable_study_types:
         study_manifest_path = study_summary.get("manifest_virtual_path")
         study_label = (
-            ", ".join(missing_study_types)
-            if missing_study_types
+            ", ".join(actionable_study_types)
+            if actionable_study_types
             else "scientific verification studies"
         )
-        evidence_gap = (
-            missing_evidence[0]
-            if missing_evidence
-            else f"Scientific study evidence is incomplete for {study_label}."
-        )
+        evidence_gap = missing_evidence[0] if missing_evidence else None
+        if evidence_gap is None:
+            for item in study_summary.get("studies") or []:
+                if not isinstance(item, Mapping):
+                    continue
+                study_type = str(item.get("study_type") or "")
+                if study_type not in actionable_study_types:
+                    continue
+                detail = item.get("verification_detail")
+                if isinstance(detail, str) and detail:
+                    evidence_gap = detail
+                    break
+        if evidence_gap is None:
+            evidence_gap = f"Scientific study evidence is incomplete for {study_label}."
         actions.append(
             _build_action(
                 action_id="execute-scientific-studies",

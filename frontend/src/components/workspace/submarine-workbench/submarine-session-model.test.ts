@@ -643,3 +643,48 @@ void test("keeps the active slice stable while entering historical inspection mo
   assert.equal(model.trustSurface.reproducibilityAvailable, true);
   assert.equal(model.trustSurface.environmentParityAvailable, true);
 });
+
+void test("marks a blocked delivery slice as blocked instead of advertising it as ready for review", () => {
+  const model = buildModel({
+    runtime: {
+      runtime_status: "blocked",
+      current_stage: "result-reporting",
+      task_summary: "Continue with the recommended remediation and refresh the report.",
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      report_virtual_path: "/artifacts/submarine/final-report.json",
+      blocker_detail: "Solver metrics are unavailable for this run.",
+      supervisor_handoff_virtual_path:
+        "/artifacts/submarine/scientific-remediation-handoff.json",
+    },
+    designBrief: {
+      summary_zh: "SUBOFF 阻力基线结果阻塞后的补证据处理。",
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      confirmation_status: "confirmed",
+      requested_outputs: [{ label: "阻力系数曲线" }],
+    },
+    finalReport: {
+      summary_zh: "当前报告已生成，但科学审查仍要求补齐缺失的 solver metrics。",
+      report_overview: {
+        recommended_next_step_zh: "先补齐缺失的 solver metrics，再刷新报告。",
+      },
+      scientific_supervisor_gate: {
+        gate_status: "blocked",
+        blocking_reasons: ["Solver metrics are unavailable for this run."],
+      },
+      scientific_remediation_handoff: {
+        handoff_status: "ready_for_auto_followup",
+        recommended_action_id: "execute-scientific-studies",
+        tool_name: "submarine_solver_dispatch",
+        reason: "Solver metrics are unavailable for this run.",
+      },
+    },
+    viewedSliceId: null,
+    messageCount: 16,
+    artifactCount: 9,
+  });
+
+  assert.equal(model.activeSliceId, "results-and-delivery");
+  assert.equal(model.currentSlice.statusLabel, "受阻");
+  assert.match(model.currentSlice.summary, /solver metrics|补齐/i);
+  assert.match(model.currentSlice.nextRecommendedAction, /补齐|修正|报告/);
+});

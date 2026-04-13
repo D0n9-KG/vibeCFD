@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import cast
 
@@ -95,6 +96,36 @@ description: "Curly quotes: \u201cutf8\u201d"
     assert valid is True
     assert message == "Skill is valid!"
     assert skill_name == "demo-skill"
+
+
+def test_skills_router_prefers_explicit_langgraph_env_url(monkeypatch) -> None:
+    monkeypatch.setenv("LANGGRAPH_PROXY_BASE_URL", "http://127.0.0.1:2127")
+    monkeypatch.setattr(
+        skills,
+        "get_app_config",
+        lambda: type("Config", (), {"model_extra": {}})(),
+    )
+
+    assert skills._get_langgraph_server_url() == "http://127.0.0.1:2127"
+
+
+def test_skills_router_falls_back_to_reachable_local_langgraph_url(monkeypatch) -> None:
+    monkeypatch.delenv("LANGGRAPH_PROXY_BASE_URL", raising=False)
+    monkeypatch.delenv("LANGGRAPH_SERVER_URL", raising=False)
+    monkeypatch.delenv("LANGGRAPH_BASE_URL", raising=False)
+    monkeypatch.delenv("NEXT_PUBLIC_LANGGRAPH_BASE_URL", raising=False)
+    monkeypatch.setattr(
+        skills,
+        "get_app_config",
+        lambda: type("Config", (), {"model_extra": {}})(),
+    )
+    monkeypatch.setattr(
+        skills,
+        "_is_langgraph_url_reachable",
+        lambda url: url == "http://127.0.0.1:2127",
+    )
+
+    assert skills._get_langgraph_server_url() == "http://127.0.0.1:2127"
 
 
 def _build_skill_archive(
@@ -285,3 +316,60 @@ def test_skill_lifecycle_routes_round_trip_publish_management_state(
     assert updated_payload["enabled"] is False
     assert updated_payload["version_note"] == "Hold back after manual review"
     assert updated_payload["binding_targets"][0]["role_id"] == "result-reporting"
+
+
+def test_skill_lifecycle_routes_support_prepublish_draft_updates(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    resolved_paths, virtual_paths = _build_skill_archive(tmp_path)
+    draft_path = resolved_paths[("thread-1", virtual_paths["draft"])]
+    lifecycle_path = draft_path.parent / "skill-lifecycle.json"
+
+    with _create_router_client(tmp_path, monkeypatch, resolved_paths) as client:
+        update_response = client.put(
+            "/api/skills/lifecycle/submarine-result-acceptance",
+            json={
+                "enabled": True,
+                "version_note": "Draft lifecycle note before publish",
+                "binding_targets": [
+                    {
+                        "role_id": "scientific-verification",
+                        "mode": "explicit",
+                        "target_skills": ["submarine-result-acceptance"],
+                    },
+                ],
+                "thread_id": "thread-1",
+                "path": virtual_paths["draft"],
+            },
+        )
+        list_response = client.get("/api/skills/lifecycle")
+        detail_response = client.get(
+            "/api/skills/lifecycle/submarine-result-acceptance",
+        )
+
+    assert update_response.status_code == 200
+    update_payload = update_response.json()
+    assert update_payload["draft_status"] == "draft_ready"
+    assert update_payload["published_path"] is None
+    assert update_payload["version_note"] == "Draft lifecycle note before publish"
+    assert update_payload["binding_targets"][0]["role_id"] == "scientific-verification"
+    assert update_payload["binding_count"] == 1
+
+    assert list_response.status_code == 200
+    lifecycle_summaries = list_response.json()["skills"]
+    assert len(lifecycle_summaries) == 1
+    assert lifecycle_summaries[0]["skill_name"] == "submarine-result-acceptance"
+    assert lifecycle_summaries[0]["draft_status"] == "draft_ready"
+    assert lifecycle_summaries[0]["binding_count"] == 1
+    assert lifecycle_summaries[0]["version_note"] == "Draft lifecycle note before publish"
+
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["published_path"] is None
+    assert detail_payload["version_note"] == "Draft lifecycle note before publish"
+    assert detail_payload["binding_targets"][0]["role_id"] == "scientific-verification"
+
+    persisted_payload = json.loads(lifecycle_path.read_text(encoding="utf-8"))
+    assert persisted_payload["version_note"] == "Draft lifecycle note before publish"
+    assert persisted_payload["bindings"][0]["role_id"] == "scientific-verification"

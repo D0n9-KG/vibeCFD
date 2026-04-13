@@ -25,6 +25,7 @@ import {
   deriveThreadsAfterWorkbenchStart,
   deriveThreadStreamBinding,
   deriveThreadStreamSendState,
+  type ThreadLatestRunStatus,
 } from "./use-thread-stream.state";
 import {
   deriveThreadsAfterDeletion,
@@ -40,6 +41,7 @@ export type ToolEndEvent = {
 
 export type ThreadStreamMeta = {
   persistedMessageCount: number;
+  latestRunStatus: ThreadLatestRunStatus;
 };
 
 const THREAD_STREAM_REBIND_TIMEOUT_MS = 1500;
@@ -277,6 +279,8 @@ export function useThreadStream({
   // Optimistic messages shown before the server stream responds
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [latestRunStatus, setLatestRunStatus] =
+    useState<ThreadLatestRunStatus>(null);
   const sendInFlightRef = useRef(false);
   const threadStreamRef = useRef(thread);
   // Track message count before sending so we know when server has responded
@@ -285,6 +289,39 @@ export function useThreadStream({
   useEffect(() => {
     threadStreamRef.current = thread;
   }, [thread]);
+
+  useEffect(() => {
+    if (isNewThread || !threadId) {
+      setLatestRunStatus(null);
+      return;
+    }
+
+    const abortController = new AbortController();
+    let isCancelled = false;
+
+    void apiClient.runs
+      .list(threadId, {
+        limit: 1,
+        signal: abortController.signal,
+      })
+      .then((runs) => {
+        if (isCancelled) {
+          return;
+        }
+        setLatestRunStatus(runs[0]?.status ?? null);
+      })
+      .catch(() => {
+        if (isCancelled) {
+          return;
+        }
+        setLatestRunStatus((currentStatus) => currentStatus);
+      });
+
+    return () => {
+      isCancelled = true;
+      abortController.abort();
+    };
+  }, [apiClient, isNewThread, thread.error, thread.isLoading, threadId]);
 
   // Clear optimistic when server messages arrive (count increases)
   useEffect(() => {
@@ -483,6 +520,7 @@ export function useThreadStream({
             },
           },
         );
+        setLatestRunStatus("pending");
         if (sendState.shouldSignalStartAfterSubmitStart) {
           notifyKnownThreadStart(threadId);
         }
@@ -491,6 +529,7 @@ export function useThreadStream({
       } catch (error) {
         setOptimisticMessages([]);
         setIsUploading(false);
+        setLatestRunStatus(null);
         throw error;
       } finally {
         sendInFlightRef.current = false;
@@ -523,6 +562,7 @@ export function useThreadStream({
     isUploading,
     {
       persistedMessageCount: thread.messages.length,
+      latestRunStatus,
     } satisfies ThreadStreamMeta,
   ] as const;
 }

@@ -1,6 +1,9 @@
+import asyncio
+import threading
 from types import SimpleNamespace
 
 from langchain.agents.middleware.types import ModelRequest
+from langchain.agents.middleware.types import ModelResponse
 from langchain_core.messages import SystemMessage
 from langgraph.runtime import Runtime
 
@@ -136,3 +139,92 @@ def test_override_skill_snapshot_rewrites_system_prompt(monkeypatch):
     assert "cached-skill" in overridden.system_prompt
     assert "fresh-skill" not in overridden.system_prompt
     assert "result-reporting" in overridden.system_prompt
+
+
+def test_abefore_model_captures_skill_runtime_snapshot_off_event_loop_thread(monkeypatch):
+    middleware = SkillRuntimeSnapshotMiddleware()
+    event_loop_thread_id = threading.get_ident()
+    capture_thread_ids: list[int] = []
+
+    monkeypatch.setattr(
+        "deerflow.agents.middlewares.skill_runtime_snapshot_middleware._resolve_skills_root",
+        lambda: "skills-root",
+    )
+    monkeypatch.setattr(
+        "deerflow.agents.middlewares.skill_runtime_snapshot_middleware.load_skill_lifecycle_registry",
+        lambda *args, **kwargs: SimpleNamespace(runtime_revision=5, records={}),
+    )
+    monkeypatch.setattr(
+        "deerflow.agents.middlewares.skill_runtime_snapshot_middleware.load_skills_from_path",
+        lambda *args, **kwargs: (
+            capture_thread_ids.append(threading.get_ident()) or [
+                _fake_skill("fresh-skill", "Fresh skill")
+            ]
+        ),
+        raising=False,
+    )
+
+    async def _exercise() -> dict | None:
+        return await middleware.abefore_model(
+            state={"messages": []},
+            runtime=Runtime(context={}),
+        )
+
+    result = asyncio.run(_exercise())
+
+    assert result is not None
+    assert result["skill_runtime_snapshot"]["enabled_skill_names"] == ["fresh-skill"]
+    assert capture_thread_ids == [capture_thread_ids[0]]
+    assert capture_thread_ids[0] != event_loop_thread_id
+
+
+def test_awrap_model_call_captures_skill_runtime_snapshot_off_event_loop_thread(
+    monkeypatch,
+):
+    middleware = SkillRuntimeSnapshotMiddleware()
+    event_loop_thread_id = threading.get_ident()
+    capture_thread_ids: list[int] = []
+
+    monkeypatch.setattr(
+        "deerflow.agents.middlewares.skill_runtime_snapshot_middleware._resolve_skills_root",
+        lambda: "skills-root",
+    )
+    monkeypatch.setattr(
+        "deerflow.agents.middlewares.skill_runtime_snapshot_middleware.load_skill_lifecycle_registry",
+        lambda *args, **kwargs: SimpleNamespace(runtime_revision=5, records={}),
+    )
+    monkeypatch.setattr(
+        "deerflow.agents.middlewares.skill_runtime_snapshot_middleware.load_skills_from_path",
+        lambda *args, **kwargs: (
+            capture_thread_ids.append(threading.get_ident()) or [
+                _fake_skill("fresh-skill", "Fresh skill")
+            ]
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "deerflow.agents.middlewares.skill_runtime_snapshot_middleware.apply_prompt_template",
+        lambda **kwargs: (
+            "skills="
+            + ",".join(sorted(kwargs.get("available_skills") or []))
+        ),
+    )
+
+    observed_request: dict[str, object] = {}
+
+    async def _handler(request: ModelRequest) -> ModelResponse:
+        observed_request["state"] = request.state
+        observed_request["system_prompt"] = request.system_prompt
+        return ModelResponse(result=[], structured_response=None)
+
+    async def _exercise() -> ModelResponse:
+        return await middleware.awrap_model_call(_build_request("live prompt"), _handler)
+
+    asyncio.run(_exercise())
+
+    assert capture_thread_ids == [capture_thread_ids[0]]
+    assert capture_thread_ids[0] != event_loop_thread_id
+    assert observed_request["state"]["skill_runtime_snapshot"]["enabled_skill_names"] == [
+        "fresh-skill"
+    ]
+    assert observed_request["system_prompt"] == "skills=fresh-skill"

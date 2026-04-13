@@ -7,6 +7,15 @@ import { resolveThreadDisplayTitle, type ThreadWorkbenchKind } from "./utils.ts"
 
 const DEFAULT_UNTITLED_TITLE = "Untitled";
 
+export type ThreadLatestRunStatus =
+  | "pending"
+  | "running"
+  | "error"
+  | "success"
+  | "timeout"
+  | "interrupted"
+  | null;
+
 export function deriveThreadStreamBinding({
   previousThreadId,
   requestedThreadId,
@@ -41,6 +50,34 @@ export function deriveThreadStreamSendState({
     shouldSignalStartAfterSubmitStart: shouldCreateThreadBeforeSubmit,
     shouldUseReboundThreadAfterCreate: shouldCreateThreadBeforeSubmit,
   };
+}
+
+export function deriveThreadInputStatus({
+  hasError,
+  isLoading,
+  latestRunStatus,
+}: {
+  hasError: boolean;
+  isLoading: boolean;
+  latestRunStatus: ThreadLatestRunStatus;
+}) {
+  if (hasError) {
+    return "error" as const;
+  }
+
+  if (!isLoading) {
+    return "ready" as const;
+  }
+
+  if (
+    latestRunStatus === "interrupted" ||
+    latestRunStatus === "error" ||
+    latestRunStatus === "timeout"
+  ) {
+    return "ready" as const;
+  }
+
+  return "streaming" as const;
 }
 
 export function deriveOptimisticMessagesAfterUpload({

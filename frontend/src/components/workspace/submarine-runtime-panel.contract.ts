@@ -367,6 +367,20 @@ export type SubmarineReproducibilitySummaryPayload = {
   recovery_guidance?: string[] | null;
 };
 
+export type SubmarineSkillRuntimeBindingPayload = {
+  role_id?: string | null;
+  target_skills?: string[] | null;
+};
+
+export type SubmarineSkillRuntimeSnapshotPayload = {
+  runtime_revision?: number | null;
+  captured_at?: string | null;
+  enabled_skill_names?: string[] | null;
+  binding_targets_applied?: string[] | null;
+  source_registry_path?: string | null;
+  resolved_binding_targets?: SubmarineSkillRuntimeBindingPayload[] | null;
+};
+
 export type SubmarineRuntimeSnapshotPayload = {
   current_stage?: string | null;
   task_summary?: string | null;

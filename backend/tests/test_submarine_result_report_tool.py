@@ -54,6 +54,87 @@ def _execution_plan_status(runtime_state: dict, role_id: str) -> str:
     )
 
 
+def test_scientific_remediation_summary_prefers_actionable_study_followup_before_manual_validation():
+    remediation_module = importlib.import_module(
+        "deerflow.domain.submarine.remediation"
+    )
+    handoff_module = importlib.import_module("deerflow.domain.submarine.handoff")
+
+    remediation = remediation_module.build_scientific_remediation_summary(
+        scientific_supervisor_gate={
+            "allowed_claim_level": "delivery_only",
+            "recommended_stage": "solver-dispatch",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json"
+            ],
+        },
+        research_evidence_summary={
+            "readiness_status": "insufficient_evidence",
+            "validation_status": "missing_validation_reference",
+            "provenance_status": "matched",
+            "evidence_gaps": [
+                "Benchmark reference is still unavailable for the current run condition."
+            ],
+        },
+        scientific_verification_assessment={
+            "missing_evidence": [],
+            "blocking_issues": [
+                "Mesh independence study is still blocked by incomplete rerun coverage."
+            ],
+        },
+        scientific_study_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
+            ],
+            "studies": [
+                {
+                    "study_type": "mesh_independence",
+                    "verification_status": "blocked",
+                    "verification_detail": "Mesh independence is blocked because the fine variant did not finish.",
+                    "blocked_variant_run_ids": ["mesh_independence:fine"],
+                    "missing_metrics_variant_run_ids": ["mesh_independence:coarse"],
+                }
+            ],
+        },
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-plan.json"
+        ],
+    )
+
+    assert remediation["actions"][0]["action_id"] == "execute-scientific-studies"
+    assert remediation["actions"][0]["execution_mode"] == "auto_executable"
+    assert any(
+        action["action_id"] == "attach-validation-reference"
+        for action in remediation["actions"]
+    )
+
+    handoff = handoff_module.build_scientific_remediation_handoff(
+        snapshot={
+            "geometry_virtual_path": "/mnt/user-data/uploads/demo.stl",
+            "task_summary": "Re-run the actionable scientific studies first.",
+            "task_type": "resistance",
+            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+            "simulation_requirements": {
+                "inlet_velocity_mps": 5.0,
+                "fluid_density_kg_m3": 1000.0,
+                "kinematic_viscosity_m2ps": 1e-06,
+                "end_time_seconds": 200.0,
+                "delta_t_seconds": 1.0,
+                "write_interval_steps": 50,
+            },
+        },
+        scientific_remediation_summary=remediation,
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"
+        ],
+    )
+
+    assert handoff["handoff_status"] == "ready_for_auto_followup"
+    assert handoff["tool_name"] == "submarine_solver_dispatch"
+    assert handoff["recommended_action_id"] == "execute-scientific-studies"
+
+
 def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypatch):
     report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
@@ -652,6 +733,112 @@ def test_submarine_result_report_emits_delivery_readiness_artifacts(tmp_path):
         "end_time_seconds" in warning
         for warning in final_payload["acceptance_assessment"]["warnings"]
     )
+
+
+def test_submarine_result_report_treats_missing_mesh_verdict_as_warning_not_blocker(
+    tmp_path,
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-mesh-verdict-warning"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "mesh-warning-demo"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/mesh-warning-demo/openfoam-case/postProcessing",
+                "latest_force_coefficients": {
+                    "Time": 200.0,
+                    "Cd": 0.12,
+                    "Cl": 0.0,
+                    "Cs": 0.0,
+                    "CmPitch": 0.01,
+                },
+                "mesh_summary": {
+                    "cells": 194190,
+                    "faces": 742391,
+                    "points": 249525,
+                },
+                "residual_summary": {
+                    "field_count": 3,
+                    "max_final_residual": 1.4e-04,
+                },
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 5.0,
+                    "fluid_density_kg_m3": 1000.0,
+                    "kinematic_viscosity_m2ps": 1e-06,
+                    "end_time_seconds": 200.0,
+                    "delta_t_seconds": 1.0,
+                    "write_interval_steps": 50,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {"outputs_path": str(outputs_dir)},
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "验证缺失 mesh verdict 时的报告门禁",
+                "confirmation_status": "confirmed",
+                "execution_preference": "execute_now",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/mesh-warning-demo.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "requested_outputs": [],
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/mesh-warning-demo/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/mesh-warning-demo/openfoam-case/Allrun",
+                "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/mesh-warning-demo/provenance-manifest.json",
+                "environment_parity_assessment": {},
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/mesh-warning-demo/solver-results.json"
+                ],
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/mesh-warning-demo/dispatch-summary.md",
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Mesh verdict warning report",
+        tool_call_id="tc-result-report-mesh-warning",
+    )
+
+    readiness_path = (
+        outputs_dir
+        / "submarine"
+        / "reports"
+        / "mesh-warning-demo"
+        / "delivery-readiness.json"
+    )
+    readiness_payload = json.loads(readiness_path.read_text(encoding="utf-8"))
+
+    assert readiness_payload["status"] == "ready_for_review"
+    assert any(
+        gate["id"] == "mesh_quality_ok" and gate["status"] == "warning"
+        for gate in readiness_payload["gates"]
+    )
+    assert "Mesh quality verdict is unavailable from solver artifacts." in readiness_payload["warnings"]
+    assert "Mesh quality checks did not pass." not in readiness_payload["blocking_issues"]
 
 
 def test_submarine_result_report_applies_case_acceptance_profile(tmp_path):

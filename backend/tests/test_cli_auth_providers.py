@@ -726,6 +726,92 @@ def test_openai_cli_provider_ignores_invalid_tool_only_alternate_retry_and_keeps
     assert result.generations[0].message.tool_calls == []
 
 
+def test_openai_cli_provider_recovers_skill_studio_dry_run_with_visible_structured_result(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 24,
+                    "output_tokens": 6,
+                    "total_tokens": 30,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "请创建技能 submarine-result-acceptance-visible，"
+                    "用于潜艇 CFD 结果科学验收。"
+                )
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_skill_studio",
+                        "args": {
+                            "skill_name": "submarine-result-acceptance-visible",
+                            "skill_purpose": "Review submarine CFD results with a visible dry-run tag.",
+                        },
+                        "id": "tool_123",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Generated Skill Studio package `submarine-result-acceptance-visible` "
+                    "and completed the initial validation pass."
+                ),
+                tool_call_id="tool_123",
+                name="submarine_skill_studio",
+            ),
+            HumanMessage(
+                content=(
+                    "请按测试矩阵里的场景 T-01 做一次真实 dry-run，并严格按当前技能草案输出结构化结果。"
+                    "场景如下：DARPA SUBOFF 标准几何，速度 3.0 m/s，rho=1025 kg/m^3，"
+                    "nu=1.19e-6 m^2/s，task_type=resistance，simpleFoam 迭代 2000 步，"
+                    "残差终值 Ux=8.2e-5、Uy=3.1e-5、p=6.7e-5，Cd=0.1823（基准 0.1810，偏差 0.7%），"
+                    "网格 maxSkewness=0.61，minOrthogonality=0.18。"
+                    "请输出 conclusion、evidence_list、blocking_items、missing_items、risk_notes、"
+                    "next_step_recommendation、visible_tag，并在文本末尾附加 VISIBLE-SCI-CHECK 标识行。"
+                )
+            ),
+        ]
+    )
+
+    assert '"conclusion": "accept"' in result.generations[0].message.content
+    assert '"visible_tag": "VISIBLE-SCI-CHECK"' in result.generations[0].message.content
+    assert "[VISIBLE-SCI-CHECK:" in result.generations[0].message.content
+    assert result.generations[0].message.tool_calls == []
+
+
 def test_openai_cli_provider_injects_submarine_geometry_tool_call_for_empty_plan_only_stl_request(
     monkeypatch,
 ):
@@ -890,6 +976,107 @@ def test_openai_cli_provider_recovers_geometry_tool_call_after_wrong_intermediat
                 "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
                 "task_description": "Please do a geometry preflight on this STL and hold solver execution.",
                 "task_type": "resistance",
+            },
+            "id": "fallback_submarine_geometry_check_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_recovers_geometry_tool_call_after_todo_only_turn_for_confirm_later_prompt(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": "I'll continue based on your latest request. If I need anything else, I'll ask clearly.",
+                                "annotations": [],
+                            }
+                        ],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    "请先对这个 STL 做几何预检，并准备 DARPA SUBOFF 裸艇 5 m/s 阻力基线 CFD 方案，"
+                    "先不要实际执行，等我确认后再执行。"
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "suboff_solid.stl",
+                            "path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "write_todos",
+                        "args": {
+                            "todos": [
+                                {
+                                    "content": "Read submarine geometry skill",
+                                    "status": "in_progress",
+                                }
+                            ]
+                        },
+                        "id": "call_write_todos",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content="Updated todo list.",
+                tool_call_id="call_write_todos",
+                name="write_todos",
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_geometry_check",
+            "args": {
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_description": "请先对这个 STL 做几何预检，并准备 DARPA SUBOFF 裸艇 5 m/s 阻力基线 CFD 方案，先不要实际执行，等我确认后再执行。",
+                "task_type": "resistance",
+                "geometry_family_hint": "DARPA SUBOFF",
             },
             "id": "fallback_submarine_geometry_check_0",
             "type": "tool_call",
@@ -1347,6 +1534,1123 @@ def test_openai_cli_provider_recovers_confirmed_design_brief_from_short_confirma
     ]
 
 
+def test_openai_cli_provider_recovers_solver_dispatch_after_ready_design_brief(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Please prepare the SUBOFF resistance baseline brief."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_design_brief",
+                        "args": {
+                            "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and next-case plan.",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "confirmation_status": "confirmed",
+                            "execution_preference": "plan_only",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "inlet_velocity_mps": 5.0,
+                        },
+                        "id": "fallback_submarine_design_brief_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Design brief ready.\n"
+                    "Next recommended stage: solver-dispatch."
+                ),
+                tool_call_id="fallback_submarine_design_brief_0",
+                name="submarine_design_brief",
+            ),
+            HumanMessage(content="Please run the actual OpenFOAM execution now."),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_solver_dispatch",
+            "args": {
+                "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and next-case plan.",
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_type": "resistance",
+                "geometry_family_hint": "DARPA SUBOFF",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "inlet_velocity_mps": 5.0,
+                "execute_now": True,
+            },
+            "id": "fallback_submarine_solver_dispatch_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_recovers_solver_dispatch_after_planned_dispatch_followup(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Please prepare the SUBOFF OpenFOAM dispatch plan first."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and controlled dispatch plan.",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "inlet_velocity_mps": 5.0,
+                            "fluid_density_kg_m3": 1000.0,
+                            "kinematic_viscosity_m2ps": 1e-6,
+                            "execute_now": False,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Solver dispatch planned.\n"
+                    "Execution artifacts are ready and waiting for explicit approval."
+                ),
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+            HumanMessage(content="Please start the actual OpenFOAM execution now."),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_solver_dispatch",
+            "args": {
+                "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and controlled dispatch plan.",
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_type": "resistance",
+                "geometry_family_hint": "DARPA SUBOFF",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "inlet_velocity_mps": 5.0,
+                "fluid_density_kg_m3": 1000.0,
+                "kinematic_viscosity_m2ps": 1e-6,
+                "execute_now": True,
+            },
+            "id": "fallback_submarine_solver_dispatch_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_recovers_solver_dispatch_after_planned_dispatch_generic_ack(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": "I'll continue based on your latest request. If I need anything else, I'll ask clearly.",
+                                "annotations": [],
+                            }
+                        ],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Please prepare the SUBOFF OpenFOAM dispatch plan first."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and controlled dispatch plan.",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "inlet_velocity_mps": 5.0,
+                            "fluid_density_kg_m3": 1000.0,
+                            "kinematic_viscosity_m2ps": 1e-6,
+                            "execute_now": False,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Solver dispatch planned.\n"
+                    "Execution artifacts are ready and waiting for explicit approval."
+                ),
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+            HumanMessage(content="Please start the actual OpenFOAM execution now."),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_solver_dispatch",
+            "args": {
+                "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and controlled dispatch plan.",
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_type": "resistance",
+                "geometry_family_hint": "DARPA SUBOFF",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "inlet_velocity_mps": 5.0,
+                "fluid_density_kg_m3": 1000.0,
+                "kinematic_viscosity_m2ps": 1e-6,
+                "execute_now": True,
+            },
+            "id": "fallback_submarine_solver_dispatch_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_prefers_solver_dispatch_when_execute_request_mentions_postprocess(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Please prepare the SUBOFF OpenFOAM dispatch plan first."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and controlled dispatch plan.",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "inlet_velocity_mps": 5.0,
+                            "fluid_density_kg_m3": 1000.0,
+                            "kinematic_viscosity_m2ps": 1e-6,
+                            "execute_now": False,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Solver dispatch planned.\n"
+                    "Execution artifacts are ready and waiting for explicit approval."
+                ),
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+            HumanMessage(
+                content=(
+                    "Please start the actual OpenFOAM execution now and continue the "
+                    "necessary postprocess preparation."
+                )
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_solver_dispatch",
+            "args": {
+                "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and controlled dispatch plan.",
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_type": "resistance",
+                "geometry_family_hint": "DARPA SUBOFF",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "inlet_velocity_mps": 5.0,
+                "fluid_density_kg_m3": 1000.0,
+                "kinematic_viscosity_m2ps": 1e-6,
+                "execute_now": True,
+            },
+            "id": "fallback_submarine_solver_dispatch_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_prefers_solver_dispatch_for_visible_execute_cta_message(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "Check the DARPA SUBOFF STL geometry and confirm the 5 m/s baseline setup "
+                    "without starting execution yet."
+                )
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_geometry_check",
+                        "args": {
+                            "task_description": (
+                                "Check the DARPA SUBOFF STL geometry and confirm the 5 m/s "
+                                "baseline setup without starting execution yet."
+                            ),
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                        },
+                        "id": "fallback_submarine_geometry_check_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Geometry preflight complete.\n"
+                    "reference length = 4.356 m\n"
+                    "reference area = 0.370988 m^2\n"
+                    "review_status = needs_user_confirmation"
+                ),
+                tool_call_id="fallback_submarine_geometry_check_0",
+                name="submarine_geometry_check",
+            ),
+            HumanMessage(
+                content=(
+                    "Confirm reference length = 4.356 m and reference area = 0.370988 m^2. "
+                    "Keep this plan-only for now and do not execute yet."
+                )
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_design_brief",
+                        "args": {
+                            "task_description": (
+                                "Confirm reference length = 4.356 m and reference area = "
+                                "0.370988 m^2. Keep this plan-only for now and do not execute yet."
+                            ),
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "confirmation_status": "confirmed",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "inlet_velocity_mps": 5.0,
+                        },
+                        "id": "fallback_submarine_design_brief_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Design brief confirmed and ready for execution.\n"
+                    "The dispatch plan can be executed once the supervisor approves it."
+                ),
+                tool_call_id="fallback_submarine_design_brief_0",
+                name="submarine_design_brief",
+            ),
+            HumanMessage(
+                content=(
+                    "请按当前已经确认或已规划好的潜艇 CFD 方案开始实际求解执行，并继续完成必要的后处理准备。"
+                    "优先复用当前设计简报、几何文件、参考尺度和已选基线设置；"
+                    "如果仍缺少执行前必要条件，请明确列出缺项。"
+                )
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_solver_dispatch",
+            "args": {
+                "task_description": (
+                    "Confirm reference length = 4.356 m and reference area = "
+                    "0.370988 m^2. Keep this plan-only for now and do not execute yet."
+                ),
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_type": "resistance",
+                "geometry_family_hint": "DARPA SUBOFF",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "inlet_velocity_mps": 5.0,
+                "execute_now": True,
+            },
+            "id": "fallback_submarine_solver_dispatch_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_keeps_solver_summary_after_execute_cta_dispatch_instead_of_auto_report(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    solver_summary = (
+        "已为 `suboff_solid.stl` 生成 OpenFOAM 派发方案，"
+        "当前几何已具备直接进入求解派发的条件。"
+        "已生成受控求解派发清单，等待进一步执行。"
+        "本轮请求要求立即执行。"
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Please prepare the SUBOFF OpenFOAM dispatch plan first."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and controlled dispatch plan.",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "execute_now": False,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content="Solver dispatch planned.\nExecution artifacts are ready and waiting for explicit approval.",
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+            HumanMessage(
+                content=(
+                    "请按当前已经确认或已规划好的潜艇 CFD 方案开始实际求解执行，并继续完成必要的后处理准备。"
+                    "优先复用当前设计简报、几何文件、参考尺度和已选基线设置；"
+                    "如果仍缺少执行前必要条件，请明确列出缺项。"
+                )
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "请按当前已经确认或已规划好的潜艇 CFD 方案开始实际求解执行，并继续完成必要的后处理准备。优先复用当前设计简报、几何文件、参考尺度和已选基线设置；如果仍缺少执行前必要条件，请明确列出缺项。",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "execute_now": True,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=solver_summary,
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.tool_calls == []
+    assert result.generations[0].message.content == solver_summary
+
+
+def test_openai_cli_provider_recovers_result_report_after_solver_dispatch(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Please run the actual OpenFOAM execution now."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and next-case plan.",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "inlet_velocity_mps": 5.0,
+                            "execute_now": True,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Solver dispatch completed.\n"
+                    "Postprocess artifacts are available in the workspace."
+                ),
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+            HumanMessage(content="Generate the final report now."),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_result_report",
+            "args": {},
+            "id": "fallback_submarine_result_report_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_recovers_result_report_after_solver_dispatch_generic_ack(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": "I'll continue based on your latest request. If I need anything else, I'll ask clearly.",
+                                "annotations": [],
+                            }
+                        ],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Please run the actual OpenFOAM execution now."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and next-case plan.",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "geometry_family_hint": "DARPA SUBOFF",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "inlet_velocity_mps": 5.0,
+                            "execute_now": True,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Solver dispatch completed.\n"
+                    "Postprocess artifacts are available in the workspace."
+                ),
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+            HumanMessage(content="Generate the final report now."),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_result_report",
+            "args": {},
+            "id": "fallback_submarine_result_report_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_recovers_scientific_followup_after_blocked_result_report_generic_ack(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": "I'll continue based on your latest request. If I need anything else, I'll ask clearly.",
+                                "annotations": [],
+                            }
+                        ],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Please run the actual OpenFOAM execution now."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and next-case plan.",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "execute_now": True,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Solver dispatch completed.\n"
+                    "Postprocess artifacts are available in the workspace."
+                ),
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+            HumanMessage(content="Generate the final report now."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_result_report",
+                        "args": {},
+                        "id": "fallback_submarine_result_report_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Final report generated.\n"
+                    "Solver metrics are unavailable for this run.\n"
+                    "Recommended remediation is ready for auto follow-up."
+                ),
+                tool_call_id="fallback_submarine_result_report_0",
+                name="submarine_result_report",
+            ),
+            HumanMessage(
+                content=(
+                    "Continue with the recommended remediation, rerun the current solver now, "
+                    "and refresh the report after the missing solver metrics are produced."
+                )
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_scientific_followup",
+            "args": {},
+            "id": "fallback_submarine_scientific_followup_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_rewrites_misrouted_design_brief_to_scientific_followup_after_blocked_result_report(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "function_call",
+                        "name": "submarine_design_brief",
+                        "call_id": "call_wrong_design_brief",
+                        "arguments": json.dumps(
+                            {
+                                "task_description": (
+                                    "Continue with the recommended remediation, rerun the current solver now, "
+                                    "and refresh the report after the missing solver metrics are produced."
+                                ),
+                                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                                "task_type": "resistance",
+                            }
+                        ),
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Please run the actual OpenFOAM execution now."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and next-case plan.",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "execute_now": True,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Solver dispatch completed.\n"
+                    "Postprocess artifacts are available in the workspace."
+                ),
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+            HumanMessage(content="Generate the final report now."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_result_report",
+                        "args": {},
+                        "id": "fallback_submarine_result_report_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Final report generated.\n"
+                    "Solver metrics are unavailable for this run.\n"
+                    "Recommended remediation is ready for auto follow-up."
+                ),
+                tool_call_id="fallback_submarine_result_report_0",
+                name="submarine_result_report",
+            ),
+            HumanMessage(
+                content=(
+                    "Continue with the recommended remediation, rerun the current solver now, "
+                    "and refresh the report after the missing solver metrics are produced."
+                )
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_scientific_followup",
+            "args": {},
+            "id": "fallback_submarine_scientific_followup_0",
+            "type": "tool_call",
+        }
+    ]
+
+
+def test_openai_cli_provider_rewrites_misrouted_result_report_to_scientific_followup_for_chinese_remediation_handoff_request(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "function_call",
+                        "name": "submarine_result_report",
+                        "call_id": "call_wrong_result_report",
+                        "arguments": json.dumps({}),
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="请按当前已经确认或已规划好的潜艇 CFD 方案开始实际求解执行，并继续完成必要的后处理准备。"),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "请按当前已经确认或已规划好的潜艇 CFD 方案开始实际求解执行，并继续完成必要的后处理准备。",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                            "execute_now": True,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "已执行 sandbox 内求解派发命令。\n"
+                    "后处理 artifacts 已生成。"
+                ),
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+            HumanMessage(content="请基于当前已完成的潜艇 CFD 求解与后处理结果，生成最终结果报告，并明确给出关键结论。"),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_result_report",
+                        "args": {},
+                        "id": "fallback_submarine_result_report_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "已生成《潜艇 CFD 阶段报告》。\n"
+                    "Final residual threshold: residual summary is unavailable for this run.\n"
+                    "Recommended remediation is ready for auto follow-up."
+                ),
+                tool_call_id="fallback_submarine_result_report_0",
+                name="submarine_result_report",
+            ),
+            HumanMessage(
+                content=(
+                    "这是修复后的前端可见恢复验证。请基于当前线程已有的 remediation handoff，"
+                    "立即重新执行当前潜艇求解并刷新结果报告；如果线程仍不能继续，请先明确说明真实阻塞原因。"
+                )
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_scientific_followup",
+            "args": {},
+            "id": "fallback_submarine_scientific_followup_0",
+            "type": "tool_call",
+        }
+    ]
+
+
 def test_openai_cli_provider_prefers_design_brief_tool_summary_for_empty_follow_up(
     monkeypatch,
 ):
@@ -1415,6 +2719,141 @@ def test_openai_cli_provider_prefers_design_brief_tool_summary_for_empty_follow_
 
     assert result.generations[0].message.tool_calls == []
     assert result.generations[0].message.content == "已整理 CFD 设计简报：确认 baseline 研究简报。"
+
+
+def test_openai_cli_provider_prefers_solver_dispatch_tool_summary_for_empty_follow_up(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Please run the actual OpenFOAM execution now."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_solver_dispatch",
+                        "args": {
+                            "task_description": "Prepare the SUBOFF 5 m/s resistance baseline and next-case plan.",
+                            "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "task_type": "resistance",
+                            "execute_now": True,
+                        },
+                        "id": "fallback_submarine_solver_dispatch_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Solver dispatch completed.\n"
+                    "Postprocess artifacts are available in the workspace."
+                ),
+                tool_call_id="fallback_submarine_solver_dispatch_0",
+                name="submarine_solver_dispatch",
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.tool_calls == []
+    assert result.generations[0].message.content == "Solver dispatch completed."
+
+
+def test_openai_cli_provider_prefers_result_report_tool_summary_for_empty_follow_up(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: None,
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(content="Generate the final report now."),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submarine_result_report",
+                        "args": {},
+                        "id": "fallback_submarine_result_report_0",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content=(
+                    "Final result report generated.\n"
+                    "Report artifacts are available in the workspace."
+                ),
+                tool_call_id="fallback_submarine_result_report_0",
+                name="submarine_result_report",
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.tool_calls == []
+    assert result.generations[0].message.content == "Final result report generated."
 
 
 def test_openai_cli_provider_keeps_text_fallback_for_empty_non_geometry_request(

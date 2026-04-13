@@ -47,6 +47,10 @@ export function usePublishSkill() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["skills", "lifecycle"] });
       void queryClient.invalidateQueries({ queryKey: ["skills"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["skills", "graph"],
+        exact: false,
+      });
       void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
     },
   });
@@ -127,16 +131,22 @@ export function useUpdateSkillLifecycle() {
       enabled,
       version_note,
       binding_targets,
+      thread_id,
+      path,
     }: {
       skillName: string;
       enabled: boolean;
       version_note?: string;
       binding_targets: Parameters<typeof updateSkillLifecycle>[1]["binding_targets"];
+      thread_id?: string;
+      path?: string;
     }) =>
       updateSkillLifecycle(skillName, {
         enabled,
         version_note,
         binding_targets,
+        thread_id,
+        path,
       }),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["skills", "lifecycle"] });
@@ -144,6 +154,10 @@ export function useUpdateSkillLifecycle() {
         queryKey: ["skills", "lifecycle", variables.skillName],
       });
       void queryClient.invalidateQueries({ queryKey: ["skills"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["skills", "graph"],
+        exact: false,
+      });
       void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
     },
   });

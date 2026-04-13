@@ -1,5 +1,6 @@
 import base64
 import logging
+from collections.abc import Callable
 
 from agent_sandbox import Sandbox as AioSandboxClient
 
@@ -14,7 +15,15 @@ class AioSandbox(Sandbox):
     This sandbox connects to a running AIO sandbox container via HTTP API.
     """
 
-    def __init__(self, id: str, base_url: str, home_dir: str | None = None):
+    def __init__(
+        self,
+        id: str,
+        base_url: str,
+        home_dir: str | None = None,
+        *,
+        on_command_start: Callable[[str], None] | None = None,
+        on_command_end: Callable[[str], None] | None = None,
+    ):
         """Initialize the AIO sandbox.
 
         Args:
@@ -26,6 +35,8 @@ class AioSandbox(Sandbox):
         self._base_url = base_url
         self._client = AioSandboxClient(base_url=base_url, timeout=600)
         self._home_dir = home_dir
+        self._on_command_start = on_command_start
+        self._on_command_end = on_command_end
 
     @property
     def base_url(self) -> str:
@@ -49,12 +60,17 @@ class AioSandbox(Sandbox):
             The output of the command.
         """
         try:
+            if self._on_command_start is not None:
+                self._on_command_start(self.id)
             result = self._client.shell.exec_command(command=command)
             output = result.data.output if result.data else ""
             return output if output else "(no output)"
         except Exception as e:
             logger.error(f"Failed to execute command in sandbox: {e}")
             return f"Error: {e}"
+        finally:
+            if self._on_command_end is not None:
+                self._on_command_end(self.id)
 
     def read_file(self, path: str) -> str:
         """Read the content of a file in the sandbox.

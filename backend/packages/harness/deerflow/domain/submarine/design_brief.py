@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from html import escape
@@ -27,6 +28,37 @@ def _slugify(value: str) -> str:
 
 def _artifact_virtual_path(run_dir_name: str, filename: str) -> str:
     return f"/mnt/user-data/outputs/submarine/design-brief/{run_dir_name}/{filename}"
+
+
+_MAX_ARTIFACT_PATH_CHARS = 239
+_MAX_RUN_DIR_NAME_CHARS = 80
+_MIN_RUN_DIR_NAME_CHARS = 16
+_RUN_DIR_HASH_CHARS = 10
+_LONGEST_DESIGN_BRIEF_FILENAME = "cfd-design-brief.json"
+
+
+def _resolve_run_dir_name_budget(outputs_dir: Path) -> int:
+    artifact_root = outputs_dir / "submarine" / "design-brief"
+    reserved_chars = len(_LONGEST_DESIGN_BRIEF_FILENAME) + 2
+    available = _MAX_ARTIFACT_PATH_CHARS - len(str(artifact_root)) - reserved_chars
+    return max(_MIN_RUN_DIR_NAME_CHARS, min(_MAX_RUN_DIR_NAME_CHARS, available))
+
+
+def _build_run_dir_name(*, outputs_dir: Path, run_basis: str) -> str:
+    slug = _slugify(run_basis)
+    max_length = _resolve_run_dir_name_budget(outputs_dir)
+    if len(slug) <= max_length:
+        return slug
+
+    digest = hashlib.sha1(slug.encode("utf-8")).hexdigest()[:_RUN_DIR_HASH_CHARS]
+    prefix_length = max_length - len(digest) - 1
+    if prefix_length <= 0:
+        return digest[:max_length]
+
+    prefix = slug[:prefix_length].rstrip("-_")
+    if not prefix:
+        return digest[:max_length]
+    return f"{prefix}-{digest}"
 
 
 def _maybe_resolve_simulation_requirements(
@@ -594,7 +626,7 @@ def run_design_brief(
         if geometry_virtual_path
         else task_description
     )
-    run_dir_name = _slugify(run_basis)
+    run_dir_name = _build_run_dir_name(outputs_dir=outputs_dir, run_basis=run_basis)
     report_title = "潜艇 CFD 设计简报"
     report_virtual_path = _artifact_virtual_path(run_dir_name, "cfd-design-brief.md")
     artifact_virtual_paths = [

@@ -5,6 +5,7 @@ import type { Message } from "@langchain/langgraph-sdk";
 
 import type { AgentThread } from "./types.ts";
 import {
+  deriveThreadInputStatus,
   deriveOptimisticMessagesAfterUpload,
   deriveThreadsAfterSearchRefresh,
   deriveThreadsAfterWorkbenchStart,
@@ -419,5 +420,27 @@ void test("shouldPromoteStartedThreadRoute still promotes after loading finishes
       visibleMessageCount: 0,
     }),
     true,
+  );
+});
+
+void test("deriveThreadInputStatus releases the input back to ready when a resumed thread is still marked loading but the latest run was interrupted", () => {
+  assert.equal(
+    deriveThreadInputStatus({
+      hasError: false,
+      isLoading: true,
+      latestRunStatus: "interrupted",
+    }),
+    "ready",
+  );
+});
+
+void test("deriveThreadInputStatus keeps the input in streaming mode while the latest run is still active", () => {
+  assert.equal(
+    deriveThreadInputStatus({
+      hasError: false,
+      isLoading: true,
+      latestRunStatus: "running",
+    }),
+    "streaming",
   );
 });

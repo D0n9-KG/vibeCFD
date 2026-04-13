@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -34,6 +34,20 @@ function resolveDefaultDrawerId(moduleId: string): DrawerId {
   return DEFAULT_DRAWER_BY_MODULE[moduleId] ?? "publish";
 }
 
+function resolvePreferredDrawerId(input: {
+  moduleId: string;
+  detail: SkillStudioDetailModel;
+}): DrawerId {
+  if (
+    input.detail.evaluate.scenarioMatrix.scenarioCount > 0 &&
+    input.detail.evaluate.dryRun.status !== "passed"
+  ) {
+    return "testing";
+  }
+
+  return resolveDefaultDrawerId(input.moduleId);
+}
+
 type SkillStudioLifecycleCanvasProps = {
   session: SkillStudioSessionModel;
   detail: SkillStudioDetailModel;
@@ -42,6 +56,7 @@ type SkillStudioLifecycleCanvasProps = {
   versionNote: string;
   explicitBindingRoleIds: string[];
   busy: boolean;
+  canSaveLifecycle: boolean;
   canPublish: boolean;
   canRollback: boolean;
   onEnabledChange: (nextValue: boolean) => void;
@@ -62,6 +77,7 @@ export function SkillStudioLifecycleCanvas({
   versionNote,
   explicitBindingRoleIds,
   busy,
+  canSaveLifecycle,
   canPublish,
   canRollback,
   onEnabledChange,
@@ -74,8 +90,12 @@ export function SkillStudioLifecycleCanvas({
   onRollback,
 }: SkillStudioLifecycleCanvasProps) {
   const [activeDrawerId, setActiveDrawerId] = useState<DrawerId>(() =>
-    resolveDefaultDrawerId(session.activeModuleId),
+    resolvePreferredDrawerId({
+      moduleId: session.activeModuleId,
+      detail,
+    }),
   );
+  const previousModuleIdRef = useRef(session.activeModuleId);
   const activeModule =
     session.modules.find((module) => module.expanded) ?? session.modules[0];
   const pendingSummary =
@@ -88,10 +108,21 @@ export function SkillStudioLifecycleCanvas({
       : "关系网络待建立";
 
   useEffect(() => {
-    setActiveDrawerId(resolveDefaultDrawerId(session.activeModuleId));
-  }, [session.activeModuleId]);
+    if (previousModuleIdRef.current === session.activeModuleId) {
+      return;
+    }
+    previousModuleIdRef.current = session.activeModuleId;
+    setActiveDrawerId(
+      resolvePreferredDrawerId({
+        moduleId: session.activeModuleId,
+        detail,
+      }),
+    );
+  }, [detail, session.activeModuleId]);
 
-  const drawerLayers = useMemo(
+  const drawerLayers = useMemo<
+    Array<{ id: DrawerId; label: string; content: ReactNode }>
+  >(
     () => [
       {
         id: "testing",
@@ -205,6 +236,7 @@ export function SkillStudioLifecycleCanvas({
             versionNote,
             explicitBindingRoleIds,
             busy,
+            canSaveLifecycle,
             canPublish,
             canRollback,
             onEnabledChange,
@@ -216,6 +248,25 @@ export function SkillStudioLifecycleCanvas({
           }),
         }))}
       />
+
+      <section className="rounded-[24px] border border-slate-200/80 bg-white/92 px-4 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+          辅助视图
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {drawerLayers.map((layer) => (
+            <Button
+              key={layer.id}
+              type="button"
+              size="sm"
+              variant={activeDrawerId === layer.id ? "default" : "outline"}
+              onClick={() => setActiveDrawerId(layer.id)}
+            >
+              {layer.label}
+            </Button>
+          ))}
+        </div>
+      </section>
 
       <SecondaryLayerHost
         layers={drawerLayers}
@@ -289,6 +340,7 @@ function renderLifecycleContent({
   versionNote,
   explicitBindingRoleIds,
   busy,
+  canSaveLifecycle,
   canPublish,
   canRollback,
   onEnabledChange,
@@ -305,6 +357,7 @@ function renderLifecycleContent({
   versionNote: string;
   explicitBindingRoleIds: string[];
   busy: boolean;
+  canSaveLifecycle: boolean;
   canPublish: boolean;
   canRollback: boolean;
   onEnabledChange: (nextValue: boolean) => void;
@@ -445,7 +498,11 @@ function renderLifecycleContent({
           </section>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" disabled={busy || isMock} onClick={onSaveLifecycle}>
+            <Button
+              variant="outline"
+              disabled={busy || isMock || !canSaveLifecycle}
+              onClick={onSaveLifecycle}
+            >
               保存生命周期设置
             </Button>
             <Button disabled={busy || isMock || !canPublish} onClick={onPublish}>

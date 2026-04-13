@@ -297,9 +297,20 @@ def submarine_design_brief_tool(
         selected_case_id=payload.get("selected_case_id"),
         simulation_requirements=payload.get("simulation_requirements"),
         requested_outputs=payload.get("requested_outputs"),
+        recommended_actions=(existing_runtime or {}).get("recommended_actions"),
+        custom_variants=(existing_runtime or {}).get("custom_variants"),
         output_delivery_plan=(existing_runtime or {}).get("output_delivery_plan"),
         stage_status=payload.get("confirmation_status"),
         runtime_summary=payload["summary_zh"],
+        workspace_case_dir_virtual_path=(existing_runtime or {}).get(
+            "workspace_case_dir_virtual_path"
+        ),
+        run_script_virtual_path=(existing_runtime or {}).get(
+            "run_script_virtual_path"
+        ),
+        provenance_manifest_virtual_path=(existing_runtime or {}).get(
+            "provenance_manifest_virtual_path"
+        ),
         next_recommended_stage=payload["next_recommended_stage"],
         report_virtual_path=payload["report_virtual_path"],
         artifact_virtual_paths=payload["artifact_virtual_paths"],
@@ -310,11 +321,38 @@ def submarine_design_brief_tool(
         solver_results_virtual_path=(existing_runtime or {}).get(
             "solver_results_virtual_path"
         ),
+        stability_evidence_virtual_path=(existing_runtime or {}).get(
+            "stability_evidence_virtual_path"
+        ),
+        stability_evidence=(existing_runtime or {}).get("stability_evidence"),
+        provenance_summary=(existing_runtime or {}).get("provenance_summary"),
+        environment_fingerprint=(existing_runtime or {}).get("environment_fingerprint"),
+        environment_parity_assessment=(existing_runtime or {}).get(
+            "environment_parity_assessment"
+        ),
+        supervisor_handoff_virtual_path=(existing_runtime or {}).get(
+            "supervisor_handoff_virtual_path"
+        ),
+        scientific_followup_history_virtual_path=(existing_runtime or {}).get(
+            "scientific_followup_history_virtual_path"
+        ),
         execution_plan=build_execution_plan(
             confirmation_status=payload["confirmation_status"],
             existing_plan=payload["execution_outline"],
         ),
         review_status=payload["review_status"],
+        scientific_verification_assessment=(existing_runtime or {}).get(
+            "scientific_verification_assessment"
+        ),
+        scientific_gate_status=(existing_runtime or {}).get("scientific_gate_status"),
+        allowed_claim_level=(existing_runtime or {}).get("allowed_claim_level"),
+        scientific_gate_virtual_path=(existing_runtime or {}).get(
+            "scientific_gate_virtual_path"
+        ),
+        decision_status=(existing_runtime or {}).get("decision_status"),
+        delivery_decision_summary=(existing_runtime or {}).get(
+            "delivery_decision_summary"
+        ),
         stage_hints=payload.get("stage_hints"),
         activity_timeline=timeline,
     )

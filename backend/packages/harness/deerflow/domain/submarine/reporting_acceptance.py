@@ -228,13 +228,22 @@ def build_acceptance_assessment(
             status="passed",
             detail=detail,
         )
-    elif mesh_summary:
+    elif mesh_ok is False:
         detail = "Mesh quality checks did not pass."
         blocking_issues.append(detail)
         add_gate(
             gate_id="mesh_quality_ok",
             label="Mesh quality",
             status="blocked",
+            detail=detail,
+        )
+    elif mesh_summary:
+        detail = "Mesh quality verdict is unavailable from solver artifacts."
+        warnings.append(detail)
+        add_gate(
+            gate_id="mesh_quality_ok",
+            label="Mesh quality",
+            status="warning",
             detail=detail,
         )
     else:

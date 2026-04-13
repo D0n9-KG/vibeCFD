@@ -31,6 +31,8 @@ from deerflow.tools.builtins.submarine_solver_dispatch_tool import (
     submarine_solver_dispatch_tool,
 )
 
+_SCIENTIFIC_HANDOFF_FILENAME = "scientific-remediation-handoff.json"
+
 
 def _build_chained_runtime(
     runtime: ToolRuntime[ContextT, ThreadState],
@@ -107,6 +109,33 @@ def _augment_runtime_update(
     return updated_runtime
 
 
+_SOLVER_DISPATCH_ALLOWED_TOOL_ARGS = {
+    "geometry_path",
+    "task_description",
+    "task_type",
+    "geometry_family_hint",
+    "selected_case_id",
+    "inlet_velocity_mps",
+    "fluid_density_kg_m3",
+    "kinematic_viscosity_m2ps",
+    "end_time_seconds",
+    "delta_t_seconds",
+    "write_interval_steps",
+    "execute_now",
+    "execute_scientific_studies",
+    "custom_variants",
+    "solver_command",
+}
+
+
+def _sanitize_solver_dispatch_tool_args(tool_args: Mapping[str, object]) -> dict[str, object]:
+    return {
+        key: value
+        for key, value in dict(tool_args).items()
+        if key in _SOLVER_DISPATCH_ALLOWED_TOOL_ARGS
+    }
+
+
 def _augment_command_update(
     command: Command,
     *,
@@ -135,6 +164,95 @@ def _resolve_history_artifact_path(runtime, history_virtual_path: str) -> Path:
     thread_data = (runtime.state or {}).get("thread_data")
     actual_path = replace_virtual_path(history_virtual_path, thread_data)
     return Path(actual_path).resolve()
+
+
+def _iter_candidate_handoff_virtual_paths(
+    runtime: ToolRuntime[ContextT, ThreadState],
+    *,
+    snapshot,
+    explicit_handoff_virtual_path: str | None,
+    outputs_dir: Path,
+):
+    seen: set[str] = set()
+
+    def add(candidate: object) -> list[str]:
+        if not isinstance(candidate, str):
+            return []
+        normalized = candidate.strip()
+        if not normalized or normalized in seen:
+            return []
+        seen.add(normalized)
+        return [normalized]
+
+    for candidate in add(explicit_handoff_virtual_path):
+        yield candidate
+
+    for candidate in add(getattr(snapshot, "supervisor_handoff_virtual_path", None)):
+        yield candidate
+
+    runtime_state = (runtime.state or {}).get("submarine_runtime")
+    if isinstance(runtime_state, Mapping):
+        for candidate in add(runtime_state.get("supervisor_handoff_virtual_path")):
+            yield candidate
+        artifact_virtual_paths = runtime_state.get("artifact_virtual_paths")
+        if isinstance(artifact_virtual_paths, list):
+            for artifact_virtual_path in artifact_virtual_paths:
+                for candidate in add(artifact_virtual_path):
+                    yield candidate
+
+    thread_artifacts = (runtime.state or {}).get("artifacts")
+    if isinstance(thread_artifacts, list):
+        for artifact_virtual_path in thread_artifacts:
+            for candidate in add(artifact_virtual_path):
+                yield candidate
+
+    report_virtual_path = getattr(snapshot, "report_virtual_path", None)
+    if isinstance(report_virtual_path, str) and report_virtual_path.strip():
+        derived_report_sibling = (
+            Path(report_virtual_path).with_name(_SCIENTIFIC_HANDOFF_FILENAME).as_posix()
+        )
+        for candidate in add(derived_report_sibling):
+            yield candidate
+
+    reports_dir = outputs_dir / "submarine" / "reports"
+    if reports_dir.exists():
+        discovered_paths = sorted(
+            reports_dir.rglob(_SCIENTIFIC_HANDOFF_FILENAME),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        for discovered_path in discovered_paths:
+            try:
+                relative = discovered_path.resolve().relative_to(outputs_dir.resolve())
+            except ValueError:
+                continue
+            virtual_path = f"/mnt/user-data/outputs/{relative.as_posix()}"
+            for candidate in add(virtual_path):
+                yield candidate
+
+
+def _resolve_scientific_handoff_virtual_path(
+    runtime: ToolRuntime[ContextT, ThreadState],
+    *,
+    snapshot,
+    outputs_dir: Path,
+    explicit_handoff_virtual_path: str | None,
+) -> str | None:
+    for candidate in _iter_candidate_handoff_virtual_paths(
+        runtime,
+        snapshot=snapshot,
+        explicit_handoff_virtual_path=explicit_handoff_virtual_path,
+        outputs_dir=outputs_dir,
+    ):
+        try:
+            load_scientific_remediation_handoff(
+                outputs_dir=outputs_dir,
+                artifact_virtual_path=candidate,
+            )
+        except ValueError:
+            continue
+        return candidate
+    return None
 
 
 def _record_followup_history(
@@ -229,8 +347,11 @@ def submarine_scientific_followup_tool(
     try:
         snapshot = _get_runtime_snapshot(runtime)
         outputs_dir = _get_thread_dir(runtime, "outputs_path")
-        resolved_handoff_virtual_path = (
-            handoff_virtual_path or snapshot.supervisor_handoff_virtual_path
+        resolved_handoff_virtual_path = _resolve_scientific_handoff_virtual_path(
+            runtime,
+            snapshot=snapshot,
+            outputs_dir=outputs_dir,
+            explicit_handoff_virtual_path=handoff_virtual_path,
         )
         if not resolved_handoff_virtual_path:
             raise ValueError(
@@ -409,7 +530,7 @@ def submarine_scientific_followup_tool(
         )
 
     if tool_name == "submarine_solver_dispatch":
-        dispatch_args = dict(tool_args)
+        dispatch_args = _sanitize_solver_dispatch_tool_args(tool_args)
         dispatch_args["execute_now"] = True
         dispatch_result = submarine_solver_dispatch_tool.func(
             runtime=runtime,

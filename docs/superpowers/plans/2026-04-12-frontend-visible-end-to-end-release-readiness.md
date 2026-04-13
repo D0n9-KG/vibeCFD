@@ -2,13 +2,13 @@
 
 > **For agentic workers:** If you are starting from a fresh session, use superpowers:resuming-work first. Then choose the execution skill that fits the work: use superpowers:subagent-driven-development when delegation benefits outweigh the round-trip, or superpowers:executing-plans when the work is better kept local. Steps use checkbox (`- [ ]`) syntax for tracking. Respect the plan controls below, especially reuse, continuity, artifact lifecycle, validation/review cadence, and any research-overlay constraints.
 
-**Goal:** Verify and harden the full product from a frontend-only user perspective until the main workspace is honestly ready for user-facing release.
+**Goal:** Make the product honestly usable from a frontend-only user perspective by closing the submarine downstream CFD chain and proving Skill Studio publish-to-agent binding end to end.
 
-**Architecture:** Stay on the active `main` workspace and treat the browser UI as the only allowed entry point for success criteria. Use visible user journeys to reproduce reality, then turn each confirmed blocker into a small TDD fix slice at the owning frontend or runtime boundary, and close with a production-oriented verification sweep.
+**Architecture:** Keep the existing `main` workspace and the current local stack, but treat the browser UI as the only acceptable operator surface. Reuse the already-implemented downstream submarine backend capabilities, repair the empty-response recovery path that currently causes silent stalls, add explicit user-visible execution/report actions in the submarine workbench, then run full browser-driven verification for submarine and Skill Studio before regenerating any guide or screenshots.
 
-**Tech Stack:** Next.js 16 frontend, TypeScript UI contracts, FastAPI gateway, DeerFlow/LangGraph runtime, browser-based end-to-end verification, local artifact-backed thread flows
+**Tech Stack:** Next.js 16 frontend, TypeScript workbench contracts, FastAPI gateway, DeerFlow/LangGraph runtime, OpenAI-compatible CLI provider recovery logic, browser-driven end-to-end verification, local artifact-backed thread flows
 
-**Prior Art Survey:** none needed - this is project-local release-readiness work on the active mainline
+**Prior Art Survey:** none needed - this is a project-local release-hardening pass on the active mainline
 
 **Reuse Strategy:** adapt existing project
 
@@ -16,9 +16,9 @@
 
 **Context Summary:** `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
 
-**Primary Context Files:** `docs/superpowers/plans/2026-04-11-mainline-end-to-end-bringup-and-hardening.md`; `docs/superpowers/session-status/2026-04-11-mainline-end-to-end-bringup-and-hardening-status.md`; `docs/superpowers/context-summaries/2026-04-11-mainline-end-to-end-bringup-and-hardening-summary.md`; `frontend/src/app/workspace/agents/page.tsx`; `frontend/src/app/workspace/chats/page.tsx`; `frontend/src/app/workspace/skill-studio/new/page.tsx`; `frontend/src/app/workspace/skill-studio/[thread_id]/page.tsx`; `frontend/src/app/workspace/submarine/[thread_id]/page.tsx`
+**Primary Context Files:** `docs/superpowers/plans/2026-04-12-frontend-visible-end-to-end-release-readiness.md`; `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`; `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`; `backend/packages/harness/deerflow/models/openai_cli_provider.py`; `backend/tests/test_cli_auth_providers.py`; `backend/packages/harness/deerflow/tools/builtins/submarine_solver_dispatch_tool.py`; `backend/packages/harness/deerflow/tools/builtins/submarine_result_report_tool.py`; `backend/packages/harness/deerflow/domain/submarine/solver_dispatch.py`; `backend/packages/harness/deerflow/domain/submarine/postprocess.py`; `backend/packages/harness/deerflow/domain/submarine/reporting.py`; `frontend/src/app/workspace/submarine/[thread_id]/page.tsx`; `frontend/src/components/workspace/submarine-workbench/index.tsx`; `frontend/src/components/workspace/submarine-workbench/submarine-research-canvas.tsx`; `frontend/src/components/workspace/submarine-confirmation-actions.ts`; `frontend/src/app/workspace/skill-studio/[thread_id]/page.tsx`; `frontend/src/components/workspace/skill-studio-workbench/index.tsx`; `backend/app/gateway/routers/skills.py`; `backend/packages/harness/deerflow/agents/middlewares/skill_runtime_snapshot_middleware.py`; `backend/packages/harness/deerflow/agents/lead_agent/prompt.py`
 
-**Artifact Lifecycle:** Keep this plan, its session status file, and its context summary as the active continuity chain for the release-readiness pass. Keep durable code fixes, focused regression tests, and any clarified startup or UI contract changes that land during this work. Delete temporary screenshots, one-off probe scripts, scratch notes, and stale PNG captures once the same evidence is preserved in durable docs or tests. Replace the previous "mainline bring-up complete" handoff as the current execution mainline, but keep it as historical context. Keep the desktop STL fixture at `C:\Users\D0n9\Desktop\suboff_solid.stl` as an external manual-test input, not a repo artifact.
+**Artifact Lifecycle:** Keep this plan/status/summary chain as the active continuity record. Keep durable backend/frontend fixes and focused regression tests that close the real release gaps. Keep the external STL fixture at `C:\Users\D0n9\Desktop\suboff_solid.stl` as the manual submarine geometry input. Mark the previous “release-ready” screenshots, user-guide drafts, and optimistic completion statements as stale until the new verification sweep is complete; regenerate user docs and screenshots only after the product truly reaches the browser-visible acceptance bar. Delete one-off probes, scratch screenshots, and temporary threads once the same evidence is preserved in tests or durable docs.
 
 **Workspace Strategy:** current workspace
 
@@ -34,9 +34,9 @@
 
 **Non-Negotiables:** none
 
-**Forbidden Regressions:** none
+**Forbidden Regressions:** hidden backend-only actions, silent empty-response stalls after the submarine design brief, release claims that stop at upload plus preliminary planning while compute/report/publish remain unverified
 
-**Method Fidelity Checks:** none
+**Method Fidelity Checks:** every meaningful user input and action must be visible in the frontend; the submarine path must reach real execution, post-process artifacts, and final report output; Skill Studio must show create, validate, dry-run, publish, and evidence that published skills are available to runtime agents
 
 **Scale Gate:** none
 
@@ -44,256 +44,228 @@
 
 **Research Findings:** none
 
-**Uncertainty Hotspots:** whether the currently running frontend-only flows still match the 2026-04-11 handoff; whether user-visible input and artifact presentation remain intact across all major workspaces instead of only Skill Studio and submarine; whether any release blocker now lives in route transitions, missing-thread recovery, upload UX, or production build contracts; whether the current uncommitted submarine UX slice remains green while broader testing proceeds.
+**Uncertainty Hotspots:** whether downstream solver/report stalls are fully explained by the current empty-response recovery gap or whether additional runtime/prompting issues remain; whether submarine frontend surfaces already have enough hooks to expose explicit execution/report actions cleanly; whether Skill Studio publish is fully usable but insufficiently proven, or whether a user-visible binding affordance is still missing
 
-**Replan Triggers:** multiple unrelated subsystems fail in ways that require separate execution tracks; local services no longer match the documented startup assumptions; the only way to make a path work is through hidden backend-side manipulation rather than visible UI actions; current uncommitted user-facing fixes conflict with broader release-hardening changes.
+**Replan Triggers:** downstream submarine execution succeeds only through hidden backend intervention instead of visible UI actions; full submarine run reveals a second root cause outside the known recovery gap; Skill Studio publish completes but published skills still cannot be shown in runtime snapshots or thread behavior without a broader product change
 
 ---
 
-### Task 1: Re-Baseline Main And Protect The Current Dirty Slice
+### Task 1: Reopen The Durable Handoff Around The Real Acceptance Bar
 
 **Type:** Exploratory
 
 **Files:**
-- Notes: `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
-- Notes: `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
-- Test: `frontend/src/components/workspace/submarine-workbench/submarine-session-model.test.ts`
-- Test: `frontend/src/components/workspace/submarine-workbench/submarine-negotiation-panel.model.test.ts`
-- Test: `frontend/src/components/workspace/submarine-workbench/index.contract.test.ts`
+- Modify: `docs/superpowers/plans/2026-04-12-frontend-visible-end-to-end-release-readiness.md`
+- Modify: `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
+- Modify: `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
 
-**Goal:** Reconcile the previously closed bring-up handoff with the actual dirty `main` workspace, confirm the local services are alive, and verify the current uncommitted submarine UX slice before broader testing begins.
+**Goal:** Replace the stale “completed / release-ready” narrative with the verified current state so every later session resumes from the real blockers.
 
 **Collect Evidence:**
-- exact git status and current branch baseline
-- live health of `3000`, `8001`, and `2127`
-- targeted verification result for the current submarine confirmation UX slice
+- current branch and working tree state
+- currently running local stack ports
+- verified submarine downstream and Skill Studio gaps recovered from the existing code and repro record
 
 **Stop and Replan If:**
-- the dirty diff already fails its own targeted verification
-- repo state conflicts with the durable handoff in a way that cannot be reconciled locally
+- the existing durable artifacts point at a different active plan family
+- repo state contradicts the known handoff strongly enough that the current release-readiness slug is no longer the right continuity chain
 
 **Checkpoint If:**
-- the current dirty slice is verified and the browser-only test matrix is ready
+- the revised plan/status/summary all agree on the reopened scope and next step
 
-- [ ] **Step 1: Capture the current workspace baseline**
+- [x] **Step 1: Recover the active durable artifacts and git state**
+- [x] **Step 2: Record the invalidated assumptions and reopened scope**
+- [x] **Step 3: Update the next recommended step to the real blocker-driven sequence**
 
-Run:
-  - `git status --short --branch`
-  - `git log --oneline --decorate -5`
-  - `git branch -vv`
+### Task 2: Add Regression Tests For Downstream Empty-Response Recovery
 
-Expected: `main` is active, the dirty submarine workbench slice is visible, and the safety snapshot branch still exists
-
-- [ ] **Step 2: Probe the live services before touching runtime startup**
-
-Run:
-  - `Invoke-WebRequest http://127.0.0.1:3000/workspace/chats -UseBasicParsing | Select-Object -ExpandProperty StatusCode`
-  - `Invoke-WebRequest http://127.0.0.1:8001/health -UseBasicParsing | Select-Object -ExpandProperty Content`
-  - `Invoke-WebRequest http://127.0.0.1:2127/ok -UseBasicParsing | Select-Object -ExpandProperty Content`
-
-Expected: each layer returns concrete success or failure evidence without assuming prior sessions still hold
-
-- [ ] **Step 3: Re-run the focused submarine UX regression slice before broader work**
-
-Run:
-  - `corepack pnpm --dir frontend exec node --experimental-strip-types --test "src/components/workspace/submarine-workbench/submarine-session-model.test.ts" "src/components/workspace/submarine-workbench/submarine-negotiation-panel.model.test.ts" "src/components/workspace/submarine-workbench/index.contract.test.ts"`
-
-Expected: the current dirty user-facing submarine confirmation work is green and safe to build on
-
-- [ ] **Step 4: Record the reconciled baseline in the new status and summary files**
-
-Update:
-  - `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
-  - `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
-
-### Task 2: Build The Frontend-Visible Journey Matrix
-
-**Type:** Exploratory
+**Type:** Deterministic
 
 **Files:**
-- Modify: `frontend/src/app/workspace/agents/page.tsx`
-- Modify: `frontend/src/app/workspace/chats/page.tsx`
-- Modify: `frontend/src/app/workspace/skill-studio/new/page.tsx`
-- Modify: `frontend/src/app/workspace/skill-studio/[thread_id]/page.tsx`
+- Modify: `backend/tests/test_cli_auth_providers.py`
+- Test: `backend/tests/test_cli_auth_providers.py`
+
+**Goal:** Turn the confirmed submarine downstream stall into focused failing tests before changing provider recovery logic.
+
+- [ ] **Step 1: Add a failing test for solver-dispatch recovery after a ready design-brief state**
+
+```python
+def test_openai_cli_provider_recovers_solver_dispatch_after_ready_design_brief(...):
+    ...
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_solver_dispatch",
+            ...
+        }
+    ]
+```
+
+- [ ] **Step 2: Run it to verify RED**
+
+Run: `uv run --project backend pytest backend/tests/test_cli_auth_providers.py -k solver_dispatch_recover -v`
+Expected: FAIL because the provider currently falls back to generic text instead of dispatching the downstream tool
+
+- [ ] **Step 3: Add a failing test for result-report recovery after solver artifacts exist**
+
+```python
+def test_openai_cli_provider_recovers_result_report_after_solver_dispatch(...):
+    ...
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_result_report",
+            ...
+        }
+    ]
+```
+
+- [ ] **Step 4: Run it to verify RED**
+
+Run: `uv run --project backend pytest backend/tests/test_cli_auth_providers.py -k result_report_recover -v`
+Expected: FAIL because the provider currently emits the generic fallback instead of continuing the chain
+
+### Task 3: Repair Provider Recovery For Solver Dispatch And Final Reporting
+
+**Type:** Deterministic
+
+**Files:**
+- Modify: `backend/packages/harness/deerflow/models/openai_cli_provider.py`
+- Modify: `backend/tests/test_cli_auth_providers.py`
+- Test: `backend/tests/test_cli_auth_providers.py`
+
+**Goal:** Extend empty-response recovery beyond geometry/design-brief so downstream submarine execution and reporting continue automatically when the model returns an empty turn.
+
+- [ ] **Step 1: Implement minimal solver-dispatch recovery**
+
+```python
+def _build_submarine_solver_dispatch_recovery_tool_calls(...):
+    ...
+```
+
+- [ ] **Step 2: Implement minimal result-report recovery and visible summary reuse**
+
+```python
+def _build_submarine_result_report_recovery_tool_calls(...):
+    ...
+```
+
+- [ ] **Step 3: Run the focused backend regression suite**
+
+Run: `uv run --project backend pytest backend/tests/test_cli_auth_providers.py -v`
+Expected: PASS with the new downstream recovery cases green and no regression in existing geometry/design-brief recovery cases
+
+- [ ] **Step 4: Run the neighboring submarine backend suite**
+
+Run: `uv run --project backend pytest backend/tests/test_submarine_design_brief_tool.py backend/tests/test_submarine_geometry_check_tool.py -v`
+Expected: PASS
+
+### Task 4: Expose Explicit Frontend Actions For Execution And Reporting
+
+**Type:** Deterministic
+
+**Files:**
 - Modify: `frontend/src/app/workspace/submarine/[thread_id]/page.tsx`
-- Notes: `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
-- Notes: `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
+- Modify: `frontend/src/components/workspace/submarine-workbench/index.tsx`
+- Modify: `frontend/src/components/workspace/submarine-workbench/submarine-research-canvas.tsx`
+- Modify: `frontend/src/components/workspace/submarine-confirmation-actions.ts`
+- Test: `frontend/src/components/workspace/submarine-workbench/index.contract.test.ts`
+- Test: `frontend/src/components/workspace/submarine-workbench/*.test.ts*`
 
-**Goal:** Define the exact visible user journeys to test so the audit covers route entry, input, progression, artifacts, and completion across the whole product instead of a single thread.
+**Goal:** Give the user explicit, visible UI actions to continue from design brief to execution and from execution to reporting, and ensure those actions produce visible chat messages rather than hidden backend calls.
 
-**Collect Evidence:**
-- which workspace routes exist and which ones create or resume flows
-- which journeys require a pre-existing thread id and which can be created from visible UI
-- which visible UI inputs and artifact panels should prove each flow is actually working
+- [ ] **Step 1: Add a failing frontend test or contract assertion for visible execution/report actions**
+- [ ] **Step 2: Run it to verify RED**
 
-**Stop and Replan If:**
-- a critical route has no real user-entry path and requires a product decision instead of a bug fix
-- the product surface has split into separate subsystems that need independent plans
+Run: `corepack pnpm --dir frontend exec node --experimental-strip-types --test "src/components/workspace/submarine-workbench/index.contract.test.ts"`
+Expected: FAIL because the current workbench does not yet expose the needed visible action contract
 
-**Checkpoint If:**
-- each major workspace has one concrete visible happy path and one concrete success signal
+- [ ] **Step 3: Implement the smallest UI slice that submits visible chat-side execution and report requests**
+- [ ] **Step 4: Re-run the focused frontend tests**
 
-- [ ] **Step 1: Inspect the workspace route files and map user-entry surfaces**
+Run: `corepack pnpm --dir frontend exec node --experimental-strip-types --test "src/components/workspace/submarine-workbench/submarine-session-model.test.ts" "src/components/workspace/submarine-workbench/submarine-negotiation-panel.model.test.ts" "src/components/workspace/submarine-workbench/index.contract.test.ts"`
+Expected: PASS
 
-Inspect:
-  - `frontend/src/app/workspace/page.tsx`
-  - `frontend/src/app/workspace/agents/page.tsx`
-  - `frontend/src/app/workspace/chats/page.tsx`
-  - `frontend/src/app/workspace/skill-studio/new/page.tsx`
-  - `frontend/src/app/workspace/skill-studio/[thread_id]/page.tsx`
-  - `frontend/src/app/workspace/submarine/[thread_id]/page.tsx`
-
-Expected: one concrete route and visible-entry map for chats, agents, Skill Studio, and submarine
-
-- [ ] **Step 2: Define the browser-only journey matrix**
-
-Include:
-  - `/workspace/chats`
-  - `/workspace/agents`
-  - visible Skill Studio creation path and a real thread path
-  - visible submarine thread path using `C:\Users\D0n9\Desktop\suboff_solid.stl`
-
-Expected: each journey includes starting route, visible input action, expected visible progress, and visible completion evidence
-
-- [ ] **Step 3: Record the matrix and the first blocker candidate**
-
-Update:
-  - `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
-  - `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
-
-### Task 3: Execute The Browser-Only End-To-End Matrix
+### Task 5: Prove The Full Submarine Browser Journey Through Compute, Postprocess, And Report
 
 **Type:** Exploratory
-
-**Files:**
-- Notes: `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
-- Notes: `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
-
-**Goal:** Run the visible frontend journeys exactly as a user would, using the browser UI for all user input and the desktop STL file for submarine validation, and produce an ordered blocker inventory grounded in real repro.
-
-**Collect Evidence:**
-- whether `/workspace/chats` and `/workspace/agents` are usable from the visible UI
-- whether Skill Studio can be started and advanced from visible controls
-- whether submarine flow can accept the STL file, show visible progress, surface pending confirmations clearly, and render visible artifacts
-- whether existing-thread routes still show usable state instead of dead ends
-
-**Stop and Replan If:**
-- the matrix reveals multiple unrelated release blockers that should be split into separate repair tracks
-- the only reproducible issue is external infrastructure outside project control
-
-**Checkpoint If:**
-- the first blocker has a stable browser repro and owning code boundary
-
-- [ ] **Step 1: Run the visible route smokes**
-
-Check in the browser:
-  - `/workspace/chats`
-  - `/workspace/agents`
-  - `/workspace/skill-studio/new`
-  - one live Skill Studio thread route
-  - one live submarine thread route
-
-Expected: each route either works through a visible UI path or yields one concrete reproducible blocker
-
-- [ ] **Step 2: Run a visible Skill Studio journey**
-
-Use the visible page controls to:
-  - start or resume a thread
-  - submit user-visible text input
-  - wait for visible workbench updates
-  - confirm visible artifacts or packaged output appear
-
-Expected: the user can understand progress and outcomes without backend-only intervention
-
-- [ ] **Step 3: Run a visible submarine journey with the desktop STL fixture**
-
-Use the visible page controls to:
-  - upload `C:\Users\D0n9\Desktop\suboff_solid.stl`
-  - submit visible text input through the page input, not hidden tooling
-  - confirm pending confirmations are listed concretely
-  - confirm visible artifact output appears in the workbench
-
-Expected: the submarine chain works end-to-end from visible UI actions and surfaces enough information for a normal user to proceed
-
-- [ ] **Step 4: Record the ordered blocker inventory**
-
-Update:
-  - `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
-  - `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
-
-### Task 4: Turn Confirmed Blockers Into TDD Fix Slices
-
-**Type:** Deterministic
-
-**Files:**
-- Modify: `frontend/src/app/workspace/**`
-- Modify: `frontend/src/components/workspace/**`
-- Modify: `frontend/src/core/**`
-- Modify: `backend/app/gateway/**`
-- Modify: `backend/packages/harness/deerflow/**`
-- Test: `frontend/src/**/*.test.ts`
-- Test: `frontend/src/**/*.test.tsx`
-- Test: `backend/tests/**/*.py`
-- Notes: `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
-
-**Goal:** Fix only reproduced release blockers, one root cause at a time, and keep each repair grounded in a failing test or equivalently deterministic validation.
-
-- [ ] **Step 1: Add the smallest failing regression test for the top blocker**
-
-Expected: one targeted test fails for the reproduced root cause
-
-- [ ] **Step 2: Run the focused test to verify RED**
-
-Expected: the failure matches the browser repro, not an unrelated harness problem
-
-- [ ] **Step 3: Implement the minimal root-cause fix**
-
-Expected: the owning boundary changes without opportunistic refactors
-
-- [ ] **Step 4: Re-run the focused test, the narrow surrounding suite, and the original browser repro**
-
-Expected: the regression test is green and the visible blocker is gone
-
-- [ ] **Step 5: Refresh the durable handoff and continue with the next blocker if needed**
-
-Update:
-  - `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
-  - `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
-
-### Task 5: Prove Release Readiness And Close The Milestone
-
-**Type:** Deterministic
 
 **Files:**
 - Modify: `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
 - Modify: `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
 
-**Goal:** Only claim release readiness after the touched slices, production build path, and visible critical journeys are all green together.
+**Goal:** Re-run the submarine user flow strictly from the visible frontend and verify that it reaches real solver execution, post-processing artifacts, and final report output using `C:\Users\D0n9\Desktop\suboff_solid.stl`.
 
-- [ ] **Step 1: Run milestone review for the finished repair slice**
+**Collect Evidence:**
+- visible upload and confirmation history
+- visible execution trigger from the workbench
+- actual solver-dispatch, postprocess, and reporting artifacts in thread state
+- visible completion signals in chat and workbench
 
-Expected: reviewer findings are fixed or explicitly carried as remaining release blockers
+**Stop and Replan If:**
+- the flow still needs hidden operator intervention
+- solver dispatch succeeds but post-processing or reporting fails for a different root cause
 
-- [ ] **Step 2: Run the required verification sweep**
+**Checkpoint If:**
+- the submarine chain is genuinely browser-complete end to end
+
+- [ ] **Step 1: Start or reuse a submarine thread from the frontend**
+- [ ] **Step 2: Upload `C:\Users\D0n9\Desktop\suboff_solid.stl` and confirm the requested inputs in visible chat**
+- [ ] **Step 3: Trigger visible execution and wait for solver/postprocess completion**
+- [ ] **Step 4: Trigger visible final reporting and confirm the report artifacts are present**
+- [ ] **Step 5: Record the verified thread id, artifacts, and any remaining defects in the status and summary files**
+
+### Task 6: Prove Skill Studio Create-To-Publish And Runtime Binding
+
+**Type:** Exploratory
+
+**Files:**
+- Modify: `frontend/src/app/workspace/skill-studio/[thread_id]/page.tsx`
+- Modify: `frontend/src/components/workspace/skill-studio-workbench/index.tsx`
+- Modify: `backend/app/gateway/routers/skills.py`
+- Modify: `backend/packages/harness/deerflow/agents/middlewares/skill_runtime_snapshot_middleware.py`
+- Modify: `backend/packages/harness/deerflow/agents/lead_agent/prompt.py`
+- Modify: `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
+- Modify: `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
+
+**Goal:** Demonstrate that Skill Studio can create, validate, dry-run, publish, and make a published skill available to agents in a user-visible way; add the smallest affordance only if the proof is currently missing.
+
+**Collect Evidence:**
+- visible lifecycle artifacts in the Skill Studio thread
+- publish success state from the visible workbench or gateway lifecycle
+- evidence that a published skill appears in runtime skill snapshot or affects a later agent thread
+
+**Stop and Replan If:**
+- publish lifecycle is green but runtime binding requires a deeper architecture change
+- the missing proof is not an affordance bug but a product-definition gap
+
+**Checkpoint If:**
+- a normal user can understand that a published skill was actually made available to agents
+
+- [ ] **Step 1: Re-run the existing strong Skill Studio thread from the frontend**
+- [ ] **Step 2: Verify create, validate, dry-run, publish evidence from the visible UI**
+- [ ] **Step 3: Verify or add the minimal user-visible proof of runtime binding**
+- [ ] **Step 4: Record the evidence and any remaining limitations in the status and summary files**
+
+### Task 7: Only Then Refresh User Docs, Screenshots, And Release Claim
+
+**Type:** Deterministic
+
+**Files:**
+- Modify: `docs/user-guide/**`
+- Modify: `test-results/**`
+- Modify: `docs/superpowers/session-status/2026-04-12-frontend-visible-end-to-end-release-readiness-status.md`
+- Modify: `docs/superpowers/context-summaries/2026-04-12-frontend-visible-end-to-end-release-readiness-summary.md`
+
+**Goal:** Regenerate the user-facing guide and screenshot set only after submarine and Skill Studio both satisfy the browser-visible acceptance bar.
+
+- [ ] **Step 1: Capture a clean screenshot set from the real release-usable product**
+- [ ] **Step 2: Rewrite the user guide around the verified flows instead of the partial ones**
+- [ ] **Step 3: Run the final verification sweep**
 
 Run:
-  - targeted frontend and backend tests for changed slices
+  - `uv run --project backend pytest backend/tests/test_cli_auth_providers.py backend/tests/test_submarine_design_brief_tool.py backend/tests/test_submarine_geometry_check_tool.py -v`
+  - `corepack pnpm --dir frontend exec node --experimental-strip-types --test "src/components/workspace/submarine-workbench/submarine-session-model.test.ts" "src/components/workspace/submarine-workbench/submarine-negotiation-panel.model.test.ts" "src/components/workspace/submarine-workbench/index.contract.test.ts"`
   - `corepack pnpm --dir frontend typecheck`
-  - touched-file or relevant-scope frontend `eslint`
-  - `corepack pnpm --dir frontend build` with the required auth env set for production-path verification
 
-Expected: verification evidence is green for the actual changed surface
+Expected: the touched regression suites and frontend typecheck are green before any release-ready claim is written
 
-- [ ] **Step 3: Re-run the final visible user journeys**
-
-Check:
-  - `/workspace/chats`
-  - `/workspace/agents`
-  - visible Skill Studio create/resume flow
-  - visible submarine flow with STL upload and follow-up input
-
-Expected: the main user journeys still work from the visible frontend after the code fixes and verification sweep
-
-- [ ] **Step 4: Refresh the final status and context summary with only verified state**
-
-Expected: a future session can tell whether the project is truly ready to release or exactly what remains blocked
+- [ ] **Step 4: Request reviewer pass for the milestone and update the final status honestly**

@@ -174,6 +174,12 @@ function resolveProgressValue({
   if (pendingApprovalCount > 0) {
     return `${pendingApprovalCount} 项待确认`;
   }
+  if (runtimeStatus === "blocked") {
+    return "运行已阻塞";
+  }
+  if (runtimeStatus === "failed") {
+    return "运行已失败";
+  }
   if (runtimeStatus === "running") {
     return "求解执行中";
   }

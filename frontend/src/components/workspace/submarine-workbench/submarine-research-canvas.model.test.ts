@@ -45,6 +45,24 @@ void test("simulation-plan facts can still surface concrete solver-preparation b
   ]);
 });
 
+void test("results-and-delivery facts surface a blocked runtime instead of claiming there is no blocker", () => {
+  const facts = buildSliceFactsModel({
+    sliceId: "results-and-delivery",
+    pendingApprovalCount: 0,
+    runtimeStatus: "blocked",
+    artifactCount: 22,
+    executionPlanCount: 0,
+    skillNames: [],
+    requestedOutputs: [],
+  });
+
+  assert.deepEqual(facts, [
+    { label: "当前进度", value: "运行已阻塞" },
+    { label: "研究产物", value: "22 项研究产物" },
+    { label: "协作线索", value: "结果审阅与交付判断" },
+  ]);
+});
+
 void test("task-establishment context notes stay readable in history view instead of echoing raw paths and internal brief ids", () => {
   const notes = buildSliceContextNotesModel({
     sliceId: "task-establishment",

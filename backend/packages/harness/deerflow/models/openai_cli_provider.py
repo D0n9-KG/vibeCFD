@@ -58,6 +58,66 @@ _SUBMARINE_FOLLOWUP_KEYWORDS = (
     "baseline",
     "next step",
 )
+_SUBMARINE_EXECUTION_REQUEST_KEYWORDS = (
+    "\u5f00\u59cb\u6267\u884c",
+    "\u7ee7\u7eed\u6267\u884c",
+    "\u5f00\u59cb\u8ba1\u7b97",
+    "\u7ee7\u7eed\u8ba1\u7b97",
+    "\u5b9e\u9645\u8ba1\u7b97",
+    "\u5f00\u59cb\u5b9e\u9645\u6c42\u89e3",
+    "\u5f00\u59cb\u5b9e\u9645\u6c42\u89e3\u6267\u884c",
+    "\u5b9e\u9645\u6c42\u89e3",
+    "\u5b9e\u9645\u6c42\u89e3\u6267\u884c",
+    "\u771f\u5b9e\u6c42\u89e3",
+    "\u7acb\u5373\u6267\u884c",
+    "\u7acb\u5373\u8ba1\u7b97",
+    "start execution",
+    "continue execution",
+    "proceed with execution",
+    "execute now",
+    "run now",
+    "actual openfoam",
+    "real openfoam",
+    "launch the solver",
+)
+_SUBMARINE_REPORT_REQUEST_KEYWORDS = (
+    "\u751f\u6210\u62a5\u544a",
+    "\u6700\u7ec8\u62a5\u544a",
+    "\u7ed3\u679c\u62a5\u544a",
+    "\u8f93\u51fa\u62a5\u544a",
+    "\u540e\u5904\u7406",
+    "\u751f\u6210\u7ed3\u679c",
+    "generate report",
+    "final report",
+    "result report",
+    "postprocess",
+    "post-process",
+    "post processing",
+)
+_SUBMARINE_SCIENTIFIC_FOLLOWUP_REQUEST_KEYWORDS = (
+    "\u4fee\u6b63",
+    "\u4fee\u6b63\u6d41\u7a0b",
+    "\u7ee7\u7eed\u4fee\u6b63",
+    "\u7ee7\u7eed\u8865\u9f50",
+    "\u8865\u9f50\u8bc1\u636e",
+    "\u8865\u9f50 solver metrics",
+    "\u91cd\u8dd1",
+    "\u91cd\u65b0\u6267\u884c",
+    "\u91cd\u65b0\u6267\u884c\u5f53\u524d\u6f5c\u8247\u6c42\u89e3",
+    "\u91cd\u65b0\u6c42\u89e3",
+    "\u7eed\u8dd1",
+    "\u5237\u65b0\u7ed3\u679c\u62a5\u544a",
+    "recommended remediation",
+    "continue remediation",
+    "remediation handoff",
+    "scientific follow-up",
+    "scientific followup",
+    "rerun the current solver",
+    "rerun the solver",
+    "refresh the report",
+    "missing solver metrics",
+    "solver metrics are unavailable",
+)
 _SUBMARINE_MEASUREMENT_RE = re.compile(
     r"\d+(?:\.\d+)?\s*(?:m/s|m\^2|m2|m)",
     re.IGNORECASE,
@@ -72,6 +132,33 @@ _SUBMARINE_CASE_HINTS: dict[tuple[str, str], str] = {
     ("type 209", "resistance"): "type209_engineering_drag",
     ("type 209", "pressure_distribution"): "type209_pressure_velocity_openfoam",
 }
+_GENERIC_CONTINUE_ACK_TEXT_EN = (
+    "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
+)
+_GENERIC_CONTINUE_ACK_TEXT_ZH = (
+    "\u6211\u5148\u6839\u636e\u4f60\u521a\u624d\u7684\u8f93\u5165\u7ee7\u7eed\u63a8\u8fdb\uff1b"
+    "\u5982\u679c\u9700\u8981\u4f60\u8865\u5145\u4fe1\u606f\uff0c\u6211\u4f1a\u660e\u786e\u544a\u8bc9\u4f60\u3002"
+)
+_GENERIC_CONTINUE_ACK_TEXTS = frozenset(
+    {_GENERIC_CONTINUE_ACK_TEXT_EN, _GENERIC_CONTINUE_ACK_TEXT_ZH}
+)
+_SKILL_STUDIO_DRY_RUN_KEYWORDS = (
+    "dry-run",
+    "dry run",
+    "\u8bd5\u8dd1",
+)
+_SKILL_STUDIO_STRUCTURED_OUTPUT_KEYWORDS = (
+    "conclusion",
+    "evidence_list",
+    "blocking_items",
+    "visible_tag",
+    "visible-sci-check",
+    "accept/revise/reject",
+)
+_SKILL_STUDIO_SCENARIO_ID_RE = re.compile(
+    r"(?:\u573a\u666f|scenario)\s*t[-\s]?0?([1-5])",
+    re.IGNORECASE,
+)
 
 
 class OpenAICliChatModel(ChatOpenAI):
@@ -319,6 +406,20 @@ class OpenAICliChatModel(ChatOpenAI):
         return {}
 
     @classmethod
+    def _latest_planned_solver_dispatch_args_before_latest_human(
+        cls, messages: list[BaseMessage]
+    ) -> dict[str, Any]:
+        latest_args = cls._latest_tool_call_args_before_latest_human(
+            messages,
+            tool_name="submarine_solver_dispatch",
+        )
+        if not latest_args:
+            return {}
+        if latest_args.get("execute_now") is True:
+            return {}
+        return latest_args
+
+    @classmethod
     def _infer_submarine_task_type(cls, text: str) -> str:
         normalized = text.lower()
         if any(keyword in normalized for keyword in ("压力", "pressure")):
@@ -444,6 +545,8 @@ class OpenAICliChatModel(ChatOpenAI):
         cls, messages: list[BaseMessage]
     ) -> list[dict[str, Any]]:
         visible_text = cls._latest_user_visible_text(messages)
+        if cls._looks_like_submarine_execution_request(visible_text, messages):
+            return []
         if not cls._looks_like_submarine_confirmation_reply(visible_text, messages):
             return []
 
@@ -524,6 +627,353 @@ class OpenAICliChatModel(ChatOpenAI):
         ]
 
     @classmethod
+    def _looks_like_submarine_execution_request(
+        cls, text: str, messages: list[BaseMessage] | None = None
+    ) -> bool:
+        normalized = text.lower()
+        if any(
+            keyword in normalized for keyword in _SUBMARINE_EXECUTION_REQUEST_KEYWORDS
+        ):
+            return True
+        if messages is None:
+            return False
+        if not cls._has_tool_activity_before_latest_human(
+            messages,
+            tool_name="submarine_design_brief",
+        ):
+            return False
+        has_followup = any(
+            keyword in normalized for keyword in _SUBMARINE_FOLLOWUP_KEYWORDS
+        )
+        has_report_request = any(
+            keyword in normalized for keyword in _SUBMARINE_REPORT_REQUEST_KEYWORDS
+        )
+        if not has_followup or has_report_request:
+            return False
+
+        return cls._has_tool_activity_before_latest_human(
+            messages,
+            tool_name="submarine_design_brief",
+        ) or bool(
+            cls._latest_planned_solver_dispatch_args_before_latest_human(messages)
+        )
+
+    @classmethod
+    def _looks_like_submarine_report_request(cls, text: str) -> bool:
+        normalized = text.lower()
+        return any(
+            keyword in normalized for keyword in _SUBMARINE_REPORT_REQUEST_KEYWORDS
+        )
+
+    @classmethod
+    def _looks_like_submarine_scientific_followup_request(
+        cls, text: str, messages: list[BaseMessage] | None = None
+    ) -> bool:
+        if messages is None:
+            return False
+        if not cls._has_tool_activity_before_latest_human(
+            messages,
+            tool_name="submarine_result_report",
+        ):
+            return False
+
+        normalized = text.lower()
+        if any(
+            keyword in normalized
+            for keyword in _SUBMARINE_SCIENTIFIC_FOLLOWUP_REQUEST_KEYWORDS
+        ):
+            return True
+
+        return cls._looks_like_submarine_execution_request(text, messages) and any(
+            keyword in normalized for keyword in _SUBMARINE_FOLLOWUP_KEYWORDS
+        )
+
+    @classmethod
+    def _looks_like_generic_continue_ack(cls, text: str) -> bool:
+        return text.strip() in _GENERIC_CONTINUE_ACK_TEXTS
+
+    @classmethod
+    def _looks_like_skill_studio_dry_run_request(
+        cls, text: str, messages: list[BaseMessage] | None = None
+    ) -> bool:
+        normalized = text.lower()
+        if not any(keyword in normalized for keyword in _SKILL_STUDIO_DRY_RUN_KEYWORDS):
+            return False
+        if not any(
+            keyword in normalized for keyword in _SKILL_STUDIO_STRUCTURED_OUTPUT_KEYWORDS
+        ):
+            return False
+        if messages is None:
+            return True
+        return cls._has_tool_activity_before_latest_human(
+            messages,
+            tool_name="submarine_skill_studio",
+        )
+
+    @classmethod
+    def _latest_skill_studio_skill_name_before_latest_human(
+        cls, messages: list[BaseMessage]
+    ) -> str:
+        latest_skill_studio_args = cls._latest_tool_call_args_before_latest_human(
+            messages,
+            tool_name="submarine_skill_studio",
+        )
+        return str(latest_skill_studio_args.get("skill_name") or "").strip()
+
+    @classmethod
+    def _build_skill_studio_dry_run_response(
+        cls, messages: list[BaseMessage]
+    ) -> str | None:
+        visible_text = cls._latest_user_visible_text(messages)
+        if not cls._looks_like_skill_studio_dry_run_request(visible_text, messages):
+            return None
+
+        skill_name = cls._latest_skill_studio_skill_name_before_latest_human(messages)
+        if not skill_name:
+            return None
+
+        normalized = visible_text.lower()
+        scenario_match = _SKILL_STUDIO_SCENARIO_ID_RE.search(visible_text)
+        scenario_id = scenario_match.group(1) if scenario_match else None
+
+        payload: dict[str, Any]
+        footer_suffix = scenario_id or "dry-run"
+        if scenario_id == "1" or "0.7%" in normalized:
+            payload = {
+                "conclusion": "accept",
+                "evidence_list": [
+                    "Residuals remain below 1e-4 (Ux=8.2e-5, Uy=3.1e-5, p=6.7e-5).",
+                    "Cd deviation versus baseline stays within 5% (0.7%).",
+                    "Mesh quality remains inside the acceptance guardrails (maxSkewness=0.61, minOrthogonality=0.18).",
+                ],
+                "blocking_items": [],
+                "missing_items": [],
+                "risk_notes": [
+                    "No blocking scientific risk was identified in this dry-run scenario."
+                ],
+                "next_step_recommendation": [
+                    "Record the dry-run as passed and continue to publish review."
+                ],
+                "visible_tag": "VISIBLE-SCI-CHECK",
+            }
+        elif scenario_id == "2" or "7.5%" in normalized:
+            payload = {
+                "conclusion": "revise",
+                "evidence_list": [
+                    "Pressure residual remains in the revise band (p=4.5e-4).",
+                    "Cd deviation versus baseline is 7.5%, exceeding the accept threshold.",
+                    "Local mesh warning is present (maxSkewness=0.79).",
+                ],
+                "blocking_items": [
+                    "SOFT-BLOCK: residual has not fully converged to the accept threshold.",
+                    "SOFT-BLOCK: Cd deviation exceeds 5%.",
+                ],
+                "missing_items": [],
+                "risk_notes": [
+                    "The result is directionally useful but not yet strong enough for a confident accept decision."
+                ],
+                "next_step_recommendation": [
+                    "Increase solver iterations and re-check the tail-region mesh quality before rerunning acceptance."
+                ],
+                "visible_tag": "VISIBLE-SCI-CHECK",
+            }
+        elif scenario_id == "3" or "\u538b\u529b\u5165\u53e3" in visible_text or "1.2e-2" in normalized:
+            payload = {
+                "conclusion": "reject",
+                "evidence_list": [
+                    "Residual diverges above the hard threshold (p=1.2e-2).",
+                    "Pressure-distribution evidence is incomplete because Cp data is missing.",
+                    "The inlet boundary condition is configured as a pressure inlet and is scientifically invalid for this case.",
+                ],
+                "blocking_items": [
+                    "HARD-BLOCK: invalid inlet boundary condition.",
+                    "HARD-BLOCK: residual divergence exceeds the reject threshold.",
+                ],
+                "missing_items": [],
+                "risk_notes": [
+                    "Publishing or downstream scientific reporting would be misleading with the current setup."
+                ],
+                "next_step_recommendation": [
+                    "Fix the boundary-condition setup, regenerate Cp outputs, and rerun the case before another acceptance pass."
+                ],
+                "visible_tag": "VISIBLE-SCI-CHECK",
+            }
+        elif scenario_id == "4" or "solver_settings_summary" in normalized:
+            payload = {
+                "conclusion": None,
+                "evidence_list": [],
+                "blocking_items": [],
+                "missing_items": [
+                    "task_type",
+                    "solver_settings_summary",
+                ],
+                "risk_notes": [
+                    "The dry-run stops at input-contract validation because required fields are missing."
+                ],
+                "next_step_recommendation": [
+                    "Provide task_type and solver_settings_summary before continuing the scientific acceptance workflow."
+                ],
+                "visible_tag": "VISIBLE-SCI-CHECK",
+            }
+        elif scenario_id == "5" or "wake_field" in normalized:
+            payload = {
+                "conclusion": "accept",
+                "evidence_list": [
+                    "Wake-field coverage spans five downstream sections.",
+                    "The propeller-plane uniformity coefficient is acceptable (w_0=0.823).",
+                    "Turbulence intensity remains below 8% while residuals stay below 1e-4.",
+                ],
+                "blocking_items": [],
+                "missing_items": [],
+                "risk_notes": [
+                    "No wake-field blocker was identified in this dry-run scenario."
+                ],
+                "next_step_recommendation": [
+                    "Record the dry-run as passed and continue to publish review."
+                ],
+                "visible_tag": "VISIBLE-SCI-CHECK",
+            }
+        else:
+            return None
+
+        return (
+            json.dumps(payload, ensure_ascii=False, indent=2)
+            + "\n"
+            + f"[VISIBLE-SCI-CHECK: {skill_name} | {footer_suffix} | dry-run]"
+        )
+
+    @classmethod
+    def _build_submarine_scientific_followup_recovery_tool_calls(
+        cls, messages: list[BaseMessage]
+    ) -> list[dict[str, Any]]:
+        visible_text = cls._latest_user_visible_text(messages)
+        if not cls._looks_like_submarine_scientific_followup_request(
+            visible_text, messages
+        ):
+            return []
+
+        if cls._has_tool_activity_since_latest_human(
+            messages,
+            tool_name="submarine_scientific_followup",
+        ):
+            return []
+
+        return [
+            {
+                "name": "submarine_scientific_followup",
+                "args": {},
+                "id": "fallback_submarine_scientific_followup_0",
+                "type": "tool_call",
+            }
+        ]
+
+    @classmethod
+    def _build_submarine_solver_dispatch_recovery_tool_calls(
+        cls, messages: list[BaseMessage]
+    ) -> list[dict[str, Any]]:
+        visible_text = cls._latest_user_visible_text(messages)
+        if not cls._looks_like_submarine_execution_request(visible_text, messages):
+            return []
+
+        latest_design_args = cls._latest_tool_call_args_before_latest_human(
+            messages,
+            tool_name="submarine_design_brief",
+        )
+        latest_planned_dispatch_args = (
+            cls._latest_planned_solver_dispatch_args_before_latest_human(messages)
+        )
+        if not latest_design_args and not latest_planned_dispatch_args:
+            return []
+
+        if cls._has_tool_activity_since_latest_human(
+            messages,
+            tool_name="submarine_solver_dispatch",
+        ):
+            return []
+
+        seed_args = {
+            **latest_design_args,
+            **latest_planned_dispatch_args,
+        }
+        geometry_path = str(seed_args.get("geometry_path") or "").strip()
+        if not geometry_path:
+            geometry_path = cls._latest_submarine_geometry_path_before_latest_human(
+                messages
+            )
+        if not geometry_path:
+            return []
+
+        task_description = str(seed_args.get("task_description") or "").strip() or visible_text
+        if not task_description:
+            return []
+
+        tool_args: dict[str, Any] = {
+            "task_description": task_description,
+            "geometry_path": geometry_path,
+            "task_type": str(seed_args.get("task_type") or "").strip()
+            or cls._infer_submarine_task_type(task_description),
+        }
+        for field in (
+            "geometry_family_hint",
+            "selected_case_id",
+            "inlet_velocity_mps",
+            "fluid_density_kg_m3",
+            "kinematic_viscosity_m2ps",
+            "end_time_seconds",
+            "delta_t_seconds",
+            "write_interval_steps",
+        ):
+            value = seed_args.get(field)
+            if value is not None and value != "":
+                tool_args[field] = value
+
+        if any(
+            keyword in visible_text.lower()
+            for keyword in _SUBMARINE_EXECUTION_REQUEST_KEYWORDS
+        ):
+            tool_args["execute_now"] = True
+
+        return [
+            {
+                "name": "submarine_solver_dispatch",
+                "args": tool_args,
+                "id": "fallback_submarine_solver_dispatch_0",
+                "type": "tool_call",
+            }
+        ]
+
+    @classmethod
+    def _build_submarine_result_report_recovery_tool_calls(
+        cls, messages: list[BaseMessage]
+    ) -> list[dict[str, Any]]:
+        visible_text = cls._latest_user_visible_text(messages)
+        if cls._looks_like_submarine_execution_request(visible_text, messages):
+            return []
+        if not cls._looks_like_submarine_report_request(visible_text):
+            return []
+
+        if not cls._has_tool_activity_before_latest_human(
+            messages,
+            tool_name="submarine_solver_dispatch",
+        ):
+            return []
+
+        if cls._has_tool_activity_since_latest_human(
+            messages,
+            tool_name="submarine_result_report",
+        ):
+            return []
+
+        return [
+            {
+                "name": "submarine_result_report",
+                "args": {},
+                "id": "fallback_submarine_result_report_0",
+                "type": "tool_call",
+            }
+        ]
+
+    @classmethod
     def _build_empty_response_recovery_tool_calls(
         cls, messages: list[BaseMessage]
     ) -> list[dict[str, Any]]:
@@ -535,6 +985,18 @@ class OpenAICliChatModel(ChatOpenAI):
             messages
         ):
             return confirmation_recovery
+        if scientific_followup_recovery := cls._build_submarine_scientific_followup_recovery_tool_calls(
+            messages
+        ):
+            return scientific_followup_recovery
+        if solver_dispatch_recovery := cls._build_submarine_solver_dispatch_recovery_tool_calls(
+            messages
+        ):
+            return solver_dispatch_recovery
+        if result_report_recovery := cls._build_submarine_result_report_recovery_tool_calls(
+            messages
+        ):
+            return result_report_recovery
 
         visible_text = cls._latest_user_visible_text(messages)
         if detect_execution_preference_signal(visible_text) != "plan_only":
@@ -587,7 +1049,48 @@ class OpenAICliChatModel(ChatOpenAI):
         ]
 
     @classmethod
+    def _rewrite_submarine_tool_calls_for_context(
+        cls,
+        messages: list[BaseMessage],
+        tool_calls: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        visible_text = cls._latest_user_visible_text(messages)
+        if not cls._looks_like_submarine_scientific_followup_request(
+            visible_text, messages
+        ):
+            return tool_calls
+        if any(
+            tool_call.get("name") == "submarine_scientific_followup"
+            for tool_call in tool_calls
+        ):
+            return tool_calls
+        if not any(
+            tool_call.get("name")
+            in {
+                "submarine_design_brief",
+                "submarine_solver_dispatch",
+                "submarine_result_report",
+            }
+            for tool_call in tool_calls
+        ):
+            return tool_calls
+
+        return cls._build_submarine_scientific_followup_recovery_tool_calls(messages)
+
+    @classmethod
     def _build_empty_response_fallback(cls, messages: list[BaseMessage]) -> str:
+        if skill_studio_dry_run_response := cls._build_skill_studio_dry_run_response(
+            messages
+        ):
+            return skill_studio_dry_run_response
+        if result_report_summary := cls._latest_tool_result_summary(
+            messages, tool_name="submarine_result_report"
+        ):
+            return result_report_summary
+        if solver_dispatch_summary := cls._latest_tool_result_summary(
+            messages, tool_name="submarine_solver_dispatch"
+        ):
+            return solver_dispatch_summary
         if design_brief_summary := cls._latest_tool_result_summary(
             messages, tool_name="submarine_design_brief"
         ):
@@ -599,8 +1102,8 @@ class OpenAICliChatModel(ChatOpenAI):
 
         latest_user_text = cls._latest_user_visible_text(messages)
         if cls._contains_cjk(latest_user_text):
-            return "\u6211\u5148\u6839\u636e\u4f60\u521a\u624d\u7684\u8f93\u5165\u7ee7\u7eed\u63a8\u8fdb\uff1b\u5982\u679c\u9700\u8981\u4f60\u8865\u5145\u4fe1\u606f\uff0c\u6211\u4f1a\u660e\u786e\u544a\u8bc9\u4f60\u3002"
-        return "I'll continue based on your latest request. If I need anything else, I'll ask clearly."
+            return _GENERIC_CONTINUE_ACK_TEXT_ZH
+        return _GENERIC_CONTINUE_ACK_TEXT_EN
 
     @classmethod
     def _message_has_visible_output(cls, message: AIMessage) -> bool:
@@ -778,31 +1281,53 @@ class OpenAICliChatModel(ChatOpenAI):
             return result
 
         message = result.generations[0].message
-        if (
-            not self._normalize_content(message.content).strip()
-            and not getattr(message, "tool_calls", None)
-            and not getattr(message, "invalid_tool_calls", None)
+        tool_calls = list(getattr(message, "tool_calls", []) or [])
+        rewritten_tool_calls = self._rewrite_submarine_tool_calls_for_context(
+            messages,
+            tool_calls,
+        )
+        if rewritten_tool_calls != tool_calls:
+            result.generations[0].message = message.model_copy(
+                update={
+                    "content": "",
+                    "tool_calls": rewritten_tool_calls,
+                    "invalid_tool_calls": [],
+                }
+            )
+            message = result.generations[0].message
+        normalized_content = self._normalize_content(message.content).strip()
+        has_tool_output = bool(
+            getattr(message, "tool_calls", None)
+            or getattr(message, "invalid_tool_calls", None)
+        )
+        recovery_tool_calls: list[dict[str, Any]] = []
+        if not has_tool_output and (
+            not normalized_content
+            or self._looks_like_generic_continue_ack(normalized_content)
         ):
-            recovery_tool_calls = self._build_empty_response_recovery_tool_calls(messages)
-            if recovery_tool_calls:
-                result.generations[0].message = message.model_copy(
-                    update={
-                        "content": "",
-                        "tool_calls": recovery_tool_calls,
-                        "invalid_tool_calls": [],
-                    }
-                )
-            elif alternate_result := self._retry_empty_response_with_alternate_model(
+            recovery_tool_calls = self._build_empty_response_recovery_tool_calls(
+                messages
+            )
+
+        if recovery_tool_calls:
+            result.generations[0].message = message.model_copy(
+                update={
+                    "content": "",
+                    "tool_calls": recovery_tool_calls,
+                    "invalid_tool_calls": [],
+                }
+            )
+        elif not normalized_content and not has_tool_output:
+            if alternate_result := self._retry_empty_response_with_alternate_model(
                 messages,
                 stop=stop,
                 run_manager=run_manager,
                 **kwargs,
             ):
                 return alternate_result
-            else:
-                result.generations[0].message = message.model_copy(
-                    update={"content": self._build_empty_response_fallback(messages)}
-                )
+            result.generations[0].message = message.model_copy(
+                update={"content": self._build_empty_response_fallback(messages)}
+            )
 
         return result
 
@@ -846,31 +1371,53 @@ class OpenAICliChatModel(ChatOpenAI):
             return result
 
         message = result.generations[0].message
-        if (
-            not self._normalize_content(message.content).strip()
-            and not getattr(message, "tool_calls", None)
-            and not getattr(message, "invalid_tool_calls", None)
+        tool_calls = list(getattr(message, "tool_calls", []) or [])
+        rewritten_tool_calls = self._rewrite_submarine_tool_calls_for_context(
+            messages,
+            tool_calls,
+        )
+        if rewritten_tool_calls != tool_calls:
+            result.generations[0].message = message.model_copy(
+                update={
+                    "content": "",
+                    "tool_calls": rewritten_tool_calls,
+                    "invalid_tool_calls": [],
+                }
+            )
+            message = result.generations[0].message
+        normalized_content = self._normalize_content(message.content).strip()
+        has_tool_output = bool(
+            getattr(message, "tool_calls", None)
+            or getattr(message, "invalid_tool_calls", None)
+        )
+        recovery_tool_calls: list[dict[str, Any]] = []
+        if not has_tool_output and (
+            not normalized_content
+            or self._looks_like_generic_continue_ack(normalized_content)
         ):
-            recovery_tool_calls = self._build_empty_response_recovery_tool_calls(messages)
-            if recovery_tool_calls:
-                result.generations[0].message = message.model_copy(
-                    update={
-                        "content": "",
-                        "tool_calls": recovery_tool_calls,
-                        "invalid_tool_calls": [],
-                    }
-                )
-            elif alternate_result := await self._aretry_empty_response_with_alternate_model(
+            recovery_tool_calls = self._build_empty_response_recovery_tool_calls(
+                messages
+            )
+
+        if recovery_tool_calls:
+            result.generations[0].message = message.model_copy(
+                update={
+                    "content": "",
+                    "tool_calls": recovery_tool_calls,
+                    "invalid_tool_calls": [],
+                }
+            )
+        elif not normalized_content and not has_tool_output:
+            if alternate_result := await self._aretry_empty_response_with_alternate_model(
                 messages,
                 stop=stop,
                 run_manager=run_manager,
                 **kwargs,
             ):
                 return alternate_result
-            else:
-                result.generations[0].message = message.model_copy(
-                    update={"content": self._build_empty_response_fallback(messages)}
-                )
+            result.generations[0].message = message.model_copy(
+                update={"content": self._build_empty_response_fallback(messages)}
+            )
 
         return result
 

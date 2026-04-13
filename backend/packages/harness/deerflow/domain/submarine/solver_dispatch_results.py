@@ -193,17 +193,60 @@ def _solver_completed_successfully(command_output: str) -> bool:
     return "\nEnd" in command_output or command_output.rstrip().endswith("End")
 
 
+def _latest_int_match(
+    command_output: str,
+    *,
+    patterns: list[str],
+) -> tuple[int | None, int]:
+    latest_value: int | None = None
+    latest_position = -1
+    for pattern in patterns:
+        for match in re.finditer(pattern, command_output, flags=re.MULTILINE):
+            if match.start() >= latest_position:
+                latest_value = int(match.group(1))
+                latest_position = match.start()
+    return latest_value, latest_position
+
+
 def _parse_mesh_summary(command_output: str) -> dict[str, int | bool] | None:
     summary: dict[str, int | bool] = {}
-    for field_name, pattern in {
-        "points": r"^\s*points:\s+(\d+)\s*$",
-        "faces": r"^\s*faces:\s+(\d+)\s*$",
-        "internal_faces": r"^\s*internal faces:\s+(\d+)\s*$",
-        "cells": r"^\s*cells:\s+(\d+)\s*$",
+    latest_positions: dict[str, int] = {}
+
+    inline_matches = list(
+        re.finditer(
+            r"^\s*.*?\bcells:\s*(\d+)\s+faces:\s*(\d+)\s+points:\s*(\d+)\s*$",
+            command_output,
+            flags=re.MULTILINE,
+        )
+    )
+    if inline_matches:
+        inline_match = inline_matches[-1]
+        summary["cells"] = int(inline_match.group(1))
+        summary["faces"] = int(inline_match.group(2))
+        summary["points"] = int(inline_match.group(3))
+        latest_positions.update(
+            {
+                "cells": inline_match.start(),
+                "faces": inline_match.start(),
+                "points": inline_match.start(),
+            }
+        )
+
+    for field_name, patterns in {
+        "points": [r"^\s*points:\s*(\d+)\s*$", r"^\s*nPoints:\s*(\d+)\s*$"],
+        "faces": [r"^\s*faces:\s*(\d+)\s*$", r"^\s*nFaces:\s*(\d+)\s*$"],
+        "internal_faces": [
+            r"^\s*internal faces:\s*(\d+)\s*$",
+            r"^\s*nInternalFaces:\s*(\d+)\s*$",
+        ],
+        "cells": [r"^\s*cells:\s*(\d+)\s*$", r"^\s*nCells:\s*(\d+)\s*$"],
     }.items():
-        match = re.search(pattern, command_output, flags=re.MULTILINE)
-        if match is not None:
-            summary[field_name] = int(match.group(1))
+        value, position = _latest_int_match(command_output, patterns=patterns)
+        if value is None:
+            continue
+        if position >= latest_positions.get(field_name, -1):
+            summary[field_name] = value
+            latest_positions[field_name] = position
 
     if "Mesh OK." in command_output:
         summary["mesh_ok"] = True
@@ -283,6 +326,17 @@ def _build_residual_summary(
         "max_final_residual": max_final_residual,
         "latest_time": latest_time,
     }
+
+
+def _has_fresh_solver_evidence(
+    *,
+    solver_completed: bool,
+    final_time_seconds: float | None,
+    residual_history: list[dict[str, float | int | str | None]],
+) -> bool:
+    if not solver_completed:
+        return False
+    return final_time_seconds is not None or bool(residual_history)
 
 
 def _render_solver_results_markdown(results: dict) -> str:
@@ -419,28 +473,42 @@ def collect_solver_results(
     reference_values: dict[str, float],
     simulation_requirements: dict[str, float | int],
 ) -> dict:
-    coeff_filenames = ["forceCoeffs.dat", "coefficient.dat"]
-    coeff_path = _find_latest_postprocess_candidate(case_dir, "forceCoeffsHull", coeff_filenames)
-    if coeff_path is None:
-        coeff_path = _find_latest_postprocess_candidate(case_dir, "forceCoeffs", coeff_filenames)
-    coeffs = _parse_numeric_table(coeff_path) if coeff_path else None
-    coeff_history = _parse_numeric_history(coeff_path) if coeff_path else []
-    force_path = _find_latest_postprocess_candidate(case_dir, "forcesHull", ["forces.dat"])
-    if force_path is None:
-        force_path = _find_latest_postprocess_candidate(case_dir, "forces", ["forces.dat"])
-    forces = _parse_latest_forces(force_path) if force_path else None
-    force_history = _parse_force_history(force_path) if force_path else []
+    solver_completed = _solver_completed_successfully(command_output)
+    final_time_seconds = _parse_final_time_seconds(command_output)
     residual_history = _parse_residual_history(command_output)
+    residual_summary = _build_residual_summary(residual_history)
+    has_fresh_solver_evidence = _has_fresh_solver_evidence(
+        solver_completed=solver_completed,
+        final_time_seconds=final_time_seconds,
+        residual_history=residual_history,
+    )
+
+    coeffs = None
+    coeff_history: list[dict[str, float]] = []
+    forces = None
+    force_history: list[dict] = []
+    if has_fresh_solver_evidence:
+        coeff_filenames = ["forceCoeffs.dat", "coefficient.dat"]
+        coeff_path = _find_latest_postprocess_candidate(case_dir, "forceCoeffsHull", coeff_filenames)
+        if coeff_path is None:
+            coeff_path = _find_latest_postprocess_candidate(case_dir, "forceCoeffs", coeff_filenames)
+        coeffs = _parse_numeric_table(coeff_path) if coeff_path else None
+        coeff_history = _parse_numeric_history(coeff_path) if coeff_path else []
+        force_path = _find_latest_postprocess_candidate(case_dir, "forcesHull", ["forces.dat"])
+        if force_path is None:
+            force_path = _find_latest_postprocess_candidate(case_dir, "forces", ["forces.dat"])
+        forces = _parse_latest_forces(force_path) if force_path else None
+        force_history = _parse_force_history(force_path) if force_path else []
 
     return {
-        "solver_completed": _solver_completed_successfully(command_output),
-        "final_time_seconds": _parse_final_time_seconds(command_output),
+        "solver_completed": solver_completed,
+        "final_time_seconds": final_time_seconds,
         "workspace_postprocess_virtual_path": _workspace_postprocess_virtual_path(
             run_dir_name,
             case_relative_dir=case_relative_dir,
         ),
         "mesh_summary": _parse_mesh_summary(command_output),
-        "residual_summary": _build_residual_summary(residual_history),
+        "residual_summary": residual_summary,
         "latest_force_coefficients": coeffs,
         "force_coefficients_history": coeff_history,
         "latest_forces": forces,

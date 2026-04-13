@@ -427,6 +427,38 @@ function hasPostprocessResultSignal(
   ].some(Boolean);
 }
 
+function isBlockedResultsAndDeliveryState(
+  input: Pick<BuildSubmarineSessionModelInput, "runtime" | "finalReport">,
+): boolean {
+  return Boolean(
+    input.runtime?.runtime_status === "blocked" ||
+      input.finalReport?.scientific_supervisor_gate?.gate_status === "blocked",
+  );
+}
+
+function resolveResultsAndDeliveryStatusLabel(
+  input: Pick<BuildSubmarineSessionModelInput, "runtime" | "finalReport">,
+): string {
+  if (isBlockedResultsAndDeliveryState(input)) {
+    return "受阻";
+  }
+
+  return input.finalReport ? "可审阅" : "整理中";
+}
+
+function resolveResultsAndDeliveryNextAction(
+  input: Pick<BuildSubmarineSessionModelInput, "runtime" | "finalReport">,
+): string {
+  if (isBlockedResultsAndDeliveryState(input)) {
+    return (
+      input.finalReport?.report_overview?.recommended_next_step_zh ??
+      "先继续建议的修正与补证据流程，再刷新报告。"
+    );
+  }
+
+  return input.finalReport != null ? "审阅结果并决定后续研究。" : "等待最终交付汇总。";
+}
+
 function basenameOfPath(path?: string | null): string | null {
   if (!path) {
     return null;
@@ -617,7 +649,7 @@ function buildResearchSlices({
     slices.push({
       id: "results-and-delivery",
       title: "结果与交付判断",
-      statusLabel: input.finalReport ? "可审阅" : "整理中",
+      statusLabel: resolveResultsAndDeliveryStatusLabel(input),
       summary:
         input.finalReport?.summary_zh ??
         "当前切片围绕结果、证据边界和交付判断展开。",
@@ -628,8 +660,7 @@ function buildResearchSlices({
       agentInterpretation:
         input.finalReport?.summary_zh ??
         "主智能体正在把结果产物整理成可审阅的交付判断。",
-      nextRecommendedAction:
-        input.finalReport != null ? "审阅结果并决定后续研究。" : "等待最终交付汇总。",
+      nextRecommendedAction: resolveResultsAndDeliveryNextAction(input),
     });
   }
 

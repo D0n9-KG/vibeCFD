@@ -19,6 +19,7 @@ import { useThread } from "../messages/context";
 import type {
   SubmarineDesignBriefPayload,
   SubmarineFinalReportPayload,
+  SubmarineSkillRuntimeSnapshotPayload,
   SubmarineRuntimeSnapshotPayload,
 } from "../submarine-runtime-panel.contract";
 
@@ -26,6 +27,7 @@ import { buildSubmarineDetailModel } from "./submarine-detail-model";
 import { buildSubmarineNegotiationPanelModel } from "./submarine-negotiation-panel.model";
 import { SubmarineResearchCanvas } from "./submarine-research-canvas";
 import { buildSubmarineSessionModel } from "./submarine-session-model";
+import { buildSubmarineVisibleActions } from "./submarine-visible-actions";
 
 function safeJsonParse<T>(content?: string | null): T | null {
   if (!content) {
@@ -45,6 +47,8 @@ type SubmarineAgenticWorkbenchProps = {
   showChatRail?: boolean;
   onToggleChatRail?: () => void;
   onOpenChat: () => void;
+  onSubmitVisibleAction: (message: string) => void;
+  visibleActionDisabled?: boolean;
   negotiationContent: ReactNode;
   headerActions?: ReactNode;
 };
@@ -54,6 +58,8 @@ export function SubmarineAgenticWorkbench({
   isNewThread,
   showChatRail = true,
   onOpenChat,
+  onSubmitVisibleAction,
+  visibleActionDisabled = false,
   negotiationContent,
   headerActions = null,
 }: SubmarineAgenticWorkbenchProps) {
@@ -120,6 +126,13 @@ export function SubmarineAgenticWorkbench({
       ? (value as SubmarineRuntimeSnapshotPayload)
       : null;
   }, [thread.values.submarine_runtime]);
+  const skillRuntimeSnapshot = useMemo<SubmarineSkillRuntimeSnapshotPayload | null>(() => {
+    const value = thread.values.skill_runtime_snapshot;
+
+    return value && typeof value === "object"
+      ? (value as SubmarineSkillRuntimeSnapshotPayload)
+      : null;
+  }, [thread.values.skill_runtime_snapshot]);
 
   const submarineArtifacts = useMemo(() => {
     const threadArtifacts = Array.isArray(thread.values.artifacts)
@@ -162,6 +175,15 @@ export function SubmarineAgenticWorkbench({
   const finalReport = useMemo(
     () => safeJsonParse<SubmarineFinalReportPayload>(finalReportContent),
     [finalReportContent],
+  );
+  const visibleActions = useMemo(
+    () =>
+      buildSubmarineVisibleActions({
+        runtime,
+        designBrief,
+        finalReport,
+      }),
+    [designBrief, finalReport, runtime],
   );
 
   const session = useMemo(
@@ -212,7 +234,7 @@ export function SubmarineAgenticWorkbench({
       <ThreadHeader
         title={resolveThreadDisplayTitle(thread.values.title, "潜艇 CFD 会话", thread.values.messages)}
         subtitle={session.summary.currentObjective}
-        statusLabel={session.summary.evidenceReady ? "报告可审阅" : "研究推进中"}
+        statusLabel={session.currentSlice.statusLabel}
         actions={headerActions}
       />
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -220,9 +242,13 @@ export function SubmarineAgenticWorkbench({
           session={session}
           detail={detail}
           runtime={runtime}
+          skillRuntimeSnapshot={skillRuntimeSnapshot}
           designBrief={designBrief}
           finalReport={finalReport}
           artifactPaths={submarineArtifacts}
+          visibleActions={visibleActions}
+          onSubmitVisibleAction={onSubmitVisibleAction}
+          visibleActionDisabled={visibleActionDisabled}
         />
       </div>
     </div>

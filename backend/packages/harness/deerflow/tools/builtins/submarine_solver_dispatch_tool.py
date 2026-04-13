@@ -25,6 +25,7 @@ from deerflow.domain.submarine.runtime_plan import (
 )
 from deerflow.domain.submarine.solver_dispatch import run_solver_dispatch
 from deerflow.sandbox import get_sandbox_provider
+from deerflow.sandbox.tools import ensure_thread_directories_exist
 from deerflow.tools.builtins.submarine_runtime_context import (
     build_user_confirmation_block_message,
     load_existing_design_brief_payload,
@@ -115,13 +116,23 @@ def _to_virtual_thread_path(
 
 
 def _get_execute_command(runtime: ToolRuntime[ContextT, ThreadState]):
-    sandbox_state = (runtime.state or {}).get("sandbox") or {}
-    sandbox_id = sandbox_state.get("sandbox_id")
-    if not sandbox_id:
-        return None
-
-    sandbox = get_sandbox_provider().get(sandbox_id)
-    if sandbox is None:
+    try:
+        sandbox_state = (runtime.state or {}).get("sandbox") or {}
+        sandbox_id = sandbox_state.get("sandbox_id")
+        provider = get_sandbox_provider()
+        sandbox = provider.get(sandbox_id) if sandbox_id else None
+        if sandbox is None:
+            thread_id = _get_thread_id(runtime)
+            sandbox_id = provider.acquire(thread_id)
+            if runtime.state is not None:
+                runtime.state["sandbox"] = {"sandbox_id": sandbox_id}
+            sandbox = provider.get(sandbox_id)
+            if sandbox is None:
+                return None
+            if runtime.context is not None:
+                runtime.context["sandbox_id"] = sandbox_id
+        ensure_thread_directories_exist(runtime)
+    except Exception:
         return None
     return sandbox.execute_command
 
@@ -238,8 +249,15 @@ def submarine_solver_dispatch_tool(
             existing_runtime=existing_runtime,
             existing_brief=existing_brief,
         )
+        explicit_execution_preference = (
+            "execute_now"
+            if execute_now is True
+            else "plan_only"
+            if execute_now is False
+            else None
+        )
         resolved_execution_preference = resolve_execution_preference(
-            explicit_preference=None,
+            explicit_preference=explicit_execution_preference,
             existing_runtime=existing_runtime,
             existing_brief=existing_brief,
             task_description=resolved_task_description,

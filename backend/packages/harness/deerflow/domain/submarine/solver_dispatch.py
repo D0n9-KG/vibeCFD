@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -226,9 +228,191 @@ _solver_reference_values = solver_reference_values
 _looks_like_solver_failure = looks_like_solver_failure
 _render_solver_results_markdown_enriched = render_solver_results_markdown_enriched
 
+_RAW_COMMAND_LOG_FILENAME = ".deerflow-raw-command.log"
+_COMMAND_EXIT_STATUS_FILENAME = ".deerflow-command-exit-status"
+_COMMAND_COMPLETION_WAIT_SECONDS = 120.0
+_COMMAND_COMPLETION_POLL_SECONDS = 0.1
+
 
 def _solver_results_virtual_path(run_dir_name: str, filename: str) -> str:
     return _artifact_virtual_path(run_dir_name, filename)
+
+
+def _workspace_case_dir(
+    *,
+    workspace_dir: Path,
+    run_dir_name: str,
+    case_relative_dir: str = "",
+) -> Path:
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / run_dir_name
+    if case_relative_dir:
+        case_dir = case_dir / Path(case_relative_dir)
+    return case_dir / "openfoam-case"
+
+
+def _workspace_raw_command_log_virtual_path(case_scaffold: dict[str, object]) -> str | None:
+    workspace_case_dir_virtual_path = case_scaffold.get("workspace_case_dir_virtual_path")
+    if not workspace_case_dir_virtual_path:
+        return None
+    return f"{str(workspace_case_dir_virtual_path).rstrip('/')}/{_RAW_COMMAND_LOG_FILENAME}"
+
+
+def _workspace_command_exit_status_virtual_path(case_scaffold: dict[str, object]) -> str | None:
+    workspace_case_dir_virtual_path = case_scaffold.get("workspace_case_dir_virtual_path")
+    if not workspace_case_dir_virtual_path:
+        return None
+    return f"{str(workspace_case_dir_virtual_path).rstrip('/')}/{_COMMAND_EXIT_STATUS_FILENAME}"
+
+
+def _workspace_raw_command_log_path(
+    *,
+    workspace_dir: Path | None,
+    run_dir_name: str,
+    case_relative_dir: str = "",
+) -> Path | None:
+    if workspace_dir is None:
+        return None
+    return _workspace_case_dir(
+        workspace_dir=workspace_dir,
+        run_dir_name=run_dir_name,
+        case_relative_dir=case_relative_dir,
+    ) / _RAW_COMMAND_LOG_FILENAME
+
+
+def _workspace_command_exit_status_path(
+    *,
+    workspace_dir: Path | None,
+    run_dir_name: str,
+    case_relative_dir: str = "",
+) -> Path | None:
+    if workspace_dir is None:
+        return None
+    return _workspace_case_dir(
+        workspace_dir=workspace_dir,
+        run_dir_name=run_dir_name,
+        case_relative_dir=case_relative_dir,
+    ) / _COMMAND_EXIT_STATUS_FILENAME
+
+
+def _compose_logged_solver_command(
+    command: str,
+    raw_log_virtual_path: str | None,
+    command_exit_status_virtual_path: str | None,
+) -> str:
+    if not raw_log_virtual_path:
+        return command
+    if not command_exit_status_virtual_path:
+        return f"({command}) > \"{raw_log_virtual_path}\" 2>&1 || true"
+    return (
+        f"rm -f \"{command_exit_status_virtual_path}\"; "
+        f"status=0; ({command}) > \"{raw_log_virtual_path}\" 2>&1 || status=$?; "
+        f"printf \"%s\" \"$status\" > \"{command_exit_status_virtual_path}\"; "
+        "true"
+    )
+
+
+def _read_workspace_command_exit_status(
+    *,
+    workspace_dir: Path | None,
+    run_dir_name: str,
+    case_relative_dir: str = "",
+) -> int | None:
+    exit_status_path = _workspace_command_exit_status_path(
+        workspace_dir=workspace_dir,
+        run_dir_name=run_dir_name,
+        case_relative_dir=case_relative_dir,
+    )
+    if exit_status_path is None:
+        return None
+    exit_status_path = _platform_fs_path(exit_status_path)
+    if not exit_status_path.exists():
+        return None
+    raw_value = exit_status_path.read_text(encoding="utf-8").strip()
+    if not raw_value:
+        return None
+    try:
+        return int(raw_value)
+    except ValueError:
+        return None
+
+
+def _command_output_looks_complete(command_output: str) -> bool:
+    return "\nEnd" in command_output or command_output.rstrip().endswith("End")
+
+
+def _wait_for_workspace_command_completion(
+    *,
+    workspace_dir: Path | None,
+    run_dir_name: str,
+    case_relative_dir: str = "",
+    timeout_seconds: float = _COMMAND_COMPLETION_WAIT_SECONDS,
+    poll_interval_seconds: float = _COMMAND_COMPLETION_POLL_SECONDS,
+) -> int | None:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() <= deadline:
+        exit_status = _read_workspace_command_exit_status(
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+            case_relative_dir=case_relative_dir,
+        )
+        if exit_status is not None:
+            return exit_status
+        time.sleep(poll_interval_seconds)
+    return _read_workspace_command_exit_status(
+        workspace_dir=workspace_dir,
+        run_dir_name=run_dir_name,
+        case_relative_dir=case_relative_dir,
+    )
+
+
+def _clear_workspace_solver_run_outputs(
+    *,
+    workspace_dir: Path | None,
+    run_dir_name: str,
+    case_relative_dir: str = "",
+) -> None:
+    if workspace_dir is None:
+        return
+    case_dir = _platform_fs_path(
+        _workspace_case_dir(
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+            case_relative_dir=case_relative_dir,
+        )
+    )
+    if not case_dir.exists():
+        return
+
+    postprocess_dir = case_dir / "postProcessing"
+    if postprocess_dir.exists():
+        shutil.rmtree(postprocess_dir, ignore_errors=True)
+
+    for child in case_dir.iterdir():
+        if not child.is_dir() or child.name == "0":
+            continue
+        if re.fullmatch(r"\d+(?:\.\d+)?", child.name):
+            shutil.rmtree(child, ignore_errors=True)
+
+
+def _resolve_command_output_from_workspace_log(
+    *,
+    fallback_output: str,
+    workspace_dir: Path | None,
+    run_dir_name: str,
+    case_relative_dir: str = "",
+) -> str:
+    raw_log_path = _workspace_raw_command_log_path(
+        workspace_dir=workspace_dir,
+        run_dir_name=run_dir_name,
+        case_relative_dir=case_relative_dir,
+    )
+    if raw_log_path is None:
+        return fallback_output
+    raw_log_path = _platform_fs_path(raw_log_path)
+    if not raw_log_path.exists():
+        return fallback_output
+    raw_output = raw_log_path.read_text(encoding="utf-8")
+    return raw_output if raw_output.strip() else fallback_output
 
 
 def _compose_summary(
@@ -676,12 +860,65 @@ def run_solver_dispatch(
         and effective_solver_command
         and execute_command is not None
     ):
-        command_output = execute_command(effective_solver_command)
+        _clear_workspace_solver_run_outputs(
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+        )
+        raw_command_log_path = _workspace_raw_command_log_path(
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+        )
+        command_exit_status_path = _workspace_command_exit_status_path(
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+        )
+        if raw_command_log_path is not None:
+            _platform_fs_path(raw_command_log_path).unlink(missing_ok=True)
+        if command_exit_status_path is not None:
+            _platform_fs_path(command_exit_status_path).unlink(missing_ok=True)
+        command_output = execute_command(
+            _compose_logged_solver_command(
+                effective_solver_command,
+                _workspace_raw_command_log_virtual_path(case_scaffold),
+                _workspace_command_exit_status_virtual_path(case_scaffold),
+            )
+        )
+        command_output = _resolve_command_output_from_workspace_log(
+            fallback_output=command_output,
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+        )
+        command_exit_status = _read_workspace_command_exit_status(
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+        )
+        if (
+            raw_command_log_path is not None
+            and _platform_fs_path(raw_command_log_path).exists()
+            and command_exit_status is None
+            and not _looks_like_solver_failure(command_output)
+            and not _command_output_looks_complete(command_output)
+        ):
+            command_exit_status = _wait_for_workspace_command_completion(
+                workspace_dir=workspace_dir,
+                run_dir_name=run_dir_name,
+            )
+            command_output = _resolve_command_output_from_workspace_log(
+                fallback_output=command_output,
+                workspace_dir=workspace_dir,
+                run_dir_name=run_dir_name,
+            )
         log_path.write_text(command_output, encoding="utf-8")
-        dispatch_status = "failed" if _looks_like_solver_failure(command_output) else "executed"
+        baseline_failed = _looks_like_solver_failure(command_output) or command_exit_status not in (
+            None,
+            0,
+        )
         execution_log_virtual_path = _artifact_virtual_path(run_dir_name, "openfoam-run.log")
         if workspace_dir is not None:
-            case_dir = workspace_dir / "submarine" / "solver-dispatch" / run_dir_name / "openfoam-case"
+            case_dir = _workspace_case_dir(
+                workspace_dir=workspace_dir,
+                run_dir_name=run_dir_name,
+            )
             solver_results = _collect_solver_results(
                 case_dir=case_dir,
                 run_dir_name=run_dir_name,
@@ -696,6 +933,14 @@ def run_solver_dispatch(
             solver_results_md_path.write_text(
                 _render_solver_results_markdown_enriched(solver_results),
                 encoding="utf-8",
+            )
+            require_force_coefficients = bool(
+                selected_case_definition is not None
+                and selected_case_definition.acceptance_profile.require_force_coefficients
+            )
+            baseline_failed = baseline_failed or not bool(solver_results.get("solver_completed")) or (
+                require_force_coefficients
+                and not bool(solver_results.get("latest_force_coefficients"))
             )
             solver_results_virtual_path = _solver_results_virtual_path(
                 run_dir_name,
@@ -809,6 +1054,7 @@ def run_solver_dispatch(
                     experiment_manifest_virtual_path,
                 ]
             )
+        dispatch_status = "failed" if baseline_failed else "executed"
 
     if scientific_study_manifest_model is not None:
         study_results = []
@@ -920,21 +1166,81 @@ def run_solver_dispatch(
                             if variant_scaffold.get("run_script_virtual_path")
                             else None
                         )
-                        variant_command_output = (
-                            execute_command(variant_command) if variant_command else ""
+                        _clear_workspace_solver_run_outputs(
+                            workspace_dir=workspace_dir,
+                            run_dir_name=run_dir_name,
+                            case_relative_dir=case_relative_dir,
                         )
+                        raw_variant_log_path = _workspace_raw_command_log_path(
+                            workspace_dir=workspace_dir,
+                            run_dir_name=run_dir_name,
+                            case_relative_dir=case_relative_dir,
+                        )
+                        variant_command_exit_status_path = _workspace_command_exit_status_path(
+                            workspace_dir=workspace_dir,
+                            run_dir_name=run_dir_name,
+                            case_relative_dir=case_relative_dir,
+                        )
+                        if raw_variant_log_path is not None:
+                            _platform_fs_path(raw_variant_log_path).unlink(missing_ok=True)
+                        if variant_command_exit_status_path is not None:
+                            _platform_fs_path(variant_command_exit_status_path).unlink(
+                                missing_ok=True
+                            )
+                        variant_command_output = (
+                            execute_command(
+                                _compose_logged_solver_command(
+                                    variant_command,
+                                    _workspace_raw_command_log_virtual_path(
+                                        variant_scaffold
+                                    ),
+                                    _workspace_command_exit_status_virtual_path(
+                                        variant_scaffold
+                                    ),
+                                )
+                            )
+                            if variant_command
+                            else ""
+                        )
+                        variant_command_output = _resolve_command_output_from_workspace_log(
+                            fallback_output=variant_command_output,
+                            workspace_dir=workspace_dir,
+                            run_dir_name=run_dir_name,
+                            case_relative_dir=case_relative_dir,
+                        )
+                        variant_command_exit_status = _read_workspace_command_exit_status(
+                            workspace_dir=workspace_dir,
+                            run_dir_name=run_dir_name,
+                            case_relative_dir=case_relative_dir,
+                        )
+                        if (
+                            raw_variant_log_path is not None
+                            and _platform_fs_path(raw_variant_log_path).exists()
+                            and variant_command_exit_status is None
+                            and not _looks_like_solver_failure(variant_command_output)
+                            and not _command_output_looks_complete(variant_command_output)
+                        ):
+                            variant_command_exit_status = _wait_for_workspace_command_completion(
+                                workspace_dir=workspace_dir,
+                                run_dir_name=run_dir_name,
+                                case_relative_dir=case_relative_dir,
+                            )
+                            variant_command_output = _resolve_command_output_from_workspace_log(
+                                fallback_output=variant_command_output,
+                                workspace_dir=workspace_dir,
+                                run_dir_name=run_dir_name,
+                                case_relative_dir=case_relative_dir,
+                            )
                         variant_failed = (
                             not variant_command
                             or _looks_like_solver_failure(variant_command_output)
+                            or variant_command_exit_status not in (None, 0)
                             or bool(variant_scaffold.get("requires_geometry_conversion"))
                         )
-                        variant_case_dir = (
-                            workspace_dir
-                            / "submarine"
-                            / "solver-dispatch"
-                            / run_dir_name
-                            / Path(case_relative_dir)
-                            / "openfoam-case"
+                        variant_case_dir = _workspace_case_dir(
+                            workspace_dir=workspace_dir,
+                            run_dir_name=run_dir_name,
+                            case_relative_dir=case_relative_dir,
                         )
                         variant_solver_results: dict[str, object] | None = None
                         if not variant_failed:
@@ -950,7 +1256,21 @@ def run_solver_dispatch(
                                     "simulation_requirements"
                                 ],
                             )
-                            if not variant_solver_results.get("solver_completed"):
+                            require_force_coefficients = bool(
+                                selected_case_definition is not None
+                                and selected_case_definition.acceptance_profile.require_force_coefficients
+                            )
+                            if (
+                                not variant_solver_results.get("solver_completed")
+                                or (
+                                    require_force_coefficients
+                                    and not bool(
+                                        variant_solver_results.get(
+                                            "latest_force_coefficients"
+                                        )
+                                    )
+                                )
+                            ):
                                 variant_failed = True
 
                         variant_payload: dict[str, object] = {

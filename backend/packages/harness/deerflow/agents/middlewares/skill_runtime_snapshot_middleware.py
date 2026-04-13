@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import override
@@ -163,6 +164,18 @@ def _backfill_legacy_snapshot(
     }
 
 
+async def _capture_skill_runtime_snapshot_async() -> SkillRuntimeSnapshotState:
+    return await asyncio.to_thread(capture_skill_runtime_snapshot)
+
+
+async def _backfill_legacy_snapshot_async(
+    snapshot: SkillRuntimeSnapshotState,
+) -> SkillRuntimeSnapshotState:
+    if snapshot.get("skill_prompt_entries"):
+        return snapshot
+    return await asyncio.to_thread(_backfill_legacy_snapshot, snapshot)
+
+
 class SkillRuntimeSnapshotMiddleware(AgentMiddleware[ThreadState]):
     state_schema = ThreadState
 
@@ -196,6 +209,16 @@ class SkillRuntimeSnapshotMiddleware(AgentMiddleware[ThreadState]):
                 return {"skill_runtime_snapshot": upgraded_snapshot}
             return None
         return {"skill_runtime_snapshot": capture_skill_runtime_snapshot()}
+
+    @override
+    async def abefore_model(self, state: ThreadState, runtime: Runtime) -> dict | None:
+        snapshot = state.get("skill_runtime_snapshot")
+        if snapshot:
+            upgraded_snapshot = await _backfill_legacy_snapshot_async(snapshot)
+            if upgraded_snapshot != snapshot:
+                return {"skill_runtime_snapshot": upgraded_snapshot}
+            return None
+        return {"skill_runtime_snapshot": await _capture_skill_runtime_snapshot_async()}
 
     @override
     def wrap_model_call(
@@ -232,7 +255,7 @@ class SkillRuntimeSnapshotMiddleware(AgentMiddleware[ThreadState]):
     ) -> ModelCallResult:
         snapshot = request.state.get("skill_runtime_snapshot")
         if snapshot is None:
-            snapshot = capture_skill_runtime_snapshot()
+            snapshot = await _capture_skill_runtime_snapshot_async()
             request = request.override(
                 state={
                     **dict(request.state or {}),
@@ -240,7 +263,7 @@ class SkillRuntimeSnapshotMiddleware(AgentMiddleware[ThreadState]):
                 },
             )
         else:
-            upgraded_snapshot = _backfill_legacy_snapshot(snapshot)
+            upgraded_snapshot = await _backfill_legacy_snapshot_async(snapshot)
             if upgraded_snapshot != snapshot:
                 snapshot = upgraded_snapshot
                 request = request.override(

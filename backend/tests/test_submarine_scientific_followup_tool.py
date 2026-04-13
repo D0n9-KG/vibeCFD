@@ -90,6 +90,80 @@ def test_submarine_scientific_followup_errors_without_handoff_pointer(tmp_path):
     assert "supervisor_handoff_virtual_path" in message.content
 
 
+def test_submarine_scientific_followup_recovers_handoff_from_artifacts_when_runtime_pointer_is_missing(
+    tmp_path, monkeypatch
+):
+    tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_scientific_followup_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-followup-artifact-recovery"
+    handoff_virtual_path = _write_handoff_artifact(
+        paths,
+        thread_id=thread_id,
+        payload={
+            "handoff_status": "ready_for_auto_followup",
+            "recommended_action_id": "regenerate-research-report-linkage",
+            "tool_name": "submarine_result_report",
+            "tool_args": {
+                "report_title": "Recovered scientific follow-up report",
+            },
+            "reason": "Use the latest remediation handoff artifact even if runtime lost the pointer.",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"
+            ],
+            "manual_actions": [],
+        },
+    )
+    runtime = _make_runtime(
+        paths,
+        thread_id=thread_id,
+        supervisor_handoff_virtual_path=None,
+    )
+    runtime.state["artifacts"] = [handoff_virtual_path]
+
+    captured: dict[str, object] = {}
+
+    def fake_result_report_tool(**kwargs):
+        captured.update(kwargs)
+        return Command(
+            update={
+                "submarine_runtime": {
+                    "current_stage": "result-reporting",
+                    "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+                },
+                "messages": [
+                    ToolMessage(
+                        "Recovered report regenerated",
+                        tool_call_id=kwargs["tool_call_id"],
+                    )
+                ],
+            }
+        )
+
+    monkeypatch.setattr(
+        tool_module,
+        "submarine_result_report_tool",
+        SimpleNamespace(func=fake_result_report_tool),
+        raising=False,
+    )
+
+    result = tool_module.submarine_scientific_followup_tool.func(
+        runtime=runtime,
+        tool_call_id="tc-followup-artifact-recovery",
+    )
+
+    assert captured["runtime"] is runtime
+    assert captured["report_title"] == "Recovered scientific follow-up report"
+    assert captured["tool_call_id"] == "tc-followup-artifact-recovery"
+    assert (
+        result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
+        == "/mnt/user-data/outputs/submarine/reports/demo/scientific-followup-history.json"
+    )
+    assert "Recovered report regenerated" in result.update["messages"][0].content
+
+
 def test_submarine_scientific_followup_refuses_manual_handoff(tmp_path):
     tool_module = importlib.import_module(
         "deerflow.tools.builtins.submarine_scientific_followup_tool"
@@ -383,6 +457,132 @@ def test_submarine_scientific_followup_executes_solver_dispatch_handoff(
     assert "Scientific studies dispatched" in result.update["messages"][0].content
 
 
+def test_submarine_scientific_followup_strips_runtime_only_dispatch_args(
+    tmp_path, monkeypatch
+):
+    tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_scientific_followup_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-followup-dispatch-sanitized"
+    handoff_virtual_path = _write_handoff_artifact(
+        paths,
+        thread_id=thread_id,
+        payload={
+            "handoff_status": "ready_for_auto_followup",
+            "recommended_action_id": "execute-scientific-studies",
+            "tool_name": "submarine_solver_dispatch",
+            "tool_args": {
+                "geometry_path": "/mnt/user-data/uploads/suboff-demo.stl",
+                "task_description": "Run the missing scientific studies",
+                "task_type": "resistance",
+                "selected_case_id": "darpa_suboff_axisymmetric",
+                "execute_scientific_studies": True,
+                "confirmation_status": "confirmed",
+                "execution_preference": "preflight_then_execute",
+            },
+            "reason": "Scientific verification evidence is incomplete for this run.",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"
+            ],
+            "manual_actions": [],
+        },
+    )
+    runtime = _make_runtime(
+        paths,
+        thread_id=thread_id,
+        supervisor_handoff_virtual_path=handoff_virtual_path,
+    )
+    runtime.state["submarine_runtime"]["confirmation_status"] = "confirmed"
+    runtime.state["submarine_runtime"]["execution_preference"] = (
+        "preflight_then_execute"
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_solver_dispatch_tool(
+        *,
+        runtime,
+        geometry_path,
+        task_description,
+        task_type="resistance",
+        geometry_family_hint=None,
+        selected_case_id=None,
+        inlet_velocity_mps=None,
+        fluid_density_kg_m3=None,
+        kinematic_viscosity_m2ps=None,
+        end_time_seconds=None,
+        delta_t_seconds=None,
+        write_interval_steps=None,
+        execute_now=None,
+        execute_scientific_studies=False,
+        custom_variants=None,
+        solver_command=None,
+        tool_call_id="",
+    ):
+        captured.update(
+            {
+                "runtime": runtime,
+                "geometry_path": geometry_path,
+                "task_description": task_description,
+                "task_type": task_type,
+                "selected_case_id": selected_case_id,
+                "execute_now": execute_now,
+                "execute_scientific_studies": execute_scientific_studies,
+                "tool_call_id": tool_call_id,
+                "geometry_family_hint": geometry_family_hint,
+                "inlet_velocity_mps": inlet_velocity_mps,
+                "fluid_density_kg_m3": fluid_density_kg_m3,
+                "kinematic_viscosity_m2ps": kinematic_viscosity_m2ps,
+                "end_time_seconds": end_time_seconds,
+                "delta_t_seconds": delta_t_seconds,
+                "write_interval_steps": write_interval_steps,
+                "custom_variants": custom_variants,
+                "solver_command": solver_command,
+            }
+        )
+        return Command(
+            update={
+                "artifacts": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json"
+                ],
+                "submarine_runtime": {
+                    "current_stage": "solver-dispatch",
+                    "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/supervisor-handoff.json",
+                },
+                "messages": [
+                    ToolMessage(
+                        "Scientific studies dispatched",
+                        tool_call_id=tool_call_id,
+                    )
+                ],
+            }
+        )
+
+    monkeypatch.setattr(
+        tool_module,
+        "submarine_solver_dispatch_tool",
+        SimpleNamespace(func=fake_solver_dispatch_tool),
+        raising=False,
+    )
+
+    result = tool_module.submarine_scientific_followup_tool.func(
+        runtime=runtime,
+        tool_call_id="tc-followup-dispatch-sanitized",
+    )
+
+    assert captured["runtime"] is runtime
+    assert captured["geometry_path"] == "/mnt/user-data/uploads/suboff-demo.stl"
+    assert captured["task_description"] == "Run the missing scientific studies"
+    assert captured["task_type"] == "resistance"
+    assert captured["selected_case_id"] == "darpa_suboff_axisymmetric"
+    assert captured["execute_scientific_studies"] is True
+    assert captured["execute_now"] is True
+    assert captured["tool_call_id"] == "tc-followup-dispatch-sanitized"
+    assert "Scientific studies dispatched" in result.update["messages"][0].content
+
+
 def test_submarine_scientific_followup_executes_result_report_handoff(
     tmp_path, monkeypatch
 ):
@@ -451,6 +651,14 @@ def test_submarine_scientific_followup_executes_result_report_handoff(
     assert captured["tool_call_id"] == "tc-followup-report"
     assert result.update["submarine_runtime"]["current_stage"] == "result-reporting"
     assert "Research report regenerated" in result.update["messages"][0].content
+
+
+def test_submarine_scientific_followup_tool_is_registered_for_runtime_dispatch():
+    tools_module = importlib.import_module("deerflow.tools.tools")
+
+    builtin_tool_names = {tool.name for tool in tools_module.BUILTIN_TOOLS}
+
+    assert "submarine_scientific_followup" in builtin_tool_names
 
 
 def test_submarine_scientific_followup_refreshes_report_after_executed_dispatch(

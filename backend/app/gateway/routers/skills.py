@@ -1,11 +1,14 @@
 import json
 import logging
+import os
 import shutil
+import socket
 import stat
 import tempfile
 import zipfile
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -41,6 +44,18 @@ from deerflow.skills.validation import _validate_skill_frontmatter
 
 logger = logging.getLogger(__name__)
 DEFAULT_LANGGRAPH_SERVER_URL = "http://localhost:2024"
+LANGGRAPH_SERVER_ENV_KEYS = (
+    "LANGGRAPH_PROXY_BASE_URL",
+    "LANGGRAPH_SERVER_URL",
+    "LANGGRAPH_BASE_URL",
+    "NEXT_PUBLIC_LANGGRAPH_BASE_URL",
+)
+LANGGRAPH_LOCAL_FALLBACKS = (
+    "http://127.0.0.1:2127",
+    "http://localhost:2127",
+    "http://127.0.0.1:2024",
+    "http://localhost:2024",
+)
 
 
 def _is_unsafe_zip_member(info: zipfile.ZipInfo) -> bool:
@@ -312,24 +327,53 @@ async def _load_thread_state(thread_id: str) -> dict:
 
 
 def _get_langgraph_server_url() -> str:
+    for env_key in LANGGRAPH_SERVER_ENV_KEYS:
+        configured_value = os.getenv(env_key, "").strip()
+        if configured_value:
+            return configured_value
+
     try:
         app_config = get_app_config()
     except Exception:
-        return DEFAULT_LANGGRAPH_SERVER_URL
+        return _get_reachable_langgraph_fallback()
 
     extra = getattr(app_config, "model_extra", None)
     if not isinstance(extra, dict):
-        return DEFAULT_LANGGRAPH_SERVER_URL
+        return _get_reachable_langgraph_fallback()
 
     channels_config = extra.get("channels")
     if not isinstance(channels_config, dict):
-        return DEFAULT_LANGGRAPH_SERVER_URL
+        return _get_reachable_langgraph_fallback()
 
     configured_url = channels_config.get("langgraph_url")
     if isinstance(configured_url, str) and configured_url.strip():
         return configured_url.strip()
 
+    return _get_reachable_langgraph_fallback()
+
+
+def _get_reachable_langgraph_fallback() -> str:
+    for candidate in LANGGRAPH_LOCAL_FALLBACKS:
+        if _is_langgraph_url_reachable(candidate):
+            return candidate
     return DEFAULT_LANGGRAPH_SERVER_URL
+
+
+def _is_langgraph_url_reachable(url: str) -> bool:
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+
+    port = parsed.port
+    if port is None:
+        port = 443 if parsed.scheme == "https" else 80
+
+    try:
+        with socket.create_connection((hostname, port), timeout=0.2):
+            return True
+    except OSError:
+        return False
 
 
 def _extract_thread_message_ids(thread_state: object) -> set[str]:
@@ -414,6 +458,20 @@ class SkillLifecycleUpdateRequest(BaseModel):
         default_factory=list,
         description="Explicit role bindings keyed by role_id, mode, and target_skills",
     )
+    thread_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional thread ID for an unpublished Skill Studio draft whose "
+            "lifecycle state should be updated."
+        ),
+    )
+    path: str | None = Field(
+        default=None,
+        description=(
+            "Optional virtual path to the Skill Studio draft or lifecycle "
+            "artifact used to persist a pre-publish lifecycle update."
+        ),
+    )
 
 
 class SkillRollbackRequest(BaseModel):
@@ -491,6 +549,41 @@ def _save_skill_lifecycle_record(
     if bump_runtime_revision:
         bump_skill_runtime_revision(registry)
     save_skill_lifecycle_registry(registry, skills_root=skills_root)
+
+
+def _resolve_draft_skill_lifecycle_path(
+    *,
+    thread_id: str,
+    path: str,
+) -> Path:
+    resolved_path = resolve_thread_virtual_path(thread_id, path)
+    if resolved_path.name == "skill-draft.json":
+        resolved_path = resolved_path.with_name("skill-lifecycle.json")
+
+    if resolved_path.name != "skill-lifecycle.json":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Draft lifecycle updates require a Skill Studio "
+                "'skill-lifecycle.json' or 'skill-draft.json' path."
+            ),
+        )
+    if not resolved_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Skill lifecycle draft not found: {resolved_path}",
+        )
+    return resolved_path
+
+
+def _persist_draft_skill_lifecycle_record(
+    lifecycle_path: Path,
+    record: SkillLifecycleRecord,
+) -> None:
+    lifecycle_path.write_text(
+        json.dumps(record.model_dump(mode="json"), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _to_skill_lifecycle_summary(
@@ -808,12 +901,22 @@ async def list_skill_lifecycle() -> SkillLifecycleListResponse:
             for skill in load_skills(enabled_only=False)
             if skill.category == "custom"
         ]
-        summaries = [
-            _to_skill_lifecycle_summary(
-                _resolve_skill_lifecycle_record(skill, registry),
-            )
+        custom_skills_by_name = {
+            skill.name: skill
             for skill in custom_skills
-        ]
+        }
+        lifecycle_names = sorted(
+            set(custom_skills_by_name) | set(registry.records),
+        )
+        summaries = []
+        for skill_name in lifecycle_names:
+            skill = custom_skills_by_name.get(skill_name)
+            record = (
+                _resolve_skill_lifecycle_record(skill, registry)
+                if skill is not None
+                else registry.records[skill_name].model_copy(deep=True)
+            )
+            summaries.append(_to_skill_lifecycle_summary(record))
         summaries.sort(key=lambda item: item.skill_name)
         return SkillLifecycleListResponse(skills=summaries)
     except Exception as e:
@@ -832,17 +935,20 @@ async def list_skill_lifecycle() -> SkillLifecycleListResponse:
 )
 async def get_skill_lifecycle(skill_name: str) -> SkillLifecycleDetailResponse:
     try:
+        registry = load_skill_lifecycle_registry(skills_root=get_skills_root_path())
         skill = _find_custom_skill(skill_name)
-        if skill is None:
+        if skill is not None:
+            return _to_skill_lifecycle_detail(
+                _resolve_skill_lifecycle_record(skill, registry),
+            )
+
+        draft_record = registry.records.get(skill_name)
+        if draft_record is None:
             raise HTTPException(
                 status_code=404,
                 detail=f"Custom skill '{skill_name}' not found",
             )
-
-        registry = load_skill_lifecycle_registry(skills_root=get_skills_root_path())
-        return _to_skill_lifecycle_detail(
-            _resolve_skill_lifecycle_record(skill, registry),
-        )
+        return _to_skill_lifecycle_detail(draft_record.model_copy(deep=True))
     except HTTPException:
         raise
     except Exception as e:
@@ -869,34 +975,63 @@ async def update_skill_lifecycle(
     request: SkillLifecycleUpdateRequest,
 ) -> SkillLifecycleDetailResponse:
     try:
-        skill = _find_custom_skill(skill_name)
-        if skill is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Custom skill '{skill_name}' not found",
-            )
-
         skills_root = get_skills_root_path()
         registry = load_skill_lifecycle_registry(skills_root=skills_root)
-        _set_skill_enabled(skill_name, request.enabled)
-        updated_skill = _find_custom_skill(skill_name)
-        if updated_skill is None:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to reload custom skill '{skill_name}' after lifecycle update",
+        lifecycle_path: Path | None = None
+        lifecycle_payload: SkillLifecycleRecord | None = None
+        published_path: str | None = None
+        skill = _find_custom_skill(skill_name)
+
+        if skill is not None:
+            _set_skill_enabled(skill_name, request.enabled)
+            updated_skill = _find_custom_skill(skill_name)
+            if updated_skill is None:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to reload custom skill '{skill_name}' after lifecycle update",
+                )
+            lifecycle_payload = load_skill_lifecycle_record(
+                _get_skill_lifecycle_payload_path(updated_skill),
             )
+            published_path = str(updated_skill.skill_dir)
+        else:
+            if request.thread_id and request.path:
+                lifecycle_path = _resolve_draft_skill_lifecycle_path(
+                    thread_id=request.thread_id,
+                    path=request.path,
+                )
+                lifecycle_payload = load_skill_lifecycle_record(lifecycle_path)
+                if lifecycle_payload is None:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Skill lifecycle draft not found: {lifecycle_path}",
+                    )
+                if lifecycle_payload.skill_name != skill_name:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "Skill lifecycle draft does not match the "
+                            f"requested skill '{skill_name}'."
+                        ),
+                    )
+            elif registry.records.get(skill_name) is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Custom skill '{skill_name}' not found",
+                )
 
         record = merge_skill_lifecycle_record(
             skill_name=skill_name,
-            lifecycle_payload=load_skill_lifecycle_record(
-                _get_skill_lifecycle_payload_path(updated_skill),
-            ),
+            lifecycle_payload=lifecycle_payload,
             existing_record=registry.records.get(skill_name),
             enabled=request.enabled,
             version_note=request.version_note,
             binding_targets=request.binding_targets,
-            published_path=str(updated_skill.skill_dir),
+            published_path=published_path,
         )
+        if lifecycle_path is not None:
+            record.draft_updated_at = utc_timestamp()
+            _persist_draft_skill_lifecycle_record(lifecycle_path, record)
         registry.records[skill_name] = record
         bump_skill_runtime_revision(registry)
         save_skill_lifecycle_registry(registry, skills_root=skills_root)

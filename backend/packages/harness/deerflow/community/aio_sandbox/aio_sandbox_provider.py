@@ -113,6 +113,7 @@ class AioSandboxProvider(SandboxProvider):
         self._thread_sandboxes: dict[str, str] = {}  # thread_id -> sandbox_id
         self._thread_locks: dict[str, threading.Lock] = {}  # thread_id -> in-process lock
         self._last_activity: dict[str, float] = {}  # sandbox_id -> last activity timestamp
+        self._busy_sandboxes: set[str] = set()  # sandbox_ids with an in-flight command
         # Warm pool: released sandboxes whose containers are still running.
         # Maps sandbox_id -> (SandboxInfo, release_timestamp).
         # Containers here can be reclaimed quickly (no cold-start) or destroyed
@@ -289,6 +290,8 @@ class AioSandboxProvider(SandboxProvider):
         with self._lock:
             # Active sandboxes: tracked via _last_activity
             for sandbox_id, last_activity in self._last_activity.items():
+                if sandbox_id in self._busy_sandboxes:
+                    continue
                 idle_duration = current_time - last_activity
                 if idle_duration > idle_timeout:
                     active_to_destroy.append(sandbox_id)
@@ -313,6 +316,11 @@ class AioSandboxProvider(SandboxProvider):
                     if last_activity is None:
                         # Already released or destroyed by another path — skip.
                         logger.info(f"Sandbox {sandbox_id} already gone before idle destroy, skipping")
+                        continue
+                    if sandbox_id in self._busy_sandboxes:
+                        logger.info(
+                            f"Sandbox {sandbox_id} is executing a command; skipping idle destroy"
+                        )
                         continue
                     if (time.time() - last_activity) < idle_timeout:
                         # Re-acquired (activity updated) since the snapshot — skip.
@@ -414,7 +422,12 @@ class AioSandboxProvider(SandboxProvider):
             with self._lock:
                 if sandbox_id in self._warm_pool:
                     info, _ = self._warm_pool.pop(sandbox_id)
-                    sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
+                    sandbox = AioSandbox(
+                        id=sandbox_id,
+                        base_url=info.sandbox_url,
+                        on_command_start=self._mark_command_started,
+                        on_command_end=self._mark_command_finished,
+                    )
                     self._sandboxes[sandbox_id] = sandbox
                     self._sandbox_infos[sandbox_id] = info
                     self._last_activity[sandbox_id] = time.time()
@@ -455,7 +468,12 @@ class AioSandboxProvider(SandboxProvider):
                             return existing_id
                     if sandbox_id in self._warm_pool:
                         info, _ = self._warm_pool.pop(sandbox_id)
-                        sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
+                        sandbox = AioSandbox(
+                            id=sandbox_id,
+                            base_url=info.sandbox_url,
+                            on_command_start=self._mark_command_started,
+                            on_command_end=self._mark_command_finished,
+                        )
                         self._sandboxes[sandbox_id] = sandbox
                         self._sandbox_infos[sandbox_id] = info
                         self._last_activity[sandbox_id] = time.time()
@@ -466,7 +484,12 @@ class AioSandboxProvider(SandboxProvider):
                 # Backend discovery: another process may have created the container.
                 discovered = self._backend.discover(sandbox_id)
                 if discovered is not None:
-                    sandbox = AioSandbox(id=discovered.sandbox_id, base_url=discovered.sandbox_url)
+                    sandbox = AioSandbox(
+                        id=discovered.sandbox_id,
+                        base_url=discovered.sandbox_url,
+                        on_command_start=self._mark_command_started,
+                        on_command_end=self._mark_command_finished,
+                    )
                     with self._lock:
                         self._sandboxes[discovered.sandbox_id] = sandbox
                         self._sandbox_infos[discovered.sandbox_id] = discovered
@@ -536,7 +559,12 @@ class AioSandboxProvider(SandboxProvider):
             self._backend.destroy(info)
             raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within timeout at {info.sandbox_url}")
 
-        sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
+        sandbox = AioSandbox(
+            id=sandbox_id,
+            base_url=info.sandbox_url,
+            on_command_start=self._mark_command_started,
+            on_command_end=self._mark_command_finished,
+        )
         with self._lock:
             self._sandboxes[sandbox_id] = sandbox
             self._sandbox_infos[sandbox_id] = info
@@ -562,6 +590,17 @@ class AioSandboxProvider(SandboxProvider):
                 self._last_activity[sandbox_id] = time.time()
             return sandbox
 
+    def _mark_command_started(self, sandbox_id: str) -> None:
+        with self._lock:
+            self._busy_sandboxes.add(sandbox_id)
+            self._last_activity[sandbox_id] = time.time()
+
+    def _mark_command_finished(self, sandbox_id: str) -> None:
+        with self._lock:
+            self._busy_sandboxes.discard(sandbox_id)
+            if sandbox_id in self._last_activity:
+                self._last_activity[sandbox_id] = time.time()
+
     def release(self, sandbox_id: str) -> None:
         """Release a sandbox from active use into the warm pool.
 
@@ -582,6 +621,7 @@ class AioSandboxProvider(SandboxProvider):
             for tid in thread_ids_to_remove:
                 del self._thread_sandboxes[tid]
             self._last_activity.pop(sandbox_id, None)
+            self._busy_sandboxes.discard(sandbox_id)
             # Park in warm pool — container keeps running
             if info and sandbox_id not in self._warm_pool:
                 self._warm_pool[sandbox_id] = (info, time.time())
@@ -607,6 +647,7 @@ class AioSandboxProvider(SandboxProvider):
             for tid in thread_ids_to_remove:
                 del self._thread_sandboxes[tid]
             self._last_activity.pop(sandbox_id, None)
+            self._busy_sandboxes.discard(sandbox_id)
             # Also pull from warm pool if it was parked there
             if info is None and sandbox_id in self._warm_pool:
                 info, _ = self._warm_pool.pop(sandbox_id)

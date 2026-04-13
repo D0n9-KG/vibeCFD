@@ -52,6 +52,13 @@ _PLAN_ONLY_KEYWORDS = (
     "不要启动计算",
     "不启动计算",
     "先不要启动计算",
+    "\u5148\u4e0d\u8981\u5b9e\u9645\u6267\u884c",
+    "\u7b49\u6211\u786e\u8ba4\u540e\u518d\u6267\u884c",
+    "\u7b49\u6211\u786e\u8ba4\u540e\u518d\u8fd0\u884c",
+    "\u7b49\u6211\u786e\u8ba4\u540e\u518d\u6c42\u89e3",
+    "do not run the solver until i explicitly confirm",
+    "do not run the solver until i confirm",
+    "wait for my confirmation before execution",
     "hold solver execution",
     "plan only",
 )
