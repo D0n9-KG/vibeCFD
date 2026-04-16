@@ -171,11 +171,11 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
                   description={t.workspace.noArtifactSelectedDescription}
                 />
               ) : (
-                <div className="flex size-full max-w-(--container-width-sm) flex-col justify-center p-4 pt-8">
+                <div className="flex size-full min-h-0 max-w-(--container-width-sm) flex-col p-4 pt-8">
                   <header className="shrink-0">
                     <h2 className="text-lg font-medium">{t.common.artifacts}</h2>
                   </header>
-                  <main className="min-h-0 grow">
+                  <main className="min-h-0 grow overflow-y-auto">
                     <ArtifactFileList
                       className="max-w-(--container-width-sm) p-4 pt-12"
                       files={resolvedArtifacts}
