@@ -242,11 +242,7 @@ def _merge_keyed_dict_list(
 
         prior = merged[existing_index]
         combined = {**prior, **item_dict}
-        if (
-            status_key
-            and status_order
-            and (status_key in prior or status_key in item_dict)
-        ):
+        if status_key and status_order and (status_key in prior or status_key in item_dict):
             combined[status_key] = _prefer_ranked_status(
                 prior.get(status_key),
                 item_dict.get(status_key),
@@ -278,19 +274,9 @@ def merge_submarine_runtime(
         return dict(existing)
 
     merged: SubmarineRuntimeState = dict(existing)
-    existing_contract_revision = (
-        existing.get("contract_revision") if isinstance(existing.get("contract_revision"), int) else None
-    )
-    incoming_contract_revision = (
-        new.get("contract_revision") if isinstance(new.get("contract_revision"), int) else None
-    )
-    replace_contract_lists = (
-        isinstance(incoming_contract_revision, int)
-        and (
-            not isinstance(existing_contract_revision, int)
-            or incoming_contract_revision > existing_contract_revision
-        )
-    )
+    existing_contract_revision = existing.get("contract_revision") if isinstance(existing.get("contract_revision"), int) else None
+    incoming_contract_revision = new.get("contract_revision") if isinstance(new.get("contract_revision"), int) else None
+    replace_contract_lists = isinstance(incoming_contract_revision, int) and (not isinstance(existing_contract_revision, int) or incoming_contract_revision > existing_contract_revision)
 
     for key, value in new.items():
         if key == "artifact_virtual_paths":
@@ -335,18 +321,10 @@ def merge_submarine_runtime(
                 )
         elif key == "contract_revision":
             prior_value = merged.get(key)
-            merged[key] = (
-                max(prior_value, value)
-                if isinstance(prior_value, int) and isinstance(value, int)
-                else value
-            )
+            merged[key] = max(prior_value, value) if isinstance(prior_value, int) and isinstance(value, int) else value
         elif key == "iteration_mode":
             prior_value = merged.get(key)
-            if (
-                isinstance(prior_value, str)
-                and prior_value != "baseline"
-                and value == "baseline"
-            ):
+            if isinstance(prior_value, str) and prior_value != "baseline" and value == "baseline":
                 continue
             merged[key] = value
         elif key == "revision_summary":

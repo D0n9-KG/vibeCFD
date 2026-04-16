@@ -7,17 +7,17 @@ the raw-string variant. This provider keeps DeerFlow on the existing OpenAI-comp
 stack while normalizing both shapes into one stable contract.
 """
 
-from collections.abc import AsyncIterator, Iterator
 import json
 import logging
 import re
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
-from langchain_openai import ChatOpenAI
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
+from langchain_openai import ChatOpenAI
 
 from deerflow.config import get_app_config
 from deerflow.models.credential_loader import load_openai_api_credential

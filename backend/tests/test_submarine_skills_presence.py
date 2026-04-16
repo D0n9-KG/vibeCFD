@@ -16,12 +16,8 @@ def test_submarine_skills_are_discoverable():
 def test_submarine_v1_skills_reinforce_stl_only_runtime_boundary():
     skills = {skill.name: skill for skill in load_skills(enabled_only=False)}
 
-    geometry_skill = skills["submarine-geometry-check"].skill_file.read_text(
-        encoding="utf-8"
-    )
-    orchestrator_skill = skills["submarine-orchestrator"].skill_file.read_text(
-        encoding="utf-8"
-    )
+    geometry_skill = skills["submarine-geometry-check"].skill_file.read_text(encoding="utf-8")
+    orchestrator_skill = skills["submarine-orchestrator"].skill_file.read_text(encoding="utf-8")
 
     assert "STL-only" in geometry_skill
     assert "STL-only" in orchestrator_skill
@@ -30,9 +26,7 @@ def test_submarine_v1_skills_reinforce_stl_only_runtime_boundary():
 def test_submarine_case_search_skill_does_not_point_subagents_to_raw_repo_paths():
     skills = {skill.name: skill for skill in load_skills(enabled_only=False)}
 
-    case_search_skill = skills["submarine-case-search"].skill_file.read_text(
-        encoding="utf-8"
-    )
+    case_search_skill = skills["submarine-case-search"].skill_file.read_text(encoding="utf-8")
 
     assert "domain/submarine/cases/index.json" not in case_search_skill
 
@@ -40,15 +34,9 @@ def test_submarine_case_search_skill_does_not_point_subagents_to_raw_repo_paths(
 def test_iterative_core_skills_speak_contract_delivery_and_lineage_language():
     skills = {skill.name: skill for skill in load_skills(enabled_only=False)}
 
-    orchestrator_skill = skills["submarine-orchestrator"].skill_file.read_text(
-        encoding="utf-8"
-    )
-    report_skill = skills["submarine-report"].skill_file.read_text(
-        encoding="utf-8"
-    )
-    dispatch_skill = skills["submarine-solver-dispatch"].skill_file.read_text(
-        encoding="utf-8"
-    )
+    orchestrator_skill = skills["submarine-orchestrator"].skill_file.read_text(encoding="utf-8")
+    report_skill = skills["submarine-report"].skill_file.read_text(encoding="utf-8")
+    dispatch_skill = skills["submarine-solver-dispatch"].skill_file.read_text(encoding="utf-8")
 
     assert "contract_revision" in orchestrator_skill
     assert "output_delivery_plan" in orchestrator_skill

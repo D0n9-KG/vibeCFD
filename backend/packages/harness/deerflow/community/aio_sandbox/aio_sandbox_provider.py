@@ -318,9 +318,7 @@ class AioSandboxProvider(SandboxProvider):
                         logger.info(f"Sandbox {sandbox_id} already gone before idle destroy, skipping")
                         continue
                     if sandbox_id in self._busy_sandboxes:
-                        logger.info(
-                            f"Sandbox {sandbox_id} is executing a command; skipping idle destroy"
-                        )
+                        logger.info(f"Sandbox {sandbox_id} is executing a command; skipping idle destroy")
                         continue
                     if (time.time() - last_activity) < idle_timeout:
                         # Re-acquired (activity updated) since the snapshot — skip.

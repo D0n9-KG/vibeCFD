@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
-from deerflow.domain.submarine.geometry_check import SUPPORTED_GEOMETRY_SUFFIXES
 from deerflow.domain.submarine.artifact_store import (
     load_first_json_payload_from_artifacts,
 )
@@ -15,7 +14,7 @@ from deerflow.domain.submarine.calculation_plan import (
     calculation_plan_requires_confirmation,
     calculation_plan_requires_immediate_confirmation,
 )
-
+from deerflow.domain.submarine.geometry_check import SUPPORTED_GEOMETRY_SUFFIXES
 
 SubmarineExecutionPreference = Literal[
     "plan_only",

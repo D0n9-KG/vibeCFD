@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Iterable
 
 from .artifact_store import (
     load_first_json_payload_from_artifacts,
@@ -62,14 +61,9 @@ def _study_type_for_required_artifacts(
         if not isinstance(artifact_name, str):
             continue
         normalized_name = Path(artifact_name).name
-        if not (
-            normalized_name.startswith("verification-")
-            and normalized_name.endswith(".json")
-        ):
+        if not (normalized_name.startswith("verification-") and normalized_name.endswith(".json")):
             continue
-        study_type = normalized_name.removeprefix("verification-").removesuffix(
-            ".json"
-        )
+        study_type = normalized_name.removeprefix("verification-").removesuffix(".json")
         study_type = study_type.replace("-", "_")
         if study_type in _SCIENTIFIC_STUDY_TYPES:
             return study_type
@@ -77,15 +71,9 @@ def _study_type_for_required_artifacts(
 
 
 def _solver_dispatch_run_root(virtual_path: str) -> str | None:
-    if not isinstance(virtual_path, str) or not virtual_path.startswith(
-        _SOLVER_DISPATCH_PREFIX
-    ):
+    if not isinstance(virtual_path, str) or not virtual_path.startswith(_SOLVER_DISPATCH_PREFIX):
         return None
-    relative_parts = [
-        part
-        for part in virtual_path.removeprefix(_SOLVER_DISPATCH_PREFIX).split("/")
-        if part
-    ]
+    relative_parts = [part for part in virtual_path.removeprefix(_SOLVER_DISPATCH_PREFIX).split("/") if part]
     if not relative_parts:
         return None
     return f"{_SOLVER_DISPATCH_PREFIX}{relative_parts[0]}"
@@ -131,39 +119,22 @@ def _recover_requirement_row_from_study_manifest(
         suffixes=[_STUDY_MANIFEST_FILENAME],
     )
     expected_run_root = next(
-        (
-            run_root
-            for run_root in (
-                _solver_dispatch_run_root(path)
-                for path in [*matched_artifacts, *artifact_virtual_paths]
-            )
-            if run_root
-        ),
+        (run_root for run_root in (_solver_dispatch_run_root(path) for path in [*matched_artifacts, *artifact_virtual_paths]) if run_root),
         None,
     )
     if expected_run_root is not None:
-        manifest_candidates = [
-            item
-            for item in manifest_candidates
-            if _solver_dispatch_run_root(item[0]) == expected_run_root
-        ]
+        manifest_candidates = [item for item in manifest_candidates if _solver_dispatch_run_root(item[0]) == expected_run_root]
     if not manifest_candidates:
         return None
 
     _, manifest_payload = manifest_candidates[0]
     try:
-        study_manifest = SubmarineScientificStudyManifest.model_validate(
-            manifest_payload
-        )
+        study_manifest = SubmarineScientificStudyManifest.model_validate(manifest_payload)
     except Exception:
         return None
 
     definition = next(
-        (
-            item
-            for item in study_manifest.study_definitions
-            if item.study_type == study_type
-        ),
+        (item for item in study_manifest.study_definitions if item.study_type == study_type),
         None,
     )
     if definition is None:
@@ -177,15 +148,7 @@ def _recover_requirement_row_from_study_manifest(
                 outputs_dir,
                 variant.solver_results_virtual_path,
             )
-        if (
-            variant.run_record_virtual_path
-            and (
-                variant_payload is None
-                or not str(variant_payload.get("execution_status") or "").strip()
-                or str(variant_payload.get("execution_status") or "").strip().lower()
-                == "planned"
-            )
-        ):
+        if variant.run_record_virtual_path and (variant_payload is None or not str(variant_payload.get("execution_status") or "").strip() or str(variant_payload.get("execution_status") or "").strip().lower() == "planned"):
             run_record_payload = load_json_outputs_artifact(
                 outputs_dir,
                 variant.run_record_virtual_path,
@@ -253,16 +216,10 @@ def _build_residual_requirement_evidence(
 
     observed_value = float(observed)
     if requirement.max_value is not None and observed_value <= requirement.max_value:
-        detail = (
-            f"{requirement.label}: observed {observed_value:.6f} <= "
-            f"{requirement.max_value:.6f}."
-        )
+        detail = f"{requirement.label}: observed {observed_value:.6f} <= {requirement.max_value:.6f}."
         status = "passed"
     else:
-        detail = (
-            f"{requirement.label}: observed {observed_value:.6f} exceeds "
-            f"limit {requirement.max_value:.6f}."
-        )
+        detail = f"{requirement.label}: observed {observed_value:.6f} exceeds limit {requirement.max_value:.6f}."
         status = "blocked"
 
     return {
@@ -290,10 +247,7 @@ def _build_force_tail_requirement_evidence(
     observed_sample_count = len(tail_samples)
     limit = requirement.max_tail_relative_spread or 0.02
     if observed_sample_count < tail_count:
-        detail = (
-            f"{requirement.label}: need at least {tail_count} {coefficient} samples "
-            "in force coefficient history."
-        )
+        detail = f"{requirement.label}: need at least {tail_count} {coefficient} samples in force coefficient history."
         requirement_row = {
             "status": "missing_evidence",
             "detail": detail,
@@ -319,16 +273,10 @@ def _build_force_tail_requirement_evidence(
     baseline = max(sum(abs(value) for value in tail_values) / len(tail_values), 1e-12)
     spread = (max(tail_values) - min(tail_values)) / baseline
     if spread <= limit:
-        detail = (
-            f"{requirement.label}: tail relative spread {spread:.4f} <= "
-            f"{limit:.4f} for {coefficient}."
-        )
+        detail = f"{requirement.label}: tail relative spread {spread:.4f} <= {limit:.4f} for {coefficient}."
         status = "passed"
     else:
-        detail = (
-            f"{requirement.label}: tail relative spread {spread:.4f} exceeds "
-            f"{limit:.4f} for {coefficient}."
-        )
+        detail = f"{requirement.label}: tail relative spread {spread:.4f} exceeds {limit:.4f} for {coefficient}."
         status = "blocked"
 
     requirement_row = {
@@ -407,16 +355,10 @@ def _compose_stability_evidence_summary(
     blocked_count: int,
 ) -> str:
     if status == "passed":
-        return (
-            "SCI-01 基线稳定性检查已通过，残差阈值与力系数尾段稳定性证据都满足当前案例要求。"
-        )
+        return "SCI-01 基线稳定性检查已通过，残差阈值与力系数尾段稳定性证据都满足当前案例要求。"
     if status == "blocked":
-        return (
-            "SCI-01 基线稳定性检查未通过，至少一项残差或力系数尾段稳定性要求触发阻塞。"
-        )
-    return (
-        "SCI-01 基线稳定性证据仍不完整，当前 run 需要补齐残差摘要或力系数历史后才能完成稳定性判断。"
-    )
+        return "SCI-01 基线稳定性检查未通过，至少一项残差或力系数尾段稳定性要求触发阻塞。"
+    return "SCI-01 基线稳定性证据仍不完整，当前 run 需要补齐残差摘要或力系数历史后才能完成稳定性判断。"
 
 
 def build_effective_scientific_verification_requirements(
@@ -433,10 +375,7 @@ def build_effective_scientific_verification_requirements(
             SubmarineScientificVerificationRequirement(
                 requirement_id="final_residual_threshold",
                 label="Final residual threshold",
-                summary_zh=(
-                    "要求本次基线 run 的最大最终残差不高于案例 profile 规定阈值，"
-                    "否则当前结果不适合作为科研对比基线。"
-                ),
+                summary_zh=("要求本次基线 run 的最大最终残差不高于案例 profile 规定阈值，否则当前结果不适合作为科研对比基线。"),
                 check_type="max_final_residual",
                 max_value=acceptance_profile.max_final_residual,
             )
@@ -448,10 +387,7 @@ def build_effective_scientific_verification_requirements(
             SubmarineScientificVerificationRequirement(
                 requirement_id="force_coefficient_tail_stability",
                 label="Force coefficient tail stability",
-                summary_zh=(
-                    "要求力系数历史尾段已经收敛到稳定范围，避免把尚未稳定的解"
-                    "直接当成科研结论。"
-                ),
+                summary_zh=("要求力系数历史尾段已经收敛到稳定范围，避免把尚未稳定的解直接当成科研结论。"),
                 check_type="force_coefficient_tail_stability",
                 force_coefficient="Cd",
                 minimum_history_samples=5,
@@ -485,10 +421,7 @@ def build_effective_scientific_verification_requirements(
         ]
     )
 
-    custom_by_id = {
-        item.requirement_id: item
-        for item in acceptance_profile.scientific_verification_requirements
-    }
+    custom_by_id = {item.requirement_id: item for item in acceptance_profile.scientific_verification_requirements}
     merged: list[SubmarineScientificVerificationRequirement] = []
     for item in requirements:
         merged.append(custom_by_id.pop(item.requirement_id, item))
@@ -544,13 +477,7 @@ def build_stability_evidence(
             passed_requirements=passed_requirements,
         )
 
-    status = (
-        "blocked"
-        if blocking_issues
-        else "missing_evidence"
-        if missing_evidence
-        else "passed"
-    )
+    status = "blocked" if blocking_issues else "missing_evidence" if missing_evidence else "passed"
 
     return {
         "status": status,
@@ -596,11 +523,7 @@ def build_scientific_verification_assessment(
         outputs_dir=outputs_dir,
         artifact_virtual_paths=artifact_virtual_paths,
     )
-    stability_by_requirement = {
-        str(item.get("requirement_id")): item
-        for item in (resolved_stability_evidence or {}).get("requirements") or []
-        if isinstance(item, dict) and item.get("requirement_id")
-    }
+    stability_by_requirement = {str(item.get("requirement_id")): item for item in (resolved_stability_evidence or {}).get("requirements") or [] if isinstance(item, dict) and item.get("requirement_id")}
     residual_summary = (solver_metrics or {}).get("residual_summary") or {}
     force_history = (solver_metrics or {}).get("force_coefficients_history") or []
 
@@ -619,14 +542,7 @@ def build_scientific_verification_assessment(
                 _build_force_tail_requirement_evidence(requirement, force_history)[0],
             )
         else:
-            matched = [
-                artifact_path
-                for artifact_path in artifact_virtual_paths
-                if any(
-                    artifact_path.endswith(required_artifact)
-                    for required_artifact in requirement.required_artifacts
-                )
-            ]
+            matched = [artifact_path for artifact_path in artifact_virtual_paths if any(artifact_path.endswith(required_artifact) for required_artifact in requirement.required_artifacts)]
             study_payloads = _load_verification_study_payloads(
                 outputs_dir=outputs_dir,
                 artifact_virtual_paths=artifact_virtual_paths,
@@ -635,38 +551,21 @@ def build_scientific_verification_assessment(
             if study_payloads:
                 artifact_path, payload = study_payloads[0]
                 study_status = str(payload.get("status") or "").strip().lower()
-                study_summary = (
-                    str(payload.get("summary_zh") or payload.get("detail") or "").strip()
-                )
+                study_summary = str(payload.get("summary_zh") or payload.get("detail") or "").strip()
                 if study_status in {"passed", "research_ready"}:
-                    detail = (
-                        f"{requirement.label}: {study_summary or 'study evidence passed'} "
-                        f"({artifact_path})."
-                    )
+                    detail = f"{requirement.label}: {study_summary or 'study evidence passed'} ({artifact_path})."
                     status = "passed"
                 elif study_status in {"failed", "blocked"}:
-                    detail = (
-                        f"{requirement.label}: {study_summary or 'study evidence failed'} "
-                        f"({artifact_path})."
-                    )
+                    detail = f"{requirement.label}: {study_summary or 'study evidence failed'} ({artifact_path})."
                     status = "blocked"
                 else:
-                    detail = (
-                        f"{requirement.label}: evidence artifact {artifact_path} exists, "
-                        "but its verification status is missing or unsupported."
-                    )
+                    detail = f"{requirement.label}: evidence artifact {artifact_path} exists, but its verification status is missing or unsupported."
                     status = "missing_evidence"
             elif matched:
-                detail = (
-                    f"{requirement.label}: evidence artifacts exist via {', '.join(matched)}, "
-                    "but structured verification payloads are unreadable or missing."
-                )
+                detail = f"{requirement.label}: evidence artifacts exist via {', '.join(matched)}, but structured verification payloads are unreadable or missing."
                 status = "missing_evidence"
             else:
-                detail = (
-                    f"{requirement.label}: missing evidence artifacts "
-                    f"{', '.join(requirement.required_artifacts) or 'for this study'}."
-                )
+                detail = f"{requirement.label}: missing evidence artifacts {', '.join(requirement.required_artifacts) or 'for this study'}."
                 status = "missing_evidence"
 
             recovered_requirement_row = None
@@ -679,20 +578,14 @@ def build_scientific_verification_assessment(
                     baseline_solver_results=solver_metrics,
                     requirement=requirement,
                 )
-                if (
-                    isinstance(recovered_requirement_row, dict)
-                    and str(recovered_requirement_row.get("status") or "").strip()
-                    in {"passed", "blocked"}
-                ):
+                if isinstance(recovered_requirement_row, dict) and str(recovered_requirement_row.get("status") or "").strip() in {"passed", "blocked"}:
                     status = str(recovered_requirement_row["status"])
                     detail = str(recovered_requirement_row.get("detail") or detail)
 
             requirement_row = _merge_requirement_row(
                 requirement,
                 recovered_requirement_row
-                if isinstance(recovered_requirement_row, dict)
-                and str(recovered_requirement_row.get("status") or "").strip()
-                == status
+                if isinstance(recovered_requirement_row, dict) and str(recovered_requirement_row.get("status") or "").strip() == status
                 else {
                     "status": status,
                     "detail": detail,

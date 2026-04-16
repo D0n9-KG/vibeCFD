@@ -2,8 +2,7 @@ import asyncio
 import threading
 from types import SimpleNamespace
 
-from langchain.agents.middleware.types import ModelRequest
-from langchain.agents.middleware.types import ModelResponse
+from langchain.agents.middleware.types import ModelRequest, ModelResponse
 from langchain_core.messages import SystemMessage
 from langgraph.runtime import Runtime
 
@@ -28,9 +27,7 @@ def _fake_skill(name: str, description: str):
     return SimpleNamespace(
         name=name,
         description=description,
-        get_container_file_path=lambda container_base_path="/mnt/skills": (
-            f"{container_base_path}/custom/{name}/SKILL.md"
-        ),
+        get_container_file_path=lambda container_base_path="/mnt/skills": f"{container_base_path}/custom/{name}/SKILL.md",
     )
 
 
@@ -83,9 +80,7 @@ def test_before_model_backfills_legacy_snapshot_prompt_entries(monkeypatch):
     )
 
     assert result is not None
-    assert result["skill_runtime_snapshot"]["skill_prompt_entries"][0]["name"] == (
-        "cached-skill"
-    )
+    assert result["skill_runtime_snapshot"]["skill_prompt_entries"][0]["name"] == ("cached-skill")
 
 
 def test_capture_skill_runtime_snapshot_uses_fresh_live_enabled_skills(monkeypatch):
@@ -116,12 +111,7 @@ def test_override_skill_snapshot_rewrites_system_prompt(monkeypatch):
     middleware = SkillRuntimeSnapshotMiddleware()
     monkeypatch.setattr(
         "deerflow.agents.middlewares.skill_runtime_snapshot_middleware.apply_prompt_template",
-        lambda **kwargs: (
-            "skills="
-            + ",".join(sorted(kwargs.get("available_skills") or []))
-            + ";bindings="
-            + ",".join(kwargs.get("skill_snapshot", {}).get("binding_targets_applied", []))
-        ),
+        lambda **kwargs: "skills=" + ",".join(sorted(kwargs.get("available_skills") or [])) + ";bindings=" + ",".join(kwargs.get("skill_snapshot", {}).get("binding_targets_applied", [])),
     )
 
     request = _build_request()
@@ -156,11 +146,7 @@ def test_abefore_model_captures_skill_runtime_snapshot_off_event_loop_thread(mon
     )
     monkeypatch.setattr(
         "deerflow.agents.middlewares.skill_runtime_snapshot_middleware.load_skills_from_path",
-        lambda *args, **kwargs: (
-            capture_thread_ids.append(threading.get_ident()) or [
-                _fake_skill("fresh-skill", "Fresh skill")
-            ]
-        ),
+        lambda *args, **kwargs: capture_thread_ids.append(threading.get_ident()) or [_fake_skill("fresh-skill", "Fresh skill")],
         raising=False,
     )
 
@@ -195,19 +181,12 @@ def test_awrap_model_call_captures_skill_runtime_snapshot_off_event_loop_thread(
     )
     monkeypatch.setattr(
         "deerflow.agents.middlewares.skill_runtime_snapshot_middleware.load_skills_from_path",
-        lambda *args, **kwargs: (
-            capture_thread_ids.append(threading.get_ident()) or [
-                _fake_skill("fresh-skill", "Fresh skill")
-            ]
-        ),
+        lambda *args, **kwargs: capture_thread_ids.append(threading.get_ident()) or [_fake_skill("fresh-skill", "Fresh skill")],
         raising=False,
     )
     monkeypatch.setattr(
         "deerflow.agents.middlewares.skill_runtime_snapshot_middleware.apply_prompt_template",
-        lambda **kwargs: (
-            "skills="
-            + ",".join(sorted(kwargs.get("available_skills") or []))
-        ),
+        lambda **kwargs: "skills=" + ",".join(sorted(kwargs.get("available_skills") or [])),
     )
 
     observed_request: dict[str, object] = {}
@@ -224,7 +203,5 @@ def test_awrap_model_call_captures_skill_runtime_snapshot_off_event_loop_thread(
 
     assert capture_thread_ids == [capture_thread_ids[0]]
     assert capture_thread_ids[0] != event_loop_thread_id
-    assert observed_request["state"]["skill_runtime_snapshot"]["enabled_skill_names"] == [
-        "fresh-skill"
-    ]
+    assert observed_request["state"]["skill_runtime_snapshot"]["enabled_skill_names"] == ["fresh-skill"]
     assert observed_request["system_prompt"] == "skills=fresh-skill"

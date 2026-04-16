@@ -36,10 +36,7 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
     result = tool_module.submarine_skill_studio_tool.func(
         runtime=_make_runtime(paths, thread_id),
         skill_name="Submarine Result Acceptance",
-        skill_purpose=(
-            "Define how Claude Code and reporting subagents should decide whether a "
-            "submarine CFD run is trustworthy, needs review, or should be rerun."
-        ),
+        skill_purpose=("Define how Claude Code and reporting subagents should decide whether a submarine CFD run is trustworthy, needs review, or should be rerun."),
         trigger_conditions=[
             "the user asks whether the current CFD result is trustworthy",
             "Claude Code needs a final acceptance decision before delivery",
@@ -164,9 +161,7 @@ def test_submarine_skill_studio_tool_generates_publish_ready_workspace_artifacts
     assert studio_state["report_virtual_path"].endswith("/validation-report.md")
     assert studio_state["lifecycle_virtual_path"].endswith("/skill-lifecycle.json")
     assert studio_state["dry_run_evidence_status"] == "not_recorded"
-    assert studio_state["dry_run_evidence_virtual_path"].endswith(
-        "/dry-run-evidence.json"
-    )
+    assert studio_state["dry_run_evidence_virtual_path"].endswith("/dry-run-evidence.json")
     assert studio_state["active_revision_id"] is None
     assert studio_state["published_revision_id"] is None
     assert studio_state["version_note"] == ""

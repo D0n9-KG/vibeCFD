@@ -20,7 +20,6 @@ from .postprocess_specs import (
     requested_output_ids,
 )
 
-
 _REQUESTED_POSTPROCESS_EXPORTS: dict[str, dict[str, str | tuple[str, ...]]] = {
     "surface_pressure_contour": {
         "object_name": "surfacePressure",
@@ -29,10 +28,7 @@ _REQUESTED_POSTPROCESS_EXPORTS: dict[str, dict[str, str | tuple[str, ...]]] = {
         "artifact_png": "surface-pressure.png",
         "artifact_md": "surface-pressure.md",
         "title": "Surface Pressure Result",
-        "summary": (
-            "Exported surface pressure samples from OpenFOAM postProcessing. "
-            "The CSV is kept for archive and the PNG is a deterministic preview."
-        ),
+        "summary": ("Exported surface pressure samples from OpenFOAM postProcessing. The CSV is kept for archive and the PNG is a deterministic preview."),
     },
     "wake_velocity_slice": {
         "object_name": "wakeVelocitySlice",
@@ -41,20 +37,13 @@ _REQUESTED_POSTPROCESS_EXPORTS: dict[str, dict[str, str | tuple[str, ...]]] = {
         "artifact_png": "wake-velocity-slice.png",
         "artifact_md": "wake-velocity-slice.md",
         "title": "Wake Velocity Slice",
-        "summary": (
-            "Exported wake velocity slice samples from OpenFOAM postProcessing. "
-            "The CSV is kept for archive and the PNG is a deterministic preview."
-        ),
+        "summary": ("Exported wake velocity slice samples from OpenFOAM postProcessing. The CSV is kept for archive and the PNG is a deterministic preview."),
     },
 }
 
 
 def _requested_output_map(requested_outputs: list[dict] | None) -> dict[str, dict]:
-    return {
-        str(item.get("output_id")): item
-        for item in (requested_outputs or [])
-        if isinstance(item, dict) and item.get("output_id")
-    }
+    return {str(item.get("output_id")): item for item in (requested_outputs or []) if isinstance(item, dict) and item.get("output_id")}
 
 
 def _find_latest_postprocess_file(case_dir: Path, object_name: str, filename: str) -> Path | None:

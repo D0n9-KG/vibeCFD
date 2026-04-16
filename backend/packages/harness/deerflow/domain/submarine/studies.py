@@ -142,21 +142,13 @@ def _count_statuses(statuses: list[str | None]) -> dict[str, int]:
 def _expected_variant_run_ids(
     variants: list[SubmarineScientificStudyVariant],
 ) -> list[str]:
-    return [
-        variant.expected_run_id
-        for variant in variants
-        if variant.variant_id != "baseline" and variant.expected_run_id
-    ]
+    return [variant.expected_run_id for variant in variants if variant.variant_id != "baseline" and variant.expected_run_id]
 
 
 def _study_execution_status(
     variants: list[SubmarineScientificStudyVariant],
 ) -> str:
-    candidate_statuses = [
-        variant.execution_status
-        for variant in variants
-        if variant.variant_id != "baseline"
-    ]
+    candidate_statuses = [variant.execution_status for variant in variants if variant.variant_id != "baseline"]
     if any(status == "blocked" for status in candidate_statuses):
         return "blocked"
     if any(status == "in_progress" for status in candidate_statuses):
@@ -169,41 +161,21 @@ def _study_execution_status(
 def _study_workflow_status(
     variants: list[SubmarineScientificStudyVariant],
 ) -> str:
-    candidate_variants = [
-        variant for variant in variants if variant.variant_id != "baseline"
-    ]
-    baseline_completed = any(
-        variant.variant_id == "baseline" and variant.execution_status == "completed"
-        for variant in variants
-    )
+    candidate_variants = [variant for variant in variants if variant.variant_id != "baseline"]
+    baseline_completed = any(variant.variant_id == "baseline" and variant.execution_status == "completed" for variant in variants)
     execution_statuses = [variant.execution_status for variant in candidate_variants]
-    compare_statuses = [
-        variant.compare_status
-        for variant in candidate_variants
-        if variant.compare_status is not None
-    ]
+    compare_statuses = [variant.compare_status for variant in candidate_variants if variant.compare_status is not None]
     if any(status == "blocked" for status in execution_statuses):
         return "blocked"
     if any(status == "blocked" for status in compare_statuses):
         return "blocked"
     if any(status == "in_progress" for status in execution_statuses):
         return "in_progress"
-    if (
-        candidate_variants
-        and all(status == "planned" for status in execution_statuses)
-        and (not compare_statuses or all(status == "planned" for status in compare_statuses))
-    ):
+    if candidate_variants and all(status == "planned" for status in execution_statuses) and (not compare_statuses or all(status == "planned" for status in compare_statuses)):
         return "partial" if baseline_completed else "planned"
-    if (
-        candidate_variants
-        and all(status == "completed" for status in execution_statuses)
-        and len(compare_statuses) == len(candidate_variants)
-        and all(status == "completed" for status in compare_statuses)
-    ):
+    if candidate_variants and all(status == "completed" for status in execution_statuses) and len(compare_statuses) == len(candidate_variants) and all(status == "completed" for status in compare_statuses):
         return "completed"
-    if baseline_completed or any(
-        status == "completed" for status in execution_statuses
-    ) or compare_statuses:
+    if baseline_completed or any(status == "completed" for status in execution_statuses) or compare_statuses:
         return "partial"
     return "planned"
 
@@ -247,41 +219,28 @@ def build_scientific_study_manifest_with_variant_updates(
 
     for definition in manifest.study_definitions:
         study_updates = updates.get(definition.study_type) or {}
-        updated_variants = [
-            variant.model_copy(update=dict(study_updates.get(variant.variant_id) or {}))
-            for variant in definition.variants
-        ]
+        updated_variants = [variant.model_copy(update=dict(study_updates.get(variant.variant_id) or {})) for variant in definition.variants]
         updated_definitions.append(
             definition.model_copy(
                 update={
                     "variants": updated_variants,
                     "study_execution_status": _study_execution_status(updated_variants),
                     "workflow_status": _study_workflow_status(updated_variants),
-                    "variant_status_counts": _count_statuses(
-                        [variant.execution_status for variant in updated_variants]
-                    ),
-                    "compare_status_counts": _count_statuses(
-                        [variant.compare_status for variant in updated_variants]
-                    ),
-                    "expected_variant_run_ids": _expected_variant_run_ids(
-                        updated_variants
-                    ),
+                    "variant_status_counts": _count_statuses([variant.execution_status for variant in updated_variants]),
+                    "compare_status_counts": _count_statuses([variant.compare_status for variant in updated_variants]),
+                    "expected_variant_run_ids": _expected_variant_run_ids(updated_variants),
                 }
             )
         )
 
-    merged_artifact_paths = list(
-        dict.fromkeys(artifact_virtual_paths or manifest.artifact_virtual_paths)
-    )
+    merged_artifact_paths = list(dict.fromkeys(artifact_virtual_paths or manifest.artifact_virtual_paths))
     return manifest.model_copy(
         update={
             "study_definitions": updated_definitions,
             "artifact_virtual_paths": merged_artifact_paths,
             "study_execution_status": _manifest_execution_status(updated_definitions),
             "workflow_status": _manifest_workflow_status(updated_definitions),
-            "study_status_counts": _count_statuses(
-                [definition.workflow_status for definition in updated_definitions]
-            ),
+            "study_status_counts": _count_statuses([definition.workflow_status for definition in updated_definitions]),
         }
     )
 
@@ -400,10 +359,7 @@ def build_pending_scientific_study_results(
                 compared_values=[],
                 relative_spread=None,
                 status="missing_evidence",
-                summary_zh=(
-                    "已生成研究变体清单，但当前仅完成 baseline run，尚未补齐该研究所需的"
-                    "变体求解结果。"
-                ),
+                summary_zh=("已生成研究变体清单，但当前仅完成 baseline run，尚未补齐该研究所需的变体求解结果。"),
             )
         )
     return results
@@ -427,12 +383,8 @@ def build_scientific_study_variant_execution(
 
     return {
         "simulation_requirements": resolved_requirements,
-        "mesh_scale_factor": float(mesh_scale_factor)
-        if _is_number(mesh_scale_factor)
-        else 1.0,
-        "domain_extent_multiplier": float(domain_extent_multiplier)
-        if _is_number(domain_extent_multiplier)
-        else 1.0,
+        "mesh_scale_factor": float(mesh_scale_factor) if _is_number(mesh_scale_factor) else 1.0,
+        "domain_extent_multiplier": float(domain_extent_multiplier) if _is_number(domain_extent_multiplier) else 1.0,
     }
 
 
@@ -488,9 +440,7 @@ def build_completed_scientific_study_results(
             if variant.variant_id == "baseline":
                 continue
             solver_result = study_results.get(variant.variant_id)
-            if isinstance(solver_result, Mapping) and (
-                solver_result.get("execution_status") == "blocked"
-            ):
+            if isinstance(solver_result, Mapping) and (solver_result.get("execution_status") == "blocked"):
                 blocked_variants.append(variant.variant_id)
                 continue
             monitored_value = _resolve_monitored_value(
@@ -506,10 +456,9 @@ def build_completed_scientific_study_results(
                     "variant_id": variant.variant_id,
                     "variant_label": variant.variant_label,
                     "observed_value": monitored_value,
-                    "relative_delta": abs(monitored_value - baseline_value)
-                    / max(abs(baseline_value), 1e-12),
-                    }
-                )
+                    "relative_delta": abs(monitored_value - baseline_value) / max(abs(baseline_value), 1e-12),
+                }
+            )
 
         if blocked_variants:
             results.append(
@@ -520,11 +469,7 @@ def build_completed_scientific_study_results(
                     compared_values=compared_values,
                     relative_spread=None,
                     status="blocked",
-                    summary_zh=(
-                        "Scientific-study variant execution is blocked for: "
-                        + ", ".join(blocked_variants)
-                        + "."
-                    ),
+                    summary_zh=("Scientific-study variant execution is blocked for: " + ", ".join(blocked_variants) + "."),
                 )
             )
             continue
@@ -538,11 +483,7 @@ def build_completed_scientific_study_results(
                     compared_values=compared_values,
                     relative_spread=None,
                     status="missing_evidence",
-                    summary_zh=(
-                        "Some scientific-study variants are missing solver results: "
-                        + ", ".join(missing_variants)
-                        + "."
-                    ),
+                    summary_zh=("Some scientific-study variants are missing solver results: " + ", ".join(missing_variants) + "."),
                 )
             )
             continue
@@ -553,11 +494,9 @@ def build_completed_scientific_study_results(
         )
         status = "passed" if relative_spread <= definition.pass_fail_tolerance else "blocked"
         summary = (
-            f"{definition.summary_label} keeps {definition.monitored_quantity} spread "
-            f"within tolerance {definition.pass_fail_tolerance:.4f}."
+            f"{definition.summary_label} keeps {definition.monitored_quantity} spread within tolerance {definition.pass_fail_tolerance:.4f}."
             if status == "passed"
-            else f"{definition.summary_label} shows {definition.monitored_quantity} spread "
-            f"above tolerance {definition.pass_fail_tolerance:.4f}."
+            else f"{definition.summary_label} shows {definition.monitored_quantity} spread above tolerance {definition.pass_fail_tolerance:.4f}."
         )
         results.append(
             SubmarineScientificStudyResult(

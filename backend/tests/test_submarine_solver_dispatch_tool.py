@@ -114,11 +114,7 @@ def _write_xt(path: Path) -> None:
 
 
 def _execution_plan_status(runtime_state: dict, role_id: str) -> str:
-    return next(
-        item["status"]
-        for item in runtime_state["execution_plan"]
-        if item["role_id"] == role_id
-    )
+    return next(item["status"] for item in runtime_state["execution_plan"] if item["role_id"] == role_id)
 
 
 class _FakeSandbox:
@@ -613,17 +609,11 @@ class _FakeScientificStudySandbox(_FakeSandbox):
                 marker_index = normalized_command.rfind(marker, 0, fragment_index)
                 if marker_index < 0:
                     break
-                relative_prefix = normalized_command[
-                    marker_index + len(marker) : fragment_index
-                ].strip("/")
+                relative_prefix = normalized_command[marker_index + len(marker) : fragment_index].strip("/")
                 run_dir_name = relative_prefix.split("/", maxsplit=1)[0]
                 case_relative = fragment.lstrip("/").removesuffix("/Allrun")
                 return (
-                    self.workspace_dir
-                    / "submarine"
-                    / "solver-dispatch"
-                    / run_dir_name
-                    / Path(case_relative),
+                    self.workspace_dir / "submarine" / "solver-dispatch" / run_dir_name / Path(case_relative),
                     cd_value,
                 )
         raise AssertionError(f"Unexpected command for scientific study sandbox: {command}")
@@ -847,9 +837,7 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
 
     json_path = outputs_dir / "submarine" / "solver-dispatch" / "type209-demo" / "openfoam-request.json"
     md_path = outputs_dir / "submarine" / "solver-dispatch" / "type209-demo" / "dispatch-summary.md"
-    provenance_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "type209-demo" / "provenance-manifest.json"
-    )
+    provenance_path = outputs_dir / "submarine" / "solver-dispatch" / "type209-demo" / "provenance-manifest.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     provenance_manifest = json.loads(provenance_path.read_text(encoding="utf-8"))
 
@@ -858,21 +846,13 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
     assert payload["geometry"]["geometry_family"] == "Type 209"
     assert payload["selected_case"]["case_id"]
     assert payload["provenance_manifest_virtual_path"].endswith("/provenance-manifest.json")
-    assert payload["provenance_summary"]["manifest_virtual_path"].endswith(
-        "/provenance-manifest.json"
-    )
+    assert payload["provenance_summary"]["manifest_virtual_path"].endswith("/provenance-manifest.json")
     assert payload["provenance_summary"]["manifest_completeness_status"] == "complete"
     assert payload["environment_parity_assessment"]["parity_status"] == "matched"
     assert provenance_manifest["task_type"] == "resistance"
-    assert provenance_manifest["environment_parity_assessment"]["parity_status"] == (
-        "matched"
-    )
-    assert provenance_manifest["artifact_entrypoints"]["request"].endswith(
-        "/openfoam-request.json"
-    )
-    assert provenance_manifest["artifact_entrypoints"]["dispatch_summary_markdown"].endswith(
-        "/dispatch-summary.md"
-    )
+    assert provenance_manifest["environment_parity_assessment"]["parity_status"] == ("matched")
+    assert provenance_manifest["artifact_entrypoints"]["request"].endswith("/openfoam-request.json")
+    assert provenance_manifest["artifact_entrypoints"]["dispatch_summary_markdown"].endswith("/dispatch-summary.md")
     assert "solver_results" not in provenance_manifest["artifact_entrypoints"]
     assert md_path.exists()
     message = result.update["messages"][0].content
@@ -880,9 +860,7 @@ def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatc
     assert "DeerFlow artifacts" not in message
 
 
-def test_submarine_solver_dispatch_marks_drifted_but_runnable_environment_parity(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_marks_drifted_but_runnable_environment_parity(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-parity-drift"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -913,27 +891,14 @@ def test_submarine_solver_dispatch_marks_drifted_but_runnable_environment_parity
     )
 
     payload = result.update["submarine_runtime"]
-    provenance_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "parity-drift"
-        / "provenance-manifest.json"
-    )
+    provenance_path = outputs_dir / "submarine" / "solver-dispatch" / "parity-drift" / "provenance-manifest.json"
     provenance_manifest = json.loads(provenance_path.read_text(encoding="utf-8"))
 
-    assert payload["environment_parity_assessment"]["parity_status"] == (
-        "drifted_but_runnable"
-    )
+    assert payload["environment_parity_assessment"]["parity_status"] == ("drifted_but_runnable")
     assert payload["provenance_summary"]["parity_status"] == "drifted_but_runnable"
-    assert provenance_manifest["environment_parity_assessment"]["parity_status"] == (
-        "drifted_but_runnable"
-    )
+    assert provenance_manifest["environment_parity_assessment"]["parity_status"] == ("drifted_but_runnable")
     assert "environment_parity_assessment" in provenance_manifest
-    assert any(
-        "Host mount strategy" in item
-        for item in provenance_manifest["environment_parity_assessment"]["drift_reasons"]
-    )
+    assert any("Host mount strategy" in item for item in provenance_manifest["environment_parity_assessment"]["drift_reasons"])
 
 
 def test_submarine_solver_dispatch_emits_scientific_study_plan_artifacts(tmp_path, monkeypatch):
@@ -960,15 +925,9 @@ def test_submarine_solver_dispatch_emits_scientific_study_plan_artifacts(tmp_pat
     )
 
     artifacts = result.update["artifacts"]
-    request_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "study-plan-demo" / "openfoam-request.json"
-    )
-    study_plan_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "study-plan-demo" / "study-plan.json"
-    )
-    study_manifest_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "study-plan-demo" / "study-manifest.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "study-plan-demo" / "openfoam-request.json"
+    study_plan_path = outputs_dir / "submarine" / "solver-dispatch" / "study-plan-demo" / "study-plan.json"
+    study_manifest_path = outputs_dir / "submarine" / "solver-dispatch" / "study-plan-demo" / "study-manifest.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     study_plan = json.loads(study_plan_path.read_text(encoding="utf-8"))
     study_manifest = json.loads(study_manifest_path.read_text(encoding="utf-8"))
@@ -980,10 +939,7 @@ def test_submarine_solver_dispatch_emits_scientific_study_plan_artifacts(tmp_pat
     assert study_plan["study_count"] == 3
     assert study_manifest["study_definitions"][0]["study_type"] == "mesh_independence"
     assert study_manifest["study_definitions"][0]["variants"][0]["variant_id"] == "coarse"
-    assert any(
-        path.endswith("/studies/mesh-independence/coarse/solver-results.json")
-        for path in study_manifest["artifact_virtual_paths"]
-    )
+    assert any(path.endswith("/studies/mesh-independence/coarse/solver-results.json") for path in study_manifest["artifact_virtual_paths"])
 
 
 def test_submarine_solver_dispatch_tool_can_execute_in_sandbox(tmp_path, monkeypatch):
@@ -1034,9 +990,7 @@ def test_submarine_solver_dispatch_tool_can_execute_in_sandbox(tmp_path, monkeyp
     assert any(path.endswith("/openfoam-run.log") for path in result.update["artifacts"])
 
 
-def test_submarine_solver_dispatch_tool_prefers_workspace_raw_log_when_command_output_is_truncated(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_tool_prefers_workspace_raw_log_when_command_output_is_truncated(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-truncated-openfoam-log"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -1049,9 +1003,7 @@ def test_submarine_solver_dispatch_tool_prefers_workspace_raw_log_when_command_o
     geometry_path = uploads_dir / "suboff-demo.stl"
     _write_ascii_stl(geometry_path)
 
-    case_dir = (
-        workspace_dir / "submarine" / "solver-dispatch" / "suboff-demo" / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "suboff-demo" / "openfoam-case"
     fake_sandbox = _FakeTruncatedLogSandbox(case_dir)
 
     monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
@@ -1072,9 +1024,7 @@ def test_submarine_solver_dispatch_tool_prefers_workspace_raw_log_when_command_o
         tool_call_id="tc-dispatch-truncated-log",
     )
 
-    request_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "suboff-demo" / "openfoam-request.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "suboff-demo" / "openfoam-request.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
 
     assert payload["solver_results"]["mesh_summary"]["mesh_ok"] is True
@@ -1083,9 +1033,7 @@ def test_submarine_solver_dispatch_tool_prefers_workspace_raw_log_when_command_o
     assert payload["solver_results"]["mesh_summary"]["points"] == 249525
 
 
-def test_submarine_solver_dispatch_tool_lazily_acquires_sandbox_for_execute_now(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_tool_lazily_acquires_sandbox_for_execute_now(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-lazy-sandbox"
     workspace_dir = paths.sandbox_work_dir(thread_id)
@@ -1098,9 +1046,7 @@ def test_submarine_solver_dispatch_tool_lazily_acquires_sandbox_for_execute_now(
     geometry_path = uploads_dir / "lazy-sandbox.stl"
     _write_ascii_stl(geometry_path)
 
-    case_dir = (
-        workspace_dir / "submarine" / "solver-dispatch" / "lazy-sandbox" / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "lazy-sandbox" / "openfoam-case"
     fake_sandbox = _FakePostprocessSandbox(case_dir=case_dir)
 
     monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
@@ -1187,9 +1133,7 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
         "review_status": "ready_for_supervisor",
         "next_recommended_stage": "geometry-preflight",
         "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/runtime-dispatch/cfd-design-brief.md",
-        "artifact_virtual_paths": [
-            "/mnt/user-data/outputs/submarine/design-brief/runtime-dispatch/cfd-design-brief.json"
-        ],
+        "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/design-brief/runtime-dispatch/cfd-design-brief.json"],
         "activity_timeline": [
             {
                 "stage": "task-intelligence",
@@ -1233,12 +1177,8 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["workspace_case_dir_virtual_path"].endswith("/openfoam-case")
     assert runtime_state["run_script_virtual_path"].endswith("/Allrun")
     assert runtime_state["request_virtual_path"].endswith("/openfoam-request.json")
-    assert runtime_state["provenance_manifest_virtual_path"].endswith(
-        "/provenance-manifest.json"
-    )
-    assert runtime_state["provenance_summary"]["manifest_virtual_path"].endswith(
-        "/provenance-manifest.json"
-    )
+    assert runtime_state["provenance_manifest_virtual_path"].endswith("/provenance-manifest.json")
+    assert runtime_state["provenance_summary"]["manifest_virtual_path"].endswith("/provenance-manifest.json")
     assert runtime_state["provenance_summary"]["manifest_completeness_status"] == "complete"
     assert runtime_state["environment_fingerprint"]["runtime_origin"] == "unit_test"
     assert runtime_state["environment_parity_assessment"]["parity_status"] == "matched"
@@ -1250,9 +1190,7 @@ def test_submarine_solver_dispatch_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["activity_timeline"][-1]["actor"] == "solver-dispatch"
 
 
-def test_submarine_solver_dispatch_execute_now_overrides_existing_plan_only_preference(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_execute_now_overrides_existing_plan_only_preference(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-execute-now-override"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -1275,9 +1213,7 @@ def test_submarine_solver_dispatch_execute_now_overrides_existing_plan_only_pref
         "review_status": "ready_for_supervisor",
         "next_recommended_stage": "solver-dispatch",
         "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/execute-now-override/cfd-design-brief.md",
-        "artifact_virtual_paths": [
-            "/mnt/user-data/outputs/submarine/design-brief/execute-now-override/cfd-design-brief.json"
-        ],
+        "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/design-brief/execute-now-override/cfd-design-brief.json"],
     }
 
     result = tool_module.submarine_solver_dispatch_tool.func(
@@ -1291,22 +1227,14 @@ def test_submarine_solver_dispatch_execute_now_overrides_existing_plan_only_pref
     )
 
     runtime_state = result.update["submarine_runtime"]
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "execute-now-override"
-        / "openfoam-request.json"
-    )
+    json_path = outputs_dir / "submarine" / "solver-dispatch" / "execute-now-override" / "openfoam-request.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
 
     assert payload["execution_preference"] == "execute_now"
     assert runtime_state["execution_preference"] == "execute_now"
 
 
-def test_submarine_solver_dispatch_marks_failed_runtime_when_solver_execution_fails(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_marks_failed_runtime_when_solver_execution_fails(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-runtime-failed"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -1345,9 +1273,7 @@ def test_submarine_solver_dispatch_marks_failed_runtime_when_solver_execution_fa
     assert runtime_state["blocker_detail"]
 
 
-def test_submarine_solver_dispatch_surfaces_blocked_runtime_when_canonical_results_are_missing(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_surfaces_blocked_runtime_when_canonical_results_are_missing(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-runtime-blocked"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -1410,15 +1336,11 @@ def test_submarine_solver_dispatch_surfaces_blocked_runtime_when_canonical_resul
     assert runtime_state["execution_log_virtual_path"].endswith("/openfoam-run.log")
     assert runtime_state["report_virtual_path"].endswith("/dispatch-summary.md")
     assert runtime_state["supervisor_handoff_virtual_path"].endswith("/supervisor-handoff.json")
-    assert runtime_state["blocker_detail"] == (
-        "solver-dispatch 缺少可恢复的关键证据: 求解结果。"
-    )
+    assert runtime_state["blocker_detail"] == ("solver-dispatch 缺少可恢复的关键证据: 求解结果。")
     assert runtime_state["recovery_guidance"]
 
 
-def test_submarine_solver_dispatch_recovers_geometry_from_uploaded_files_without_explicit_path(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_recovers_geometry_from_uploaded_files_without_explicit_path(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-uploaded-files-dispatch"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -1449,20 +1371,8 @@ def test_submarine_solver_dispatch_recovers_geometry_from_uploaded_files_without
         tool_call_id="tc-dispatch-uploaded-files",
     )
 
-    request_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "uploaded-files-dispatch"
-        / "openfoam-request.json"
-    )
-    handoff_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "uploaded-files-dispatch"
-        / "supervisor-handoff.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "uploaded-files-dispatch" / "openfoam-request.json"
+    handoff_path = outputs_dir / "submarine" / "solver-dispatch" / "uploaded-files-dispatch" / "supervisor-handoff.json"
     handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
     runtime_state = result.update["submarine_runtime"]
 
@@ -1532,9 +1442,7 @@ def test_submarine_solver_dispatch_writes_openfoam_case_scaffold(tmp_path, monke
     assert 'file "case-scaffold.stl";' in snappy_dict
 
 
-def test_submarine_solver_dispatch_uses_geometry_scaled_domain_for_small_hulls(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_uses_geometry_scaled_domain_for_small_hulls(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-small-hull-domain"
     workspace_dir = paths.sandbox_work_dir(thread_id)
@@ -1559,24 +1467,14 @@ def test_submarine_solver_dispatch_uses_geometry_scaled_domain_for_small_hulls(
         tool_call_id="tc-dispatch-small-hull-domain",
     )
 
-    block_mesh_dict = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "small-hull-domain"
-        / "openfoam-case"
-        / "system"
-        / "blockMeshDict"
-    ).read_text(encoding="utf-8")
+    block_mesh_dict = (workspace_dir / "submarine" / "solver-dispatch" / "small-hull-domain" / "openfoam-case" / "system" / "blockMeshDict").read_text(encoding="utf-8")
 
     assert "(-16" in block_mesh_dict
     assert "(32.0 " in block_mesh_dict
     assert "(-40" not in block_mesh_dict
 
 
-def test_submarine_solver_dispatch_applies_geometry_scale_factor_to_case_geometry(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_applies_geometry_scale_factor_to_case_geometry(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-scaled-case"
     workspace_dir = paths.sandbox_work_dir(thread_id)
@@ -1640,25 +1538,14 @@ def test_submarine_solver_dispatch_applies_geometry_scale_factor_to_case_geometr
         tool_call_id="tc-dispatch-scaled-case",
     )
 
-    scaled_geometry = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "scaled-case"
-        / "openfoam-case"
-        / "constant"
-        / "triSurface"
-        / "scaled-case.stl"
-    ).read_text(encoding="utf-8")
+    scaled_geometry = (workspace_dir / "submarine" / "solver-dispatch" / "scaled-case" / "openfoam-case" / "constant" / "triSurface" / "scaled-case.stl").read_text(encoding="utf-8")
 
     assert "vertex 4.356" in scaled_geometry
     assert "0.508" in scaled_geometry
     assert "vertex 4356 " not in scaled_geometry
 
 
-def test_submarine_solver_dispatch_applies_geometry_scale_factor_to_binary_case_geometry(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_applies_geometry_scale_factor_to_binary_case_geometry(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-scaled-binary-case"
     workspace_dir = paths.sandbox_work_dir(thread_id)
@@ -1706,16 +1593,7 @@ def test_submarine_solver_dispatch_applies_geometry_scale_factor_to_binary_case_
         tool_call_id="tc-dispatch-scaled-binary-case",
     )
 
-    scaled_geometry_path = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "scaled-binary-case"
-        / "openfoam-case"
-        / "constant"
-        / "triSurface"
-        / "scaled-binary-case.stl"
-    )
+    scaled_geometry_path = workspace_dir / "submarine" / "solver-dispatch" / "scaled-binary-case" / "openfoam-case" / "constant" / "triSurface" / "scaled-binary-case.stl"
     mins, maxs = _binary_stl_bounds(scaled_geometry_path)
 
     assert round(maxs[0] - mins[0], 6) == 4.356
@@ -1787,13 +1665,7 @@ def test_submarine_solver_dispatch_preserves_requested_outputs(tmp_path, monkeyp
         tool_call_id="tc-dispatch-requested-outputs",
     )
 
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "requested-dispatch"
-        / "openfoam-request.json"
-    )
+    json_path = outputs_dir / "submarine" / "solver-dispatch" / "requested-dispatch" / "openfoam-request.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     runtime_state = result.update["submarine_runtime"]
 
@@ -1888,13 +1760,7 @@ def test_submarine_solver_dispatch_requested_outputs_configure_function_objects(
         tool_call_id="tc-dispatch-function-objects",
     )
 
-    case_dir = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "function-objects"
-        / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "function-objects" / "openfoam-case"
     control_dict = (case_dir / "system" / "controlDict").read_text(encoding="utf-8")
 
     assert "surfacePressure" in control_dict
@@ -2012,9 +1878,7 @@ def test_submarine_solver_dispatch_marks_failed_execution(tmp_path, monkeypatch)
     assert runtime_state["review_status"] == "blocked"
 
 
-def test_submarine_solver_dispatch_marks_failed_when_required_force_coefficients_are_missing(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_marks_failed_when_required_force_coefficients_are_missing(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-missing-force-coeffs"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -2043,13 +1907,7 @@ def test_submarine_solver_dispatch_marks_failed_when_required_force_coefficients
         tool_call_id="tc-dispatch-missing-force-coeffs",
     )
 
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "missing-force-coeffs"
-        / "openfoam-request.json"
-    )
+    json_path = outputs_dir / "submarine" / "solver-dispatch" / "missing-force-coeffs" / "openfoam-request.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     solver_results = payload["solver_results"]
 
@@ -2093,9 +1951,7 @@ def test_submarine_solver_dispatch_writes_solver_results_artifact(tmp_path, monk
     artifacts = result.update["artifacts"]
     request_path = outputs_dir / "submarine" / "solver-dispatch" / "results-demo" / "openfoam-request.json"
     solver_results_path = outputs_dir / "submarine" / "solver-dispatch" / "results-demo" / "solver-results.json"
-    stability_evidence_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "results-demo" / "stability-evidence.json"
-    )
+    stability_evidence_path = outputs_dir / "submarine" / "solver-dispatch" / "results-demo" / "stability-evidence.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     solver_results = json.loads(solver_results_path.read_text(encoding="utf-8"))
     stability_evidence = json.loads(stability_evidence_path.read_text(encoding="utf-8"))
@@ -2133,26 +1989,14 @@ def test_submarine_solver_dispatch_writes_solver_results_artifact(tmp_path, monk
     assert solver_results["residual_summary"]["latest_by_field"]["p"]["final_residual"] == 0.00014
     assert solver_results["residual_summary"]["latest_by_field"]["Ux"]["initial_residual"] == 0.00031
     assert len(solver_results["residual_summary"]["history"]) == 8
-    assert result.update["submarine_runtime"]["solver_results_virtual_path"] == (
-        payload["solver_results_virtual_path"]
-    )
-    assert result.update["submarine_runtime"]["stability_evidence_virtual_path"] == (
-        payload["stability_evidence_virtual_path"]
-    )
+    assert result.update["submarine_runtime"]["solver_results_virtual_path"] == (payload["solver_results_virtual_path"])
+    assert result.update["submarine_runtime"]["stability_evidence_virtual_path"] == (payload["stability_evidence_virtual_path"])
     assert result.update["submarine_runtime"]["stability_evidence"]["status"] == "missing_evidence"
-    assert (
-        result.update["submarine_runtime"]["scientific_verification_assessment"]["status"]
-        == "needs_more_verification"
-    )
-    assert (
-        _execution_plan_status(result.update["submarine_runtime"], "scientific-verification")
-        == "completed"
-    )
+    assert result.update["submarine_runtime"]["scientific_verification_assessment"]["status"] == "needs_more_verification"
+    assert _execution_plan_status(result.update["submarine_runtime"], "scientific-verification") == "completed"
 
 
-def test_submarine_solver_dispatch_waits_for_workspace_completion_before_collecting_results(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_waits_for_workspace_completion_before_collecting_results(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-async-completion"
     workspace_dir = paths.sandbox_work_dir(thread_id)
@@ -2165,9 +2009,7 @@ def test_submarine_solver_dispatch_waits_for_workspace_completion_before_collect
     geometry_path = uploads_dir / "async-completion.stl"
     _write_ascii_stl(geometry_path)
 
-    case_dir = (
-        workspace_dir / "submarine" / "solver-dispatch" / "async-completion" / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "async-completion" / "openfoam-case"
     fake_sandbox = _FakeAsyncCompletionSandbox(case_dir=case_dir)
 
     monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
@@ -2184,9 +2026,7 @@ def test_submarine_solver_dispatch_waits_for_workspace_completion_before_collect
         tool_call_id="tc-dispatch-async-completion",
     )
 
-    request_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "async-completion" / "openfoam-request.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "async-completion" / "openfoam-request.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     solver_results = payload["solver_results"]
 
@@ -2196,19 +2036,11 @@ def test_submarine_solver_dispatch_waits_for_workspace_completion_before_collect
     assert solver_results["residual_summary"]["field_count"] == 2
     assert solver_results["latest_force_coefficients"]["Cd"] == 0.12
     assert solver_results["latest_forces"]["total_force"][0] == 8.0
-    assert "End" in (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "async-completion"
-        / "openfoam-run.log"
-    ).read_text(encoding="utf-8")
+    assert "End" in (outputs_dir / "submarine" / "solver-dispatch" / "async-completion" / "openfoam-run.log").read_text(encoding="utf-8")
     assert result.update["submarine_runtime"]["stage_status"] == "executed"
 
 
-def test_submarine_solver_dispatch_waits_for_progressing_scientific_study_variants(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_waits_for_progressing_scientific_study_variants(tmp_path, monkeypatch):
     dispatch_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch")
 
     paths = Paths(tmp_path)
@@ -2272,27 +2104,12 @@ def test_submarine_solver_dispatch_waits_for_progressing_scientific_study_varian
         geometry_family_hint="DARPA SUBOFF",
         execute_now=True,
         execute_scientific_studies=True,
-        solver_command=(
-            "bash /mnt/user-data/workspace/submarine/solver-dispatch/"
-            "progressive-study-execution/openfoam-case/Allrun"
-        ),
+        solver_command=("bash /mnt/user-data/workspace/submarine/solver-dispatch/progressive-study-execution/openfoam-case/Allrun"),
         tool_call_id="tc-dispatch-progressive-study-execution",
     )
 
-    request_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "progressive-study-execution"
-        / "openfoam-request.json"
-    )
-    mesh_verification_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "progressive-study-execution"
-        / "verification-mesh-independence.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "progressive-study-execution" / "openfoam-request.json"
+    mesh_verification_path = outputs_dir / "submarine" / "solver-dispatch" / "progressive-study-execution" / "verification-mesh-independence.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     mesh_verification = json.loads(mesh_verification_path.read_text(encoding="utf-8"))
     study_manifest = payload["scientific_study_manifest"]
@@ -2307,9 +2124,7 @@ def test_submarine_solver_dispatch_waits_for_progressing_scientific_study_varian
     assert result.update["submarine_runtime"]["stage_status"] == "executed"
 
 
-def test_submarine_solver_dispatch_waits_past_preprocess_end_markers_before_collecting_results(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_waits_past_preprocess_end_markers_before_collecting_results(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-preprocess-end-async-completion"
     workspace_dir = paths.sandbox_work_dir(thread_id)
@@ -2322,13 +2137,7 @@ def test_submarine_solver_dispatch_waits_past_preprocess_end_markers_before_coll
     geometry_path = uploads_dir / "preprocess-end-async-completion.stl"
     _write_ascii_stl(geometry_path)
 
-    case_dir = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "preprocess-end-async-completion"
-        / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "preprocess-end-async-completion" / "openfoam-case"
     fake_sandbox = _FakePreprocessEndAsyncCompletionSandbox(case_dir=case_dir)
 
     monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
@@ -2341,20 +2150,11 @@ def test_submarine_solver_dispatch_waits_past_preprocess_end_markers_before_coll
         task_type="resistance",
         geometry_family_hint="DARPA SUBOFF",
         execute_now=True,
-        solver_command=(
-            "bash /mnt/user-data/workspace/submarine/solver-dispatch/"
-            "preprocess-end-async-completion/openfoam-case/Allrun"
-        ),
+        solver_command=("bash /mnt/user-data/workspace/submarine/solver-dispatch/preprocess-end-async-completion/openfoam-case/Allrun"),
         tool_call_id="tc-dispatch-preprocess-end-async-completion",
     )
 
-    request_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "preprocess-end-async-completion"
-        / "openfoam-request.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "preprocess-end-async-completion" / "openfoam-request.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     solver_results = payload["solver_results"]
 
@@ -2363,19 +2163,11 @@ def test_submarine_solver_dispatch_waits_past_preprocess_end_markers_before_coll
     assert solver_results["final_time_seconds"] == 200.0
     assert solver_results["residual_summary"]["field_count"] == 2
     assert solver_results["latest_force_coefficients"]["Cd"] == 0.12
-    assert "Time = 200s" in (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "preprocess-end-async-completion"
-        / "openfoam-run.log"
-    ).read_text(encoding="utf-8")
+    assert "Time = 200s" in (outputs_dir / "submarine" / "solver-dispatch" / "preprocess-end-async-completion" / "openfoam-run.log").read_text(encoding="utf-8")
     assert result.update["submarine_runtime"]["stage_status"] == "executed"
 
 
-def test_submarine_solver_dispatch_refreshes_workspace_log_even_if_exit_status_arrives_first(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_refreshes_workspace_log_even_if_exit_status_arrives_first(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-status-first"
     workspace_dir = paths.sandbox_work_dir(thread_id)
@@ -2388,13 +2180,7 @@ def test_submarine_solver_dispatch_refreshes_workspace_log_even_if_exit_status_a
     geometry_path = uploads_dir / "status-first.stl"
     _write_ascii_stl(geometry_path)
 
-    case_dir = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "status-first"
-        / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "status-first" / "openfoam-case"
     fake_sandbox = _FakeExitStatusAheadOfLogCompletionSandbox(case_dir=case_dir)
 
     monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
@@ -2407,28 +2193,14 @@ def test_submarine_solver_dispatch_refreshes_workspace_log_even_if_exit_status_a
         task_type="resistance",
         geometry_family_hint="DARPA SUBOFF",
         execute_now=True,
-        solver_command=(
-            "bash /mnt/user-data/workspace/submarine/solver-dispatch/status-first/openfoam-case/Allrun"
-        ),
+        solver_command=("bash /mnt/user-data/workspace/submarine/solver-dispatch/status-first/openfoam-case/Allrun"),
         tool_call_id="tc-dispatch-status-first",
     )
 
-    request_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "status-first"
-        / "openfoam-request.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "status-first" / "openfoam-request.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     solver_results = payload["solver_results"]
-    captured_log = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "status-first"
-        / "openfoam-run.log"
-    ).read_text(encoding="utf-8")
+    captured_log = (outputs_dir / "submarine" / "solver-dispatch" / "status-first" / "openfoam-run.log").read_text(encoding="utf-8")
 
     assert payload["dispatch_status"] == "executed"
     assert solver_results["solver_completed"] is True
@@ -2439,9 +2211,7 @@ def test_submarine_solver_dispatch_refreshes_workspace_log_even_if_exit_status_a
     assert result.update["submarine_runtime"]["stage_status"] == "executed"
 
 
-def test_submarine_solver_dispatch_clears_stale_postprocessing_before_incomplete_rerun(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_clears_stale_postprocessing_before_incomplete_rerun(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-stale-postprocess"
     workspace_dir = paths.sandbox_work_dir(thread_id)
@@ -2454,9 +2224,7 @@ def test_submarine_solver_dispatch_clears_stale_postprocessing_before_incomplete
     geometry_path = uploads_dir / "stale-postprocess.stl"
     _write_ascii_stl(geometry_path)
 
-    case_dir = (
-        workspace_dir / "submarine" / "solver-dispatch" / "stale-postprocess" / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "stale-postprocess" / "openfoam-case"
     stale_coeffs_path = case_dir / "postProcessing" / "forceCoeffsHull" / "0" / "forceCoeffs.dat"
     stale_coeffs_path.parent.mkdir(parents=True, exist_ok=True)
     stale_coeffs_path.write_text(
@@ -2497,9 +2265,7 @@ def test_submarine_solver_dispatch_clears_stale_postprocessing_before_incomplete
         tool_call_id="tc-dispatch-stale-postprocess",
     )
 
-    request_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "stale-postprocess" / "openfoam-request.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "stale-postprocess" / "openfoam-request.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     solver_results = payload["solver_results"]
 
@@ -2531,13 +2297,7 @@ def test_submarine_solver_dispatch_emits_baseline_experiment_artifacts(
     geometry_path = uploads_dir / "baseline-experiment-demo.stl"
     _write_ascii_stl(geometry_path)
 
-    case_dir = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "baseline-experiment-demo"
-        / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "baseline-experiment-demo" / "openfoam-case"
     fake_sandbox = _FakePostprocessSandbox(case_dir=case_dir)
 
     monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
@@ -2550,53 +2310,20 @@ def test_submarine_solver_dispatch_emits_baseline_experiment_artifacts(
         task_type="resistance",
         geometry_family_hint="DARPA SUBOFF",
         execute_now=True,
-        solver_command=(
-            "bash /mnt/user-data/workspace/submarine/solver-dispatch/"
-            "baseline-experiment-demo/openfoam-case/Allrun"
-        ),
+        solver_command=("bash /mnt/user-data/workspace/submarine/solver-dispatch/baseline-experiment-demo/openfoam-case/Allrun"),
         tool_call_id="tc-dispatch-baseline-experiment",
     )
 
     artifacts = result.update["artifacts"]
-    request_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "baseline-experiment-demo"
-        / "openfoam-request.json"
-    )
-    experiment_manifest_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "baseline-experiment-demo"
-        / "experiment-manifest.json"
-    )
-    run_record_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "baseline-experiment-demo"
-        / "run-record.json"
-    )
-    compare_summary_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "baseline-experiment-demo"
-        / "run-compare-summary.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "baseline-experiment-demo" / "openfoam-request.json"
+    experiment_manifest_path = outputs_dir / "submarine" / "solver-dispatch" / "baseline-experiment-demo" / "experiment-manifest.json"
+    run_record_path = outputs_dir / "submarine" / "solver-dispatch" / "baseline-experiment-demo" / "run-record.json"
+    compare_summary_path = outputs_dir / "submarine" / "solver-dispatch" / "baseline-experiment-demo" / "run-compare-summary.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     experiment_manifest = json.loads(experiment_manifest_path.read_text(encoding="utf-8"))
     run_record = json.loads(run_record_path.read_text(encoding="utf-8"))
     compare_summary = json.loads(compare_summary_path.read_text(encoding="utf-8"))
-    provenance_manifest_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "baseline-experiment-demo"
-        / "provenance-manifest.json"
-    )
+    provenance_manifest_path = outputs_dir / "submarine" / "solver-dispatch" / "baseline-experiment-demo" / "provenance-manifest.json"
     provenance_manifest = json.loads(provenance_manifest_path.read_text(encoding="utf-8"))
 
     assert any(path.endswith("/experiment-manifest.json") for path in artifacts)
@@ -2609,10 +2336,7 @@ def test_submarine_solver_dispatch_emits_baseline_experiment_artifacts(
     assert payload["experiment_manifest"]["workflow_status"] == "partial"
     assert payload["run_compare_summary"]["workflow_status"] == "planned"
     assert len(payload["run_compare_summary"]["comparisons"]) == 6
-    assert all(
-        item["compare_status"] == "planned"
-        for item in payload["run_compare_summary"]["comparisons"]
-    )
+    assert all(item["compare_status"] == "planned" for item in payload["run_compare_summary"]["comparisons"])
     assert experiment_manifest["baseline_run_id"] == "baseline"
     assert experiment_manifest["experiment_status"] == "partial"
     assert experiment_manifest["workflow_status"] == "partial"
@@ -2621,20 +2345,10 @@ def test_submarine_solver_dispatch_emits_baseline_experiment_artifacts(
     assert compare_summary["workflow_status"] == "planned"
     assert len(compare_summary["comparisons"]) == 6
     assert all(item["compare_status"] == "planned" for item in compare_summary["comparisons"])
-    assert any(
-        item["candidate_run_id"] == "mesh_independence:coarse"
-        and item["candidate_execution_status"] == "planned"
-        for item in compare_summary["comparisons"]
-    )
-    assert payload["provenance_summary"]["artifact_entrypoints"]["request"].endswith(
-        "/openfoam-request.json"
-    )
-    assert payload["provenance_summary"]["artifact_entrypoints"]["run_record"].endswith(
-        "/run-record.json"
-    )
-    assert provenance_manifest["artifact_entrypoints"]["run_compare_summary"].endswith(
-        "/run-compare-summary.json"
-    )
+    assert any(item["candidate_run_id"] == "mesh_independence:coarse" and item["candidate_execution_status"] == "planned" for item in compare_summary["comparisons"])
+    assert payload["provenance_summary"]["artifact_entrypoints"]["request"].endswith("/openfoam-request.json")
+    assert payload["provenance_summary"]["artifact_entrypoints"]["run_record"].endswith("/run-record.json")
+    assert provenance_manifest["artifact_entrypoints"]["run_compare_summary"].endswith("/run-compare-summary.json")
 
 
 def test_submarine_solver_dispatch_writes_scientific_verification_artifacts(tmp_path, monkeypatch):
@@ -2668,19 +2382,9 @@ def test_submarine_solver_dispatch_writes_scientific_verification_artifacts(tmp_
     )
 
     artifacts = result.update["artifacts"]
-    request_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "study-results-demo" / "openfoam-request.json"
-    )
-    study_manifest_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "study-results-demo" / "study-manifest.json"
-    )
-    mesh_verification_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "study-results-demo"
-        / "verification-mesh-independence.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "study-results-demo" / "openfoam-request.json"
+    study_manifest_path = outputs_dir / "submarine" / "solver-dispatch" / "study-results-demo" / "study-manifest.json"
+    mesh_verification_path = outputs_dir / "submarine" / "solver-dispatch" / "study-results-demo" / "verification-mesh-independence.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     study_manifest = json.loads(study_manifest_path.read_text(encoding="utf-8"))
     mesh_verification = json.loads(mesh_verification_path.read_text(encoding="utf-8"))
@@ -2689,25 +2393,13 @@ def test_submarine_solver_dispatch_writes_scientific_verification_artifacts(tmp_
     assert any(path.endswith("/verification-domain-sensitivity.json") for path in artifacts)
     assert any(path.endswith("/verification-time-step-sensitivity.json") for path in artifacts)
     assert payload["scientific_study_manifest"]["study_execution_status"] == "planned"
-    assert any(
-        path.endswith("/verification-mesh-independence.json")
-        for path in study_manifest["artifact_virtual_paths"]
-    )
+    assert any(path.endswith("/verification-mesh-independence.json") for path in study_manifest["artifact_virtual_paths"])
     assert mesh_verification["study_type"] == "mesh_independence"
     assert mesh_verification["monitored_quantity"] == "Cd"
     assert mesh_verification["status"] == "missing_evidence"
     assert mesh_verification["baseline_value"] == 0.12
     assert mesh_verification["relative_spread"] is None
-    assert (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "study-results-demo"
-        / "studies"
-        / "mesh-independence"
-        / "coarse"
-        / "solver-results.json"
-    ).exists()
+    assert (outputs_dir / "submarine" / "solver-dispatch" / "study-results-demo" / "studies" / "mesh-independence" / "coarse" / "solver-results.json").exists()
 
 
 def test_submarine_solver_dispatch_executes_scientific_study_variants_when_enabled(
@@ -2744,26 +2436,10 @@ def test_submarine_solver_dispatch_executes_scientific_study_variants_when_enabl
     )
 
     artifacts = result.update["artifacts"]
-    request_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "study-execution-demo" / "openfoam-request.json"
-    )
-    study_manifest_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "study-execution-demo" / "study-manifest.json"
-    )
-    mesh_verification_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "study-execution-demo"
-        / "verification-mesh-independence.json"
-    )
-    domain_verification_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "study-execution-demo"
-        / "verification-domain-sensitivity.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "study-execution-demo" / "openfoam-request.json"
+    study_manifest_path = outputs_dir / "submarine" / "solver-dispatch" / "study-execution-demo" / "study-manifest.json"
+    mesh_verification_path = outputs_dir / "submarine" / "solver-dispatch" / "study-execution-demo" / "verification-mesh-independence.json"
+    domain_verification_path = outputs_dir / "submarine" / "solver-dispatch" / "study-execution-demo" / "verification-domain-sensitivity.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     study_manifest = json.loads(study_manifest_path.read_text(encoding="utf-8"))
     mesh_verification = json.loads(mesh_verification_path.read_text(encoding="utf-8"))
@@ -2780,26 +2456,8 @@ def test_submarine_solver_dispatch_executes_scientific_study_variants_when_enabl
     assert len(mesh_verification["compared_values"]) == 2
     assert domain_verification["status"] == "blocked"
     assert domain_verification["relative_spread"] is not None
-    assert (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "study-execution-demo"
-        / "studies"
-        / "domain-sensitivity"
-        / "compact"
-        / "solver-results.json"
-    ).exists()
-    assert (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "study-execution-demo"
-        / "studies"
-        / "mesh-independence"
-        / "baseline"
-        / "solver-results.json"
-    ).exists()
+    assert (outputs_dir / "submarine" / "solver-dispatch" / "study-execution-demo" / "studies" / "domain-sensitivity" / "compact" / "solver-results.json").exists()
+    assert (outputs_dir / "submarine" / "solver-dispatch" / "study-execution-demo" / "studies" / "mesh-independence" / "baseline" / "solver-results.json").exists()
 
 
 def test_submarine_solver_dispatch_emits_run_compare_summary_for_study_execution(
@@ -2836,26 +2494,9 @@ def test_submarine_solver_dispatch_emits_run_compare_summary_for_study_execution
     )
 
     artifacts = result.update["artifacts"]
-    request_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "study-compare-demo" / "openfoam-request.json"
-    )
-    compare_summary_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "study-compare-demo"
-        / "run-compare-summary.json"
-    )
-    variant_run_record_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "study-compare-demo"
-        / "studies"
-        / "mesh-independence"
-        / "coarse"
-        / "run-record.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "study-compare-demo" / "openfoam-request.json"
+    compare_summary_path = outputs_dir / "submarine" / "solver-dispatch" / "study-compare-demo" / "run-compare-summary.json"
+    variant_run_record_path = outputs_dir / "submarine" / "solver-dispatch" / "study-compare-demo" / "studies" / "mesh-independence" / "coarse" / "run-record.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     compare_summary = json.loads(compare_summary_path.read_text(encoding="utf-8"))
     variant_run_record = json.loads(variant_run_record_path.read_text(encoding="utf-8"))
@@ -2883,13 +2524,7 @@ def test_submarine_solver_dispatch_exports_requested_postprocess_artifacts(tmp_p
     geometry_path = uploads_dir / "ppx.stl"
     _write_ascii_stl(geometry_path)
 
-    case_dir = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "ppx"
-        / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "ppx" / "openfoam-case"
     fake_sandbox = _FakeRequestedPostprocessSandbox(case_dir=case_dir)
 
     monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
@@ -2939,21 +2574,10 @@ def test_submarine_solver_dispatch_exports_requested_postprocess_artifacts(tmp_p
         tool_call_id="tc-dispatch-postprocess-exports",
     )
 
-    request_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "ppx"
-        / "openfoam-request.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "ppx" / "openfoam-request.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     artifacts = result.update["artifacts"]
-    artifact_dir = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "ppx"
-    )
+    artifact_dir = outputs_dir / "submarine" / "solver-dispatch" / "ppx"
     figure_manifest_path = artifact_dir / "figure-manifest.json"
 
     assert any(path.endswith("/surface-pressure.csv") for path in artifacts)
@@ -2968,10 +2592,7 @@ def test_submarine_solver_dispatch_exports_requested_postprocess_artifacts(tmp_p
     manifest = json.loads(figure_manifest_path.read_text(encoding="utf-8"))
     assert manifest["run_dir_name"] == "ppx"
     assert manifest["figure_count"] == 2
-    figures_by_output = {
-        item["output_id"]: item
-        for item in manifest["figures"]
-    }
+    figures_by_output = {item["output_id"]: item for item in manifest["figures"]}
     assert set(figures_by_output) == {"surface_pressure_contour", "wake_velocity_slice"}
     surface_pressure = figures_by_output["surface_pressure_contour"]
     wake_slice = figures_by_output["wake_velocity_slice"]
@@ -3093,9 +2714,7 @@ def test_submarine_solver_dispatch_inherits_runtime_plan_inputs(tmp_path, monkey
         "review_status": "ready_for_supervisor",
         "next_recommended_stage": "geometry-preflight",
         "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/inherited-demo/cfd-design-brief.md",
-        "artifact_virtual_paths": [
-            "/mnt/user-data/outputs/submarine/design-brief/inherited-demo/cfd-design-brief.json"
-        ],
+        "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/design-brief/inherited-demo/cfd-design-brief.json"],
     }
 
     result = tool_module.submarine_solver_dispatch_tool.func(
@@ -3143,9 +2762,7 @@ def test_submarine_solver_dispatch_inherits_runtime_plan_inputs(tmp_path, monkey
 
 
 def test_solver_dispatch_decomposition_case_module_writes_scaffold(tmp_path):
-    case_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_case"
-    )
+    case_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_case")
     geometry_module = importlib.import_module("deerflow.domain.submarine.geometry_check")
 
     workspace_dir = tmp_path / "workspace"
@@ -3198,13 +2815,7 @@ def test_solver_dispatch_decomposition_case_module_writes_scaffold(tmp_path):
         ],
     )
 
-    case_dir = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "decomposition-case"
-        / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "decomposition-case" / "openfoam-case"
     control_dict = (case_dir / "system" / "controlDict").read_text(encoding="utf-8")
 
     assert scaffold["execution_readiness"] == "stl_ready"
@@ -3216,9 +2827,7 @@ def test_solver_dispatch_decomposition_case_module_writes_scaffold(tmp_path):
 
 
 def test_solver_dispatch_case_scaffold_includes_pressure_reference(tmp_path):
-    case_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_case"
-    )
+    case_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_case")
     geometry_module = importlib.import_module("deerflow.domain.submarine.geometry_check")
 
     workspace_dir = tmp_path / "workspace"
@@ -3244,15 +2853,7 @@ def test_solver_dispatch_case_scaffold_includes_pressure_reference(tmp_path):
         simulation_requirements=simulation_requirements,
     )
 
-    fv_solution = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "pressure-reference"
-        / "openfoam-case"
-        / "system"
-        / "fvSolution"
-    ).read_text(encoding="utf-8")
+    fv_solution = (workspace_dir / "submarine" / "solver-dispatch" / "pressure-reference" / "openfoam-case" / "system" / "fvSolution").read_text(encoding="utf-8")
 
     assert "pRefCell" in fv_solution
     assert "pRefValue" in fv_solution
@@ -3261,9 +2862,7 @@ def test_solver_dispatch_case_scaffold_includes_pressure_reference(tmp_path):
 def test_solver_dispatch_case_scaffold_normalizes_reference_area_for_mm_scale_geometry(
     tmp_path,
 ):
-    case_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_case"
-    )
+    case_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_case")
     models_module = importlib.import_module("deerflow.domain.submarine.models")
 
     workspace_dir = tmp_path / "workspace"
@@ -3306,24 +2905,14 @@ def test_solver_dispatch_case_scaffold_normalizes_reference_area_for_mm_scale_ge
         simulation_requirements=simulation_requirements,
     )
 
-    control_dict = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "suboff-mm-scale"
-        / "openfoam-case"
-        / "system"
-        / "controlDict"
-    ).read_text(encoding="utf-8")
+    control_dict = (workspace_dir / "submarine" / "solver-dispatch" / "suboff-mm-scale" / "openfoam-case" / "system" / "controlDict").read_text(encoding="utf-8")
 
     assert 0.3 < scaffold["reference_area_m2"] < 0.5
     assert "Aref            370987.587891;" not in control_dict
 
 
 def test_solver_dispatch_case_scaffold_uses_open_farfield_boundaries(tmp_path):
-    case_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_case"
-    )
+    case_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_case")
     geometry_module = importlib.import_module("deerflow.domain.submarine.geometry_check")
 
     workspace_dir = tmp_path / "workspace"
@@ -3349,13 +2938,7 @@ def test_solver_dispatch_case_scaffold_uses_open_farfield_boundaries(tmp_path):
         simulation_requirements=simulation_requirements,
     )
 
-    case_dir = (
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "open-farfield"
-        / "openfoam-case"
-    )
+    case_dir = workspace_dir / "submarine" / "solver-dispatch" / "open-farfield" / "openfoam-case"
     velocity = (case_dir / "0" / "U").read_text(encoding="utf-8")
     pressure = (case_dir / "0" / "p").read_text(encoding="utf-8")
     turbulent_kinetic_energy = (case_dir / "0" / "k").read_text(encoding="utf-8")
@@ -3376,9 +2959,7 @@ def test_solver_dispatch_case_scaffold_uses_open_farfield_boundaries(tmp_path):
 def test_solver_dispatch_decomposition_results_module_collects_solver_outputs(
     tmp_path,
 ):
-    results_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_results"
-    )
+    results_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_results")
 
     case_dir = _platform_fs_path(tmp_path / "openfoam-case")
     coeffs_dir = case_dir / "postProcessing" / "forceCoeffs" / "0"
@@ -3453,18 +3034,14 @@ def test_solver_dispatch_decomposition_results_module_collects_solver_outputs(
 
 
 def test_solver_dispatch_decomposition_results_module_detects_failure_markers():
-    results_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_results"
-    )
+    results_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_results")
 
     assert results_module.looks_like_solver_failure("FOAM FATAL ERROR: divergence")
     assert not results_module.looks_like_solver_failure("Time = 200\nEnd")
 
 
 def test_solver_dispatch_decomposition_results_module_parses_inline_mesh_summary():
-    results_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_results"
-    )
+    results_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_results")
 
     command_output = "\n".join(
         [
@@ -3502,9 +3079,7 @@ def test_solver_dispatch_decomposition_results_module_parses_inline_mesh_summary
 
 
 def test_solver_dispatch_decomposition_results_module_ignores_feature_counts_and_prefers_latest_mesh_stats():
-    results_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_results"
-    )
+    results_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_results")
 
     command_output = "\n".join(
         [
@@ -3553,9 +3128,7 @@ def test_solver_dispatch_decomposition_results_module_ignores_feature_counts_and
 
 
 def test_solver_dispatch_decomposition_results_module_prefers_later_plain_mesh_counts_over_older_n_counts():
-    results_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_results"
-    )
+    results_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_results")
 
     command_output = "\n".join(
         [
@@ -3598,9 +3171,7 @@ def test_solver_dispatch_decomposition_results_module_prefers_later_plain_mesh_c
 
 
 def test_solver_dispatch_decomposition_results_module_uses_latest_field_residuals_for_max_final_residual():
-    results_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_results"
-    )
+    results_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_results")
 
     command_output = "\n".join(
         [
@@ -3642,9 +3213,7 @@ def test_solver_dispatch_decomposition_results_module_uses_latest_field_residual
 
 
 def test_solver_dispatch_decomposition_results_module_does_not_treat_preprocess_end_markers_as_solver_completion():
-    results_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_results"
-    )
+    results_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_results")
 
     command_output = "\n".join(
         [
@@ -3686,9 +3255,7 @@ def test_solver_dispatch_decomposition_results_module_does_not_treat_preprocess_
 
 
 def test_solver_dispatch_decomposition_results_module_requires_terminal_end_after_solver_evidence():
-    results_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_results"
-    )
+    results_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_results")
 
     command_output = "\n".join(
         [
@@ -3734,9 +3301,7 @@ def test_solver_dispatch_decomposition_results_module_requires_terminal_end_afte
 
 
 def test_solver_dispatch_decomposition_results_module_treats_time_zero_end_without_residuals_as_incomplete():
-    results_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch_results"
-    )
+    results_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch_results")
 
     command_output = "\n".join(
         [
@@ -3778,9 +3343,7 @@ def test_solver_dispatch_decomposition_results_module_treats_time_zero_end_witho
     assert results["latest_forces"] is None
 
 
-def test_submarine_solver_dispatch_requires_user_confirmation_before_dispatch(
-    tmp_path, monkeypatch
-):
+def test_submarine_solver_dispatch_requires_user_confirmation_before_dispatch(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-awaiting-confirmation"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -3809,9 +3372,7 @@ def test_submarine_solver_dispatch_requires_user_confirmation_before_dispatch(
         "review_status": "needs_user_confirmation",
         "next_recommended_stage": "user-confirmation",
         "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/awaiting-confirmation/cfd-design-brief.md",
-        "artifact_virtual_paths": [
-            "/mnt/user-data/outputs/submarine/design-brief/awaiting-confirmation/cfd-design-brief.json"
-        ],
+        "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/design-brief/awaiting-confirmation/cfd-design-brief.json"],
     }
 
     result = tool_module.submarine_solver_dispatch_tool.func(
@@ -3824,13 +3385,7 @@ def test_submarine_solver_dispatch_requires_user_confirmation_before_dispatch(
         tool_call_id="tc-dispatch-awaiting-confirmation",
     )
 
-    dispatch_request_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "awaiting-confirmation"
-        / "openfoam-request.json"
-    )
+    dispatch_request_path = outputs_dir / "submarine" / "solver-dispatch" / "awaiting-confirmation" / "openfoam-request.json"
 
     assert not dispatch_request_path.exists()
     assert "messages" in result.update
@@ -3845,12 +3400,8 @@ def test_submarine_solver_dispatch_requires_user_confirmation_before_dispatch(
     assert "submarine_solver_dispatch" not in message
 
 
-def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design_brief_artifact(
-    tmp_path, monkeypatch
-):
-    design_brief_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_design_brief_tool"
-    )
+def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design_brief_artifact(tmp_path, monkeypatch):
+    design_brief_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_design_brief_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-confirmed-execute-intent"
@@ -3864,13 +3415,7 @@ def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design
     geometry_path = uploads_dir / "confirmed-execute-intent.stl"
     _write_ascii_stl(geometry_path)
 
-    fake_sandbox = _FakePostprocessSandbox(
-        workspace_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "confirmed-execute-intent"
-        / "openfoam-case"
-    )
+    fake_sandbox = _FakePostprocessSandbox(workspace_dir / "submarine" / "solver-dispatch" / "confirmed-execute-intent" / "openfoam-case")
 
     monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
     monkeypatch.setattr(design_brief_tool_module, "get_paths", lambda: paths)
@@ -3902,15 +3447,7 @@ def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design
         tool_call_id="tc-design-brief-confirmed-execute-intent",
     )
 
-    design_brief_payload = json.loads(
-        (
-            outputs_dir
-            / "submarine"
-            / "design-brief"
-            / "confirmed-execute-intent"
-            / "cfd-design-brief.json"
-        ).read_text(encoding="utf-8")
-    )
+    design_brief_payload = json.loads((outputs_dir / "submarine" / "design-brief" / "confirmed-execute-intent" / "cfd-design-brief.json").read_text(encoding="utf-8"))
 
     runtime.state["artifacts"] = design_brief_result.update["artifacts"]
     runtime.state["submarine_runtime"] = {
@@ -3939,20 +3476,8 @@ def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design
         tool_call_id="tc-dispatch-confirmed-execute-intent",
     )
 
-    request_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "confirmed-execute-intent"
-        / "openfoam-request.json"
-    )
-    handoff_path = (
-        outputs_dir
-        / "submarine"
-        / "solver-dispatch"
-        / "confirmed-execute-intent"
-        / "supervisor-handoff.json"
-    )
+    request_path = outputs_dir / "submarine" / "solver-dispatch" / "confirmed-execute-intent" / "openfoam-request.json"
+    handoff_path = outputs_dir / "submarine" / "solver-dispatch" / "confirmed-execute-intent" / "supervisor-handoff.json"
     payload = json.loads(request_path.read_text(encoding="utf-8"))
     handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
 
@@ -3963,8 +3488,5 @@ def test_submarine_solver_dispatch_recovers_confirmed_execute_intent_from_design
     assert payload["simulation_requirements"]["inlet_velocity_mps"] == 5.0
     assert handoff["task_summary"] == design_brief_payload["task_description"]
     assert handoff["confirmation_status"] == "confirmed"
-    assert (
-        result.update["submarine_runtime"]["task_summary"]
-        == design_brief_payload["task_description"]
-    )
+    assert result.update["submarine_runtime"]["task_summary"] == design_brief_payload["task_description"]
     assert result.update["submarine_runtime"]["stage_status"] == "executed"

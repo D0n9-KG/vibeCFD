@@ -1,9 +1,9 @@
 """Live integration tests for DeerFlowClient with real API.
 
 These tests require a working config.yaml with valid API credentials.
-They are skipped in CI and must be run explicitly:
+They are opt-in and must be run explicitly:
 
-    PYTHONPATH=. uv run pytest tests/test_client_live.py -v -s
+    DEERFLOW_RUN_LIVE_TESTS=1 PYTHONPATH=. uv run pytest tests/test_client_live.py -v -s
 """
 
 import json
@@ -13,12 +13,16 @@ from pathlib import Path
 import pytest
 
 from deerflow.client import DeerFlowClient, StreamEvent
+from live_test_support import resolve_live_test_skip_reason
 
-# Skip entire module in CI or when no config.yaml exists
-_skip_reason = None
-if os.environ.get("CI"):
+# Skip entire module unless a caller explicitly opts in.
+_skip_reason = resolve_live_test_skip_reason(
+    os.environ,
+    config_exists=Path(__file__).resolve().parents[2].joinpath("config.yaml").exists(),
+)
+if False and os.environ.get("CI"):
     _skip_reason = "Live tests skipped in CI"
-elif not Path(__file__).resolve().parents[2].joinpath("config.yaml").exists():
+elif False and not Path(__file__).resolve().parents[2].joinpath("config.yaml").exists():
     _skip_reason = "No config.yaml found — live tests require valid API credentials"
 
 if _skip_reason:

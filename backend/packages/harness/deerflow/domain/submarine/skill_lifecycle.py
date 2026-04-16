@@ -98,10 +98,13 @@ def get_skill_revision_archive_path(
     *,
     skills_root: Path | None = None,
 ) -> Path:
-    return get_skill_revision_directory(
-        skill_name,
-        skills_root=skills_root,
-    ) / f"{revision_id}.skill"
+    return (
+        get_skill_revision_directory(
+            skill_name,
+            skills_root=skills_root,
+        )
+        / f"{revision_id}.skill"
+    )
 
 
 def get_next_skill_revision_id(record: SkillLifecycleRecord) -> str:
@@ -120,11 +123,7 @@ def get_skill_lifecycle_revision(
     revision_id: str,
 ) -> SkillLifecycleRevision | None:
     return next(
-        (
-            revision
-            for revision in record.published_revisions
-            if revision.revision_id == revision_id
-        ),
+        (revision for revision in record.published_revisions if revision.revision_id == revision_id),
         None,
     )
 
@@ -155,15 +154,9 @@ def sync_active_skill_lifecycle_revision(
                 update={
                     "published_path": record.published_path or revision.published_path,
                     "version_note": record.version_note,
-                    "binding_targets": [
-                        binding.model_copy(deep=True)
-                        for binding in record.binding_targets
-                    ],
+                    "binding_targets": [binding.model_copy(deep=True) for binding in record.binding_targets],
                     "enabled": record.enabled,
-                    "source_thread_id": (
-                        record.last_published_from_thread_id
-                        or revision.source_thread_id
-                    ),
+                    "source_thread_id": (record.last_published_from_thread_id or revision.source_thread_id),
                 },
                 deep=True,
             ),
@@ -184,27 +177,14 @@ def apply_skill_lifecycle_revision(
     record.active_revision_id = revision.revision_id
     record.published_revision_id = revision.revision_id
     record.version_note = revision.version_note
-    record.binding_targets = [
-        binding.model_copy(deep=True)
-        for binding in revision.binding_targets
-    ]
-    record.bindings = [
-        binding.model_copy(deep=True)
-        for binding in revision.binding_targets
-    ]
+    record.binding_targets = [binding.model_copy(deep=True) for binding in revision.binding_targets]
+    record.bindings = [binding.model_copy(deep=True) for binding in revision.binding_targets]
     record.enabled = revision.enabled
     record.published_path = revision.published_path
     record.last_published_at = revision.published_at
     record.last_published_from_thread_id = revision.source_thread_id
-    record.rollback_target_id = (
-        previous_active_revision_id
-        if previous_active_revision_id
-        and previous_active_revision_id != revision.revision_id
-        else None
-    )
-    record.draft_status = (
-        "rollback_available" if record.rollback_target_id else "published"
-    )
+    record.rollback_target_id = previous_active_revision_id if previous_active_revision_id and previous_active_revision_id != revision.revision_id else None
+    record.draft_status = "rollback_available" if record.rollback_target_id else "published"
     return record
 
 
@@ -281,50 +261,23 @@ def merge_skill_lifecycle_record(
         merged.package_archive_virtual_path = lifecycle_payload.package_archive_virtual_path
         merged.artifact_virtual_paths = list(lifecycle_payload.artifact_virtual_paths)
         merged.version_note = lifecycle_payload.version_note
-        merged.bindings = [
-            binding.model_copy(deep=True)
-            for binding in lifecycle_payload.bindings
-        ]
-        if (
-            lifecycle_payload.active_revision_id is not None
-            and merged.active_revision_id is None
-        ):
+        merged.bindings = [binding.model_copy(deep=True) for binding in lifecycle_payload.bindings]
+        if lifecycle_payload.active_revision_id is not None and merged.active_revision_id is None:
             merged.active_revision_id = lifecycle_payload.active_revision_id
-        if (
-            lifecycle_payload.published_revision_id is not None
-            and merged.published_revision_id is None
-        ):
+        if lifecycle_payload.published_revision_id is not None and merged.published_revision_id is None:
             merged.published_revision_id = lifecycle_payload.published_revision_id
         if lifecycle_payload.published_revisions and not merged.published_revisions:
-            merged.published_revisions = [
-                revision.model_copy(deep=True)
-                for revision in lifecycle_payload.published_revisions
-            ]
+            merged.published_revisions = [revision.model_copy(deep=True) for revision in lifecycle_payload.published_revisions]
         if not merged.binding_targets and merged.bindings:
-            merged.binding_targets = [
-                binding.model_copy(deep=True)
-                for binding in merged.bindings
-            ]
+            merged.binding_targets = [binding.model_copy(deep=True) for binding in merged.bindings]
 
     if binding_targets is not None:
-        merged.binding_targets = [
-            SkillLifecycleBinding.model_validate(binding).model_copy(deep=True)
-            for binding in binding_targets
-        ]
-        merged.bindings = [
-            binding.model_copy(deep=True)
-            for binding in merged.binding_targets
-        ]
+        merged.binding_targets = [SkillLifecycleBinding.model_validate(binding).model_copy(deep=True) for binding in binding_targets]
+        merged.bindings = [binding.model_copy(deep=True) for binding in merged.binding_targets]
     elif not merged.binding_targets and merged.bindings:
-        merged.binding_targets = [
-            binding.model_copy(deep=True)
-            for binding in merged.bindings
-        ]
+        merged.binding_targets = [binding.model_copy(deep=True) for binding in merged.bindings]
     elif not merged.bindings and merged.binding_targets:
-        merged.bindings = [
-            binding.model_copy(deep=True)
-            for binding in merged.binding_targets
-        ]
+        merged.bindings = [binding.model_copy(deep=True) for binding in merged.binding_targets]
 
     if enabled is not None:
         merged.enabled = enabled
@@ -354,11 +307,7 @@ def load_skill_lifecycle_registry(
     registry_path: Path | None = None,
     skills_root: Path | None = None,
 ) -> SkillLifecycleRegistry:
-    resolved_path = (
-        Path(registry_path)
-        if registry_path is not None
-        else get_skill_lifecycle_registry_path(skills_root)
-    )
+    resolved_path = Path(registry_path) if registry_path is not None else get_skill_lifecycle_registry_path(skills_root)
     if not resolved_path.exists():
         return SkillLifecycleRegistry()
 
@@ -373,11 +322,7 @@ def save_skill_lifecycle_registry(
     registry_path: Path | None = None,
     skills_root: Path | None = None,
 ) -> Path:
-    resolved_path = (
-        Path(registry_path)
-        if registry_path is not None
-        else get_skill_lifecycle_registry_path(skills_root)
-    )
+    resolved_path = Path(registry_path) if registry_path is not None else get_skill_lifecycle_registry_path(skills_root)
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
     with resolved_path.open("w", encoding="utf-8") as handle:
         json.dump(registry.model_dump(mode="json"), handle, indent=2, ensure_ascii=False)

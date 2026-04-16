@@ -172,14 +172,8 @@ def _inspect_stl(path: Path, geometry_family_hint: str | None) -> GeometryInspec
     ]
     metadata: dict[str, str | None] = {
         "raw_length_value": f"{raw_length:.6f}",
-        "normalized_length_m": (
-            f"{estimated_length:.6f}" if estimated_length is not None else None
-        ),
-        "family_default_length_m": (
-            f"{GEOMETRY_FAMILY_DEFAULTS.get(family):.6f}"
-            if GEOMETRY_FAMILY_DEFAULTS.get(family) is not None
-            else None
-        ),
+        "normalized_length_m": (f"{estimated_length:.6f}" if estimated_length is not None else None),
+        "family_default_length_m": (f"{GEOMETRY_FAMILY_DEFAULTS.get(family):.6f}" if GEOMETRY_FAMILY_DEFAULTS.get(family) is not None else None),
     }
 
     if parse_error:
@@ -224,16 +218,8 @@ def build_geometry_trust_contract(
     normalized_length = geometry.estimated_length_m
     family_default = GEOMETRY_FAMILY_DEFAULTS.get(geometry.geometry_family)
     parse_error = geometry.metadata.get("parse_error")
-    scale_factor = (
-        round((normalized_length or 0.0) / raw_length, 6)
-        if raw_length > 0 and normalized_length is not None
-        else None
-    )
-    relative_difference = (
-        abs((normalized_length or 0.0) - family_default) / family_default
-        if family_default and normalized_length is not None and family_default > 0
-        else None
-    )
+    scale_factor = round((normalized_length or 0.0) / raw_length, 6) if raw_length > 0 and normalized_length is not None else None
+    relative_difference = abs((normalized_length or 0.0) - family_default) / family_default if family_default and normalized_length is not None and family_default > 0 else None
 
     if parse_error:
         findings.append(
@@ -315,9 +301,7 @@ def build_geometry_trust_contract(
         )
 
     blocked = any(item.severity == "blocked" for item in findings)
-    clarification_required = blocked or any(
-        item.severity == "severe" for item in findings
-    )
+    clarification_required = blocked or any(item.severity == "severe" for item in findings)
     warning_present = any(item.severity == "warning" for item in findings)
 
     if blocked:
@@ -337,11 +321,7 @@ def build_geometry_trust_contract(
         raw_length_value=raw_length or None,
         normalized_length_m=normalized_length,
         applied_scale_factor=scale_factor,
-        heuristic=(
-            "divide_by_1000_mm_to_m"
-            if raw_length >= 100 and scale_factor is not None and scale_factor <= 0.01
-            else "use_raw_extent_as_meters"
-        ),
+        heuristic=("divide_by_1000_mm_to_m" if raw_length >= 100 and scale_factor is not None and scale_factor <= 0.01 else "use_raw_extent_as_meters"),
         severity=scale_severity,
         summary_zh=scale_summary,
         family_default_length_m=family_default,
@@ -354,9 +334,7 @@ def build_geometry_trust_contract(
 
     reference_value_suggestions: list[GeometryReferenceValueSuggestion] = []
     if normalized_length is not None and raw_length > 0 and not blocked:
-        confidence = (
-            "low" if clarification_required else "medium" if warning_present else "high"
-        )
+        confidence = "low" if clarification_required else "medium" if warning_present else "high"
         beam: float | None = None
         draft: float | None = None
         if bounds is not None and scale_factor is not None:
@@ -376,11 +354,7 @@ def build_geometry_trust_contract(
                     confidence=confidence,
                     source="geometry-preflight",
                     justification="Derived from STL bounding-box extent after unit normalization.",
-                    summary_zh=(
-                        "建议将归一化后的艇体长度作为参考长度。"
-                        if not clarification_required
-                        else "建议参考长度已生成，但当前尺度解释仍需研究者确认。"
-                    ),
+                    summary_zh=("建议将归一化后的艇体长度作为参考长度。" if not clarification_required else "建议参考长度已生成，但当前尺度解释仍需研究者确认。"),
                     is_low_risk=not clarification_required,
                     requires_confirmation=clarification_required,
                     evidence={
@@ -396,11 +370,7 @@ def build_geometry_trust_contract(
                     confidence=confidence,
                     source="geometry-preflight",
                     justification="Derived from normalized beam and draft extents of the STL bounding box.",
-                    summary_zh=(
-                        "建议将归一化包围盒的横剖面积作为参考面积。"
-                        if not clarification_required
-                        else "建议参考面积已生成，但当前几何尺度仍需确认。"
-                    ),
+                    summary_zh=("建议将归一化包围盒的横剖面积作为参考面积。" if not clarification_required else "建议参考面积已生成，但当前几何尺度仍需确认。"),
                     is_low_risk=not clarification_required,
                     requires_confirmation=clarification_required,
                     evidence={
@@ -423,21 +393,9 @@ def build_geometry_trust_contract(
 def _compose_summary(result: SubmarineGeometryCheckResult) -> str:
     geometry = result.geometry
     candidate = result.candidate_cases[0] if result.candidate_cases else None
-    case_text = (
-        f"建议优先复用案例模板“{_localize_case_title_for_summary(candidate.title)}”。"
-        if candidate
-        else "当前没有命中明确案例模板，可先按通用潜艇外流场流程推进。"
-    )
-    length_text = (
-        f"估计艇体长度约 {geometry.estimated_length_m:.3f} m。"
-        if geometry.estimated_length_m is not None
-        else "当前尚未得到可靠尺度估计。"
-    )
-    finding_text = (
-        f"共记录 {len(result.geometry_findings)} 条几何信任发现。"
-        if result.geometry_findings
-        else "当前没有记录结构化几何发现。"
-    )
+    case_text = f"建议优先复用案例模板“{_localize_case_title_for_summary(candidate.title)}”。" if candidate else "当前没有命中明确案例模板，可先按通用潜艇外流场流程推进。"
+    length_text = f"估计艇体长度约 {geometry.estimated_length_m:.3f} m。" if geometry.estimated_length_m is not None else "当前尚未得到可靠尺度估计。"
+    finding_text = f"共记录 {len(result.geometry_findings)} 条几何信任发现。" if result.geometry_findings else "当前没有记录结构化几何发现。"
     review_text = (
         "下一步需要研究者确认计算草案。"
         if result.review_status == "needs_user_confirmation"
@@ -445,11 +403,7 @@ def _compose_summary(result: SubmarineGeometryCheckResult) -> str:
         if result.review_status == "ready_for_supervisor"
         else "当前几何存在阻断性问题，不能继续进入求解。"
     )
-    return (
-        f"已完成对 `{geometry.file_name}` 的几何检查，识别格式为 `{geometry.input_format}`，"
-        f"几何家族倾向于 `{geometry.geometry_family}`。"
-        f"{length_text}{finding_text}{case_text}{review_text}"
-    )
+    return f"已完成对 `{geometry.file_name}` 的几何检查，识别格式为 `{geometry.input_format}`，几何家族倾向于 `{geometry.geometry_family}`。{length_text}{finding_text}{case_text}{review_text}"
 
 
 def _recommended_actions(
@@ -467,25 +421,12 @@ def _recommended_actions(
 
 def _render_markdown(result: SubmarineGeometryCheckResult) -> str:
     geometry = result.geometry
-    case_lines = [
-        f"- `{case.case_id}` | {case.title} | score={case.score:.2f} | {case.rationale}"
-        for case in result.candidate_cases
-    ] or ["- 当前没有匹配到明确案例。"]
-    role_lines = [
-        f"- `{role.role_id}` | {role.title} | {role.responsibility}"
-        for role in result.suggested_roles
+    case_lines = [f"- `{case.case_id}` | {case.title} | score={case.score:.2f} | {case.rationale}" for case in result.candidate_cases] or ["- 当前没有匹配到明确案例。"]
+    role_lines = [f"- `{role.role_id}` | {role.title} | {role.responsibility}" for role in result.suggested_roles]
+    finding_lines = [f"- `{item.finding_id}` | {item.category} | {item.severity} | {item.summary_zh}" for item in result.geometry_findings] or ["- 当前没有结构化几何发现。"]
+    suggestion_lines = [(f"- `{item.quantity}` | value={item.value} {item.unit} | confidence={item.confidence} | immediate_confirmation={item.requires_confirmation}") for item in result.reference_value_suggestions] or [
+        "- 当前没有生成参考值建议。"
     ]
-    finding_lines = [
-        f"- `{item.finding_id}` | {item.category} | {item.severity} | {item.summary_zh}"
-        for item in result.geometry_findings
-    ] or ["- 当前没有结构化几何发现。"]
-    suggestion_lines = [
-        (
-            f"- `{item.quantity}` | value={item.value} {item.unit} | "
-            f"confidence={item.confidence} | immediate_confirmation={item.requires_confirmation}"
-        )
-        for item in result.reference_value_suggestions
-    ] or ["- 当前没有生成参考值建议。"]
 
     lines = [
         "# 潜艇几何检查结果",
@@ -520,11 +461,7 @@ def _render_markdown(result: SubmarineGeometryCheckResult) -> str:
             "",
             "## 几何信任评估",
             f"- clarification_required: `{result.clarification_required}`",
-            (
-                f"- scale_assessment: `{result.scale_assessment.summary_zh}`"
-                if result.scale_assessment
-                else "- scale_assessment: `--`"
-            ),
+            (f"- scale_assessment: `{result.scale_assessment.summary_zh}`" if result.scale_assessment else "- scale_assessment: `--`"),
             "",
             "## 审核契约",
             f"- review_status: `{result.review_status}`",
@@ -557,18 +494,11 @@ def _render_markdown(result: SubmarineGeometryCheckResult) -> str:
 
 def _render_html(result: SubmarineGeometryCheckResult) -> str:
     geometry = result.geometry
-    candidate_items = "".join(
-        f"<li><strong>{case.title}</strong><span> score={case.score:.2f}</span><p>{case.rationale}</p></li>"
-        for case in result.candidate_cases
-    ) or "<li><strong>暂无明确案例</strong><p>可先按通用外流场路径推进。</p></li>"
-    role_items = "".join(
-        f"<li><strong>{role.title}</strong><p>{role.responsibility}</p></li>"
-        for role in result.suggested_roles
+    candidate_items = (
+        "".join(f"<li><strong>{case.title}</strong><span> score={case.score:.2f}</span><p>{case.rationale}</p></li>" for case in result.candidate_cases) or "<li><strong>暂无明确案例</strong><p>可先按通用外流场路径推进。</p></li>"
     )
-    finding_items = "".join(
-        f"<li><strong>{item.finding_id}</strong> ({item.severity})<p>{item.summary_zh}</p></li>"
-        for item in result.geometry_findings
-    ) or "<li><strong>无</strong><p>当前没有结构化几何发现。</p></li>"
+    role_items = "".join(f"<li><strong>{role.title}</strong><p>{role.responsibility}</p></li>" for role in result.suggested_roles)
+    finding_items = "".join(f"<li><strong>{item.finding_id}</strong> ({item.severity})<p>{item.summary_zh}</p></li>" for item in result.geometry_findings) or "<li><strong>无</strong><p>当前没有结构化几何发现。</p></li>"
 
     return f"""<!doctype html>
 <html lang="zh-CN">
@@ -700,22 +630,10 @@ def run_geometry_check(
         _artifact_virtual_path(run_dir_name, "geometry-check.json"),
     ]
     review = build_supervisor_review_contract(
-        next_recommended_stage=(
-            "geometry-preflight"
-            if blocked
-            else "user-confirmation"
-            if clarification_required or reference_value_suggestions
-            else "solver-dispatch"
-        ),
+        next_recommended_stage=("geometry-preflight" if blocked else "user-confirmation" if clarification_required or reference_value_suggestions else "solver-dispatch"),
         report_virtual_path=artifacts[0],
         artifact_virtual_paths=artifacts,
-        review_status=(
-            "blocked"
-            if blocked
-            else "needs_user_confirmation"
-            if clarification_required or reference_value_suggestions
-            else "ready_for_supervisor"
-        ),
+        review_status=("blocked" if blocked else "needs_user_confirmation" if clarification_required or reference_value_suggestions else "ready_for_supervisor"),
     )
     result.review_status = review.review_status
     result.next_recommended_stage = review.next_recommended_stage

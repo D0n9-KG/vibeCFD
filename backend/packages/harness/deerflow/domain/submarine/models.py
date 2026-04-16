@@ -242,12 +242,8 @@ class SubmarineRunProvenanceManifest(BaseModel):
     simulation_requirements_snapshot: dict[str, object] = Field(default_factory=dict)
     approval_snapshot: dict[str, object] = Field(default_factory=dict)
     artifact_entrypoints: dict[str, str] = Field(default_factory=dict)
-    environment_fingerprint: SubmarineEnvironmentFingerprint = Field(
-        default_factory=SubmarineEnvironmentFingerprint
-    )
-    environment_parity_assessment: SubmarineEnvironmentParityAssessment = Field(
-        default_factory=SubmarineEnvironmentParityAssessment
-    )
+    environment_fingerprint: SubmarineEnvironmentFingerprint = Field(default_factory=SubmarineEnvironmentFingerprint)
+    environment_parity_assessment: SubmarineEnvironmentParityAssessment = Field(default_factory=SubmarineEnvironmentParityAssessment)
 
 
 SubmarineResearchReadinessStatus = Literal[
@@ -315,17 +311,13 @@ class SubmarineCaseAcceptanceProfile(BaseModel):
     max_final_residual: float | None = None
     required_artifacts: list[str] = Field(default_factory=list)
     benchmark_targets: list[SubmarineBenchmarkTarget] = Field(default_factory=list)
-    scientific_verification_requirements: list[
-        SubmarineScientificVerificationRequirement
-    ] = Field(default_factory=list)
+    scientific_verification_requirements: list[SubmarineScientificVerificationRequirement] = Field(default_factory=list)
 
 
 class SubmarineCase(BaseModel):
     case_id: str
     title: str
-    evidence_tier: Literal["benchmark_validated", "advisory_placeholder"] = (
-        "advisory_placeholder"
-    )
+    evidence_tier: Literal["benchmark_validated", "advisory_placeholder"] = "advisory_placeholder"
     geometry_family: str
     geometry_description: str
     task_type: str
@@ -431,9 +423,7 @@ class SubmarineSkillRegistry(BaseModel):
 class SubmarineCaseMatch(BaseModel):
     case_id: str
     title: str
-    evidence_tier: Literal["benchmark_validated", "advisory_placeholder"] = (
-        "advisory_placeholder"
-    )
+    evidence_tier: Literal["benchmark_validated", "advisory_placeholder"] = "advisory_placeholder"
     geometry_family: str
     task_type: str
     score: float

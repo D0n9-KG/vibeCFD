@@ -26,20 +26,13 @@ def normalize_calculation_plan(
 def calculation_plan_requires_confirmation(
     items: list[CalculationPlanItem | Mapping[str, Any]] | None,
 ) -> bool:
-    return any(
-        item.approval_state != "researcher_confirmed"
-        for item in normalize_calculation_plan(items)
-    )
+    return any(item.approval_state != "researcher_confirmed" for item in normalize_calculation_plan(items))
 
 
 def calculation_plan_requires_immediate_confirmation(
     items: list[CalculationPlanItem | Mapping[str, Any]] | None,
 ) -> bool:
-    return any(
-        item.approval_state != "researcher_confirmed"
-        and item.requires_immediate_confirmation
-        for item in normalize_calculation_plan(items)
-    )
+    return any(item.approval_state != "researcher_confirmed" and item.requires_immediate_confirmation for item in normalize_calculation_plan(items))
 
 
 def confirm_calculation_plan(
@@ -92,11 +85,7 @@ def build_design_brief_calculation_plan(
     simulation_requirements: Mapping[str, Any] | None,
 ) -> list[dict]:
     items: list[CalculationPlanItem] = []
-    item_state = (
-        "researcher_confirmed"
-        if confirmation_status == "confirmed"
-        else "pending_researcher_confirmation"
-    )
+    item_state = "researcher_confirmed" if confirmation_status == "confirmed" else "pending_researcher_confirmation"
     origin = "user_input" if confirmation_status == "confirmed" else "ai_suggestion"
 
     for field, label, unit in (
@@ -133,9 +122,7 @@ def build_design_brief_calculation_plan(
                 category="case",
                 label="推荐案例模板",
                 proposed_value=selected_case.case_id,
-                source_label=(primary_source.source_label or primary_source.title)
-                if primary_source
-                else selected_case.title,
+                source_label=(primary_source.source_label or primary_source.title) if primary_source else selected_case.title,
                 source_url=primary_source.url if primary_source else None,
                 confidence="medium" if primary_source and primary_source.is_placeholder else "high",
                 applicability_conditions=_collect_applicability_conditions(selected_case),
@@ -160,11 +147,7 @@ def build_geometry_calculation_plan(
     items: list[CalculationPlanItem] = []
     for raw_suggestion in reference_value_suggestions:
         suggestion = GeometryReferenceValueSuggestion.model_validate(raw_suggestion)
-        label = (
-            "参考长度"
-            if suggestion.quantity == "reference_length_m"
-            else "参考面积"
-        )
+        label = "参考长度" if suggestion.quantity == "reference_length_m" else "参考面积"
         items.append(
             CalculationPlanItem(
                 item_id=f"geometry.{suggestion.quantity}",
@@ -174,9 +157,7 @@ def build_geometry_calculation_plan(
                 unit=suggestion.unit,
                 source_label=suggestion.source,
                 confidence=suggestion.confidence,
-                evidence_gap_note=(
-                    suggestion.summary_zh if suggestion.requires_confirmation else None
-                ),
+                evidence_gap_note=(suggestion.summary_zh if suggestion.requires_confirmation else None),
                 origin="ai_suggestion",
                 approval_state="pending_researcher_confirmation",
                 requires_immediate_confirmation=suggestion.requires_confirmation,
@@ -221,9 +202,7 @@ def extract_geometry_reference_inputs(
         else:
             continue
 
-        justifications.append(
-            f"{item.label}: {item.source_label or 'calculation-plan draft'}"
-        )
+        justifications.append(f"{item.label}: {item.source_label or 'calculation-plan draft'}")
         if item.approval_state != "researcher_confirmed":
             approval_state = item.approval_state
 
@@ -247,8 +226,7 @@ def _same_plan_payload(
         and previous.source_url == current.source_url
         and previous.applicability_conditions == current.applicability_conditions
         and previous.evidence_gap_note == current.evidence_gap_note
-        and previous.requires_immediate_confirmation
-        == current.requires_immediate_confirmation
+        and previous.requires_immediate_confirmation == current.requires_immediate_confirmation
     )
 
 
@@ -270,11 +248,7 @@ def _pick_primary_source(reference_sources):
 def _collect_applicability_conditions(selected_case: SubmarineCase) -> list[str]:
     conditions = [
         *selected_case.condition_tags,
-        *(
-            _pick_primary_source(selected_case.reference_sources).applicability_conditions
-            if _pick_primary_source(selected_case.reference_sources)
-            else []
-        ),
+        *(_pick_primary_source(selected_case.reference_sources).applicability_conditions if _pick_primary_source(selected_case.reference_sources) else []),
     ]
     deduped: list[str] = []
     for condition in conditions:
@@ -282,4 +256,3 @@ def _collect_applicability_conditions(selected_case: SubmarineCase) -> list[str]
         if normalized and normalized not in deduped:
             deduped.append(normalized)
     return deduped
-

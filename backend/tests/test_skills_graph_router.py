@@ -64,16 +64,8 @@ def _write_registry(root: Path) -> None:
                         SkillLifecycleRevision(
                             revision_id="rev-001",
                             published_at="2026-04-04T00:00:00Z",
-                            archive_path=str(
-                                root
-                                / "custom"
-                                / "submarine-result-acceptance"
-                                / ".revisions"
-                                / "rev-001.skill"
-                            ),
-                            published_path=str(
-                                root / "custom" / "submarine-result-acceptance"
-                            ),
+                            archive_path=str(root / "custom" / "submarine-result-acceptance" / ".revisions" / "rev-001.skill"),
+                            published_path=str(root / "custom" / "submarine-result-acceptance"),
                             version_note="Initial publish",
                             binding_targets=[],
                             enabled=True,
@@ -82,16 +74,8 @@ def _write_registry(root: Path) -> None:
                         SkillLifecycleRevision(
                             revision_id="rev-002",
                             published_at="2026-04-04T01:00:00Z",
-                            archive_path=str(
-                                root
-                                / "custom"
-                                / "submarine-result-acceptance"
-                                / ".revisions"
-                                / "rev-002.skill"
-                            ),
-                            published_path=str(
-                                root / "custom" / "submarine-result-acceptance"
-                            ),
+                            archive_path=str(root / "custom" / "submarine-result-acceptance" / ".revisions" / "rev-002.skill"),
+                            published_path=str(root / "custom" / "submarine-result-acceptance"),
                             version_note="Promote acceptance skill",
                             binding_targets=[
                                 SkillLifecycleBinding(
@@ -147,15 +131,8 @@ def test_skill_graph_route_returns_summary_and_edges(tmp_path: Path, monkeypatch
     data = response.json()
     assert data["summary"]["skill_count"] == 2
     assert data["summary"]["relationship_counts"]["depend_on"] >= 1
-    assert any(
-        edge["relationship_type"] == "depend_on"
-        and edge["source"] == "submarine-result-acceptance"
-        and edge["target"] == "submarine-report"
-        for edge in data["relationships"]
-    )
-    acceptance_node = next(
-        node for node in data["skills"] if node["name"] == "submarine-result-acceptance"
-    )
+    assert any(edge["relationship_type"] == "depend_on" and edge["source"] == "submarine-result-acceptance" and edge["target"] == "submarine-report" for edge in data["relationships"])
+    acceptance_node = next(node for node in data["skills"] if node["name"] == "submarine-result-acceptance")
     assert acceptance_node["revision_count"] == 2
     assert acceptance_node["active_revision_id"] == "rev-002"
     assert acceptance_node["rollback_target_id"] == "rev-001"
@@ -190,11 +167,7 @@ def test_skill_graph_route_supports_focus_skill(tmp_path: Path, monkeypatch) -> 
     data = response.json()
     assert data["focus"]["skill_name"] == "submarine-report"
     assert data["focus"]["related_skill_count"] >= 1
-    related_item = next(
-        related
-        for related in data["focus"]["related_skills"]
-        if related["skill_name"] == "submarine-result-acceptance"
-    )
+    related_item = next(related for related in data["focus"]["related_skills"] if related["skill_name"] == "submarine-result-acceptance")
     assert related_item["revision_count"] == 2
     assert related_item["binding_count"] == 1
     assert related_item["rollback_target_id"] == "rev-001"

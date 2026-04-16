@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -132,8 +131,12 @@ def submarine_design_brief_tool(
         task_description: Natural-language task goal agreed with the user. When omitted, reuse the last saved design brief description.
         geometry_path: Optional geometry path. Prefer `/mnt/user-data/uploads/...`. When omitted, the latest uploaded geometry is used if present.
         task_type: CFD task type such as `resistance`, `pressure_distribution`, or `wake_field`. When omitted, reuse the last saved value.
-        confirmation_status: Whether the current brief is still a draft or already confirmed with the user. When omitted, reuse the last saved value.
-            If the latest user turn confirms the proposed CFD setup or resolves the pending open questions, pass `confirmed` here and send only the remaining unresolved `open_questions` (use an empty list when everything needed for execution is now confirmed).
+        confirmation_status: Whether the current brief is still a draft or already
+            confirmed with the user. When omitted, reuse the last saved value.
+            If the latest user turn confirms the proposed CFD setup or resolves
+            the pending open questions, pass `confirmed` here and send only the
+            remaining unresolved `open_questions` (use an empty list when
+            everything needed for execution is now confirmed).
         geometry_family_hint: Optional family hint such as `DARPA SUBOFF` or `Type 209`.
         selected_case_id: Optional recommended baseline case ID.
         inlet_velocity_mps: Optional inlet velocity captured from the conversation.

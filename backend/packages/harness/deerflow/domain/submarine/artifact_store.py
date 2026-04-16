@@ -6,7 +6,6 @@ import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-
 _OUTPUTS_PREFIX = "/mnt/user-data/outputs/"
 _WORKSPACE_PREFIX = "/mnt/user-data/workspace/"
 _SOLVER_DISPATCH_PREFIX = "/mnt/user-data/outputs/submarine/solver-dispatch/"
@@ -26,25 +25,19 @@ _PROVENANCE_MANIFEST_FILENAME = "provenance-manifest.json"
 def resolve_outputs_artifact(outputs_dir: Path, virtual_path: str) -> Path | None:
     if not virtual_path.startswith(_OUTPUTS_PREFIX):
         return None
-    relative_parts = [
-        part for part in virtual_path.removeprefix(_OUTPUTS_PREFIX).split("/") if part
-    ]
+    relative_parts = [part for part in virtual_path.removeprefix(_OUTPUTS_PREFIX).split("/") if part]
     return outputs_dir.joinpath(*relative_parts)
 
 
 def resolve_workspace_artifact(outputs_dir: Path, virtual_path: str) -> Path | None:
     if not virtual_path.startswith(_WORKSPACE_PREFIX):
         return None
-    relative_parts = [
-        part for part in virtual_path.removeprefix(_WORKSPACE_PREFIX).split("/") if part
-    ]
+    relative_parts = [part for part in virtual_path.removeprefix(_WORKSPACE_PREFIX).split("/") if part]
     return outputs_dir.parent.joinpath("workspace", *relative_parts)
 
 
 def resolve_user_data_artifact(outputs_dir: Path, virtual_path: str) -> Path | None:
-    return resolve_outputs_artifact(outputs_dir, virtual_path) or resolve_workspace_artifact(
-        outputs_dir, virtual_path
-    )
+    return resolve_outputs_artifact(outputs_dir, virtual_path) or resolve_workspace_artifact(outputs_dir, virtual_path)
 
 
 def read_json_mapping(path: Path) -> dict | None:

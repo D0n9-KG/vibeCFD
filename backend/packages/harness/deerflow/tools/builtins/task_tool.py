@@ -76,10 +76,7 @@ def _resolve_target_skills(target_skills: list[str] | None) -> set[str] | None:
     if target_skills is None:
         return None
 
-    enabled_skills = {
-        skill.name
-        for skill in load_skills(enabled_only=True)
-    }
+    enabled_skills = {skill.name for skill in load_skills(enabled_only=True)}
     requested = {skill_name for skill_name in target_skills if skill_name in enabled_skills}
     return requested
 
@@ -90,10 +87,7 @@ def _update_execution_plan_with_target_skills(
     role_id: str,
     target_skills: list[str],
 ) -> list[dict]:
-    normalized_plan = [
-        SubmarineExecutionPlanItem.model_validate(item)
-        for item in (existing_plan or [])
-    ]
+    normalized_plan = [SubmarineExecutionPlanItem.model_validate(item) for item in (existing_plan or [])]
 
     for item in normalized_plan:
         if item.role_id == role_id:
@@ -137,11 +131,7 @@ def _build_submarine_runtime_update(
             actor="claude-code-supervisor",
             role_id=mapping["role_id"],
             title=f"Claude Code delegated {mapping['label']}",
-            summary=(
-                f"{description}: {result_summary}"
-                if description
-                else result_summary
-            ),
+            summary=(f"{description}: {result_summary}" if description else result_summary),
             status=terminal_status,
             skill_names=list(target_skills),
         ),
@@ -272,35 +262,18 @@ def task_tool(
 
     resolved_target_skills = _resolve_target_skills(target_skills)
     if target_skills is not None and not resolved_target_skills:
-        return (
-            "Error: None of the requested target_skills are currently enabled. "
-            "Please choose enabled skills or omit target_skills to use the normal enabled skill pool."
-        )
+        return "Error: None of the requested target_skills are currently enabled. Please choose enabled skills or omit target_skills to use the normal enabled skill pool."
 
-    resolved_target_skills_list = (
-        sorted(resolved_target_skills)
-        if resolved_target_skills is not None
-        else None
-    )
+    resolved_target_skills_list = sorted(resolved_target_skills) if resolved_target_skills is not None else None
     available_skills = resolved_target_skills
-    inject_skills_appendix = not any(
-        subagent_type.startswith(prefix)
-        for prefix in _SKIP_SKILL_APPENDIX_SUBAGENT_PREFIXES
-    )
-    skills_section = (
-        get_skills_prompt_section(available_skills)
-        if inject_skills_appendix
-        else ""
-    )
+    inject_skills_appendix = not any(subagent_type.startswith(prefix) for prefix in _SKIP_SKILL_APPENDIX_SUBAGENT_PREFIXES)
+    skills_section = get_skills_prompt_section(available_skills) if inject_skills_appendix else ""
     if skills_section:
         overrides["system_prompt"] = config.system_prompt + "\n\n" + skills_section
 
     if max_turns is not None:
         effective_max_turns = max_turns
-        if any(
-            subagent_type.startswith(prefix)
-            for prefix in _MIN_TURN_BUDGET_SUBAGENT_PREFIXES
-        ):
+        if any(subagent_type.startswith(prefix) for prefix in _MIN_TURN_BUDGET_SUBAGENT_PREFIXES):
             effective_max_turns = max(config.max_turns, max_turns)
         overrides["max_turns"] = effective_max_turns
 

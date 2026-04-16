@@ -47,46 +47,32 @@ def _write_ascii_stl(path: Path) -> None:
 
 
 def _execution_plan_status(runtime_state: dict, role_id: str) -> str:
-    return next(
-        item["status"]
-        for item in runtime_state["execution_plan"]
-        if item["role_id"] == role_id
-    )
+    return next(item["status"] for item in runtime_state["execution_plan"] if item["role_id"] == role_id)
 
 
 def test_scientific_remediation_summary_prefers_actionable_study_followup_before_manual_validation():
-    remediation_module = importlib.import_module(
-        "deerflow.domain.submarine.remediation"
-    )
+    remediation_module = importlib.import_module("deerflow.domain.submarine.remediation")
     handoff_module = importlib.import_module("deerflow.domain.submarine.handoff")
 
     remediation = remediation_module.build_scientific_remediation_summary(
         scientific_supervisor_gate={
             "allowed_claim_level": "delivery_only",
             "recommended_stage": "solver-dispatch",
-            "artifact_virtual_paths": [
-                "/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json"
-            ],
+            "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/reports/demo/supervisor-scientific-gate.json"],
         },
         research_evidence_summary={
             "readiness_status": "insufficient_evidence",
             "validation_status": "missing_validation_reference",
             "provenance_status": "matched",
-            "evidence_gaps": [
-                "Benchmark reference is still unavailable for the current run condition."
-            ],
+            "evidence_gaps": ["Benchmark reference is still unavailable for the current run condition."],
         },
         scientific_verification_assessment={
             "missing_evidence": [],
-            "blocking_issues": [
-                "Mesh independence study is still blocked by incomplete rerun coverage."
-            ],
+            "blocking_issues": ["Mesh independence study is still blocked by incomplete rerun coverage."],
         },
         scientific_study_summary={
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
-            "artifact_virtual_paths": [
-                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
-            ],
+            "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"],
             "studies": [
                 {
                     "study_type": "mesh_independence",
@@ -97,17 +83,12 @@ def test_scientific_remediation_summary_prefers_actionable_study_followup_before
                 }
             ],
         },
-        artifact_virtual_paths=[
-            "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-plan.json"
-        ],
+        artifact_virtual_paths=["/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-plan.json"],
     )
 
     assert remediation["actions"][0]["action_id"] == "execute-scientific-studies"
     assert remediation["actions"][0]["execution_mode"] == "auto_executable"
-    assert any(
-        action["action_id"] == "attach-validation-reference"
-        for action in remediation["actions"]
-    )
+    assert any(action["action_id"] == "attach-validation-reference" for action in remediation["actions"])
 
     handoff = handoff_module.build_scientific_remediation_handoff(
         snapshot={
@@ -125,9 +106,7 @@ def test_scientific_remediation_summary_prefers_actionable_study_followup_before
             },
         },
         scientific_remediation_summary=remediation,
-        artifact_virtual_paths=[
-            "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"
-        ],
+        artifact_virtual_paths=["/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"],
     )
 
     assert handoff["handoff_status"] == "ready_for_auto_followup"
@@ -183,9 +162,7 @@ def test_scientific_remediation_handoff_includes_iterative_lineage_context():
                 }
             ],
         },
-        artifact_virtual_paths=[
-            "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"
-        ],
+        artifact_virtual_paths=["/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"],
     )
 
     assert handoff["source_run_id"] == "mesh_independence:coarse"
@@ -194,9 +171,7 @@ def test_scientific_remediation_handoff_includes_iterative_lineage_context():
     assert handoff["derived_run_ids"] == ["mesh_independence:coarse"]
     assert handoff["tool_args"]["contract_revision"] == 3
     assert handoff["tool_args"]["iteration_mode"] == "derive_variant"
-    assert handoff["tool_args"]["revision_summary"] == (
-        "Add wake-focused follow-up to the current baseline family."
-    )
+    assert handoff["tool_args"]["revision_summary"] == ("Add wake-focused follow-up to the current baseline family.")
 
 
 def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypatch):
@@ -250,9 +225,7 @@ def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypat
     assert payload["decision_status"] == "blocked_by_setup"
     assert payload["delivery_decision_summary"]["decision_status"] == "blocked_by_setup"
     assert payload["delivery_decision_summary"]["recommended_option_id"] == "fix_setup"
-    assert [item["option_id"] for item in payload["delivery_decision_summary"]["options"]] == [
-        "fix_setup"
-    ]
+    assert [item["option_id"] for item in payload["delivery_decision_summary"]["options"]] == ["fix_setup"]
     assert payload["scientific_followup_summary"] is None
     assert payload["recommended_actions"]
     assert "review_report_artifacts" in payload["recommended_actions"]
@@ -262,30 +235,17 @@ def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypat
     assert payload["report_overview"]["allowed_claim_level"] == "delivery_only"
     assert payload["delivery_highlights"]["metric_lines"]
     assert payload["conclusion_sections"]
-    assert (
-        payload["conclusion_sections"][0]["claim_level"]
-        == payload["report_overview"]["allowed_claim_level"]
-    )
+    assert payload["conclusion_sections"][0]["claim_level"] == payload["report_overview"]["allowed_claim_level"]
     assert payload["conclusion_sections"][0]["inline_source_refs"]
     assert payload["evidence_index"]
-    assert any(
-        item["group_id"] == "runtime_and_lineage" for item in payload["evidence_index"]
-    )
+    assert any(item["group_id"] == "runtime_and_lineage" for item in payload["evidence_index"])
     assert result.update["submarine_runtime"]["current_stage"] == "result-reporting"
     assert result.update["submarine_runtime"]["report_virtual_path"].endswith("/final-report.md")
-    assert (
-        result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
-        is None
-    )
+    assert result.update["submarine_runtime"]["scientific_followup_history_virtual_path"] is None
     assert result.update["submarine_runtime"]["scientific_gate_status"] == "blocked"
     assert result.update["submarine_runtime"]["decision_status"] == "blocked_by_setup"
     assert "review_report_artifacts" in result.update["submarine_runtime"]["recommended_actions"]
-    assert (
-        result.update["submarine_runtime"]["delivery_decision_summary"][
-            "recommended_option_id"
-        ]
-        == "fix_setup"
-    )
+    assert result.update["submarine_runtime"]["delivery_decision_summary"]["recommended_option_id"] == "fix_setup"
     message = result.update["messages"][0].content
     assert "研究产物" in message
     assert "DeerFlow artifacts" not in message
@@ -503,12 +463,8 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
         "<h2>文件清单与路径索引</h2>",
         "<h2>建议下一步</h2>",
     ]
-    assert [markdown.index(item) for item in markdown_headings] == sorted(
-        markdown.index(item) for item in markdown_headings
-    )
-    assert [html.index(item) for item in html_headings] == sorted(
-        html.index(item) for item in html_headings
-    )
+    assert [markdown.index(item) for item in markdown_headings] == sorted(markdown.index(item) for item in markdown_headings)
+    assert [html.index(item) for item in html_headings] == sorted(html.index(item) for item in html_headings)
     assert "来源：" in markdown
     assert "Claim level：" in markdown
     assert "置信度：" in markdown
@@ -520,19 +476,12 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
     assert any(path.endswith("/final-report.json") for path in result.update["artifacts"])
     assert len(result.update["submarine_runtime"]["activity_timeline"]) == 3
     assert result.update["submarine_runtime"]["activity_timeline"][-1]["stage"] == "result-reporting"
-    assert (
-        _execution_plan_status(result.update["submarine_runtime"], "result-reporting")
-        == "completed"
-    )
+    assert _execution_plan_status(result.update["submarine_runtime"], "result-reporting") == "completed"
 
 
-def test_submarine_result_report_updates_scientific_capability_plan_statuses(
-    tmp_path, monkeypatch
-):
+def test_submarine_result_report_updates_scientific_capability_plan_statuses(tmp_path, monkeypatch):
     contracts_module = importlib.import_module("deerflow.domain.submarine.contracts")
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-capability-report"
@@ -551,12 +500,8 @@ def test_submarine_result_report_updates_scientific_capability_plan_statuses(
         selected_case_id="darpa_suboff_bare_hull_resistance",
         next_recommended_stage="result-reporting",
         report_virtual_path="/mnt/user-data/outputs/submarine/solver-dispatch/capability-report/dispatch-summary.md",
-        artifact_virtual_paths=[
-            "/mnt/user-data/outputs/submarine/solver-dispatch/capability-report/study-manifest.json"
-        ],
-        execution_plan=contracts_module.build_execution_plan(
-            confirmation_status="confirmed"
-        ),
+        artifact_virtual_paths=["/mnt/user-data/outputs/submarine/solver-dispatch/capability-report/study-manifest.json"],
+        execution_plan=contracts_module.build_execution_plan(confirmation_status="confirmed"),
     ).model_dump(mode="json")
 
     monkeypatch.setattr(
@@ -761,52 +706,26 @@ def test_submarine_result_report_emits_delivery_readiness_artifacts(tmp_path):
         tool_call_id="tc-result-report-acceptance",
     )
 
-    readiness_path = (
-        outputs_dir
-        / "submarine"
-        / "reports"
-        / "acceptance-demo"
-        / "delivery-readiness.json"
-    )
+    readiness_path = outputs_dir / "submarine" / "reports" / "acceptance-demo" / "delivery-readiness.json"
     readiness_payload = json.loads(readiness_path.read_text(encoding="utf-8"))
-    final_report_path = (
-        outputs_dir
-        / "submarine"
-        / "reports"
-        / "acceptance-demo"
-        / "final-report.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "acceptance-demo" / "final-report.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
 
-    assert any(
-        path.endswith("/delivery-readiness.json")
-        for path in result.update["artifacts"]
-    )
-    assert any(
-        path.endswith("/delivery-readiness.md")
-        for path in result.update["artifacts"]
-    )
+    assert any(path.endswith("/delivery-readiness.json") for path in result.update["artifacts"])
+    assert any(path.endswith("/delivery-readiness.md") for path in result.update["artifacts"])
     assert readiness_payload["status"] == "ready_for_review"
     assert readiness_payload["confidence"] == "medium"
     assert readiness_payload["gate_count"] >= 4
-    assert any(
-        gate["id"] == "planned_end_time_reached" and gate["status"] == "warning"
-        for gate in readiness_payload["gates"]
-    )
+    assert any(gate["id"] == "planned_end_time_reached" and gate["status"] == "warning" for gate in readiness_payload["gates"])
     assert final_payload["acceptance_assessment"]["status"] == "ready_for_review"
     assert final_payload["acceptance_assessment"]["confidence"] == "medium"
-    assert any(
-        "end_time_seconds" in warning
-        for warning in final_payload["acceptance_assessment"]["warnings"]
-    )
+    assert any("end_time_seconds" in warning for warning in final_payload["acceptance_assessment"]["warnings"])
 
 
 def test_submarine_result_report_treats_missing_mesh_verdict_as_warning_not_blocker(
     tmp_path,
 ):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-mesh-verdict-warning"
@@ -870,9 +789,7 @@ def test_submarine_result_report_treats_missing_mesh_verdict_as_warning_not_bloc
                 "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/mesh-warning-demo/openfoam-case/Allrun",
                 "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/mesh-warning-demo/provenance-manifest.json",
                 "environment_parity_assessment": {},
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/mesh-warning-demo/solver-results.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/mesh-warning-demo/solver-results.json"],
                 "stage_status": "executed",
                 "review_status": "ready_for_supervisor",
                 "next_recommended_stage": "result-reporting",
@@ -889,20 +806,11 @@ def test_submarine_result_report_treats_missing_mesh_verdict_as_warning_not_bloc
         tool_call_id="tc-result-report-mesh-warning",
     )
 
-    readiness_path = (
-        outputs_dir
-        / "submarine"
-        / "reports"
-        / "mesh-warning-demo"
-        / "delivery-readiness.json"
-    )
+    readiness_path = outputs_dir / "submarine" / "reports" / "mesh-warning-demo" / "delivery-readiness.json"
     readiness_payload = json.loads(readiness_path.read_text(encoding="utf-8"))
 
     assert readiness_payload["status"] == "ready_for_review"
-    assert any(
-        gate["id"] == "mesh_quality_ok" and gate["status"] == "warning"
-        for gate in readiness_payload["gates"]
-    )
+    assert any(gate["id"] == "mesh_quality_ok" and gate["status"] == "warning" for gate in readiness_payload["gates"])
     assert "Mesh quality verdict is unavailable from solver artifacts." in readiness_payload["warnings"]
     assert "Mesh quality checks did not pass." not in readiness_payload["blocking_issues"]
 
@@ -1044,24 +952,13 @@ def test_submarine_result_report_applies_case_acceptance_profile(tmp_path):
         tool_call_id="tc-result-report-profile",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "profile-demo" / "final-report.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "profile-demo" / "final-report.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
 
-    assert (
-        final_payload["selected_case_acceptance_profile"]["profile_id"]
-        == "darpa-suboff-resistance-baseline"
-    )
+    assert final_payload["selected_case_acceptance_profile"]["profile_id"] == "darpa-suboff-resistance-baseline"
     assert final_payload["acceptance_assessment"]["status"] == "blocked"
-    assert any(
-        gate["id"] == "case_max_final_residual" and gate["status"] == "blocked"
-        for gate in final_payload["acceptance_assessment"]["gates"]
-    )
-    assert any(
-        "0.002" in item
-        for item in final_payload["acceptance_assessment"]["blocking_issues"]
-    )
+    assert any(gate["id"] == "case_max_final_residual" and gate["status"] == "blocked" for gate in final_payload["acceptance_assessment"]["gates"])
+    assert any("0.002" in item for item in final_payload["acceptance_assessment"]["blocking_issues"])
 
 
 def test_submarine_result_report_adds_benchmark_comparison_for_matching_case(tmp_path):
@@ -1170,9 +1067,7 @@ def test_submarine_result_report_adds_benchmark_comparison_for_matching_case(tmp
         tool_call_id="tc-result-report-benchmark-pass",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     benchmark_comparisons = final_payload["acceptance_assessment"]["benchmark_comparisons"]
 
@@ -1183,14 +1078,8 @@ def test_submarine_result_report_adds_benchmark_comparison_for_matching_case(tmp
     assert benchmark_comparisons[0]["observed_value"] == 0.00310
     assert benchmark_comparisons[0]["source_label"] == "Mushtaque et al. (2025) Table 6, EFD bare hull"
     assert benchmark_comparisons[0]["source_url"].startswith("https://pure.port.ac.uk/")
-    assert any(
-        "Mushtaque et al. (2025) Table 6, EFD bare hull" in item
-        for item in final_payload["research_evidence_summary"]["benchmark_highlights"]
-    )
-    assert any(
-        gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "passed"
-        for gate in final_payload["acceptance_assessment"]["gates"]
-    )
+    assert any("Mushtaque et al. (2025) Table 6, EFD bare hull" in item for item in final_payload["research_evidence_summary"]["benchmark_highlights"])
+    assert any(gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "passed" for gate in final_payload["acceptance_assessment"]["gates"])
 
 
 def test_submarine_result_report_blocks_when_benchmark_miss_exceeds_tolerance(tmp_path):
@@ -1299,9 +1188,7 @@ def test_submarine_result_report_blocks_when_benchmark_miss_exceeds_tolerance(tm
         tool_call_id="tc-result-report-benchmark-blocked",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     benchmark_comparisons = final_payload["acceptance_assessment"]["benchmark_comparisons"]
 
@@ -1310,39 +1197,23 @@ def test_submarine_result_report_blocks_when_benchmark_miss_exceeds_tolerance(tm
     assert benchmark_comparisons[0]["status"] == "blocked"
     assert final_payload["acceptance_assessment"]["status"] == "blocked"
     assert final_payload["research_evidence_summary"]["validation_status"] == "validation_failed"
-    assert any(
-        "Mushtaque et al. (2025) Table 6, EFD bare hull" in item
-        for item in final_payload["research_evidence_summary"]["evidence_gaps"]
-    )
-    assert any(
-        "Benchmark cd_at_3_05_mps" in item
-        for item in final_payload["scientific_supervisor_gate"]["blocking_reasons"]
-    )
-    assert any(
-        gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "blocked"
-        for gate in final_payload["acceptance_assessment"]["gates"]
-    )
-    assert any(
-        "cd_at_3_05_mps" in item
-        for item in final_payload["acceptance_assessment"]["blocking_issues"]
-    )
+    assert any("Mushtaque et al. (2025) Table 6, EFD bare hull" in item for item in final_payload["research_evidence_summary"]["evidence_gaps"])
+    assert any("Benchmark cd_at_3_05_mps" in item for item in final_payload["scientific_supervisor_gate"]["blocking_reasons"])
+    assert any(gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "blocked" for gate in final_payload["acceptance_assessment"]["gates"])
+    assert any("cd_at_3_05_mps" in item for item in final_payload["acceptance_assessment"]["blocking_issues"])
 
 
 def test_submarine_result_report_marks_benchmark_reference_not_applicable_on_velocity_mismatch(
     tmp_path,
 ):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-benchmark-not-applicable"
     outputs_dir = paths.sandbox_outputs_dir(thread_id)
     outputs_dir.mkdir(parents=True, exist_ok=True)
 
-    solver_results_dir = (
-        outputs_dir / "submarine" / "solver-dispatch" / "benchmark-not-applicable"
-    )
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "benchmark-not-applicable"
     solver_results_dir.mkdir(parents=True, exist_ok=True)
     (solver_results_dir / "solver-results.json").write_text(
         json.dumps(
@@ -1409,9 +1280,7 @@ def test_submarine_result_report_marks_benchmark_reference_not_applicable_on_vel
         tool_call_id="tc-result-report-benchmark-not-applicable",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     comparison = final_payload["acceptance_assessment"]["benchmark_comparisons"][0]
     research = final_payload["research_evidence_summary"]
@@ -1419,10 +1288,7 @@ def test_submarine_result_report_marks_benchmark_reference_not_applicable_on_vel
     assert comparison["status"] == "not_applicable"
     assert "not applicable" in comparison["detail"]
     assert research["validation_status"] == "missing_validation_reference"
-    assert any(
-        "not applicable to the current run condition" in item
-        for item in research["evidence_gaps"]
-    )
+    assert any("not applicable to the current run condition" in item for item in research["evidence_gaps"])
 
 
 def test_submarine_result_report_tracks_requested_output_delivery(tmp_path):
@@ -1574,9 +1440,7 @@ def test_submarine_result_report_tracks_requested_output_delivery(tmp_path):
         tool_call_id="tc-result-report-requested-outputs",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "requested-report" / "final-report.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "requested-report" / "final-report.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
 
     assert [item["output_id"] for item in final_payload["requested_outputs"]] == [
@@ -1685,10 +1549,7 @@ def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
                         "figure_id": "postprocess-report:surface_pressure_contour",
                         "output_id": "surface_pressure_contour",
                         "title": "Surface Pressure Result",
-                        "caption": (
-                            "Surface pressure contour over the selected hull patches, "
-                            "colored by p. Patch selection: hull. Samples: 1."
-                        ),
+                        "caption": ("Surface pressure contour over the selected hull patches, colored by p. Patch selection: hull. Samples: 1."),
                         "render_status": "rendered",
                         "field": "p",
                         "selector_summary": "Patch selection: hull",
@@ -1696,10 +1557,7 @@ def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
                         "color_metric": "p",
                         "sample_count": 1,
                         "value_range": {"min": 12.0, "max": 12.0},
-                        "source_csv_virtual_path": (
-                            "/mnt/user-data/outputs/submarine/solver-dispatch/"
-                            "postprocess-report/surface-pressure.csv"
-                        ),
+                        "source_csv_virtual_path": ("/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/surface-pressure.csv"),
                         "artifact_virtual_paths": [
                             "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/surface-pressure.csv",
                             "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/surface-pressure.md",
@@ -1709,24 +1567,15 @@ def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
                         "figure_id": "postprocess-report:wake_velocity_slice",
                         "output_id": "wake_velocity_slice",
                         "title": "Wake Velocity Slice",
-                        "caption": (
-                            "Wake velocity slice extracted from the requested cutting plane, "
-                            "colored by |U|. Plane slice at x/Lref=1.25 with normal "
-                            "(1.0, 0.0, 0.0). Samples: 1."
-                        ),
+                        "caption": ("Wake velocity slice extracted from the requested cutting plane, colored by |U|. Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0). Samples: 1."),
                         "render_status": "rendered",
                         "field": "U",
-                        "selector_summary": (
-                            "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)"
-                        ),
+                        "selector_summary": ("Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)"),
                         "axes": ["y", "z"],
                         "color_metric": "|U|",
                         "sample_count": 1,
                         "value_range": {"min": 4.8, "max": 4.8},
-                        "source_csv_virtual_path": (
-                            "/mnt/user-data/outputs/submarine/solver-dispatch/"
-                            "postprocess-report/wake-velocity-slice.csv"
-                        ),
+                        "source_csv_virtual_path": ("/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.csv"),
                         "artifact_virtual_paths": [
                             "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.csv",
                             "/mnt/user-data/outputs/submarine/solver-dispatch/postprocess-report/wake-velocity-slice.md",
@@ -1826,16 +1675,10 @@ def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
         tool_call_id="tc-result-report-postprocess",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "postprocess-report" / "final-report.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "postprocess-report" / "final-report.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
-    final_markdown = (
-        outputs_dir / "submarine" / "reports" / "postprocess-report" / "final-report.md"
-    ).read_text(encoding="utf-8")
-    final_html = (
-        outputs_dir / "submarine" / "reports" / "postprocess-report" / "final-report.html"
-    ).read_text(encoding="utf-8")
+    final_markdown = (outputs_dir / "submarine" / "reports" / "postprocess-report" / "final-report.md").read_text(encoding="utf-8")
+    final_html = (outputs_dir / "submarine" / "reports" / "postprocess-report" / "final-report.html").read_text(encoding="utf-8")
 
     assert final_payload["output_delivery_plan"][0]["delivery_status"] == "delivered"
     assert final_payload["output_delivery_plan"][1]["delivery_status"] == "delivered"
@@ -1845,25 +1688,11 @@ def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
         "report",
     ]
     assert final_payload["figure_delivery_summary"]["figure_count"] == 2
-    assert final_payload["figure_delivery_summary"]["manifest_virtual_path"].endswith(
-        "/figure-manifest.json"
-    )
-    assert final_payload["figure_delivery_summary"]["figures"][0]["caption"].startswith(
-        "Surface pressure contour"
-    )
-    assert any(
-        path.endswith("/surface-pressure.csv")
-        for path in final_payload["figure_delivery_summary"]["figures"][0][
-            "artifact_virtual_paths"
-        ]
-    )
-    assert final_payload["figure_delivery_summary"]["figures"][1]["selector_summary"] == (
-        "Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)"
-    )
-    assert any(
-        path.endswith("/figure-manifest.json")
-        for path in final_payload["artifact_virtual_paths"]
-    )
+    assert final_payload["figure_delivery_summary"]["manifest_virtual_path"].endswith("/figure-manifest.json")
+    assert final_payload["figure_delivery_summary"]["figures"][0]["caption"].startswith("Surface pressure contour")
+    assert any(path.endswith("/surface-pressure.csv") for path in final_payload["figure_delivery_summary"]["figures"][0]["artifact_virtual_paths"])
+    assert final_payload["figure_delivery_summary"]["figures"][1]["selector_summary"] == ("Plane slice at x/Lref=1.25 with normal (1.0, 0.0, 0.0)")
+    assert any(path.endswith("/figure-manifest.json") for path in final_payload["artifact_virtual_paths"])
     assert "### 关键指标与代表图表" in final_markdown
     assert "Surface Pressure Result" in final_markdown
     assert "Wake Velocity Slice" in final_markdown
@@ -1880,9 +1709,7 @@ def test_submarine_result_report_adds_scientific_verification_assessment(tmp_pat
     outputs_dir = paths.sandbox_outputs_dir(thread_id)
     outputs_dir.mkdir(parents=True, exist_ok=True)
 
-    solver_results_dir = (
-        outputs_dir / "submarine" / "solver-dispatch" / "scientific-verification"
-    )
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "scientific-verification"
     solver_results_dir.mkdir(parents=True, exist_ok=True)
     (solver_results_dir / "solver-results.json").write_text(
         json.dumps(
@@ -2049,20 +1876,8 @@ def test_submarine_result_report_adds_scientific_verification_assessment(tmp_pat
         tool_call_id="tc-result-report-scientific-verification",
     )
 
-    final_report_path = (
-        outputs_dir
-        / "submarine"
-        / "reports"
-        / "suboff_solid"
-        / "final-report.json"
-    )
-    md_path = (
-        outputs_dir
-        / "submarine"
-        / "reports"
-        / "suboff_solid"
-        / "final-report.md"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
+    md_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.md"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     markdown = md_path.read_text(encoding="utf-8")
     assessment = final_payload["scientific_verification_assessment"]
@@ -2084,17 +1899,12 @@ def test_submarine_result_report_adds_scientific_verification_assessment(tmp_pat
     assert stability_evidence["artifact_virtual_path"].endswith("/stability-evidence.json")
     assert stability_evidence["requirements"][0]["status"] == "passed"
     assert stability_evidence["requirements"][1]["status"] == "passed"
-    assert any(
-        "mesh independence" in item.lower()
-        for item in assessment["missing_evidence"]
-    )
+    assert any("mesh independence" in item.lower() for item in assessment["missing_evidence"])
     assert "### 结论与证据" in markdown
 
 
 def test_scientific_verification_marks_study_artifact_as_passed(tmp_path):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-scientific-verification-pass-artifact"
@@ -2207,42 +2017,23 @@ def test_scientific_verification_marks_study_artifact_as_passed(tmp_path):
         tool_call_id="tc-result-report-scientific-pass-artifact",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     requirements = final_payload["scientific_verification_assessment"]["requirements"]
-    mesh_requirement = next(
-        item for item in requirements if item["requirement_id"] == "mesh_independence_study"
-    )
+    mesh_requirement = next(item for item in requirements if item["requirement_id"] == "mesh_independence_study")
     scientific_study_summary = final_payload["scientific_study_summary"]
-    mesh_study = next(
-        item
-        for item in scientific_study_summary["studies"]
-        if item["study_type"] == "mesh_independence"
-    )
+    mesh_study = next(item for item in scientific_study_summary["studies"] if item["study_type"] == "mesh_independence")
 
     assert mesh_requirement["status"] == "passed"
     assert "below tolerance" in mesh_requirement["detail"]
     assert scientific_study_summary["study_execution_status"] == "planned"
-    assert any(
-        path.endswith("/study-manifest.json")
-        for path in scientific_study_summary["artifact_virtual_paths"]
-    )
+    assert any(path.endswith("/study-manifest.json") for path in scientific_study_summary["artifact_virtual_paths"])
     assert mesh_study["verification_status"] == "passed"
 
 
 def test_scientific_verification_prefers_blocked_structured_stability_evidence(tmp_path):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-stability-evidence-blocked"
@@ -2354,16 +2145,10 @@ def test_scientific_verification_prefers_blocked_structured_stability_evidence(t
         tool_call_id="tc-result-report-stability-blocked",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     assessment = final_payload["scientific_verification_assessment"]
-    residual_requirement = next(
-        item
-        for item in assessment["requirements"]
-        if item["requirement_id"] == "final_residual_threshold"
-    )
+    residual_requirement = next(item for item in assessment["requirements"] if item["requirement_id"] == "final_residual_threshold")
 
     assert assessment["status"] == "blocked"
     assert residual_requirement["status"] == "blocked"
@@ -2373,9 +2158,7 @@ def test_scientific_verification_prefers_blocked_structured_stability_evidence(t
 
 
 def test_scientific_verification_surfaces_missing_structured_stability_evidence(tmp_path):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-stability-evidence-missing"
@@ -2507,30 +2290,20 @@ def test_scientific_verification_surfaces_missing_structured_stability_evidence(
         tool_call_id="tc-result-report-stability-missing",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     assessment = final_payload["scientific_verification_assessment"]
-    force_requirement = next(
-        item
-        for item in assessment["requirements"]
-        if item["requirement_id"] == "force_coefficient_tail_stability"
-    )
+    force_requirement = next(item for item in assessment["requirements"] if item["requirement_id"] == "force_coefficient_tail_stability")
 
     assert assessment["status"] == "needs_more_verification"
     assert force_requirement["status"] == "missing_evidence"
     assert "need at least 5 Cd samples" in force_requirement["detail"]
-    assert any(
-        "need at least 5 Cd samples" in item for item in assessment["missing_evidence"]
-    )
+    assert any("need at least 5 Cd samples" in item for item in assessment["missing_evidence"])
     assert final_payload["research_evidence_summary"]["verification_status"] == "needs_more_verification"
 
 
 def test_scientific_verification_keeps_unreadable_study_artifact_as_missing_evidence(tmp_path):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-scientific-verification-bad-artifact"
@@ -2603,21 +2376,11 @@ def test_scientific_verification_keeps_unreadable_study_artifact_as_missing_evid
         tool_call_id="tc-result-report-scientific-bad-artifact",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     requirements = final_payload["scientific_verification_assessment"]["requirements"]
-    mesh_requirement = next(
-        item for item in requirements if item["requirement_id"] == "mesh_independence_study"
-    )
+    mesh_requirement = next(item for item in requirements if item["requirement_id"] == "mesh_independence_study")
 
     assert mesh_requirement["status"] == "missing_evidence"
     assert "missing" in mesh_requirement["detail"].lower() or "unsupported" in mesh_requirement["detail"].lower()
@@ -2626,9 +2389,7 @@ def test_scientific_verification_keeps_unreadable_study_artifact_as_missing_evid
 def test_scientific_verification_recovers_completed_study_results_from_stale_verification_artifact(
     tmp_path,
 ):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-stale-study"
@@ -2740,9 +2501,7 @@ def test_scientific_verification_recovers_completed_study_results_from_stale_ver
                         ],
                     }
                 ],
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/study-manifest.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/study-manifest.json"],
                 "study_execution_status": "planned",
                 "workflow_status": "partial",
                 "study_status_counts": {"partial": 1},
@@ -2754,12 +2513,7 @@ def test_scientific_verification_recovers_completed_study_results_from_stale_ver
     )
 
     for variant_id, cd_value in (("baseline", 0.12), ("coarse", 0.1212), ("fine", 0.1188)):
-        variant_dir = (
-            solver_results_dir
-            / "studies"
-            / "mesh-independence"
-            / variant_id
-        )
+        variant_dir = solver_results_dir / "studies" / "mesh-independence" / variant_id
         variant_dir.mkdir(parents=True, exist_ok=True)
         (variant_dir / "solver-results.json").write_text(
             json.dumps(
@@ -2835,36 +2589,22 @@ def test_scientific_verification_recovers_completed_study_results_from_stale_ver
         tool_call_id="tc-result-report-scientific-stale-study",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     requirements = final_payload["scientific_verification_assessment"]["requirements"]
-    mesh_requirement = next(
-        item for item in requirements if item["requirement_id"] == "mesh_independence_study"
-    )
+    mesh_requirement = next(item for item in requirements if item["requirement_id"] == "mesh_independence_study")
 
     assert mesh_requirement["status"] == "passed"
     assert mesh_requirement["relative_spread"] is not None
     assert "missing" not in mesh_requirement["detail"].lower()
-    assert len(final_payload["scientific_verification_assessment"]["missing_evidence"]) < len(
-        requirements
-    )
+    assert len(final_payload["scientific_verification_assessment"]["missing_evidence"]) < len(requirements)
 
 
 def test_scientific_verification_does_not_promote_in_progress_study_variants_from_stale_verification_artifact(
     tmp_path,
 ):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-stale-study-progress"
@@ -2968,9 +2708,7 @@ def test_scientific_verification_does_not_promote_in_progress_study_variants_fro
                         ],
                     }
                 ],
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/study-manifest.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/study-manifest.json"],
             },
             ensure_ascii=False,
             indent=2,
@@ -3055,21 +2793,11 @@ def test_scientific_verification_does_not_promote_in_progress_study_variants_fro
         tool_call_id="tc-result-report-scientific-stale-progress",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     requirements = final_payload["scientific_verification_assessment"]["requirements"]
-    mesh_requirement = next(
-        item for item in requirements if item["requirement_id"] == "mesh_independence_study"
-    )
+    mesh_requirement = next(item for item in requirements if item["requirement_id"] == "mesh_independence_study")
 
     assert mesh_requirement["status"] == "missing_evidence"
 
@@ -3077,9 +2805,7 @@ def test_scientific_verification_does_not_promote_in_progress_study_variants_fro
 def test_scientific_verification_recovery_ignores_foreign_study_manifest(
     tmp_path,
 ):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-foreign-study"
@@ -3186,9 +2912,7 @@ def test_scientific_verification_recovery_ignores_foreign_study_manifest(
                         ],
                     }
                 ],
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/study-manifest.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/study-manifest.json"],
             },
             ensure_ascii=False,
             indent=2,
@@ -3272,38 +2996,24 @@ def test_scientific_verification_recovery_ignores_foreign_study_manifest(
         tool_call_id="tc-result-report-scientific-foreign-study",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     requirements = final_payload["scientific_verification_assessment"]["requirements"]
-    mesh_requirement = next(
-        item for item in requirements if item["requirement_id"] == "mesh_independence_study"
-    )
+    mesh_requirement = next(item for item in requirements if item["requirement_id"] == "mesh_independence_study")
 
     assert mesh_requirement["status"] == "missing_evidence"
 
 
 def test_submarine_result_report_adds_experiment_summary(tmp_path):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-experiment-summary"
     outputs_dir = paths.sandbox_outputs_dir(thread_id)
     outputs_dir.mkdir(parents=True, exist_ok=True)
 
-    solver_results_dir = (
-        outputs_dir / "submarine" / "solver-dispatch" / "experiment-summary"
-    )
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "experiment-summary"
     solver_results_dir.mkdir(parents=True, exist_ok=True)
     (solver_results_dir / "solver-results.json").write_text(
         json.dumps(
@@ -3345,12 +3055,7 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
         ),
         encoding="utf-8",
     )
-    variant_dir = (
-        solver_results_dir
-        / "studies"
-        / "mesh-independence"
-        / "coarse"
-    )
+    variant_dir = solver_results_dir / "studies" / "mesh-independence" / "coarse"
     variant_dir.mkdir(parents=True, exist_ok=True)
     (variant_dir / "solver-results.json").write_text(
         json.dumps(
@@ -3489,29 +3194,15 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
         tool_call_id="tc-result-report-experiment-summary",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
-    final_markdown = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.md"
-    ).read_text(encoding="utf-8")
-    final_html = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.html"
-    ).read_text(encoding="utf-8")
+    final_markdown = (outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.md").read_text(encoding="utf-8")
+    final_html = (outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.html").read_text(encoding="utf-8")
     experiment_summary = final_payload["experiment_summary"]
     experiment_compare = final_payload["experiment_compare_summary"]
 
-    assert experiment_summary["experiment_id"] == (
-        "darpa-suboff-bare-hull-resistance-experiment-summary-resistance"
-    )
+    assert experiment_summary["experiment_id"] == ("darpa-suboff-bare-hull-resistance-experiment-summary-resistance")
     assert experiment_summary["baseline_run_id"] == "baseline"
     assert experiment_summary["run_count"] == 2
     assert experiment_summary["compare_virtual_path"].endswith("/run-compare-summary.json")
@@ -3524,24 +3215,16 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
     assert comparison["variant_id"] == "coarse"
     assert comparison["compare_status"] == "completed"
     assert comparison["baseline_solver_results_virtual_path"].endswith("/solver-results.json")
-    assert comparison["candidate_solver_results_virtual_path"].endswith(
-        "/studies/mesh-independence/coarse/solver-results.json"
-    )
+    assert comparison["candidate_solver_results_virtual_path"].endswith("/studies/mesh-independence/coarse/solver-results.json")
     assert comparison["baseline_run_record_virtual_path"].endswith("/run-record.json")
-    assert comparison["candidate_run_record_virtual_path"].endswith(
-        "/studies/mesh-independence/coarse/run-record.json"
-    )
+    assert comparison["candidate_run_record_virtual_path"].endswith("/studies/mesh-independence/coarse/run-record.json")
     assert comparison["metric_deltas"]["Cd"]["relative_delta"] == 0.01
     assert "### 证据索引" in final_markdown
     assert "<h3>证据索引</h3>" in final_html
 
 
-def test_submarine_result_report_marks_verified_but_not_validated_without_benchmark_reference(
-    tmp_path, monkeypatch
-):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+def test_submarine_result_report_marks_verified_but_not_validated_without_benchmark_reference(tmp_path, monkeypatch):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
     reporting_module = importlib.import_module("deerflow.domain.submarine.reporting")
     models_module = importlib.import_module("deerflow.domain.submarine.models")
 
@@ -3566,9 +3249,7 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     outputs_dir = paths.sandbox_outputs_dir(thread_id)
     outputs_dir.mkdir(parents=True, exist_ok=True)
 
-    solver_results_dir = (
-        outputs_dir / "submarine" / "solver-dispatch" / "verified-not-validated"
-    )
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "verified-not-validated"
     solver_results_dir.mkdir(parents=True, exist_ok=True)
     (solver_results_dir / "solver-results.json").write_text(
         json.dumps(
@@ -3627,9 +3308,7 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
                 "selected_case_id": "research_evidence_custom_case",
                 "baseline_configuration_snapshot": {"task_type": "resistance"},
                 "study_definitions": [],
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/study-manifest.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/verified-not-validated/study-manifest.json"],
                 "study_execution_status": "completed",
             },
             ensure_ascii=False,
@@ -3714,22 +3393,10 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
         tool_call_id="tc-result-report-verified-not-validated",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
-    )
-    final_markdown = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.md"
-    ).read_text(encoding="utf-8")
-    final_html = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.html"
-    ).read_text(encoding="utf-8")
-    handoff_path = (
-        outputs_dir
-        / "submarine"
-        / "reports"
-        / "suboff_solid"
-        / "scientific-remediation-handoff.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
+    final_markdown = (outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.md").read_text(encoding="utf-8")
+    final_html = (outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.html").read_text(encoding="utf-8")
+    handoff_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "scientific-remediation-handoff.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     research = final_payload["research_evidence_summary"]
     gate = final_payload["scientific_supervisor_gate"]
@@ -3744,14 +3411,8 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     assert gate["recommended_stage"] == "supervisor-review"
     assert gate["remediation_stage"] == "solver-dispatch"
     assert final_payload["decision_status"] == "needs_more_evidence"
-    assert (
-        final_payload["delivery_decision_summary"]["decision_status"]
-        == "needs_more_evidence"
-    )
-    assert (
-        final_payload["delivery_decision_summary"]["recommended_option_id"]
-        == "add_evidence"
-    )
+    assert final_payload["delivery_decision_summary"]["decision_status"] == "needs_more_evidence"
+    assert final_payload["delivery_decision_summary"]["recommended_option_id"] == "add_evidence"
     assert [item["option_id"] for item in final_payload["delivery_decision_summary"]["options"]] == [
         "add_evidence",
         "finish_task",
@@ -3761,23 +3422,17 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     assert remediation["current_claim_level"] == "verified_but_not_validated"
     assert remediation["target_claim_level"] == "research_ready"
     assert remediation["recommended_stage"] == "supervisor-review"
-    assert remediation["artifact_virtual_paths"][0].endswith(
-        "/scientific-remediation-plan.json"
-    )
+    assert remediation["artifact_virtual_paths"][0].endswith("/scientific-remediation-plan.json")
     assert remediation["actions"][0]["action_id"] == "attach-validation-reference"
     assert remediation["actions"][0]["owner_stage"] == "supervisor-review"
     assert remediation["actions"][0]["execution_mode"] == "manual_required"
     assert handoff["handoff_status"] == "manual_followup_required"
     assert handoff["tool_name"] is None
-    assert handoff["artifact_virtual_paths"][0].endswith(
-        "/scientific-remediation-handoff.json"
-    )
+    assert handoff["artifact_virtual_paths"][0].endswith("/scientific-remediation-handoff.json")
     assert handoff["manual_actions"][0]["action_id"] == "attach-validation-reference"
     assert final_payload["review_status"] == "ready_for_supervisor"
     assert final_payload["next_recommended_stage"] == "supervisor-review"
-    assert final_payload["supervisor_handoff_virtual_path"].endswith(
-        "/scientific-remediation-handoff.json"
-    )
+    assert final_payload["supervisor_handoff_virtual_path"].endswith("/scientific-remediation-handoff.json")
     assert handoff_path.exists()
     handoff_payload = json.loads(handoff_path.read_text(encoding="utf-8"))
     assert handoff_payload["handoff_status"] == "manual_followup_required"
@@ -3785,18 +3440,12 @@ def test_submarine_result_report_marks_verified_but_not_validated_without_benchm
     assert final_payload["report_overview"]["recommended_next_step_zh"] in final_markdown
     assert "<h2>建议下一步</h2>" in final_html
     assert final_payload["report_overview"]["recommended_next_step_zh"] in final_html
-    assert result.update["submarine_runtime"]["supervisor_handoff_virtual_path"].endswith(
-        "/scientific-remediation-handoff.json"
-    )
+    assert result.update["submarine_runtime"]["supervisor_handoff_virtual_path"].endswith("/scientific-remediation-handoff.json")
     assert result.update["submarine_runtime"]["decision_status"] == "needs_more_evidence"
 
 
-def test_submarine_result_report_marks_research_ready_with_validation_and_traceable_evidence(
-    tmp_path, monkeypatch
-):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+def test_submarine_result_report_marks_research_ready_with_validation_and_traceable_evidence(tmp_path, monkeypatch):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
     reporting_module = importlib.import_module("deerflow.domain.submarine.reporting")
     models_module = importlib.import_module("deerflow.domain.submarine.models")
 
@@ -3904,9 +3553,7 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
                         ],
                     }
                 ],
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/study-manifest.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/study-manifest.json"],
                 "study_execution_status": "completed",
             },
             ensure_ascii=False,
@@ -3966,9 +3613,7 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
         ),
         encoding="utf-8",
     )
-    provenance_manifest_virtual_path = (
-        "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/provenance-manifest.json"
-    )
+    provenance_manifest_virtual_path = "/mnt/user-data/outputs/submarine/solver-dispatch/research-ready/provenance-manifest.json"
     (solver_results_dir / "provenance-manifest.json").write_text(
         json.dumps(
             {
@@ -4073,9 +3718,7 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
         tool_call_id="tc-result-report-research-ready",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     research = final_payload["research_evidence_summary"]
     gate = final_payload["scientific_supervisor_gate"]
@@ -4084,50 +3727,27 @@ def test_submarine_result_report_marks_research_ready_with_validation_and_tracea
     assert research["provenance_status"] == "traceable"
     assert research["readiness_status"] == "research_ready"
     assert final_payload["reproducibility_summary"]["parity_status"] == "matched"
-    assert final_payload["reproducibility_summary"]["reproducibility_status"] == (
-        "matched"
-    )
-    assert final_payload["provenance_summary"]["manifest_virtual_path"] == (
-        provenance_manifest_virtual_path
-    )
-    assert (
-        final_payload["provenance_summary"]["manifest_completeness_status"] == "complete"
-    )
+    assert final_payload["reproducibility_summary"]["reproducibility_status"] == ("matched")
+    assert final_payload["provenance_summary"]["manifest_virtual_path"] == (provenance_manifest_virtual_path)
+    assert final_payload["provenance_summary"]["manifest_completeness_status"] == "complete"
     assert gate["gate_status"] == "ready_for_claim"
     assert gate["allowed_claim_level"] == "research_ready"
     assert gate["recommended_stage"] == "supervisor-review"
     assert gate["remediation_stage"] is None
     assert final_payload["decision_status"] == "ready_for_user_decision"
-    assert (
-        final_payload["delivery_decision_summary"]["recommended_option_id"]
-        == "finish_task"
-    )
+    assert final_payload["delivery_decision_summary"]["recommended_option_id"] == "finish_task"
     assert [item["option_id"] for item in final_payload["delivery_decision_summary"]["options"]] == [
         "finish_task",
         "extend_study",
     ]
     assert final_payload["review_status"] == "ready_for_supervisor"
     assert final_payload["next_recommended_stage"] == "supervisor-review"
-    assert final_payload["scientific_gate_virtual_path"].endswith(
-        "/supervisor-scientific-gate.json"
-    )
-    assert any(
-        path.endswith("/research-evidence-summary.json")
-        for path in final_payload["artifact_virtual_paths"]
-    )
-    assert any(
-        path.endswith("/supervisor-scientific-gate.json")
-        for path in final_payload["artifact_virtual_paths"]
-    )
+    assert final_payload["scientific_gate_virtual_path"].endswith("/supervisor-scientific-gate.json")
+    assert any(path.endswith("/research-evidence-summary.json") for path in final_payload["artifact_virtual_paths"])
+    assert any(path.endswith("/supervisor-scientific-gate.json") for path in final_payload["artifact_virtual_paths"])
     assert result.update["submarine_runtime"]["decision_status"] == "ready_for_user_decision"
-    assert (
-        result.update["submarine_runtime"]["provenance_manifest_virtual_path"]
-        == provenance_manifest_virtual_path
-    )
-    assert (
-        result.update["submarine_runtime"]["provenance_summary"]["manifest_virtual_path"]
-        == provenance_manifest_virtual_path
-    )
+    assert result.update["submarine_runtime"]["provenance_manifest_virtual_path"] == provenance_manifest_virtual_path
+    assert result.update["submarine_runtime"]["provenance_summary"]["manifest_virtual_path"] == provenance_manifest_virtual_path
     assert result.update["submarine_runtime"]["scientific_gate_status"] == "ready_for_claim"
     assert result.update["submarine_runtime"]["execution_plan"][-1]["status"] == "ready"
 
@@ -4185,9 +3805,7 @@ def test_research_evidence_summary_downgrades_when_provenance_manifest_is_missin
         output_delivery_plan=[
             {
                 "delivery_status": "delivered",
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"],
             }
         ],
         artifact_virtual_paths=[
@@ -4199,10 +3817,7 @@ def test_research_evidence_summary_downgrades_when_provenance_manifest_is_missin
     assert summary["validation_status"] == "validated"
     assert summary["provenance_status"] == "partial"
     assert summary["readiness_status"] == "validated_with_gaps"
-    assert any(
-        "Canonical provenance manifest is missing" in item
-        for item in summary["evidence_gaps"]
-    )
+    assert any("Canonical provenance manifest is missing" in item for item in summary["evidence_gaps"])
 
 
 def test_research_evidence_summary_downgrades_when_environment_parity_drifts():
@@ -4247,12 +3862,8 @@ def test_research_evidence_summary_downgrades_when_environment_parity_drifts():
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
             "manifest_completeness_status": "complete",
             "parity_status": "drifted_but_runnable",
-            "drift_reasons": [
-                "Host mount strategy `workspace_path` does not match `docker_compose_dev` expectations."
-            ],
-            "recovery_guidance": [
-                "Align DEER_FLOW_RUNTIME_PROFILE with the actual runtime path before treating the run as reproducible."
-            ],
+            "drift_reasons": ["Host mount strategy `workspace_path` does not match `docker_compose_dev` expectations."],
+            "recovery_guidance": ["Align DEER_FLOW_RUNTIME_PROFILE with the actual runtime path before treating the run as reproducible."],
         },
         scientific_study_summary={
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
@@ -4268,9 +3879,7 @@ def test_research_evidence_summary_downgrades_when_environment_parity_drifts():
         output_delivery_plan=[
             {
                 "delivery_status": "delivered",
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"],
             }
         ],
         artifact_virtual_paths=[
@@ -4283,20 +3892,12 @@ def test_research_evidence_summary_downgrades_when_environment_parity_drifts():
     assert summary["validation_status"] == "validated"
     assert summary["provenance_status"] == "partial"
     assert summary["readiness_status"] == "validated_with_gaps"
-    assert any(
-        "Environment parity drifted" in item for item in summary["evidence_gaps"]
-    )
-    assert any(
-        "Host mount strategy" in item for item in summary["evidence_gaps"]
-    )
+    assert any("Environment parity drifted" in item for item in summary["evidence_gaps"])
+    assert any("Host mount strategy" in item for item in summary["evidence_gaps"])
 
 
-def test_submarine_result_report_marks_validation_failed_in_research_evidence_summary(
-    tmp_path, monkeypatch
-):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+def test_submarine_result_report_marks_validation_failed_in_research_evidence_summary(tmp_path, monkeypatch):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
     reporting_module = importlib.import_module("deerflow.domain.submarine.reporting")
     models_module = importlib.import_module("deerflow.domain.submarine.models")
 
@@ -4330,9 +3931,7 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
     outputs_dir = paths.sandbox_outputs_dir(thread_id)
     outputs_dir.mkdir(parents=True, exist_ok=True)
 
-    solver_results_dir = (
-        outputs_dir / "submarine" / "solver-dispatch" / "validation-failed"
-    )
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "validation-failed"
     solver_results_dir.mkdir(parents=True, exist_ok=True)
     (solver_results_dir / "solver-results.json").write_text(
         json.dumps(
@@ -4421,22 +4020,10 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
         tool_call_id="tc-result-report-validation-failed",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
-    )
-    markdown_report_path = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.md"
-    )
-    html_report_path = (
-        outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.html"
-    )
-    evidence_path = (
-        outputs_dir
-        / "submarine"
-        / "reports"
-        / "suboff_solid"
-        / "research-evidence-summary.json"
-    )
+    final_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.json"
+    markdown_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.md"
+    html_report_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "final-report.html"
+    evidence_path = outputs_dir / "submarine" / "reports" / "suboff_solid" / "research-evidence-summary.json"
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     markdown = markdown_report_path.read_text(encoding="utf-8")
     html = html_report_path.read_text(encoding="utf-8")
@@ -4451,9 +4038,7 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
     assert gate["recommended_stage"] == "solver-dispatch"
     assert final_payload["review_status"] == "blocked"
     assert final_payload["next_recommended_stage"] == "solver-dispatch"
-    assert final_payload["scientific_gate_virtual_path"].endswith(
-        "/supervisor-scientific-gate.json"
-    )
+    assert final_payload["scientific_gate_virtual_path"].endswith("/supervisor-scientific-gate.json")
     assert "回到 `solver-dispatch` 补齐验证或整改项后，再刷新最终报告。" in markdown
     assert final_payload["report_overview"]["recommended_next_step_zh"] in html
     assert result.update["submarine_runtime"]["review_status"] == "blocked"
@@ -4461,12 +4046,8 @@ def test_submarine_result_report_marks_validation_failed_in_research_evidence_su
     assert result.update["submarine_runtime"]["execution_plan"][-1]["status"] == "blocked"
 
 
-def test_submarine_result_report_surfaces_scientific_followup_summary(
-    tmp_path, monkeypatch
-):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+def test_submarine_result_report_surfaces_scientific_followup_summary(tmp_path, monkeypatch):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-followup-report-summary"
@@ -4489,17 +4070,8 @@ def test_submarine_result_report_surfaces_scientific_followup_summary(
         geometry_family_hint="DARPA SUBOFF",
         tool_call_id="tc-geometry-followup-summary",
     )
-    history_virtual_path = (
-        "/mnt/user-data/outputs/submarine/reports/followup-summary/"
-        "scientific-followup-history.json"
-    )
-    history_path = (
-        outputs_dir
-        / "submarine"
-        / "reports"
-        / "followup-summary"
-        / "scientific-followup-history.json"
-    )
+    history_virtual_path = "/mnt/user-data/outputs/submarine/reports/followup-summary/scientific-followup-history.json"
+    history_path = outputs_dir / "submarine" / "reports" / "followup-summary" / "scientific-followup-history.json"
     history_path.parent.mkdir(parents=True, exist_ok=True)
     history_path.write_text(
         json.dumps(
@@ -4555,9 +4127,7 @@ def test_submarine_result_report_surfaces_scientific_followup_summary(
                             "/mnt/user-data/outputs/submarine/reports/followup-summary/final-report.md",
                             "/mnt/user-data/outputs/submarine/solver-dispatch/followup-summary/provenance-manifest.json",
                         ],
-                        "notes": [
-                            "The scientific rerun completed and the report was refreshed."
-                        ],
+                        "notes": ["The scientific rerun completed and the report was refreshed."],
                     },
                 ],
             },
@@ -4569,9 +4139,7 @@ def test_submarine_result_report_surfaces_scientific_followup_summary(
 
     runtime.state["artifacts"] = geometry_result.update["artifacts"]
     runtime.state["submarine_runtime"] = geometry_result.update["submarine_runtime"]
-    runtime.state["submarine_runtime"]["scientific_followup_history_virtual_path"] = (
-        history_virtual_path
-    )
+    runtime.state["submarine_runtime"]["scientific_followup_history_virtual_path"] = history_virtual_path
     runtime.state["submarine_runtime"]["artifact_virtual_paths"] = [
         *runtime.state["submarine_runtime"]["artifact_virtual_paths"],
         history_virtual_path,
@@ -4583,15 +4151,9 @@ def test_submarine_result_report_surfaces_scientific_followup_summary(
         tool_call_id="tc-result-report-followup-summary",
     )
 
-    final_report_path = (
-        outputs_dir / "submarine" / "reports" / "followup-summary" / "final-report.json"
-    )
-    final_markdown = (
-        outputs_dir / "submarine" / "reports" / "followup-summary" / "final-report.md"
-    ).read_text(encoding="utf-8")
-    final_html = (
-        outputs_dir / "submarine" / "reports" / "followup-summary" / "final-report.html"
-    ).read_text(encoding="utf-8")
+    final_report_path = outputs_dir / "submarine" / "reports" / "followup-summary" / "final-report.json"
+    final_markdown = (outputs_dir / "submarine" / "reports" / "followup-summary" / "final-report.md").read_text(encoding="utf-8")
+    final_html = (outputs_dir / "submarine" / "reports" / "followup-summary" / "final-report.html").read_text(encoding="utf-8")
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     followup_summary = final_payload["scientific_followup_summary"]
 
@@ -4602,23 +4164,12 @@ def test_submarine_result_report_surfaces_scientific_followup_summary(
     assert followup_summary["latest_followup_kind"] == "evidence_supplement"
     assert followup_summary["latest_decision_summary_zh"] == "补齐外部验证证据后刷新报告。"
     assert followup_summary["latest_source_conclusion_ids"] == ["current_conclusion"]
-    assert followup_summary["latest_source_evidence_gap_ids"] == [
-        "missing_validation_reference"
-    ]
+    assert followup_summary["latest_source_evidence_gap_ids"] == ["missing_validation_reference"]
     assert followup_summary["report_refreshed"] is True
     assert followup_summary["history_virtual_path"] == history_virtual_path
-    assert (
-        followup_summary["latest_result_provenance_manifest_virtual_path"]
-        == "/mnt/user-data/outputs/submarine/solver-dispatch/followup-summary/provenance-manifest.json"
-    )
-    assert (
-        result.update["submarine_runtime"]["scientific_followup_history_virtual_path"]
-        == history_virtual_path
-    )
-    assert any(
-        item["group_id"] == "followup_and_refresh"
-        for item in final_payload["evidence_index"]
-    )
+    assert followup_summary["latest_result_provenance_manifest_virtual_path"] == "/mnt/user-data/outputs/submarine/solver-dispatch/followup-summary/provenance-manifest.json"
+    assert result.update["submarine_runtime"]["scientific_followup_history_virtual_path"] == history_virtual_path
+    assert any(item["group_id"] == "followup_and_refresh" for item in final_payload["evidence_index"])
     assert "## 建议下一步" in final_markdown
     assert history_virtual_path in final_markdown
     assert "<h2>建议下一步</h2>" in final_html
@@ -4626,9 +4177,7 @@ def test_submarine_result_report_surfaces_scientific_followup_summary(
 
 
 def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_path):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-scientific-verification-failed-artifact"
@@ -4712,23 +4261,11 @@ def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_
         tool_call_id="tc-result-report-scientific-failed-artifact",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
     assessment = final_payload["scientific_verification_assessment"]
-    domain_requirement = next(
-        item
-        for item in assessment["requirements"]
-        if item["requirement_id"] == "domain_sensitivity_study"
-    )
+    domain_requirement = next(item for item in assessment["requirements"] if item["requirement_id"] == "domain_sensitivity_study")
 
     assert assessment["status"] == "blocked"
     assert domain_requirement["status"] == "blocked"
@@ -4736,9 +4273,7 @@ def test_scientific_verification_blocks_when_study_artifact_reports_failure(tmp_
 
 
 def test_reporting_decomposition_module_acceptance_keeps_benchmark_semantics():
-    acceptance_module = importlib.import_module(
-        "deerflow.domain.submarine.reporting_acceptance"
-    )
+    acceptance_module = importlib.import_module("deerflow.domain.submarine.reporting_acceptance")
     contracts_module = importlib.import_module("deerflow.domain.submarine.contracts")
     library_module = importlib.import_module("deerflow.domain.submarine.library")
 
@@ -4760,9 +4295,7 @@ def test_reporting_decomposition_module_acceptance_keeps_benchmark_semantics():
             ],
         }
     )
-    selected_case = library_module.load_case_library().case_index[
-        "darpa_suboff_bare_hull_resistance"
-    ]
+    selected_case = library_module.load_case_library().case_index["darpa_suboff_bare_hull_resistance"]
     acceptance = acceptance_module.build_acceptance_assessment(
         snapshot=snapshot,
         solver_metrics={
@@ -4793,18 +4326,13 @@ def test_reporting_decomposition_module_acceptance_keeps_benchmark_semantics():
     assert acceptance["benchmark_comparisons"]
     assert acceptance["benchmark_comparisons"][0]["metric_id"] == "cd_at_3_05_mps"
     assert acceptance["benchmark_comparisons"][0]["status"] == "blocked"
-    assert any(
-        gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "blocked"
-        for gate in acceptance["gates"]
-    )
+    assert any(gate["id"] == "benchmark_cd_at_3_05_mps" and gate["status"] == "blocked" for gate in acceptance["gates"])
 
 
 def test_reporting_decomposition_module_summaries_build_experiment_compare_summary(
     tmp_path,
 ):
-    summaries_module = importlib.import_module(
-        "deerflow.domain.submarine.reporting_summaries"
-    )
+    summaries_module = importlib.import_module("deerflow.domain.submarine.reporting_summaries")
 
     outputs_dir = tmp_path / "outputs"
     run_dir = outputs_dir / "submarine" / "solver-dispatch" / "compare-demo"
@@ -4887,10 +4415,7 @@ def test_reporting_decomposition_module_summaries_build_experiment_compare_summa
     assert experiment_summary["compare_count"] == 1
     assert experiment_compare_summary["baseline_run_id"] == "baseline"
     assert experiment_compare_summary["compare_count"] == 1
-    assert (
-        experiment_compare_summary["comparisons"][0]["candidate_run_id"]
-        == "mesh_independence:coarse"
-    )
+    assert experiment_compare_summary["comparisons"][0]["candidate_run_id"] == "mesh_independence:coarse"
 
 
 def test_reporting_decomposition_module_render_uses_conclusion_first_sections():
@@ -5007,63 +4532,63 @@ def test_reporting_decomposition_module_render_uses_conclusion_first_sections():
                 "is_final_deliverable": True,
             },
         ],
-            "artifact_group_summary": [
-                {
-                    "group_id": "report_outputs",
-                    "title_zh": "报告交付文件",
-                    "summary_zh": "最终报告与交付门禁文件。",
-                    "items": [
-                        {
-                            "filename": "final-report.json",
-                            "label": "最终报告 JSON",
-                            "description": "最终结构化 CFD 报告",
-                            "file_type": "json",
-                            "location_kind": "report_output",
-                            "stage": "result-reporting",
-                            "virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/final-report.json",
-                            "absolute_path": "C:\\demo\\thread\\user-data\\outputs\\submarine\\reports\\suboff\\final-report.json",
-                            "is_final_deliverable": True,
-                        }
-                    ],
-                },
-                {
-                    "group_id": "solver_outputs",
-                    "title_zh": "求解与验证输出",
-                    "summary_zh": "求解主结果与验证摘要。",
-                    "items": [
-                        {
-                            "filename": "solver-results.json",
-                            "label": "求解结果 JSON",
-                            "description": "OpenFOAM 主要数值结果与关键指标",
-                            "file_type": "json",
-                            "location_kind": "solver_output",
-                            "stage": "solver-dispatch",
-                            "virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/solver-results.json",
-                            "absolute_path": "C:\\demo\\thread\\user-data\\outputs\\submarine\\solver-dispatch\\suboff\\solver-results.json",
-                            "is_final_deliverable": True,
-                        }
-                    ],
-                },
-                {
-                    "group_id": "workspace_intermediate",
-                    "title_zh": "工作区与中间文件",
-                    "summary_zh": "OpenFOAM case 与 postProcessing 工作目录。",
-                    "items": [
-                        {
-                            "filename": "openfoam-case",
-                            "label": "主 OpenFOAM case",
-                            "description": "主基线 case 目录，包含 system、constant、0 以及时间步中间文件。",
-                            "file_type": "directory",
-                            "location_kind": "workspace_intermediate",
-                            "stage": "solver-dispatch",
-                            "virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case",
-                            "absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case",
-                            "is_final_deliverable": False,
-                        }
-                    ],
-                    "notes": ["Main OpenFOAM case intermediates live under the case directory."],
-                },
-            ],
+        "artifact_group_summary": [
+            {
+                "group_id": "report_outputs",
+                "title_zh": "报告交付文件",
+                "summary_zh": "最终报告与交付门禁文件。",
+                "items": [
+                    {
+                        "filename": "final-report.json",
+                        "label": "最终报告 JSON",
+                        "description": "最终结构化 CFD 报告",
+                        "file_type": "json",
+                        "location_kind": "report_output",
+                        "stage": "result-reporting",
+                        "virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/final-report.json",
+                        "absolute_path": "C:\\demo\\thread\\user-data\\outputs\\submarine\\reports\\suboff\\final-report.json",
+                        "is_final_deliverable": True,
+                    }
+                ],
+            },
+            {
+                "group_id": "solver_outputs",
+                "title_zh": "求解与验证输出",
+                "summary_zh": "求解主结果与验证摘要。",
+                "items": [
+                    {
+                        "filename": "solver-results.json",
+                        "label": "求解结果 JSON",
+                        "description": "OpenFOAM 主要数值结果与关键指标",
+                        "file_type": "json",
+                        "location_kind": "solver_output",
+                        "stage": "solver-dispatch",
+                        "virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/solver-results.json",
+                        "absolute_path": "C:\\demo\\thread\\user-data\\outputs\\submarine\\solver-dispatch\\suboff\\solver-results.json",
+                        "is_final_deliverable": True,
+                    }
+                ],
+            },
+            {
+                "group_id": "workspace_intermediate",
+                "title_zh": "工作区与中间文件",
+                "summary_zh": "OpenFOAM case 与 postProcessing 工作目录。",
+                "items": [
+                    {
+                        "filename": "openfoam-case",
+                        "label": "主 OpenFOAM case",
+                        "description": "主基线 case 目录，包含 system、constant、0 以及时间步中间文件。",
+                        "file_type": "directory",
+                        "location_kind": "workspace_intermediate",
+                        "stage": "solver-dispatch",
+                        "virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case",
+                        "absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case",
+                        "is_final_deliverable": False,
+                    }
+                ],
+                "notes": ["Main OpenFOAM case intermediates live under the case directory."],
+            },
+        ],
         "workspace_storage_summary": {
             "workspace_run_root_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff",
             "workspace_run_root_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff",
@@ -5127,12 +4652,8 @@ def test_reporting_decomposition_module_render_uses_conclusion_first_sections():
         "<h2>建议下一步</h2>",
     ]
 
-    assert [markdown.index(item) for item in markdown_headings] == sorted(
-        markdown.index(item) for item in markdown_headings
-    )
-    assert [html.index(item) for item in html_headings] == sorted(
-        html.index(item) for item in html_headings
-    )
+    assert [markdown.index(item) for item in markdown_headings] == sorted(markdown.index(item) for item in markdown_headings)
+    assert [html.index(item) for item in html_headings] == sorted(html.index(item) for item in html_headings)
     assert "来源：" in markdown
     assert "Claim level：" in markdown
     assert "置信度：" in markdown
@@ -5285,26 +4806,16 @@ def test_reporting_render_uses_formal_cfd_sections_and_artifact_appendix():
 def test_submarine_result_report_payload_includes_artifact_manifest_with_absolute_paths(
     tmp_path,
 ):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-report-artifact-manifest"
     outputs_dir = paths.sandbox_outputs_dir(thread_id)
     outputs_dir.mkdir(parents=True, exist_ok=True)
     workspace_root = outputs_dir.parent / "workspace"
-    case_dir = (
-        workspace_root
-        / "submarine"
-        / "solver-dispatch"
-        / "artifact-manifest"
-        / "openfoam-case"
-    )
+    case_dir = workspace_root / "submarine" / "solver-dispatch" / "artifact-manifest" / "openfoam-case"
     (case_dir / "system").mkdir(parents=True, exist_ok=True)
-    (case_dir / "system" / "controlDict").write_text(
-        "application simpleFoam;\n", encoding="utf-8"
-    )
+    (case_dir / "system" / "controlDict").write_text("application simpleFoam;\n", encoding="utf-8")
     (case_dir / "Allrun").write_text("#!/bin/bash\n", encoding="utf-8")
 
     solver_dir = outputs_dir / "submarine" / "solver-dispatch" / "artifact-manifest"
@@ -5361,33 +4872,14 @@ def test_submarine_result_report_payload_includes_artifact_manifest_with_absolut
         tool_call_id="tc-result-report-artifact-manifest",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     payload = json.loads(final_report_path.read_text(encoding="utf-8"))
 
     assert payload["artifact_manifest"]
-    assert any(
-        item["virtual_path"].endswith("/final-report.json")
-        and item["absolute_path"].endswith("final-report.json")
-        for item in payload["artifact_manifest"]
-    )
-    assert any(
-        item["location_kind"] == "solver_output"
-        and item["absolute_path"].endswith("solver-results.json")
-        for item in payload["artifact_manifest"]
-    )
-    assert not any(
-        item["location_kind"] == "workspace_case_file"
-        for item in payload["artifact_manifest"]
-    )
+    assert any(item["virtual_path"].endswith("/final-report.json") and item["absolute_path"].endswith("final-report.json") for item in payload["artifact_manifest"])
+    assert any(item["location_kind"] == "solver_output" and item["absolute_path"].endswith("solver-results.json") for item in payload["artifact_manifest"])
+    assert not any(item["location_kind"] == "workspace_case_file" for item in payload["artifact_manifest"])
     summary = payload["workspace_storage_summary"]
     assert summary["workspace_case_dir_absolute_path"].endswith("openfoam-case")
     assert summary["run_script_absolute_path"].endswith("Allrun")
@@ -5397,26 +4889,16 @@ def test_submarine_result_report_payload_includes_artifact_manifest_with_absolut
 def test_submarine_result_report_payload_includes_grouped_artifact_summary(
     tmp_path,
 ):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-report-artifact-groups"
     outputs_dir = paths.sandbox_outputs_dir(thread_id)
     outputs_dir.mkdir(parents=True, exist_ok=True)
     workspace_root = outputs_dir.parent / "workspace"
-    case_dir = (
-        workspace_root
-        / "submarine"
-        / "solver-dispatch"
-        / "artifact-groups"
-        / "openfoam-case"
-    )
+    case_dir = workspace_root / "submarine" / "solver-dispatch" / "artifact-groups" / "openfoam-case"
     (case_dir / "system").mkdir(parents=True, exist_ok=True)
-    (case_dir / "system" / "controlDict").write_text(
-        "application simpleFoam;\n", encoding="utf-8"
-    )
+    (case_dir / "system" / "controlDict").write_text("application simpleFoam;\n", encoding="utf-8")
     (case_dir / "Allrun").write_text("#!/bin/bash\n", encoding="utf-8")
 
     solver_dir = outputs_dir / "submarine" / "solver-dispatch" / "artifact-groups"
@@ -5473,16 +4955,8 @@ def test_submarine_result_report_payload_includes_grouped_artifact_summary(
         tool_call_id="tc-result-report-artifact-groups",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     payload = json.loads(final_report_path.read_text(encoding="utf-8"))
 
     assert [group["group_id"] for group in payload["artifact_group_summary"]] == [
@@ -5525,9 +4999,7 @@ def test_result_reporting_includes_selected_case_provenance_summary(tmp_path):
         report_title="Type 209 provenance report",
     )
 
-    html_path = (
-        outputs_dir / "submarine" / "reports" / "type209-provenance" / "final-report.html"
-    )
+    html_path = outputs_dir / "submarine" / "reports" / "type209-provenance" / "final-report.html"
     html = html_path.read_text(encoding="utf-8")
     provenance = payload["selected_case_provenance_summary"]
 
@@ -5542,9 +5014,7 @@ def test_result_reporting_includes_selected_case_provenance_summary(tmp_path):
 
 
 def test_submarine_result_report_preserves_iterative_contract_context(tmp_path):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-iterative-contract-report"
@@ -5655,37 +5125,18 @@ def test_submarine_result_report_preserves_iterative_contract_context(tmp_path):
         tool_call_id="tc-result-report-iterative-contract",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
 
     assert final_payload["contract_revision"] == 2
     assert final_payload["iteration_mode"] == "derive_variant"
-    assert final_payload["revision_summary"] == (
-        "Added wake velocity slice after the first baseline draft."
-    )
+    assert final_payload["revision_summary"] == ("Added wake velocity slice after the first baseline draft.")
     assert final_payload["capability_gaps"][0]["output_id"] == "streamlines"
-    assert final_payload["unresolved_decisions"][0]["decision_id"] == (
-        "confirm-wake-plane"
-    )
-    assert final_payload["evidence_expectations"][0]["expectation_id"] == (
-        "tail-stability"
-    )
-    assert final_payload["variant_policy"]["default_compare_target_run_id"] == (
-        "baseline"
-    )
-    assert any(
-        item["output_id"] == "wake_velocity_slice"
-        for item in final_payload["output_delivery_plan"]
-    )
+    assert final_payload["unresolved_decisions"][0]["decision_id"] == ("confirm-wake-plane")
+    assert final_payload["evidence_expectations"][0]["expectation_id"] == ("tail-stability")
+    assert final_payload["variant_policy"]["default_compare_target_run_id"] == ("baseline")
+    assert any(item["output_id"] == "wake_velocity_slice" for item in final_payload["output_delivery_plan"])
     assert result.update["submarine_runtime"]["contract_revision"] == 2
     assert result.update["submarine_runtime"]["iteration_mode"] == "derive_variant"
 
@@ -5693,9 +5144,7 @@ def test_submarine_result_report_preserves_iterative_contract_context(tmp_path):
 def test_submarine_result_report_keeps_last_evidence_stage_after_contract_only_revision(
     tmp_path,
 ):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-report-stage-refresh"
@@ -5777,9 +5226,7 @@ def test_submarine_result_report_keeps_last_evidence_stage_after_contract_only_r
                         "label": "阻力系数 Cd",
                         "delivery_status": "delivered",
                         "detail": "已有上一轮求解交付的阻力系数结果。",
-                        "artifact_virtual_paths": [
-                            "/mnt/user-data/outputs/submarine/solver-dispatch/report-stage-refresh/solver-results.json"
-                        ],
+                        "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/report-stage-refresh/solver-results.json"],
                     },
                     {
                         "output_id": "wake_velocity_slice",
@@ -5809,32 +5256,19 @@ def test_submarine_result_report_keeps_last_evidence_stage_after_contract_only_r
         tool_call_id="tc-result-report-stage-refresh",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
 
     assert final_payload["source_runtime_stage"] == "result-reporting"
     assert "result-reporting" in final_payload["summary_zh"]
-    assert any(
-        item["output_id"] == "wake_velocity_slice"
-        for item in final_payload["output_delivery_plan"]
-    )
+    assert any(item["output_id"] == "wake_velocity_slice" for item in final_payload["output_delivery_plan"])
 
 
 def test_submarine_result_report_recovers_to_result_reporting_when_previous_report_stage_is_already_dirty(
     tmp_path,
 ):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-report-stage-dirty"
@@ -5917,16 +5351,8 @@ def test_submarine_result_report_recovers_to_result_reporting_when_previous_repo
         tool_call_id="tc-result-report-stage-dirty",
     )
 
-    final_report_virtual_path = next(
-        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
-    )
-    final_report_path = outputs_dir.joinpath(
-        *[
-            part
-            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
-            if part
-        ]
-    )
+    final_report_virtual_path = next(path for path in result.update["artifacts"] if path.endswith("/final-report.json"))
+    final_report_path = outputs_dir.joinpath(*[part for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/") if part])
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
 
     assert final_payload["source_runtime_stage"] == "result-reporting"

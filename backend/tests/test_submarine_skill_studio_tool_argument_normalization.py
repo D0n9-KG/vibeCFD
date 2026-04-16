@@ -2,8 +2,9 @@ import importlib
 import json
 from types import SimpleNamespace
 
-from deerflow.config.paths import Paths
 from langchain.tools import ToolRuntime
+
+from deerflow.config.paths import Paths
 
 tool_module = importlib.import_module(
     "deerflow.tools.builtins.submarine_skill_studio_tool",
@@ -103,9 +104,7 @@ def test_submarine_skill_studio_tool_normalizes_stringified_list_fields(
 
 
 def test_normalize_string_list_preserves_single_entry_commas():
-    assert tool_module._normalize_string_list("Keep Re < 1e6, use k-omega SST.") == [
-        "Keep Re < 1e6, use k-omega SST."
-    ]
+    assert tool_module._normalize_string_list("Keep Re < 1e6, use k-omega SST.") == ["Keep Re < 1e6, use k-omega SST."]
 
 
 def test_normalize_string_list_preserves_numeric_prefixes_in_newline_values():

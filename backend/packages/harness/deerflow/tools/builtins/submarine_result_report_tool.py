@@ -66,11 +66,7 @@ def submarine_result_report_tool(
     runtime_blocker_detail = None
     blocking_reasons = scientific_gate.get("blocking_reasons") or []
     if isinstance(blocking_reasons, list):
-        normalized_reasons = [
-            reason.strip()
-            for reason in blocking_reasons
-            if isinstance(reason, str) and reason.strip()
-        ]
+        normalized_reasons = [reason.strip() for reason in blocking_reasons if isinstance(reason, str) and reason.strip()]
         if normalized_reasons:
             runtime_blocker_detail = "；".join(normalized_reasons)
     execution_updates = {
@@ -79,13 +75,9 @@ def submarine_result_report_tool(
         "geometry-preflight": "completed",
         "solver-dispatch": "completed",
         "result-reporting": "completed",
-        "supervisor-review": (
-            "blocked" if payload["review_status"] == "blocked" else "ready"
-        ),
+        "supervisor-review": ("blocked" if payload["review_status"] == "blocked" else "ready"),
     }
-    execution_updates.update(
-        build_scientific_capability_updates_for_report(payload)
-    )
+    execution_updates.update(build_scientific_capability_updates_for_report(payload))
     runtime_snapshot = build_runtime_snapshot(
         current_stage="result-reporting",
         task_summary=snapshot.task_summary,
@@ -113,22 +105,16 @@ def submarine_result_report_tool(
         workspace_case_dir_virtual_path=snapshot.workspace_case_dir_virtual_path,
         run_script_virtual_path=snapshot.run_script_virtual_path,
         request_virtual_path=snapshot.request_virtual_path,
-        provenance_manifest_virtual_path=payload.get("provenance_manifest_virtual_path")
-        or snapshot.provenance_manifest_virtual_path,
+        provenance_manifest_virtual_path=payload.get("provenance_manifest_virtual_path") or snapshot.provenance_manifest_virtual_path,
         execution_log_virtual_path=snapshot.execution_log_virtual_path,
         solver_results_virtual_path=snapshot.solver_results_virtual_path,
         stability_evidence_virtual_path=payload.get("stability_evidence_virtual_path"),
         stability_evidence=payload.get("stability_evidence"),
         provenance_summary=payload.get("provenance_summary"),
-        environment_fingerprint=payload.get("environment_fingerprint")
-        or snapshot.environment_fingerprint,
-        environment_parity_assessment=payload.get("environment_parity_assessment")
-        or snapshot.environment_parity_assessment,
+        environment_fingerprint=payload.get("environment_fingerprint") or snapshot.environment_fingerprint,
+        environment_parity_assessment=payload.get("environment_parity_assessment") or snapshot.environment_parity_assessment,
         supervisor_handoff_virtual_path=payload.get("supervisor_handoff_virtual_path"),
-        scientific_followup_history_virtual_path=(
-            scientific_followup_summary.get("history_virtual_path")
-            or snapshot.scientific_followup_history_virtual_path
-        ),
+        scientific_followup_history_virtual_path=(scientific_followup_summary.get("history_virtual_path") or snapshot.scientific_followup_history_virtual_path),
         next_recommended_stage=payload["next_recommended_stage"],
         report_virtual_path=payload["report_virtual_path"],
         artifact_virtual_paths=payload["artifact_virtual_paths"],
@@ -138,15 +124,9 @@ def submarine_result_report_tool(
             stage_updates=execution_updates,
         ),
         review_status=payload["review_status"],
-        scientific_verification_assessment=payload.get(
-            "scientific_verification_assessment"
-        ),
-        scientific_gate_status=scientific_gate.get(
-            "gate_status"
-        ),
-        allowed_claim_level=scientific_gate.get(
-            "allowed_claim_level"
-        ),
+        scientific_verification_assessment=payload.get("scientific_verification_assessment"),
+        scientific_gate_status=scientific_gate.get("gate_status"),
+        allowed_claim_level=scientific_gate.get("allowed_claim_level"),
         scientific_gate_virtual_path=payload.get("scientific_gate_virtual_path"),
         decision_status=payload.get("decision_status"),
         delivery_decision_summary=payload.get("delivery_decision_summary"),
@@ -162,10 +142,7 @@ def submarine_result_report_tool(
         ),
     )
     detail_lines = "\n".join(f"- {artifact}" for artifact in artifacts)
-    message = (
-        f"{payload['summary_zh']}\n"
-        f"已登记 {len(artifacts)} 项研究产物，可在工作区直接查看：\n{detail_lines}"
-    )
+    message = f"{payload['summary_zh']}\n已登记 {len(artifacts)} 项研究产物，可在工作区直接查看：\n{detail_lines}"
     return Command(
         update={
             "artifacts": artifacts,

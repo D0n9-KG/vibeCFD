@@ -21,9 +21,7 @@ def test_merge_submarine_runtime_preserves_more_specific_iterative_context():
 
     assert merged["contract_revision"] == 4
     assert merged["iteration_mode"] == "derive_variant"
-    assert merged["revision_summary"] == (
-        "Add a wake-focused geometry-preflight pass."
-    )
+    assert merged["revision_summary"] == ("Add a wake-focused geometry-preflight pass.")
     assert merged["variant_policy"]["default_compare_target_run_id"] == "baseline"
 
 

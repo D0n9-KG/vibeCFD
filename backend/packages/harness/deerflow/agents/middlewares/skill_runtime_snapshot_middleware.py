@@ -16,7 +16,8 @@ from deerflow.domain.submarine.skill_lifecycle import (
     load_skill_lifecycle_registry,
     utc_timestamp,
 )
-from deerflow.skills.loader import get_skills_root_path, load_skills as load_skills_from_path
+from deerflow.skills.loader import get_skills_root_path
+from deerflow.skills.loader import load_skills as load_skills_from_path
 
 
 def _resolve_skills_root() -> Path:

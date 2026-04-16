@@ -57,16 +57,8 @@ def _write_registry(root: Path) -> None:
                         SkillLifecycleRevision(
                             revision_id="rev-001",
                             published_at="2026-04-04T00:00:00Z",
-                            archive_path=str(
-                                root
-                                / "custom"
-                                / "submarine-result-acceptance"
-                                / ".revisions"
-                                / "rev-001.skill"
-                            ),
-                            published_path=str(
-                                root / "custom" / "submarine-result-acceptance"
-                            ),
+                            archive_path=str(root / "custom" / "submarine-result-acceptance" / ".revisions" / "rev-001.skill"),
+                            published_path=str(root / "custom" / "submarine-result-acceptance"),
                             version_note="Initial publish",
                             binding_targets=[],
                             enabled=True,
@@ -75,16 +67,8 @@ def _write_registry(root: Path) -> None:
                         SkillLifecycleRevision(
                             revision_id="rev-002",
                             published_at="2026-04-04T01:00:00Z",
-                            archive_path=str(
-                                root
-                                / "custom"
-                                / "submarine-result-acceptance"
-                                / ".revisions"
-                                / "rev-002.skill"
-                            ),
-                            published_path=str(
-                                root / "custom" / "submarine-result-acceptance"
-                            ),
+                            archive_path=str(root / "custom" / "submarine-result-acceptance" / ".revisions" / "rev-002.skill"),
+                            published_path=str(root / "custom" / "submarine-result-acceptance"),
                             version_note="Promote acceptance skill",
                             binding_targets=[
                                 SkillLifecycleBinding(
@@ -136,10 +120,7 @@ def test_analyze_skill_relationships_builds_local_skill_graph(tmp_path: Path) ->
         "custom",
         "submarine-result-acceptance",
         "Use when reviewing submarine CFD result acceptance and final report trustworthiness.",
-        (
-            "Compose with submarine-report when the user needs a final delivery decision.\n"
-            "Review mesh, residual, and force summaries before deciding whether the run is trustworthy."
-        ),
+        ("Compose with submarine-report when the user needs a final delivery decision.\nReview mesh, residual, and force summaries before deciding whether the run is trustworthy."),
     )
     _write_skill(
         tmp_path,
@@ -169,12 +150,7 @@ def test_analyze_skill_relationships_builds_local_skill_graph(tmp_path: Path) ->
         "skill-creator",
     }
 
-    assert any(
-        edge.source == "submarine-result-acceptance"
-        and edge.target == "submarine-report"
-        and edge.relationship_type == "depend_on"
-        for edge in graph.relationships
-    )
+    assert any(edge.source == "submarine-result-acceptance" and edge.target == "submarine-report" and edge.relationship_type == "depend_on" for edge in graph.relationships)
     assert any(
         {
             edge.source,
@@ -193,9 +169,7 @@ def test_analyze_skill_relationships_builds_local_skill_graph(tmp_path: Path) ->
         and edge.relationship_type == "compose_with"
         for edge in graph.relationships
     )
-    acceptance_node = next(
-        node for node in graph.skills if node.name == "submarine-result-acceptance"
-    )
+    acceptance_node = next(node for node in graph.skills if node.name == "submarine-result-acceptance")
     assert acceptance_node.revision_count == 2
     assert acceptance_node.binding_count == 1
     assert acceptance_node.rollback_target_id == "rev-001"
@@ -227,11 +201,7 @@ def test_analyze_skill_relationships_can_focus_on_one_skill(tmp_path: Path) -> N
     assert graph.focus is not None
     assert graph.focus.skill_name == "submarine-report"
     assert graph.focus.related_skill_count >= 1
-    focused_item = next(
-        item
-        for item in graph.focus.related_skills
-        if item.skill_name == "submarine-result-acceptance"
-    )
+    focused_item = next(item for item in graph.focus.related_skills if item.skill_name == "submarine-result-acceptance")
     assert focused_item.revision_count == 2
     assert focused_item.binding_count == 1
     assert focused_item.active_revision_id == "rev-002"

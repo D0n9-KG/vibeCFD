@@ -285,9 +285,7 @@ def load_openai_api_credential() -> OpenAIApiCredential | None:
         return None
 
     api_key = str(
-        data.get("OPENAI_API_KEY")
-        or data.get("openai_api_key")
-        or "",
+        data.get("OPENAI_API_KEY") or data.get("openai_api_key") or "",
     ).strip()
     if not api_key:
         logger.debug("Codex auth file exists but no OpenAI API key was found")

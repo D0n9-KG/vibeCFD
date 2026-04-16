@@ -79,12 +79,7 @@ def _resolve_geometry_path(
                 "No .stl geometry file was found in the current thread uploads directory",
             )
         candidates = sorted(
-            (
-                candidate
-                for candidate in uploads_dir.iterdir()
-                if candidate.is_file()
-                and candidate.suffix.lower() in SUPPORTED_GEOMETRY_SUFFIXES
-            ),
+            (candidate for candidate in uploads_dir.iterdir() if candidate.is_file() and candidate.suffix.lower() in SUPPORTED_GEOMETRY_SUFFIXES),
             key=lambda candidate: candidate.stat().st_mtime,
             reverse=True,
         )
@@ -208,35 +203,16 @@ def submarine_solver_dispatch_tool(
                 }
             )
 
-        existing_requirements = (
-            existing_runtime.get("simulation_requirements")
-            or existing_brief.get("simulation_requirements")
-            or {}
-        )
+        existing_requirements = existing_runtime.get("simulation_requirements") or existing_brief.get("simulation_requirements") or {}
         resolved_task_description = resolve_task_summary(
             explicit_task_description=task_description,
             existing_runtime=existing_runtime,
             existing_brief=existing_brief,
             fallback_task_description="Prepare a submarine solver dispatch plan",
         )
-        resolved_task_type = (
-            task_type
-            or existing_runtime.get("task_type")
-            or existing_brief.get("task_type")
-            or "resistance"
-        )
-        resolved_geometry_family_hint = (
-            geometry_family_hint
-            if geometry_family_hint is not None
-            else existing_runtime.get("geometry_family")
-            or existing_brief.get("geometry_family_hint")
-        )
-        resolved_selected_case_id = (
-            selected_case_id
-            if selected_case_id is not None
-            else existing_runtime.get("selected_case_id")
-            or existing_brief.get("selected_case_id")
-        )
+        resolved_task_type = task_type or existing_runtime.get("task_type") or existing_brief.get("task_type") or "resistance"
+        resolved_geometry_family_hint = geometry_family_hint if geometry_family_hint is not None else existing_runtime.get("geometry_family") or existing_brief.get("geometry_family_hint")
+        resolved_selected_case_id = selected_case_id if selected_case_id is not None else existing_runtime.get("selected_case_id") or existing_brief.get("selected_case_id")
         resolved_geometry_input = resolve_bound_geometry_virtual_path(
             thread_id=_get_thread_id(runtime),
             uploads_dir=uploads_dir,
@@ -252,13 +228,7 @@ def submarine_solver_dispatch_tool(
             existing_runtime=existing_runtime,
             existing_brief=existing_brief,
         )
-        explicit_execution_preference = (
-            "execute_now"
-            if execute_now is True
-            else "plan_only"
-            if execute_now is False
-            else None
-        )
+        explicit_execution_preference = "execute_now" if execute_now is True else "plan_only" if execute_now is False else None
         resolved_execution_preference = resolve_execution_preference(
             explicit_preference=explicit_execution_preference,
             existing_runtime=existing_runtime,
@@ -267,13 +237,7 @@ def submarine_solver_dispatch_tool(
         )
         resolved_execute_now = execute_now
         if resolved_execute_now is None:
-            resolved_execute_now = (
-                execute_scientific_studies
-                or (
-                    resolved_confirmation_status == "confirmed"
-                    and resolved_execution_preference == "execute_now"
-                )
-            )
+            resolved_execute_now = execute_scientific_studies or (resolved_confirmation_status == "confirmed" and resolved_execution_preference == "execute_now")
         execute_command = _get_execute_command(runtime) if resolved_execute_now else None
         payload, artifacts = run_solver_dispatch(
             geometry_path=resolved_geometry_path,
@@ -286,106 +250,27 @@ def submarine_solver_dispatch_tool(
             geometry_family_hint=resolved_geometry_family_hint,
             selected_case_id=resolved_selected_case_id,
             geometry_virtual_path=geometry_virtual_path,
-            inlet_velocity_mps=(
-                inlet_velocity_mps
-                if inlet_velocity_mps is not None
-                else existing_requirements.get("inlet_velocity_mps")
-            ),
-            fluid_density_kg_m3=(
-                fluid_density_kg_m3
-                if fluid_density_kg_m3 is not None
-                else existing_requirements.get("fluid_density_kg_m3")
-            ),
-            kinematic_viscosity_m2ps=(
-                kinematic_viscosity_m2ps
-                if kinematic_viscosity_m2ps is not None
-                else existing_requirements.get("kinematic_viscosity_m2ps")
-            ),
-            end_time_seconds=(
-                end_time_seconds
-                if end_time_seconds is not None
-                else existing_requirements.get("end_time_seconds")
-            ),
-            delta_t_seconds=(
-                delta_t_seconds
-                if delta_t_seconds is not None
-                else existing_requirements.get("delta_t_seconds")
-            ),
-            write_interval_steps=(
-                write_interval_steps
-                if write_interval_steps is not None
-                else existing_requirements.get("write_interval_steps")
-            ),
-            requested_outputs=(
-                existing_runtime.get("requested_outputs")
-                or existing_brief.get("requested_outputs")
-            ),
-            custom_variants=(
-                custom_variants
-                if custom_variants is not None
-                else existing_runtime.get("custom_variants")
-                or existing_brief.get("custom_variants")
-            ),
-            geometry_findings=(
-                existing_runtime.get("geometry_findings")
-                or existing_brief.get("geometry_findings")
-            ),
-            scale_assessment=(
-                existing_runtime.get("scale_assessment")
-                or existing_brief.get("scale_assessment")
-            ),
-            reference_value_suggestions=(
-                existing_runtime.get("reference_value_suggestions")
-                or existing_brief.get("reference_value_suggestions")
-            ),
-            clarification_required=bool(
-                existing_runtime.get("clarification_required")
-                or existing_brief.get("clarification_required")
-            ),
-            calculation_plan=(
-                existing_runtime.get("calculation_plan")
-                or existing_brief.get("calculation_plan")
-            ),
-            requires_immediate_confirmation=bool(
-                existing_runtime.get("requires_immediate_confirmation")
-                or existing_brief.get("requires_immediate_confirmation")
-            ),
-            contract_revision=int(
-                contract_revision
-                if contract_revision is not None
-                else existing_runtime.get("contract_revision")
-                or existing_brief.get("contract_revision")
-                or 1
-            ),
-            revision_summary=(
-                revision_summary
-                if revision_summary is not None
-                else existing_runtime.get("revision_summary")
-                or existing_brief.get("revision_summary")
-            ),
-            iteration_mode=(
-                iteration_mode
-                if iteration_mode is not None
-                else existing_runtime.get("iteration_mode")
-                or existing_brief.get("iteration_mode")
-                or "baseline"
-            ),
-            capability_gaps=(
-                existing_runtime.get("capability_gaps")
-                or existing_brief.get("capability_gaps")
-            ),
-            unresolved_decisions=(
-                existing_runtime.get("unresolved_decisions")
-                or existing_brief.get("unresolved_decisions")
-            ),
-            evidence_expectations=(
-                existing_runtime.get("evidence_expectations")
-                or existing_brief.get("evidence_expectations")
-            ),
-            variant_policy=(
-                existing_runtime.get("variant_policy")
-                or existing_brief.get("variant_policy")
-            ),
+            inlet_velocity_mps=(inlet_velocity_mps if inlet_velocity_mps is not None else existing_requirements.get("inlet_velocity_mps")),
+            fluid_density_kg_m3=(fluid_density_kg_m3 if fluid_density_kg_m3 is not None else existing_requirements.get("fluid_density_kg_m3")),
+            kinematic_viscosity_m2ps=(kinematic_viscosity_m2ps if kinematic_viscosity_m2ps is not None else existing_requirements.get("kinematic_viscosity_m2ps")),
+            end_time_seconds=(end_time_seconds if end_time_seconds is not None else existing_requirements.get("end_time_seconds")),
+            delta_t_seconds=(delta_t_seconds if delta_t_seconds is not None else existing_requirements.get("delta_t_seconds")),
+            write_interval_steps=(write_interval_steps if write_interval_steps is not None else existing_requirements.get("write_interval_steps")),
+            requested_outputs=(existing_runtime.get("requested_outputs") or existing_brief.get("requested_outputs")),
+            custom_variants=(custom_variants if custom_variants is not None else existing_runtime.get("custom_variants") or existing_brief.get("custom_variants")),
+            geometry_findings=(existing_runtime.get("geometry_findings") or existing_brief.get("geometry_findings")),
+            scale_assessment=(existing_runtime.get("scale_assessment") or existing_brief.get("scale_assessment")),
+            reference_value_suggestions=(existing_runtime.get("reference_value_suggestions") or existing_brief.get("reference_value_suggestions")),
+            clarification_required=bool(existing_runtime.get("clarification_required") or existing_brief.get("clarification_required")),
+            calculation_plan=(existing_runtime.get("calculation_plan") or existing_brief.get("calculation_plan")),
+            requires_immediate_confirmation=bool(existing_runtime.get("requires_immediate_confirmation") or existing_brief.get("requires_immediate_confirmation")),
+            contract_revision=int(contract_revision if contract_revision is not None else existing_runtime.get("contract_revision") or existing_brief.get("contract_revision") or 1),
+            revision_summary=(revision_summary if revision_summary is not None else existing_runtime.get("revision_summary") or existing_brief.get("revision_summary")),
+            iteration_mode=(iteration_mode if iteration_mode is not None else existing_runtime.get("iteration_mode") or existing_brief.get("iteration_mode") or "baseline"),
+            capability_gaps=(existing_runtime.get("capability_gaps") or existing_brief.get("capability_gaps")),
+            unresolved_decisions=(existing_runtime.get("unresolved_decisions") or existing_brief.get("unresolved_decisions")),
+            evidence_expectations=(existing_runtime.get("evidence_expectations") or existing_brief.get("evidence_expectations")),
+            variant_policy=(existing_runtime.get("variant_policy") or existing_brief.get("variant_policy")),
             solver_command=solver_command,
             execute_now=resolved_execute_now,
             execute_scientific_studies=execute_scientific_studies,
@@ -444,9 +329,7 @@ def submarine_solver_dispatch_tool(
         reference_value_suggestions=payload.get("reference_value_suggestions"),
         clarification_required=bool(payload.get("clarification_required")),
         calculation_plan=payload.get("calculation_plan"),
-        requires_immediate_confirmation=bool(
-            payload.get("requires_immediate_confirmation")
-        ),
+        requires_immediate_confirmation=bool(payload.get("requires_immediate_confirmation")),
         contract_revision=int(payload.get("contract_revision") or 1),
         iteration_mode=str(payload.get("iteration_mode") or "baseline"),
         revision_summary=payload.get("revision_summary"),
@@ -486,9 +369,7 @@ def submarine_solver_dispatch_tool(
             stage_updates=execution_updates,
         ),
         review_status=payload["review_status"],
-        scientific_verification_assessment=payload.get(
-            "scientific_verification_assessment"
-        ),
+        scientific_verification_assessment=payload.get("scientific_verification_assessment"),
         activity_timeline=extend_runtime_timeline(
             existing_runtime,
             build_runtime_event(
@@ -501,10 +382,7 @@ def submarine_solver_dispatch_tool(
         ),
     )
     detail_lines = "\n".join(f"- {artifact}" for artifact in artifacts)
-    message = (
-        f"{payload['summary_zh']}\n"
-        f"已登记 {len(artifacts)} 项研究产物，可在工作区直接查看：\n{detail_lines}"
-    )
+    message = f"{payload['summary_zh']}\n已登记 {len(artifacts)} 项研究产物，可在工作区直接查看：\n{detail_lines}"
     return Command(
         update={
             "artifacts": artifacts,

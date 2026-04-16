@@ -73,11 +73,7 @@ def _resolve_geometry_path(
                 raise ValueError("Geometry path must stay inside the current thread user-data directory") from exc
     else:
         candidates = sorted(
-            (
-                candidate
-                for candidate in uploads_dir.iterdir()
-                if candidate.is_file() and candidate.suffix.lower() in SUPPORTED_GEOMETRY_SUFFIXES
-            ),
+            (candidate for candidate in uploads_dir.iterdir() if candidate.is_file() and candidate.suffix.lower() in SUPPORTED_GEOMETRY_SUFFIXES),
             key=lambda candidate: candidate.stat().st_mtime,
             reverse=True,
         )
@@ -89,9 +85,7 @@ def _resolve_geometry_path(
         raise ValueError(f"Geometry file not found: {geometry_path or resolved}")
 
     if resolved.suffix.lower() not in SUPPORTED_GEOMETRY_SUFFIXES:
-        raise ValueError(
-            f"Only STL (.stl) geometry files are supported in v1; received {resolved.suffix}"
-        )
+        raise ValueError(f"Only STL (.stl) geometry files are supported in v1; received {resolved.suffix}")
 
     return resolved
 
@@ -156,18 +150,10 @@ def submarine_geometry_check_tool(
             explicit_task_description=task_description,
             existing_runtime=existing_runtime,
             existing_brief=existing_brief,
-            fallback_task_description=(
-                task_description
-                or "Inspect the uploaded submarine geometry for CFD readiness"
-            ),
+            fallback_task_description=(task_description or "Inspect the uploaded submarine geometry for CFD readiness"),
         )
         task_description = resolved_task_summary
-        resolved_geometry_family_hint = (
-            geometry_family_hint
-            if geometry_family_hint is not None
-            else (existing_runtime or {}).get("geometry_family")
-            or existing_brief.get("geometry_family_hint")
-        )
+        resolved_geometry_family_hint = geometry_family_hint if geometry_family_hint is not None else (existing_runtime or {}).get("geometry_family") or existing_brief.get("geometry_family_hint")
         resolved_geometry_path = _resolve_geometry_path(runtime, geometry_path)
         result, artifacts = run_geometry_check(
             geometry_path=resolved_geometry_path,
@@ -187,41 +173,22 @@ def submarine_geometry_check_tool(
         existing_runtime=existing_runtime,
         existing_brief=existing_brief,
     )
-    resolved_selected_case_id = (
-        (existing_runtime or {}).get("selected_case_id")
-        or existing_brief.get("selected_case_id")
-    )
+    resolved_selected_case_id = (existing_runtime or {}).get("selected_case_id") or existing_brief.get("selected_case_id")
     selected_case = next(
-        (
-            case
-            for case in result.candidate_cases
-            if case.case_id
-            == resolved_selected_case_id
-        ),
+        (case for case in result.candidate_cases if case.case_id == resolved_selected_case_id),
         None,
     )
     calculation_plan = build_geometry_calculation_plan(
-        existing=(
-            (existing_runtime or {}).get("calculation_plan")
-            or existing_brief.get("calculation_plan")
-        ),
+        existing=((existing_runtime or {}).get("calculation_plan") or existing_brief.get("calculation_plan")),
         reference_value_suggestions=result.reference_value_suggestions,
         selected_case=selected_case,
     )
-    requires_immediate_confirmation = calculation_plan_requires_immediate_confirmation(
-        calculation_plan
-    )
+    requires_immediate_confirmation = calculation_plan_requires_immediate_confirmation(calculation_plan)
     execution_stage_updates = {
         "claude-code-supervisor": "completed",
         "task-intelligence": "completed",
         "geometry-preflight": "completed",
-        "solver-dispatch": (
-            "blocked"
-            if result.review_status == "blocked"
-            else "pending"
-            if result.review_status == "needs_user_confirmation"
-            else "ready"
-        ),
+        "solver-dispatch": ("blocked" if result.review_status == "blocked" else "pending" if result.review_status == "needs_user_confirmation" else "ready"),
     }
     runtime_snapshot = build_runtime_snapshot(
         current_stage="geometry-preflight",
@@ -231,81 +198,37 @@ def submarine_geometry_check_tool(
             explicit_preference=None,
             existing_runtime=existing_runtime or {},
             existing_brief=existing_brief,
-            task_description=(
-                (existing_runtime or {}).get("task_summary")
-                or existing_brief.get("task_description")
-                or task_description
-            ),
+            task_description=((existing_runtime or {}).get("task_summary") or existing_brief.get("task_description") or task_description),
         ),
         task_type=task_type or "resistance",
         geometry_virtual_path=_to_virtual_thread_path(runtime, resolved_geometry_path),
         geometry_family=result.geometry.geometry_family,
         execution_readiness=STL_READY_EXECUTION,
-        selected_case_id=(
-            resolved_selected_case_id
-            or (selected_case.case_id if selected_case is not None else None)
-            or (result.candidate_cases[0].case_id if result.candidate_cases else None)
-        ),
-        simulation_requirements=(
-            (existing_runtime or {}).get("simulation_requirements")
-            or existing_brief.get("simulation_requirements")
-        ),
+        selected_case_id=(resolved_selected_case_id or (selected_case.case_id if selected_case is not None else None) or (result.candidate_cases[0].case_id if result.candidate_cases else None)),
+        simulation_requirements=((existing_runtime or {}).get("simulation_requirements") or existing_brief.get("simulation_requirements")),
         geometry_findings=result.geometry_findings,
         scale_assessment=result.scale_assessment,
         reference_value_suggestions=result.reference_value_suggestions,
         clarification_required=result.clarification_required,
         calculation_plan=calculation_plan,
         requires_immediate_confirmation=requires_immediate_confirmation,
-        contract_revision=int(
-            (existing_runtime or {}).get("contract_revision")
-            or existing_brief.get("contract_revision")
-            or 1
-        ),
-        iteration_mode=str(
-            (existing_runtime or {}).get("iteration_mode")
-            or existing_brief.get("iteration_mode")
-            or "baseline"
-        ),
-        revision_summary=(
-            (existing_runtime or {}).get("revision_summary")
-            or existing_brief.get("revision_summary")
-        ),
-        capability_gaps=(
-            (existing_runtime or {}).get("capability_gaps")
-            or existing_brief.get("capability_gaps")
-        ),
-        unresolved_decisions=(
-            (existing_runtime or {}).get("unresolved_decisions")
-            or existing_brief.get("unresolved_decisions")
-        ),
-        evidence_expectations=(
-            (existing_runtime or {}).get("evidence_expectations")
-            or existing_brief.get("evidence_expectations")
-        ),
-        variant_policy=(
-            (existing_runtime or {}).get("variant_policy")
-            or existing_brief.get("variant_policy")
-        ),
+        contract_revision=int((existing_runtime or {}).get("contract_revision") or existing_brief.get("contract_revision") or 1),
+        iteration_mode=str((existing_runtime or {}).get("iteration_mode") or existing_brief.get("iteration_mode") or "baseline"),
+        revision_summary=((existing_runtime or {}).get("revision_summary") or existing_brief.get("revision_summary")),
+        capability_gaps=((existing_runtime or {}).get("capability_gaps") or existing_brief.get("capability_gaps")),
+        unresolved_decisions=((existing_runtime or {}).get("unresolved_decisions") or existing_brief.get("unresolved_decisions")),
+        evidence_expectations=((existing_runtime or {}).get("evidence_expectations") or existing_brief.get("evidence_expectations")),
+        variant_policy=((existing_runtime or {}).get("variant_policy") or existing_brief.get("variant_policy")),
         recommended_actions=result.recommended_actions,
-        requested_outputs=(
-            (existing_runtime or {}).get("requested_outputs")
-            or existing_brief.get("requested_outputs")
-        ),
-        output_delivery_plan=(
-            (existing_runtime or {}).get("output_delivery_plan")
-            or existing_brief.get("output_delivery_plan")
-        ),
+        requested_outputs=((existing_runtime or {}).get("requested_outputs") or existing_brief.get("requested_outputs")),
+        output_delivery_plan=((existing_runtime or {}).get("output_delivery_plan") or existing_brief.get("output_delivery_plan")),
         runtime_summary=result.summary_zh,
         next_recommended_stage=result.next_recommended_stage,
         report_virtual_path=result.report_virtual_path,
         artifact_virtual_paths=result.artifact_virtual_paths,
         request_virtual_path=(existing_runtime or {}).get("request_virtual_path"),
-        execution_log_virtual_path=(existing_runtime or {}).get(
-            "execution_log_virtual_path"
-        ),
-        solver_results_virtual_path=(existing_runtime or {}).get(
-            "solver_results_virtual_path"
-        ),
+        execution_log_virtual_path=(existing_runtime or {}).get("execution_log_virtual_path"),
+        solver_results_virtual_path=(existing_runtime or {}).get("solver_results_virtual_path"),
         execution_plan=build_execution_plan(
             confirmation_status=resolved_confirmation_status,
             existing_plan=(existing_runtime or {}).get("execution_plan"),
@@ -324,10 +247,7 @@ def submarine_geometry_check_tool(
         ),
     )
     detail_lines = "\n".join(f"- {artifact}" for artifact in artifacts)
-    message = (
-        f"{result.summary_zh}\n"
-        f"已登记 {len(artifacts)} 项研究产物，可在工作区直接查看：\n{detail_lines}"
-    )
+    message = f"{result.summary_zh}\n已登记 {len(artifacts)} 项研究产物，可在工作区直接查看：\n{detail_lines}"
     return Command(
         update={
             "artifacts": artifacts,

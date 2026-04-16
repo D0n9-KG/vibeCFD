@@ -1,11 +1,11 @@
 import json
 
 from deerflow.domain.submarine.skill_lifecycle import (
-    SkillLifecycleRevision,
-    append_skill_lifecycle_revision,
     SkillLifecycleBinding,
     SkillLifecycleRecord,
     SkillLifecycleRegistry,
+    SkillLifecycleRevision,
+    append_skill_lifecycle_revision,
     get_next_skill_revision_id,
     get_skill_lifecycle_registry_path,
     get_skill_revision_archive_path,
@@ -129,9 +129,7 @@ def test_merge_skill_lifecycle_record_syncs_bindings_and_publish_metadata(tmp_pa
     assert merged.bindings[0].role_id == "scientific-verification"
     assert merged.last_published_at == "2026-04-04T01:00:00Z"
     assert merged.last_published_from_thread_id == "thread-2"
-    assert merged.published_path == str(
-        tmp_path / "skills" / "custom" / "submarine-result-acceptance"
-    )
+    assert merged.published_path == str(tmp_path / "skills" / "custom" / "submarine-result-acceptance")
 
 
 def test_revision_helpers_generate_hidden_archive_paths_and_rollback_targets(
@@ -157,9 +155,7 @@ def test_revision_helpers_generate_hidden_archive_paths_and_rollback_targets(
         "rev-001",
         skills_root=tmp_path / "skills",
     )
-    assert revision_one_path.as_posix().endswith(
-        "skills/custom/submarine-result-acceptance/.revisions/rev-001.skill"
-    )
+    assert revision_one_path.as_posix().endswith("skills/custom/submarine-result-acceptance/.revisions/rev-001.skill")
     assert get_next_skill_revision_id(record) == "rev-001"
 
     record = append_skill_lifecycle_revision(
@@ -168,9 +164,7 @@ def test_revision_helpers_generate_hidden_archive_paths_and_rollback_targets(
             revision_id="rev-001",
             published_at="2026-04-04T00:00:00Z",
             archive_path=str(revision_one_path),
-            published_path=str(
-                tmp_path / "skills" / "custom" / "submarine-result-acceptance"
-            ),
+            published_path=str(tmp_path / "skills" / "custom" / "submarine-result-acceptance"),
             version_note="Initial publish",
             binding_targets=[],
             enabled=True,
@@ -193,9 +187,7 @@ def test_revision_helpers_generate_hidden_archive_paths_and_rollback_targets(
                     skills_root=tmp_path / "skills",
                 )
             ),
-            published_path=str(
-                tmp_path / "skills" / "custom" / "submarine-result-acceptance"
-            ),
+            published_path=str(tmp_path / "skills" / "custom" / "submarine-result-acceptance"),
             version_note="Second publish",
             binding_targets=[
                 SkillLifecycleBinding(

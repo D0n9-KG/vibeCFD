@@ -82,9 +82,7 @@ def test_submarine_geometry_check_generates_thread_artifacts(tmp_path, monkeypat
         "review_status": "ready_for_supervisor",
         "next_recommended_stage": "geometry-preflight",
         "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/runtime-demo/cfd-design-brief.md",
-        "artifact_virtual_paths": [
-            "/mnt/user-data/outputs/submarine/design-brief/runtime-demo/cfd-design-brief.json"
-        ],
+        "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/design-brief/runtime-demo/cfd-design-brief.json"],
         "execution_plan": [
             {
                 "role_id": "claude-code-supervisor",
@@ -249,9 +247,7 @@ def test_submarine_geometry_check_artifacts_use_readable_utf8_copy(tmp_path, mon
     assert "检测到 STL 网格几何。" in markdown
 
 
-def test_submarine_geometry_check_summary_localizes_recommended_case_title(
-    tmp_path, monkeypatch
-):
+def test_submarine_geometry_check_summary_localizes_recommended_case_title(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-case-title-copy"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -324,9 +320,7 @@ def test_submarine_geometry_check_updates_runtime_state(tmp_path, monkeypatch):
     assert runtime_state["activity_timeline"][0]["actor"] == "geometry-preflight"
 
 
-def test_submarine_geometry_check_requires_user_confirmation_before_preflight(
-    tmp_path, monkeypatch
-):
+def test_submarine_geometry_check_requires_user_confirmation_before_preflight(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-awaiting-confirmation"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -349,9 +343,7 @@ def test_submarine_geometry_check_requires_user_confirmation_before_preflight(
         "review_status": "needs_user_confirmation",
         "next_recommended_stage": "user-confirmation",
         "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/awaiting-confirmation/cfd-design-brief.md",
-        "artifact_virtual_paths": [
-            "/mnt/user-data/outputs/submarine/design-brief/awaiting-confirmation/cfd-design-brief.json"
-        ],
+        "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/design-brief/awaiting-confirmation/cfd-design-brief.json"],
     }
 
     result = tool_module.submarine_geometry_check_tool.func(
@@ -363,13 +355,7 @@ def test_submarine_geometry_check_requires_user_confirmation_before_preflight(
         tool_call_id="tc-geometry-awaiting-confirmation",
     )
 
-    geometry_check_path = (
-        outputs_dir
-        / "submarine"
-        / "geometry-check"
-        / "awaiting-confirmation"
-        / "geometry-check.json"
-    )
+    geometry_check_path = outputs_dir / "submarine" / "geometry-check" / "awaiting-confirmation" / "geometry-check.json"
 
     assert not geometry_check_path.exists()
     assert "messages" in result.update
@@ -384,9 +370,7 @@ def test_submarine_geometry_check_requires_user_confirmation_before_preflight(
     assert "submarine_geometry_check" not in message
 
 
-def test_submarine_geometry_check_allows_plan_only_preflight_before_solver_confirmation(
-    tmp_path, monkeypatch
-):
+def test_submarine_geometry_check_allows_plan_only_preflight_before_solver_confirmation(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-plan-only-preflight"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -410,9 +394,7 @@ def test_submarine_geometry_check_allows_plan_only_preflight_before_solver_confi
         "review_status": "needs_user_confirmation",
         "next_recommended_stage": "user-confirmation",
         "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/plan-only-preflight/cfd-design-brief.md",
-        "artifact_virtual_paths": [
-            "/mnt/user-data/outputs/submarine/design-brief/plan-only-preflight/cfd-design-brief.json"
-        ],
+        "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/design-brief/plan-only-preflight/cfd-design-brief.json"],
     }
 
     result = tool_module.submarine_geometry_check_tool.func(
@@ -424,13 +406,7 @@ def test_submarine_geometry_check_allows_plan_only_preflight_before_solver_confi
         tool_call_id="tc-geometry-plan-only-preflight",
     )
 
-    geometry_check_path = (
-        outputs_dir
-        / "submarine"
-        / "geometry-check"
-        / "plan-only-preflight"
-        / "geometry-check.json"
-    )
+    geometry_check_path = outputs_dir / "submarine" / "geometry-check" / "plan-only-preflight" / "geometry-check.json"
 
     assert geometry_check_path.exists()
     assert "artifacts" in result.update
@@ -439,12 +415,8 @@ def test_submarine_geometry_check_allows_plan_only_preflight_before_solver_confi
     assert "已登记" in result.update["messages"][0].content
 
 
-def test_submarine_geometry_check_preserves_confirmed_brief_context(
-    tmp_path, monkeypatch
-):
-    design_brief_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_design_brief_tool"
-    )
+def test_submarine_geometry_check_preserves_confirmed_brief_context(tmp_path, monkeypatch):
+    design_brief_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_design_brief_tool")
 
     paths = Paths(tmp_path)
     thread_id = "thread-confirmed-geometry-preflight"
@@ -479,15 +451,7 @@ def test_submarine_geometry_check_preserves_confirmed_brief_context(
         tool_call_id="tc-design-brief-confirmed-geometry-preflight",
     )
 
-    design_brief_payload = json.loads(
-        (
-            outputs_dir
-            / "submarine"
-            / "design-brief"
-            / "confirmed-geometry-preflight"
-            / "cfd-design-brief.json"
-        ).read_text(encoding="utf-8")
-    )
+    design_brief_payload = json.loads((outputs_dir / "submarine" / "design-brief" / "confirmed-geometry-preflight" / "cfd-design-brief.json").read_text(encoding="utf-8"))
 
     runtime.state["artifacts"] = design_brief_result.update["artifacts"]
     runtime.state["submarine_runtime"] = {}
@@ -514,9 +478,7 @@ def test_submarine_geometry_check_preserves_confirmed_brief_context(
     assert runtime_state["execution_plan"][3]["status"] == "pending"
 
 
-def test_submarine_geometry_check_preserves_iterative_contract_context(
-    tmp_path, monkeypatch
-):
+def test_submarine_geometry_check_preserves_iterative_contract_context(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-geometry-iterative-context"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -601,6 +563,4 @@ def test_submarine_geometry_check_preserves_iterative_contract_context(
 
     assert runtime_state["contract_revision"] == 4
     assert runtime_state["iteration_mode"] == "derive_variant"
-    assert runtime_state["revision_summary"] == (
-        "Add a wake-focused geometry-preflight pass."
-    )
+    assert runtime_state["revision_summary"] == ("Add a wake-focused geometry-preflight pass.")

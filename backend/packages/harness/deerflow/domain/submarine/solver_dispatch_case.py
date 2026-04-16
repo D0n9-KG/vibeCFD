@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
-import struct
 import shutil
+import struct
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -29,10 +29,7 @@ def _workspace_virtual_path(
     case_relative_dir: str = "",
 ) -> str:
     relative = f"/{case_relative_dir.strip('/')}" if case_relative_dir else ""
-    base = (
-        f"{WORKSPACE_VIRTUAL_ROOT}/submarine/solver-dispatch/"
-        f"{run_dir_name}{relative}/openfoam-case"
-    )
+    base = f"{WORKSPACE_VIRTUAL_ROOT}/submarine/solver-dispatch/{run_dir_name}{relative}/openfoam-case"
     return f"{base}/{suffix}".rstrip("/") if suffix else base
 
 
@@ -130,18 +127,13 @@ def _scale_ascii_stl_content(content: str, scale_factor: float) -> str:
             continue
 
         try:
-            scaled_coordinates = [
-                _format_stl_float(float(parts[index]) * scale_factor)
-                for index in range(1, 4)
-            ]
+            scaled_coordinates = [_format_stl_float(float(parts[index]) * scale_factor) for index in range(1, 4)]
         except ValueError:
             scaled_lines.append(raw_line)
             continue
 
         leading_whitespace = raw_line[: len(raw_line) - len(stripped_line)]
-        scaled_lines.append(
-            f"{leading_whitespace}vertex {' '.join(scaled_coordinates)}"
-        )
+        scaled_lines.append(f"{leading_whitespace}vertex {' '.join(scaled_coordinates)}")
 
     scaled_content = "\n".join(scaled_lines)
     if content.endswith(("\n", "\r\n")):
@@ -205,11 +197,7 @@ def resolve_simulation_requirements(
     requirements = {
         "inlet_velocity_mps": inlet_velocity_mps if inlet_velocity_mps is not None else DEFAULT_INLET_VELOCITY_MPS,
         "fluid_density_kg_m3": fluid_density_kg_m3 if fluid_density_kg_m3 is not None else DEFAULT_FLUID_DENSITY_KG_M3,
-        "kinematic_viscosity_m2ps": (
-            kinematic_viscosity_m2ps
-            if kinematic_viscosity_m2ps is not None
-            else DEFAULT_KINEMATIC_VISCOSITY_M2PS
-        ),
+        "kinematic_viscosity_m2ps": (kinematic_viscosity_m2ps if kinematic_viscosity_m2ps is not None else DEFAULT_KINEMATIC_VISCOSITY_M2PS),
         "end_time_seconds": end_time_seconds if end_time_seconds is not None else DEFAULT_END_TIME_SECONDS,
         "delta_t_seconds": delta_t_seconds if delta_t_seconds is not None else DEFAULT_DELTA_T_SECONDS,
         "write_interval_steps": write_interval_steps if write_interval_steps is not None else DEFAULT_WRITE_INTERVAL_STEPS,
@@ -883,9 +871,7 @@ def write_openfoam_case_scaffold(
     reference_length_m = _reference_length_m(geometry, reference_inputs)
     reference_area_m2 = _reference_area_m2(geometry, reference_inputs)
     requires_conversion = geometry_path.suffix.lower() != ".stl"
-    execution_readiness = (
-        GEOMETRY_CONVERSION_REQUIRED if requires_conversion else STL_READY_EXECUTION
-    )
+    execution_readiness = GEOMETRY_CONVERSION_REQUIRED if requires_conversion else STL_READY_EXECUTION
 
     write_unix_text(
         case_dir / "0" / "U",
@@ -934,11 +920,7 @@ def write_openfoam_case_scaffold(
         )
     else:
         tri_surface_path = case_dir_fs / "constant" / "triSurface" / geometry_path.name
-        if (
-            geometry_scale_factor is not None
-            and geometry_scale_factor > 0
-            and abs(geometry_scale_factor - 1.0) > 1e-9
-        ):
+        if geometry_scale_factor is not None and geometry_scale_factor > 0 and abs(geometry_scale_factor - 1.0) > 1e-9:
             _copy_scaled_stl(
                 source_path=geometry_path,
                 destination_path=tri_surface_path,
@@ -975,16 +957,8 @@ def write_openfoam_case_scaffold(
         "solver_application": application,
         "reference_length_m": reference_length_m,
         "reference_area_m2": reference_area_m2,
-        "reference_value_approval_state": (
-            str(reference_inputs.get("approval_state"))
-            if reference_inputs and reference_inputs.get("approval_state") is not None
-            else None
-        ),
-        "reference_value_justification": (
-            str(reference_inputs.get("justification"))
-            if reference_inputs and reference_inputs.get("justification") is not None
-            else None
-        ),
+        "reference_value_approval_state": (str(reference_inputs.get("approval_state")) if reference_inputs and reference_inputs.get("approval_state") is not None else None),
+        "reference_value_justification": (str(reference_inputs.get("justification")) if reference_inputs and reference_inputs.get("justification") is not None else None),
         "inlet_velocity_mps": float(simulation_requirements["inlet_velocity_mps"]),
         "fluid_density_kg_m3": float(simulation_requirements["fluid_density_kg_m3"]),
         "kinematic_viscosity_m2ps": float(simulation_requirements["kinematic_viscosity_m2ps"]),
@@ -994,6 +968,7 @@ def write_openfoam_case_scaffold(
         "mesh_scale_factor": mesh_scale_factor,
         "domain_extent_multiplier": domain_extent_multiplier,
     }
+
 
 __all__ = [
     "DEFAULT_DELTA_T_SECONDS",

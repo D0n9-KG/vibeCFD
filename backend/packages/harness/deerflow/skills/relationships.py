@@ -157,28 +157,18 @@ def _tokenize(*parts: str) -> set[str]:
 
 
 def _shared_domain_tokens(tokens_a: set[str], tokens_b: set[str]) -> set[str]:
-    return {
-        token
-        for token in (tokens_a & tokens_b)
-        if token not in STAGE_TOKENS
-    }
+    return {token for token in (tokens_a & tokens_b) if token not in STAGE_TOKENS}
 
 
 def _infer_stage(tokens: set[str]) -> str | None:
-    stage_scores = {
-        stage: len(tokens & keywords)
-        for stage, keywords in STAGE_KEYWORDS.items()
-    }
+    stage_scores = {stage: len(tokens & keywords) for stage, keywords in STAGE_KEYWORDS.items()}
     stage, score = max(stage_scores.items(), key=lambda item: item[1])
     return stage if score > 0 else None
 
 
 def _contains_skill_reference(content: str, other_skill_name: str) -> bool:
     lower_content = content.lower()
-    return (
-        other_skill_name.lower() in lower_content
-        or other_skill_name.lower().replace("-", " ") in lower_content
-    )
+    return other_skill_name.lower() in lower_content or other_skill_name.lower().replace("-", " ") in lower_content
 
 
 def _build_skill_governance_metadata(
@@ -236,22 +226,10 @@ def analyze_skill_relationships(
     loaded_skills.sort(key=lambda skill: skill.name)
     lifecycle_registry = load_skill_lifecycle_registry(skills_root=skills_path)
 
-    token_map = {
-        skill.name: _tokenize(skill.name, skill.description)
-        for skill in loaded_skills
-    }
-    content_map = {
-        skill.name: skill.skill_file.read_text(encoding="utf-8")
-        for skill in loaded_skills
-    }
-    stage_map = {
-        skill.name: _infer_stage(token_map[skill.name])
-        for skill in loaded_skills
-    }
-    governance_map = {
-        skill.name: _build_skill_governance_metadata(skill, lifecycle_registry)
-        for skill in loaded_skills
-    }
+    token_map = {skill.name: _tokenize(skill.name, skill.description) for skill in loaded_skills}
+    content_map = {skill.name: skill.skill_file.read_text(encoding="utf-8") for skill in loaded_skills}
+    stage_map = {skill.name: _infer_stage(token_map[skill.name]) for skill in loaded_skills}
+    governance_map = {skill.name: _build_skill_governance_metadata(skill, lifecycle_registry) for skill in loaded_skills}
 
     relationships: list[SkillRelationshipEdge] = []
     related_counts: Counter[str] = Counter()
@@ -265,10 +243,7 @@ def analyze_skill_relationships(
         overlap_score = len(overlap) / min_size
 
         if len(overlap) >= 2 and overlap_score >= 0.28:
-            reason = (
-                "Shared task language: "
-                + ", ".join(sorted(overlap)[:5])
-            )
+            reason = "Shared task language: " + ", ".join(sorted(overlap)[:5])
             relationships.append(
                 SkillRelationshipEdge(
                     source=source.name,
@@ -283,16 +258,8 @@ def analyze_skill_relationships(
 
         source_stage = stage_map[source.name]
         target_stage = stage_map[target.name]
-        if (
-            source_stage
-            and target_stage
-            and source_stage != target_stage
-            and len(shared_domain) >= 1
-        ):
-            reason = (
-                f"Shared domain ({', '.join(sorted(shared_domain)[:4])}) with complementary stages "
-                f"{source_stage} → {target_stage}"
-            )
+        if source_stage and target_stage and source_stage != target_stage and len(shared_domain) >= 1:
+            reason = f"Shared domain ({', '.join(sorted(shared_domain)[:4])}) with complementary stages {source_stage} → {target_stage}"
             relationships.append(
                 SkillRelationshipEdge(
                     source=source.name,
@@ -434,17 +401,10 @@ def recommend_skills_for_subagent(
         return None
 
     graph = analyze_skill_relationships(skills_path=skills_path)
-    enabled_lookup = {
-        skill.name: skill
-        for skill in loaded_skills
-    }
+    enabled_lookup = {skill.name: skill for skill in loaded_skills}
     node_lookup = {node.name: node for node in graph.skills if node.enabled}
 
-    selected = {
-        node.name
-        for node in graph.skills
-        if node.enabled and node.stage in target_stages
-    }
+    selected = {node.name for node in graph.skills if node.enabled and node.stage in target_stages}
     if not selected:
         return None
 

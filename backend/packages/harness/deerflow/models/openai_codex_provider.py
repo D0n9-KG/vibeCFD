@@ -1,4 +1,4 @@
-﻿"""Custom OpenAI Codex provider using ChatGPT Codex Responses API.
+"""Custom OpenAI Codex provider using ChatGPT Codex Responses API.
 
 Uses Codex CLI OAuth tokens with chatgpt.com/backend-api/codex/responses endpoint.
 This is the same endpoint that the Codex CLI uses internally.
@@ -374,14 +374,8 @@ class CodexChatModel(BaseChatModel):
         response = self._call_codex_api(messages, tools=tools)
         result = self._parse_response(response)
         message = result.generations[0].message
-        if (
-            not self._normalize_content(message.content).strip()
-            and not message.tool_calls
-            and not message.invalid_tool_calls
-        ):
-            result.generations[0].message = message.model_copy(
-                update={"content": self._build_empty_response_fallback(messages)}
-            )
+        if not self._normalize_content(message.content).strip() and not message.tool_calls and not message.invalid_tool_calls:
+            result.generations[0].message = message.model_copy(update={"content": self._build_empty_response_fallback(messages)})
         return result
 
     def bind_tools(self, tools: list, **kwargs: Any) -> Any:

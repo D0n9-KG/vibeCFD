@@ -30,9 +30,7 @@ def test_load_case_library_returns_rankable_cases():
 def test_submarine_case_library_exposes_case_acceptance_profiles():
     library = load_case_library()
 
-    profile = library.case_index[
-        "darpa_suboff_bare_hull_resistance"
-    ].acceptance_profile
+    profile = library.case_index["darpa_suboff_bare_hull_resistance"].acceptance_profile
 
     assert profile is not None
     assert profile.profile_id == "darpa-suboff-resistance-baseline"
@@ -168,14 +166,8 @@ def test_submarine_domain_exposes_experiment_run_records():
         run_role="scientific_study_variant",
         study_type="mesh_independence",
         variant_id="coarse",
-        solver_results_virtual_path=(
-            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/"
-            "mesh-independence/coarse/solver-results.json"
-        ),
-        run_record_virtual_path=(
-            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/"
-            "mesh-independence/coarse/run-record.json"
-        ),
+        solver_results_virtual_path=("/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/solver-results.json"),
+        run_record_virtual_path=("/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/run-record.json"),
         execution_status="completed",
     )
 
@@ -253,9 +245,7 @@ def test_submarine_domain_exposes_research_evidence_summary_model():
         passed_evidence=["Scientific verification requirements passed."],
         benchmark_highlights=[],
         provenance_highlights=["Experiment manifest and compare summary are available."],
-        artifact_virtual_paths=[
-            "/mnt/user-data/outputs/submarine/reports/demo/research-evidence-summary.json"
-        ],
+        artifact_virtual_paths=["/mnt/user-data/outputs/submarine/reports/demo/research-evidence-summary.json"],
     )
 
     assert summary.readiness_status == "verified_but_not_validated"
@@ -307,9 +297,7 @@ def test_submarine_domain_builds_research_evidence_summary_semantics():
             {
                 "output_id": "drag_coefficient",
                 "delivery_status": "delivered",
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"],
             }
         ],
         artifact_virtual_paths=[
@@ -348,9 +336,7 @@ def test_submarine_domain_builds_research_evidence_summary_semantics():
         scientific_study_summary={
             "study_execution_status": "completed",
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
-            "artifact_virtual_paths": [
-                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
-            ],
+            "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"],
             "workflow_status": "completed",
         },
         provenance_summary={
@@ -370,9 +356,7 @@ def test_submarine_domain_builds_research_evidence_summary_semantics():
             {
                 "output_id": "drag_coefficient",
                 "delivery_status": "delivered",
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"],
             }
         ],
         artifact_virtual_paths=[
@@ -458,9 +442,7 @@ def test_submarine_domain_builds_research_evidence_summary_semantics():
                 "artifact_virtual_paths": [],
             }
         ],
-        artifact_virtual_paths=[
-            "/mnt/user-data/outputs/submarine/reports/demo/final-report.json"
-        ],
+        artifact_virtual_paths=["/mnt/user-data/outputs/submarine/reports/demo/final-report.json"],
     )
     assert validated_with_gaps["validation_status"] == "validated"
     assert validated_with_gaps["provenance_status"] == "partial"
@@ -545,9 +527,7 @@ def test_submarine_domain_builds_scientific_supervisor_gate_semantics():
     assert verified_only_gate["allowed_claim_level"] == "verified_but_not_validated"
     assert verified_only_gate["recommended_stage"] == "supervisor-review"
     assert verified_only_gate["remediation_stage"] == "solver-dispatch"
-    assert verified_only_gate["advisory_notes"] == [
-        "No applicable benchmark target was available for this run."
-    ]
+    assert verified_only_gate["advisory_notes"] == ["No applicable benchmark target was available for this run."]
 
     validated_with_gaps_gate = supervision_module.build_scientific_supervisor_gate(
         research_evidence_summary={
@@ -563,9 +543,7 @@ def test_submarine_domain_builds_scientific_supervisor_gate_semantics():
     assert validated_with_gaps_gate["allowed_claim_level"] == "validated_with_gaps"
     assert validated_with_gaps_gate["recommended_stage"] == "supervisor-review"
     assert validated_with_gaps_gate["remediation_stage"] == "result-reporting"
-    assert validated_with_gaps_gate["advisory_notes"] == [
-        "Scientific evidence is validated, but reporting and provenance gaps still limit the claim level."
-    ]
+    assert validated_with_gaps_gate["advisory_notes"] == ["Scientific evidence is validated, but reporting and provenance gaps still limit the claim level."]
 
     blocked_gate = supervision_module.build_scientific_supervisor_gate(
         research_evidence_summary={
@@ -594,20 +572,12 @@ def test_submarine_domain_builds_scientific_remediation_plan_semantics():
         },
         research_evidence_summary={
             "readiness_status": "blocked",
-            "evidence_gaps": [
-                "Scientific verification study evidence is incomplete."
-            ],
+            "evidence_gaps": ["Scientific verification study evidence is incomplete."],
         },
-        scientific_verification_assessment={
-            "missing_evidence": [
-                "verification-mesh-independence.json is missing."
-            ]
-        },
+        scientific_verification_assessment={"missing_evidence": ["verification-mesh-independence.json is missing."]},
         scientific_study_summary={
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
-            "artifact_virtual_paths": [
-                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-mesh-independence.json"
-            ],
+            "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-mesh-independence.json"],
             "studies": [
                 {
                     "study_type": "mesh_independence",
@@ -634,9 +604,7 @@ def test_submarine_domain_builds_scientific_remediation_plan_semantics():
         research_evidence_summary={
             "readiness_status": "verified_but_not_validated",
             "validation_status": "missing_validation_reference",
-            "evidence_gaps": [
-                "No applicable benchmark target was available for this run."
-            ],
+            "evidence_gaps": ["No applicable benchmark target was available for this run."],
         },
         scientific_verification_assessment={"missing_evidence": []},
         scientific_study_summary={"studies": []},
@@ -681,9 +649,7 @@ def test_submarine_domain_prioritizes_baseline_rerun_before_scientific_studies_w
         },
         research_evidence_summary={
             "readiness_status": "blocked",
-            "evidence_gaps": [
-                "Final residual threshold: residual summary is unavailable for this run."
-            ],
+            "evidence_gaps": ["Final residual threshold: residual summary is unavailable for this run."],
         },
         scientific_verification_assessment={
             "missing_evidence": [
@@ -714,9 +680,7 @@ def test_submarine_domain_prioritizes_baseline_rerun_before_scientific_studies_w
         },
         scientific_study_summary={
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
-            "artifact_virtual_paths": [
-                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
-            ],
+            "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"],
             "studies": [
                 {
                     "study_type": "mesh_independence",
@@ -731,10 +695,7 @@ def test_submarine_domain_prioritizes_baseline_rerun_before_scientific_studies_w
     assert remediation_plan["actions"][0]["action_id"] == "rerun-current-baseline"
     assert remediation_plan["actions"][0]["owner_stage"] == "solver-dispatch"
     assert remediation_plan["actions"][0]["execution_mode"] == "auto_executable"
-    assert any(
-        action["action_id"] == "execute-scientific-studies"
-        for action in remediation_plan["actions"][1:]
-    )
+    assert any(action["action_id"] == "execute-scientific-studies" for action in remediation_plan["actions"][1:])
 
 
 def test_submarine_domain_does_not_infer_baseline_rerun_from_freeform_study_gap_text_alone():
@@ -749,20 +710,12 @@ def test_submarine_domain_does_not_infer_baseline_rerun_from_freeform_study_gap_
         },
         research_evidence_summary={
             "readiness_status": "blocked",
-            "evidence_gaps": [
-                "Mesh independence compare coverage is incomplete."
-            ],
+            "evidence_gaps": ["Mesh independence compare coverage is incomplete."],
         },
-        scientific_verification_assessment={
-            "missing_evidence": [
-                "Mesh independence compare coverage still lacks Cd delta and residual trace alignment."
-            ]
-        },
+        scientific_verification_assessment={"missing_evidence": ["Mesh independence compare coverage still lacks Cd delta and residual trace alignment."]},
         scientific_study_summary={
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
-            "artifact_virtual_paths": [
-                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
-            ],
+            "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"],
             "studies": [
                 {
                     "study_type": "mesh_independence",
@@ -775,10 +728,7 @@ def test_submarine_domain_does_not_infer_baseline_rerun_from_freeform_study_gap_
     )
 
     assert remediation_plan["actions"][0]["action_id"] == "execute-scientific-studies"
-    assert not any(
-        action["action_id"] == "rerun-current-baseline"
-        for action in remediation_plan["actions"]
-    )
+    assert not any(action["action_id"] == "rerun-current-baseline" for action in remediation_plan["actions"])
 
 
 def test_submarine_domain_prefers_study_followup_once_baseline_residual_failure_has_observed_evidence():
@@ -793,14 +743,10 @@ def test_submarine_domain_prefers_study_followup_once_baseline_residual_failure_
         },
         research_evidence_summary={
             "readiness_status": "blocked",
-            "evidence_gaps": [
-                "Final residual threshold: observed 0.072008 exceeds limit 0.001000."
-            ],
+            "evidence_gaps": ["Final residual threshold: observed 0.072008 exceeds limit 0.001000."],
         },
         scientific_verification_assessment={
-            "missing_evidence": [
-                "Mesh independence study: evidence artifact exists, but its verification status is missing or unsupported."
-            ],
+            "missing_evidence": ["Mesh independence study: evidence artifact exists, but its verification status is missing or unsupported."],
             "requirements": [
                 {
                     "requirement_id": "final_residual_threshold",
@@ -820,9 +766,7 @@ def test_submarine_domain_prefers_study_followup_once_baseline_residual_failure_
         },
         scientific_study_summary={
             "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
-            "artifact_virtual_paths": [
-                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
-            ],
+            "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"],
             "studies": [
                 {
                     "study_type": "mesh_independence",
@@ -835,10 +779,7 @@ def test_submarine_domain_prefers_study_followup_once_baseline_residual_failure_
     )
 
     assert remediation_plan["actions"][0]["action_id"] == "execute-scientific-studies"
-    assert not any(
-        action["action_id"] == "rerun-current-baseline"
-        for action in remediation_plan["actions"]
-    )
+    assert not any(action["action_id"] == "rerun-current-baseline" for action in remediation_plan["actions"])
 
 
 def test_submarine_domain_builds_scientific_remediation_handoff_semantics():
@@ -974,9 +915,7 @@ def test_submarine_domain_builds_baseline_rerun_handoff_with_baseline_lineage():
                 }
             ],
         },
-        artifact_virtual_paths=[
-            "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"
-        ],
+        artifact_virtual_paths=["/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"],
     )
 
     assert handoff["handoff_status"] == "ready_for_auto_followup"
@@ -990,9 +929,7 @@ def test_submarine_domain_builds_baseline_rerun_handoff_with_baseline_lineage():
 
 
 def test_submarine_domain_exposes_figure_manifest_contract():
-    figure_delivery_module = importlib.import_module(
-        "deerflow.domain.submarine.figure_delivery"
-    )
+    figure_delivery_module = importlib.import_module("deerflow.domain.submarine.figure_delivery")
 
     manifest = figure_delivery_module.build_figure_manifest(
         run_dir_name="demo-run",
@@ -1003,9 +940,7 @@ def test_submarine_domain_exposes_figure_manifest_contract():
                 "title": "Surface Pressure Figure",
                 "caption": "Surface pressure rendered from the latest exported samples.",
                 "render_status": "rendered",
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo-run/surface-pressure.png"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo-run/surface-pressure.png"],
             }
         ],
     )

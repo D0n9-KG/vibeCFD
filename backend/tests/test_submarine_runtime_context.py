@@ -10,18 +10,9 @@ from deerflow.tools.builtins.submarine_runtime_context import (
 
 
 def test_infer_execution_preference_treats_confirm_then_execute_as_preflight():
-    assert (
-        infer_execution_preference("确认方案，开始执行。")
-        == "preflight_then_execute"
-    )
-    assert (
-        infer_execution_preference("确认后按当前方案继续执行")
-        == "preflight_then_execute"
-    )
-    assert (
-        infer_execution_preference("确认方案后先预检再执行")
-        == "preflight_then_execute"
-    )
+    assert infer_execution_preference("确认方案，开始执行。") == "preflight_then_execute"
+    assert infer_execution_preference("确认后按当前方案继续执行") == "preflight_then_execute"
+    assert infer_execution_preference("确认方案后先预检再执行") == "preflight_then_execute"
 
 
 def test_resolve_execution_preference_falls_back_to_confirm_then_execute_intent():
@@ -37,12 +28,7 @@ def test_resolve_execution_preference_falls_back_to_confirm_then_execute_intent(
 
 
 def test_infer_execution_preference_treats_do_not_start_solver_as_plan_only():
-    assert (
-        infer_execution_preference(
-            "请先对这个 STL 做几何可用性预检，并给出后续 CFD 准备建议；当前不要启动求解。"
-        )
-        == "plan_only"
-    )
+    assert infer_execution_preference("请先对这个 STL 做几何可用性预检，并给出后续 CFD 准备建议；当前不要启动求解。") == "plan_only"
 
 
 def test_requires_user_confirmation_allows_plan_only_geometry_preflight_before_brief_confirmation():
@@ -81,12 +67,8 @@ def test_resolve_task_summary_prefers_design_brief_contract():
     assert (
         resolve_task_summary(
             explicit_task_description="Run geometry preflight for the confirmed brief",
-            existing_runtime={
-                "task_summary": "Geometry preflight completed for the uploaded STL."
-            },
-            existing_brief={
-                "task_description": "Execute the confirmed 5 m/s baseline CFD study."
-            },
+            existing_runtime={"task_summary": "Geometry preflight completed for the uploaded STL."},
+            existing_brief={"task_description": "Execute the confirmed 5 m/s baseline CFD study."},
             fallback_task_description="Prepare a submarine CFD run",
         )
         == "Execute the confirmed 5 m/s baseline CFD study."
@@ -109,9 +91,7 @@ def test_resolve_task_summary_prefers_explicit_task_over_stale_runtime_when_no_b
     assert (
         resolve_task_summary(
             explicit_task_description="Run a fresh wake-field preflight for the new user request.",
-            existing_runtime={
-                "task_summary": "Keep preparing the previous baseline resistance dispatch."
-            },
+            existing_runtime={"task_summary": "Keep preparing the previous baseline resistance dispatch."},
             existing_brief=None,
             fallback_task_description="Prepare a submarine CFD run",
         )

@@ -62,13 +62,7 @@ class TestClientInit:
 
     def test_custom_params(self, mock_app_config):
         with patch("deerflow.client.get_app_config", return_value=mock_app_config):
-            c = DeerFlowClient(
-                model_name="gpt-4",
-                thinking_enabled=False,
-                subagent_enabled=True,
-                plan_mode=True,
-                agent_name="test-agent"
-            )
+            c = DeerFlowClient(model_name="gpt-4", thinking_enabled=False, subagent_enabled=True, plan_mode=True, agent_name="test-agent")
         assert c._model_name == "gpt-4"
         assert c._thinking_enabled is False
         assert c._subagent_enabled is True
@@ -208,7 +202,7 @@ class TestStream:
             patch.object(client, "_agent", agent),
         ):
             list(client.stream("hi", thread_id="t1"))
-        
+
         # Verify context passed to agent.stream
         agent.stream.assert_called_once()
         call_kwargs = agent.stream.call_args.kwargs

@@ -1,11 +1,8 @@
 import importlib
-from pathlib import Path
 
 
 def test_postprocess_specs_module_preserves_requested_output_contracts():
-    specs_module = importlib.import_module(
-        "deerflow.domain.submarine.postprocess_specs"
-    )
+    specs_module = importlib.import_module("deerflow.domain.submarine.postprocess_specs")
 
     requested_outputs = [
         {
@@ -62,9 +59,7 @@ def test_postprocess_specs_module_preserves_requested_output_contracts():
 
 
 def test_postprocess_render_module_builds_preview_and_figure_metadata(tmp_path):
-    render_module = importlib.import_module(
-        "deerflow.domain.submarine.postprocess_render"
-    )
+    render_module = importlib.import_module("deerflow.domain.submarine.postprocess_render")
 
     csv_path = tmp_path / "surface-pressure.csv"
     png_path = tmp_path / "surface-pressure.png"

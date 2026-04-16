@@ -71,9 +71,7 @@ def build_scientific_supervisor_gate(
         recommended_stage = "supervisor-review"
         remediation_stage = None
         if benchmark_highlights:
-            advisory_notes.append(
-                "Benchmark validation, scientific verification, and provenance evidence are aligned for supervisor sign-off."
-            )
+            advisory_notes.append("Benchmark validation, scientific verification, and provenance evidence are aligned for supervisor sign-off.")
     elif readiness_status == "verified_but_not_validated":
         gate_status = "claim_limited"
         allowed_claim_level = "verified_but_not_validated"
@@ -82,9 +80,7 @@ def build_scientific_supervisor_gate(
         if benchmark_messages:
             advisory_notes.extend(benchmark_messages)
         elif validation_status == "missing_validation_reference":
-            advisory_notes.append(
-                "External validation evidence is still missing for this run."
-            )
+            advisory_notes.append("External validation evidence is still missing for this run.")
     elif readiness_status == "validated_with_gaps":
         gate_status = "claim_limited"
         allowed_claim_level = "validated_with_gaps"
@@ -93,20 +89,14 @@ def build_scientific_supervisor_gate(
         if benchmark_messages:
             advisory_notes.extend(benchmark_messages)
         if provenance_status in {"partial", "missing"} or evidence_gaps:
-            advisory_notes.append(
-                "Scientific evidence is validated, but reporting and provenance gaps still limit the claim level."
-            )
+            advisory_notes.append("Scientific evidence is validated, but reporting and provenance gaps still limit the claim level.")
     elif readiness_status in {"blocked", "insufficient_evidence"}:
         if validation_status == "validation_failed":
             recommended_stage = "solver-dispatch"
             remediation_stage = "solver-dispatch"
             if benchmark_messages:
-                blocking_reasons = _dedupe_strings(
-                    [*blocking_reasons, *benchmark_messages]
-                )
-            advisory_notes.append(
-                "Benchmark validation failed against the current CFD output. Revisit solver-dispatch before any research-grade claim is approved."
-            )
+                blocking_reasons = _dedupe_strings([*blocking_reasons, *benchmark_messages])
+            advisory_notes.append("Benchmark validation failed against the current CFD output. Revisit solver-dispatch before any research-grade claim is approved.")
         if provenance_status in {"partial", "missing"} and not blocking_reasons:
             recommended_stage = "result-reporting"
             remediation_stage = "result-reporting"

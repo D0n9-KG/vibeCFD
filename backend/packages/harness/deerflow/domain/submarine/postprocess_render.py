@@ -10,19 +10,11 @@ from .postprocess_specs import resolve_requested_postprocess_spec, selector_summ
 
 
 def summarize_delimited_file(path: Path) -> tuple[list[str], int]:
-    lines = [
-        line.strip()
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     if not lines:
         return [], 0
 
-    header = (
-        [token.strip() for token in lines[0].split(",")]
-        if "," in lines[0]
-        else lines[0].split()
-    )
+    header = [token.strip() for token in lines[0].split(",")] if "," in lines[0] else lines[0].split()
     data_row_count = max(len(lines) - 1, 0)
     return header, data_row_count
 
@@ -32,11 +24,7 @@ def _read_delimited_rows(path: Path) -> list[dict[str, str]]:
         reader = csv.DictReader(handle)
         rows: list[dict[str, str]] = []
         for row in reader:
-            cleaned = {
-                (key or "").strip(): (value or "").strip()
-                for key, value in row.items()
-                if key
-            }
+            cleaned = {(key or "").strip(): (value or "").strip() for key, value in row.items() if key}
             if any(value for value in cleaned.values()):
                 rows.append(cleaned)
         return rows
@@ -159,10 +147,7 @@ def _render_scatter_png(
         end: tuple[int, int, int],
         fraction: float,
     ) -> tuple[int, int, int]:
-        return tuple(
-            int(round(start[index] + (end[index] - start[index]) * fraction))
-            for index in range(3)
-        )
+        return tuple(int(round(start[index] + (end[index] - start[index]) * fraction)) for index in range(3))
 
     def _scalar_to_rgb(value: float) -> tuple[int, int, int]:
         palette = [
@@ -264,11 +249,7 @@ def _render_surface_pressure_png(
 
 def _wake_color_getter(field: str):
     if field == "U":
-        return lambda row: (
-            float(row.get("Ux", "nan")) ** 2
-            + float(row.get("Uy", "nan")) ** 2
-            + float(row.get("Uz", "nan")) ** 2
-        ) ** 0.5
+        return lambda row: (float(row.get("Ux", "nan")) ** 2 + float(row.get("Uy", "nan")) ** 2 + float(row.get("Uz", "nan")) ** 2) ** 0.5
     return lambda row: row.get(field, "")
 
 
@@ -276,11 +257,7 @@ def _vector3(
     value: object | None,
     default: tuple[float, float, float],
 ) -> tuple[float, float, float]:
-    if (
-        isinstance(value, list | tuple)
-        and len(value) == 3
-        and all(isinstance(component, (int, float)) for component in value)
-    ):
+    if isinstance(value, list | tuple) and len(value) == 3 and all(isinstance(component, (int, float)) for component in value):
         return (float(value[0]), float(value[1]), float(value[2]))
     return default
 
@@ -386,15 +363,9 @@ def _figure_caption(
     selector_text = selector_summary(output_id, requested_output)
     metric = color_metric or "scalar"
     if output_id == "surface_pressure_contour":
-        return (
-            "Surface pressure contour over the selected hull patches, "
-            f"colored by {metric}. {selector_text}. Samples: {sample_count}."
-        )
+        return f"Surface pressure contour over the selected hull patches, colored by {metric}. {selector_text}. Samples: {sample_count}."
     if output_id == "wake_velocity_slice":
-        return (
-            "Wake velocity slice extracted from the requested cutting plane, "
-            f"colored by {metric}. {selector_text}. Samples: {sample_count}."
-        )
+        return f"Wake velocity slice extracted from the requested cutting plane, colored by {metric}. {selector_text}. Samples: {sample_count}."
     return f"Deterministic figure export colored by {metric}. Samples: {sample_count}."
 
 

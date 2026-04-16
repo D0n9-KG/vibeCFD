@@ -76,10 +76,7 @@ def enforce_upload_budget(
     if projected_bytes > max_total_bytes:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Total upload quota exceeded for this thread. "
-                f"Max {max_total_bytes // (1024 * 1024)} MB allowed."
-            ),
+            detail=(f"Total upload quota exceeded for this thread. Max {max_total_bytes // (1024 * 1024)} MB allowed."),
         )
 
 
@@ -117,23 +114,14 @@ async def upload_files(
         if len(content) > MAX_UPLOAD_BYTES:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    f"File too large: {safe_filename}. "
-                    f"Max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB per file."
-                ),
+                detail=(f"File too large: {safe_filename}. Max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB per file."),
             )
         prepared_uploads.append((safe_filename, content))
 
-    existing_files = {
-        file_path.name: file_path.stat().st_size
-        for file_path in uploads_dir.iterdir()
-        if file_path.is_file()
-    }
+    existing_files = {file_path.name: file_path.stat().st_size for file_path in uploads_dir.iterdir() if file_path.is_file()}
     enforce_upload_budget(
         existing_files=existing_files,
-        incoming_files=[
-            (safe_filename, len(content)) for safe_filename, content in prepared_uploads
-        ],
+        incoming_files=[(safe_filename, len(content)) for safe_filename, content in prepared_uploads],
     )
 
     for safe_filename, content in prepared_uploads:

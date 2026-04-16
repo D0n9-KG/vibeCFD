@@ -14,7 +14,6 @@ from .models import (
     SubmarineEnvironmentParityAssessment,
 )
 
-
 SUPPORTED_RUNTIME_PROFILES: dict[str, dict[str, object]] = {
     "local_cli": {
         "label": "Local CLI",
@@ -152,11 +151,7 @@ def build_environment_fingerprint(
         profile_id=profile_id,
         profile_label=str(profile.get("label") or "Unknown environment profile"),
         runtime_origin=_detect_runtime_origin(workspace_dir),
-        compose_file=(
-            str(profile.get("compose_file"))
-            if isinstance(profile.get("compose_file"), str)
-            else None
-        ),
+        compose_file=(str(profile.get("compose_file")) if isinstance(profile.get("compose_file"), str) else None),
         sandbox_image=getattr(sandbox, "image", None),
         deer_flow_home=deer_flow_home,
         deer_flow_root=deer_flow_root,
@@ -180,9 +175,7 @@ def build_environment_parity_assessment(
         return SubmarineEnvironmentParityAssessment(
             **assessment_seed,
             parity_status="unknown",
-            drift_reasons=[
-                f"Unsupported environment profile `{fingerprint_model.profile_id}`."
-            ],
+            drift_reasons=[f"Unsupported environment profile `{fingerprint_model.profile_id}`."],
             recovery_guidance=[
                 "Set DEER_FLOW_RUNTIME_PROFILE to one of: local_cli, docker_compose_dev, docker_compose_deployed.",
             ],
@@ -192,32 +185,17 @@ def build_environment_parity_assessment(
     recovery_guidance: list[str] = []
     blockers: list[str] = []
 
-    allowed_origins = {
-        str(item) for item in profile.get("allowed_origins", set()) if isinstance(item, str)
-    }
-    expected_mount_strategies = {
-        str(item)
-        for item in profile.get("expected_mount_strategies", set())
-        if isinstance(item, str)
-    }
+    allowed_origins = {str(item) for item in profile.get("allowed_origins", set()) if isinstance(item, str)}
+    expected_mount_strategies = {str(item) for item in profile.get("expected_mount_strategies", set()) if isinstance(item, str)}
 
     if allowed_origins and fingerprint_model.runtime_origin not in allowed_origins:
-        drift_reasons.append(
-            f"Runtime origin `{fingerprint_model.runtime_origin}` does not match supported `{fingerprint_model.profile_id}` execution paths."
-        )
-    if (
-        expected_mount_strategies
-        and fingerprint_model.host_mount_strategy not in expected_mount_strategies
-    ):
-        drift_reasons.append(
-            f"Host mount strategy `{fingerprint_model.host_mount_strategy}` does not match `{fingerprint_model.profile_id}` expectations."
-        )
+        drift_reasons.append(f"Runtime origin `{fingerprint_model.runtime_origin}` does not match supported `{fingerprint_model.profile_id}` execution paths.")
+    if expected_mount_strategies and fingerprint_model.host_mount_strategy not in expected_mount_strategies:
+        drift_reasons.append(f"Host mount strategy `{fingerprint_model.host_mount_strategy}` does not match `{fingerprint_model.profile_id}` expectations.")
     if not fingerprint_model.sandbox_image:
         blockers.append("Sandbox image is missing from the active configuration.")
     if bool(profile.get("requires_docker_socket")) and not fingerprint_model.docker_socket_available:
-        blockers.append(
-            f"Profile `{fingerprint_model.profile_id}` requires Docker socket access for sandbox execution."
-        )
+        blockers.append(f"Profile `{fingerprint_model.profile_id}` requires Docker socket access for sandbox execution.")
 
     if blockers:
         recovery_guidance.extend(

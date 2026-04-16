@@ -15,12 +15,8 @@ def test_artifact_store_resolves_and_loads_json_payloads(tmp_path):
     artifact_store = importlib.import_module("deerflow.domain.submarine.artifact_store")
 
     outputs_dir = tmp_path / "outputs"
-    virtual_path = (
-        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
-    )
-    artifact_path = (
-        outputs_dir / "submarine" / "solver-dispatch" / "demo" / "study-manifest.json"
-    )
+    virtual_path = "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
+    artifact_path = outputs_dir / "submarine" / "solver-dispatch" / "demo" / "study-manifest.json"
     _write_json(
         artifact_path,
         {
@@ -58,15 +54,11 @@ def test_artifact_store_skips_unreadable_or_irrelevant_artifacts(tmp_path):
     run_dir = outputs_dir / "submarine" / "solver-dispatch" / "demo"
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    unreadable_virtual_path = (
-        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-mesh-independence.json"
-    )
+    unreadable_virtual_path = "/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-mesh-independence.json"
     unreadable_path = run_dir / "verification-mesh-independence.json"
     unreadable_path.write_text("{not-json", encoding="utf-8")
 
-    readable_virtual_path = (
-        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-domain-sensitivity.json"
-    )
+    readable_virtual_path = "/mnt/user-data/outputs/submarine/solver-dispatch/demo/verification-domain-sensitivity.json"
     _write_json(
         run_dir / "verification-domain-sensitivity.json",
         {
@@ -105,25 +97,15 @@ def test_artifact_store_builds_canonical_solver_dispatch_bundle():
     artifacts = artifact_store.build_canonical_solver_dispatch_artifact_bundle(
         run_dir_name="demo",
         include_scientific_study_plan=True,
-        execution_log_virtual_path=(
-            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-run.log"
-        ),
-        solver_results_virtual_path=(
-            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
-        ),
-        solver_results_markdown_virtual_path=(
-            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.md"
-        ),
+        execution_log_virtual_path=("/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-run.log"),
+        solver_results_virtual_path=("/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"),
+        solver_results_markdown_virtual_path=("/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.md"),
         requested_postprocess_artifacts=[
             "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
             "/mnt/user-data/outputs/submarine/solver-dispatch/demo/surface-pressure.csv",
         ],
-        scientific_study_artifacts=[
-            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/solver-results.json"
-        ],
-        experiment_artifacts=[
-            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-record.json"
-        ],
+        scientific_study_artifacts=["/mnt/user-data/outputs/submarine/solver-dispatch/demo/studies/mesh-independence/coarse/solver-results.json"],
+        experiment_artifacts=["/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-record.json"],
     )
 
     assert artifacts == [
@@ -150,12 +132,8 @@ def test_artifact_store_loads_canonical_dispatch_payloads_from_explicit_or_fallb
 
     outputs_dir = tmp_path / "outputs"
     run_dir = outputs_dir / "submarine" / "solver-dispatch" / "demo"
-    request_virtual_path = (
-        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json"
-    )
-    solver_results_virtual_path = (
-        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
-    )
+    request_virtual_path = "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json"
+    solver_results_virtual_path = "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
     _write_json(run_dir / "openfoam-request.json", {"dispatch_status": "planned"})
     _write_json(run_dir / "solver-results.json", {"solver_completed": True})
 

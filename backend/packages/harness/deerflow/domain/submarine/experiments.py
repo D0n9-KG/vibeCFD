@@ -163,22 +163,14 @@ def build_run_comparison(
 ) -> SubmarineRunComparison:
     candidate_status = str(candidate_record.get("execution_status") or "planned")
     candidate_run_id = str(candidate_record.get("run_id") or "unknown")
-    compare_target_run_id = str(
-        candidate_record.get("compare_target_run_id") or baseline_run_id
-    )
-    baseline_reference_run_id = str(
-        candidate_record.get("baseline_reference_run_id") or baseline_run_id
-    )
+    compare_target_run_id = str(candidate_record.get("compare_target_run_id") or baseline_run_id)
+    baseline_reference_run_id = str(candidate_record.get("baseline_reference_run_id") or baseline_run_id)
     if candidate_status in {"planned", "in_progress"}:
         return SubmarineRunComparison(
             baseline_run_id=compare_target_run_id,
             candidate_run_id=candidate_run_id,
             run_role=candidate_record.get("run_role") or "scientific_study_variant",
-            variant_origin=(
-                candidate_record.get("variant_origin")
-                or candidate_record.get("run_role")
-                or "scientific_study_variant"
-            ),
+            variant_origin=(candidate_record.get("variant_origin") or candidate_record.get("run_role") or "scientific_study_variant"),
             study_type=candidate_record.get("study_type"),
             variant_id=candidate_record.get("variant_id"),
             variant_label=candidate_record.get("variant_label"),
@@ -194,11 +186,7 @@ def build_run_comparison(
             baseline_run_id=compare_target_run_id,
             candidate_run_id=candidate_run_id,
             run_role=candidate_record.get("run_role") or "scientific_study_variant",
-            variant_origin=(
-                candidate_record.get("variant_origin")
-                or candidate_record.get("run_role")
-                or "scientific_study_variant"
-            ),
+            variant_origin=(candidate_record.get("variant_origin") or candidate_record.get("run_role") or "scientific_study_variant"),
             study_type=candidate_record.get("study_type"),
             variant_id=candidate_record.get("variant_id"),
             variant_label=candidate_record.get("variant_label"),
@@ -220,11 +208,7 @@ def build_run_comparison(
             baseline_run_id=compare_target_run_id,
             candidate_run_id=candidate_run_id,
             run_role=candidate_record.get("run_role") or "scientific_study_variant",
-            variant_origin=(
-                candidate_record.get("variant_origin")
-                or candidate_record.get("run_role")
-                or "scientific_study_variant"
-            ),
+            variant_origin=(candidate_record.get("variant_origin") or candidate_record.get("run_role") or "scientific_study_variant"),
             study_type=candidate_record.get("study_type"),
             variant_id=candidate_record.get("variant_id"),
             variant_label=candidate_record.get("variant_label"),
@@ -263,11 +247,7 @@ def build_run_comparison(
         baseline_run_id=compare_target_run_id,
         candidate_run_id=candidate_run_id,
         run_role=candidate_record.get("run_role") or "scientific_study_variant",
-        variant_origin=(
-            candidate_record.get("variant_origin")
-            or candidate_record.get("run_role")
-            or "scientific_study_variant"
-        ),
+        variant_origin=(candidate_record.get("variant_origin") or candidate_record.get("run_role") or "scientific_study_variant"),
         study_type=candidate_record.get("study_type"),
         variant_id=candidate_record.get("variant_id"),
         variant_label=candidate_record.get("variant_label"),
@@ -302,9 +282,7 @@ def build_run_compare_summary(
         comparisons=comparisons,
         artifact_virtual_paths=list(artifact_virtual_paths or []),
         workflow_status=_build_compare_workflow_status(comparisons),
-        compare_status_counts=_count_statuses(
-            [comparison.compare_status for comparison in comparisons]
-        ),
+        compare_status_counts=_count_statuses([comparison.compare_status for comparison in comparisons]),
     )
 
 
@@ -313,17 +291,8 @@ def build_experiment_workflow_status(
     run_records: Sequence[Mapping[str, object]],
     compare_statuses: Sequence[str | None] | None = None,
 ) -> str:
-    execution_statuses = [
-        str(record.get("execution_status") or "planned")
-        for record in run_records
-        if isinstance(record, Mapping)
-    ]
-    candidate_statuses = [
-        str(record.get("execution_status") or "planned")
-        for record in run_records
-        if isinstance(record, Mapping)
-        and str(record.get("run_id") or "").strip() != "baseline"
-    ]
+    execution_statuses = [str(record.get("execution_status") or "planned") for record in run_records if isinstance(record, Mapping)]
+    candidate_statuses = [str(record.get("execution_status") or "planned") for record in run_records if isinstance(record, Mapping) and str(record.get("run_id") or "").strip() != "baseline"]
     normalized_compare_statuses = [status for status in (compare_statuses or []) if status]
 
     if any(status == "blocked" for status in execution_statuses):
@@ -332,11 +301,7 @@ def build_experiment_workflow_status(
         return "blocked"
     if not candidate_statuses:
         return "completed" if "completed" in execution_statuses else "planned"
-    if (
-        all(status == "completed" for status in candidate_statuses)
-        and normalized_compare_statuses
-        and all(status == "completed" for status in normalized_compare_statuses)
-    ):
+    if all(status == "completed" for status in candidate_statuses) and normalized_compare_statuses and all(status == "completed" for status in normalized_compare_statuses):
         return "completed"
     if "completed" in execution_statuses or normalized_compare_statuses:
         return "partial"

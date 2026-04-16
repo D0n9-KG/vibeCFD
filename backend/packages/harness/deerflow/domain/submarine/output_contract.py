@@ -7,7 +7,6 @@ from typing import Literal
 
 from .contracts import SubmarineOutputDeliveryItem, SubmarineRequestedOutput
 
-
 SupportLevel = Literal["supported", "not_yet_supported", "needs_clarification"]
 
 
@@ -143,11 +142,7 @@ _OUTPUT_ARTIFACT_SUFFIXES: dict[str, tuple[str, ...]] = {
 def _match_catalog_item(requested_label: str) -> dict | None:
     lowered = requested_label.lower()
     return next(
-        (
-            item
-            for item in _OUTPUT_CATALOG
-            if any(alias in lowered for alias in item["aliases"])
-        ),
+        (item for item in _OUTPUT_CATALOG if any(alias in lowered for alias in item["aliases"])),
         None,
     )
 
@@ -173,11 +168,7 @@ def infer_expected_outputs_from_text(task_description: str | None) -> list[str]:
     seen_labels: set[str] = set()
 
     for item in _OUTPUT_CATALOG:
-        positions = [
-            lowered.find(alias.lower())
-            for alias in item["aliases"]
-            if alias and lowered.find(alias.lower()) >= 0
-        ]
+        positions = [lowered.find(alias.lower()) for alias in item["aliases"] if alias and lowered.find(alias.lower()) >= 0]
         if not positions:
             continue
 
@@ -217,7 +208,6 @@ def resolve_requested_outputs(expected_outputs: list[str] | None) -> list[dict]:
     seen_output_ids: set[str] = set()
 
     for requested_label in _normalize_expected_outputs(expected_outputs):
-
         matched = _match_catalog_item(requested_label)
         if matched is None:
             output_id = f"custom_{_slugify(requested_label)}"
@@ -230,10 +220,7 @@ def resolve_requested_outputs(expected_outputs: list[str] | None) -> list[dict]:
                     label=requested_label,
                     requested_label=requested_label,
                     support_level="needs_clarification",
-                    notes=(
-                        "当前版本尚未识别该输出类型，建议由 Claude Code "
-                        "改写成受支持的结构化输出项。"
-                    ),
+                    notes=("当前版本尚未识别该输出类型，建议由 Claude Code 改写成受支持的结构化输出项。"),
                 ).model_dump(mode="json")
             )
             continue
@@ -257,11 +244,7 @@ def resolve_requested_outputs(expected_outputs: list[str] | None) -> list[dict]:
 
 
 def _matching_artifacts(artifact_virtual_paths: list[str], *suffixes: str) -> list[str]:
-    return [
-        path
-        for path in artifact_virtual_paths
-        if any(path.endswith(suffix) for suffix in suffixes)
-    ]
+    return [path for path in artifact_virtual_paths if any(path.endswith(suffix) for suffix in suffixes)]
 
 
 def build_output_delivery_plan(
@@ -276,10 +259,7 @@ def build_output_delivery_plan(
 
     artifacts = artifact_virtual_paths or []
     acceptance = acceptance_assessment or {}
-    normalized = [
-        SubmarineRequestedOutput.model_validate(item)
-        for item in (requested_outputs or [])
-    ]
+    normalized = [SubmarineRequestedOutput.model_validate(item) for item in (requested_outputs or [])]
     delivery_items: list[dict] = []
 
     for item in normalized:
@@ -303,9 +283,7 @@ def build_output_delivery_plan(
             if isinstance(cd, (int, float)):
                 delivery_status = "delivered"
                 detail = f"已提取 Cd = {float(cd):.5f}。"
-                linked_artifacts = _matching_artifacts(
-                    artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["drag_coefficient"]
-                )
+                linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["drag_coefficient"])
             elif solver_metrics:
                 delivery_status = "not_available_for_this_run"
                 detail = "本次 run 已有 solver metrics，但未提取到 Cd。"
@@ -317,9 +295,7 @@ def build_output_delivery_plan(
             if total_force:
                 delivery_status = "delivered"
                 detail = "已提取压力力与黏性力等受力分解结果。"
-                linked_artifacts = _matching_artifacts(
-                    artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["force_breakdown"]
-                )
+                linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["force_breakdown"])
             elif solver_metrics:
                 delivery_status = "not_available_for_this_run"
                 detail = "本次 run 未提取到受力分解结果。"
@@ -330,9 +306,7 @@ def build_output_delivery_plan(
             if (solver_metrics or {}).get("mesh_summary"):
                 delivery_status = "delivered"
                 detail = "已提取网格质量摘要。"
-                linked_artifacts = _matching_artifacts(
-                    artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["mesh_quality_summary"]
-                )
+                linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["mesh_quality_summary"])
             elif solver_metrics:
                 delivery_status = "not_available_for_this_run"
                 detail = "本次 run 未提取到网格质量摘要。"
@@ -340,9 +314,7 @@ def build_output_delivery_plan(
             if (solver_metrics or {}).get("residual_summary"):
                 delivery_status = "delivered"
                 detail = "已提取残差收敛摘要。"
-                linked_artifacts = _matching_artifacts(
-                    artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["residual_history"]
-                )
+                linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["residual_history"])
             elif solver_metrics:
                 delivery_status = "not_available_for_this_run"
                 detail = "本次 run 未提取到残差收敛摘要。"
@@ -351,9 +323,7 @@ def build_output_delivery_plan(
             if benchmark_comparisons:
                 delivery_status = "delivered"
                 detail = "已生成 benchmark comparison。"
-                linked_artifacts = _matching_artifacts(
-                    artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["benchmark_comparison"]
-                )
+                linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["benchmark_comparison"])
             elif solver_metrics:
                 delivery_status = "not_available_for_this_run"
                 detail = "当前 run 未命中可交付的 benchmark comparison。"
@@ -361,9 +331,7 @@ def build_output_delivery_plan(
                 delivery_status = "pending"
                 detail = "结果报告阶段尚未拿到 solver metrics。"
         elif item.output_id == "chinese_report":
-            linked_artifacts = _matching_artifacts(
-                artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["chinese_report"]
-            )
+            linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["chinese_report"])
             if linked_artifacts:
                 delivery_status = "delivered"
                 detail = "已生成中文结果报告。"
@@ -371,9 +339,7 @@ def build_output_delivery_plan(
                 delivery_status = "pending"
                 detail = "结果报告生成尚未完成。"
         elif item.output_id == "surface_pressure_contour":
-            linked_artifacts = _matching_artifacts(
-                artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["surface_pressure_contour"]
-            )
+            linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["surface_pressure_contour"])
             if linked_artifacts:
                 delivery_status = "delivered"
                 detail = "已导出表面压力结果 artifact。"
@@ -384,9 +350,7 @@ def build_output_delivery_plan(
                 delivery_status = "pending"
                 detail = "结果报告阶段尚未拿到 solver metrics。"
         elif item.output_id == "wake_velocity_slice":
-            linked_artifacts = _matching_artifacts(
-                artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["wake_velocity_slice"]
-            )
+            linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["wake_velocity_slice"])
             if linked_artifacts:
                 delivery_status = "delivered"
                 detail = "已导出尾流速度切片 artifact。"

@@ -10,7 +10,6 @@ from .models import (
     SubmarineRunProvenanceManifestCompletenessStatus,
 )
 
-
 _REQUIRED_MANIFEST_FIELDS = (
     "manifest_version",
     "experiment_id",
@@ -103,10 +102,7 @@ def determine_provenance_manifest_completeness(
     manifest = _as_mapping(manifest_payload)
     has_required_fields = all(field in manifest for field in _REQUIRED_MANIFEST_FIELDS)
     artifact_entrypoints = _as_mapping(manifest.get("artifact_entrypoints"))
-    has_primary_entrypoints = all(
-        isinstance(artifact_entrypoints.get(key), str) and artifact_entrypoints.get(key)
-        for key in ("request", "dispatch_summary_markdown", "dispatch_summary_html")
-    )
+    has_primary_entrypoints = all(isinstance(artifact_entrypoints.get(key), str) and artifact_entrypoints.get(key) for key in ("request", "dispatch_summary_markdown", "dispatch_summary_html"))
     if has_required_fields and has_primary_entrypoints:
         return "complete"
     return "partial"
@@ -118,11 +114,7 @@ def build_provenance_summary(
     manifest_payload: Mapping[str, Any] | None,
 ) -> dict[str, object]:
     manifest = _as_mapping(manifest_payload)
-    artifact_entrypoints = {
-        key: str(value)
-        for key, value in _as_mapping(manifest.get("artifact_entrypoints")).items()
-        if isinstance(value, str) and value
-    }
+    artifact_entrypoints = {key: str(value) for key, value in _as_mapping(manifest.get("artifact_entrypoints")).items() if isinstance(value, str) and value}
     return {
         "manifest_virtual_path": manifest_virtual_path,
         "run_id": manifest.get("run_id"),
@@ -131,27 +123,11 @@ def build_provenance_summary(
         "selected_case_id": manifest.get("selected_case_id"),
         "requested_output_ids": list(manifest.get("requested_output_ids") or []),
         "artifact_entrypoints": artifact_entrypoints,
-        "profile_id": _as_mapping(manifest.get("environment_fingerprint")).get(
-            "profile_id"
-        ),
-        "parity_status": _as_mapping(
-            manifest.get("environment_parity_assessment")
-        ).get("parity_status"),
-        "drift_reasons": list(
-            _as_mapping(manifest.get("environment_parity_assessment")).get(
-                "drift_reasons"
-            )
-            or []
-        ),
-        "recovery_guidance": list(
-            _as_mapping(manifest.get("environment_parity_assessment")).get(
-                "recovery_guidance"
-            )
-            or []
-        ),
-        "manifest_completeness_status": determine_provenance_manifest_completeness(
-            manifest
-        ),
+        "profile_id": _as_mapping(manifest.get("environment_fingerprint")).get("profile_id"),
+        "parity_status": _as_mapping(manifest.get("environment_parity_assessment")).get("parity_status"),
+        "drift_reasons": list(_as_mapping(manifest.get("environment_parity_assessment")).get("drift_reasons") or []),
+        "recovery_guidance": list(_as_mapping(manifest.get("environment_parity_assessment")).get("recovery_guidance") or []),
+        "manifest_completeness_status": determine_provenance_manifest_completeness(manifest),
     }
 
 

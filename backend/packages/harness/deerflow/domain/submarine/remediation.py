@@ -61,9 +61,7 @@ def _collect_actionable_study_types(
             "missing_metrics_variant_run_ids",
         ):
             value = item.get(field_name)
-            if isinstance(value, list) and any(
-                isinstance(entry, str) and entry for entry in value
-            ):
+            if isinstance(value, list) and any(isinstance(entry, str) and entry for entry in value):
                 actionable = True
                 break
         if not actionable and verification_status != "missing_evidence":
@@ -89,11 +87,7 @@ def _collect_baseline_solver_evidence_gaps(
                 continue
             if status not in {"missing_evidence", "blocked"}:
                 continue
-            if (
-                check_type == "max_final_residual"
-                and status == "blocked"
-                and item.get("observed_value") is not None
-            ):
+            if check_type == "max_final_residual" and status == "blocked" and item.get("observed_value") is not None:
                 continue
             detail = str(item.get("detail") or "").strip()
             if detail and detail not in gaps:
@@ -139,11 +133,7 @@ def build_scientific_remediation_summary(
     study_summary = _as_mapping(scientific_study_summary)
 
     current_claim_level = str(gate.get("allowed_claim_level") or "delivery_only")
-    current_readiness = str(
-        research.get("readiness_status")
-        or gate.get("source_readiness_status")
-        or "insufficient_evidence"
-    )
+    current_readiness = str(research.get("readiness_status") or gate.get("source_readiness_status") or "insufficient_evidence")
     validation_status = str(research.get("validation_status") or "").strip()
     provenance_status = str(research.get("provenance_status") or "").strip()
     recommended_stage = str(gate.get("recommended_stage") or "supervisor-review")
@@ -172,11 +162,7 @@ def build_scientific_remediation_summary(
             _build_action(
                 action_id="rerun-current-baseline",
                 title="Rerun current baseline",
-                summary=(
-                    "Rerun the confirmed baseline with the current case and settings, "
-                    "regenerate the missing solver evidence, and refresh the result report "
-                    "before attempting broader scientific studies."
-                ),
+                summary=("Rerun the confirmed baseline with the current case and settings, regenerate the missing solver evidence, and refresh the result report before attempting broader scientific studies."),
                 owner_stage="solver-dispatch",
                 priority="high",
                 execution_mode="auto_executable",
@@ -187,11 +173,7 @@ def build_scientific_remediation_summary(
 
     if missing_evidence or actionable_study_types:
         study_manifest_path = study_summary.get("manifest_virtual_path")
-        study_label = (
-            ", ".join(actionable_study_types)
-            if actionable_study_types
-            else "scientific verification studies"
-        )
+        study_label = ", ".join(actionable_study_types) if actionable_study_types else "scientific verification studies"
         evidence_gap = missing_evidence[0] if missing_evidence else None
         if evidence_gap is None:
             for item in study_summary.get("studies") or []:
@@ -210,10 +192,7 @@ def build_scientific_remediation_summary(
             _build_action(
                 action_id="execute-scientific-studies",
                 title="Execute scientific verification studies",
-                summary=(
-                    "Run the planned scientific study variants and regenerate the missing verification artifacts "
-                    f"for {study_label}."
-                ),
+                summary=(f"Run the planned scientific study variants and regenerate the missing verification artifacts for {study_label}."),
                 owner_stage="solver-dispatch",
                 priority="medium" if baseline_solver_evidence_gaps else "high",
                 execution_mode="auto_executable",
@@ -230,45 +209,25 @@ def build_scientific_remediation_summary(
             _build_action(
                 action_id="attach-validation-reference",
                 title="Attach validation reference",
-                summary=(
-                    "Provide or configure a benchmark target for the selected case so the current run can move "
-                    "from numerical verification to external validation."
-                ),
+                summary=("Provide or configure a benchmark target for the selected case so the current run can move from numerical verification to external validation."),
                 owner_stage="supervisor-review",
                 priority="high",
                 execution_mode="manual_required",
-                evidence_gap=(
-                    evidence_gaps[0]
-                    if evidence_gaps
-                    else "No applicable benchmark target was available for this run."
-                ),
+                evidence_gap=(evidence_gaps[0] if evidence_gaps else "No applicable benchmark target was available for this run."),
                 required_artifacts=gate_artifacts,
             )
         )
 
-    if (
-        str(gate.get("remediation_stage") or "") == "result-reporting"
-        or (
-            provenance_status in {"partial", "missing"}
-            and validation_status == "validated"
-        )
-    ) and current_readiness != "research_ready":
+    if (str(gate.get("remediation_stage") or "") == "result-reporting" or (provenance_status in {"partial", "missing"} and validation_status == "validated")) and current_readiness != "research_ready":
         actions.append(
             _build_action(
                 action_id="regenerate-research-report-linkage",
                 title="Regenerate research evidence packaging",
-                summary=(
-                    "Rebuild result-reporting artifacts so research evidence, compare outputs, and figure delivery "
-                    "artifacts are linked consistently."
-                ),
+                summary=("Rebuild result-reporting artifacts so research evidence, compare outputs, and figure delivery artifacts are linked consistently."),
                 owner_stage="result-reporting",
                 priority="medium",
                 execution_mode="auto_executable",
-                evidence_gap=(
-                    evidence_gaps[0]
-                    if evidence_gaps
-                    else "Reporting and provenance linkage still limit the claim level."
-                ),
+                evidence_gap=(evidence_gaps[0] if evidence_gaps else "Reporting and provenance linkage still limit the claim level."),
                 required_artifacts=gate_artifacts,
             )
         )

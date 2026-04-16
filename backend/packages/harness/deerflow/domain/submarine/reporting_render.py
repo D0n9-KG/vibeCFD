@@ -37,10 +37,7 @@ def _render_acceptance_markdown(acceptance_assessment: dict | None) -> list[str]
     gates = acceptance_assessment.get("gates") or []
     if gates:
         lines.extend(["", "### Gates"])
-        lines.extend(
-            f"- `{gate.get('id')}` | `{gate.get('status')}` | {gate.get('detail')}"
-            for gate in gates
-        )
+        lines.extend(f"- `{gate.get('id')}` | `{gate.get('status')}` | {gate.get('detail')}" for gate in gates)
 
     blocking_issues = acceptance_assessment.get("blocking_issues") or []
     if blocking_issues:
@@ -153,14 +150,7 @@ def _render_acceptance_html(acceptance_assessment: dict | None) -> str:
         return "".join(f"<li>{escape(item)}</li>" for item in items)
 
     gates = acceptance_assessment.get("gates") or []
-    gate_items = "".join(
-        "<li>"
-        f"<strong>{escape(str(gate.get('label')))}</strong> "
-        f"({escape(str(gate.get('status')))})"
-        f"<p>{escape(str(gate.get('detail')))}</p>"
-        "</li>"
-        for gate in gates
-    ) or "<li>None</li>"
+    gate_items = "".join(f"<li><strong>{escape(str(gate.get('label')))}</strong> ({escape(str(gate.get('status')))})<p>{escape(str(gate.get('detail')))}</p></li>" for gate in gates) or "<li>None</li>"
 
     return (
         '<section class="panel">'
@@ -187,7 +177,7 @@ def _render_acceptance_html(acceptance_assessment: dict | None) -> str:
                 f"reference={escape(str(item.get('reference_value')))}, "
                 f"relative_error={escape(_format_percent(item.get('relative_error')))}</p>"
                 "</li>"
-                for item in (acceptance_assessment.get('benchmark_comparisons') or [])
+                for item in (acceptance_assessment.get("benchmark_comparisons") or [])
             )
             or "<li>None</li>"
         )
@@ -200,35 +190,32 @@ def _render_output_delivery_html(output_delivery_plan: list[dict] | None) -> str
     if not output_delivery_plan:
         return ""
 
-    items = "".join(
-        "<li>"
-        f"<strong>{escape(str(item.get('label') or item.get('output_id')))}</strong> "
-        f"(<code>{escape(str(item.get('delivery_status')))}</code>)"
-        f"<p>{escape(str(item.get('detail') or 'No detail'))}</p>"
-        "</li>"
-        for item in output_delivery_plan
-    ) or "<li>None</li>"
-    return (
-        '<section class="panel">'
-        "<h2>Requested Output Delivery</h2>"
-        f"<ul>{items}</ul>"
-        "</section>"
+    items = (
+        "".join(
+            f"<li><strong>{escape(str(item.get('label') or item.get('output_id')))}</strong> (<code>{escape(str(item.get('delivery_status')))}</code>)<p>{escape(str(item.get('detail') or 'No detail'))}</p></li>"
+            for item in output_delivery_plan
+        )
+        or "<li>None</li>"
     )
+    return f'<section class="panel"><h2>Requested Output Delivery</h2><ul>{items}</ul></section>'
 
 
 def _render_figure_delivery_html(figure_delivery_summary: dict | None) -> str:
     if not figure_delivery_summary:
         return ""
 
-    items = "".join(
-        "<li>"
-        f"<strong>{escape(str(item.get('title') or item.get('output_id')))}</strong> "
-        f"(<code>{escape(str(item.get('render_status')))}</code>)"
-        f"<p>{escape(str(item.get('caption') or 'No caption'))}</p>"
-        f"<p>{escape(str(item.get('selector_summary') or 'No selector provenance'))}</p>"
-        "</li>"
-        for item in (figure_delivery_summary.get("figures") or [])
-    ) or "<li>None</li>"
+    items = (
+        "".join(
+            "<li>"
+            f"<strong>{escape(str(item.get('title') or item.get('output_id')))}</strong> "
+            f"(<code>{escape(str(item.get('render_status')))}</code>)"
+            f"<p>{escape(str(item.get('caption') or 'No caption'))}</p>"
+            f"<p>{escape(str(item.get('selector_summary') or 'No selector provenance'))}</p>"
+            "</li>"
+            for item in (figure_delivery_summary.get("figures") or [])
+        )
+        or "<li>None</li>"
+    )
     return (
         '<section class="panel">'
         "<h2>Figure Delivery</h2>"
@@ -376,13 +363,9 @@ def _render_experiment_markdown(experiment_summary: dict | None) -> list[str]:
         f"- manifest: `{experiment_summary.get('manifest_virtual_path')}`",
     ]
     if experiment_summary.get("study_manifest_virtual_path"):
-        lines.append(
-            f"- study_manifest: `{experiment_summary.get('study_manifest_virtual_path')}`"
-        )
+        lines.append(f"- study_manifest: `{experiment_summary.get('study_manifest_virtual_path')}`")
     if experiment_summary.get("compare_virtual_path"):
-        lines.append(
-            f"- compare: `{experiment_summary.get('compare_virtual_path')}`"
-        )
+        lines.append(f"- compare: `{experiment_summary.get('compare_virtual_path')}`")
     workflow_detail = str(experiment_summary.get("workflow_detail") or "").strip()
     if workflow_detail:
         lines.extend(["", "### Workflow Detail", f"- {workflow_detail}"])
@@ -409,9 +392,7 @@ def _render_experiment_markdown(experiment_summary: dict | None) -> list[str]:
                 f"- compared_variant_run_ids: `{', '.join(str(item) for item in (experiment_summary.get('compared_variant_run_ids') or [])) or '--'}`",
             ]
         )
-    registered_custom_variant_run_ids = (
-        experiment_summary.get("registered_custom_variant_run_ids") or []
-    )
+    registered_custom_variant_run_ids = experiment_summary.get("registered_custom_variant_run_ids") or []
     if registered_custom_variant_run_ids:
         lines.extend(
             [
@@ -552,9 +533,7 @@ def _render_experiment_compare_markdown(
                 continue
             metric_lines = _format_compare_metric_delta_lines(item.get("metric_deltas"))
             detail = " | ".join(metric_lines) if metric_lines else str(item.get("notes") or "No metric delta")
-            compare_target_run_id = str(
-                item.get("compare_target_run_id") or item.get("baseline_run_id") or "baseline"
-            )
+            compare_target_run_id = str(item.get("compare_target_run_id") or item.get("baseline_run_id") or "baseline")
             lines.append(
                 "- "
                 + " | ".join(
@@ -607,10 +586,7 @@ def _render_reproducibility_markdown(
         f"- manifest: `{reproducibility_summary.get('manifest_virtual_path') or '--'}`",
         f"- profile_id: `{reproducibility_summary.get('profile_id') or '--'}`",
         f"- parity_status: `{reproducibility_summary.get('parity_status') or '--'}`",
-        (
-            f"- reproducibility_status: "
-            f"`{reproducibility_summary.get('reproducibility_status') or '--'}`"
-        ),
+        (f"- reproducibility_status: `{reproducibility_summary.get('reproducibility_status') or '--'}`"),
     ]
     drift_reasons = reproducibility_summary.get("drift_reasons") or []
     if drift_reasons:
@@ -699,10 +675,7 @@ def _render_scientific_remediation_handoff_markdown(
         "",
         "## Scientific Remediation Handoff",
         f"- handoff_status: `{scientific_remediation_handoff.get('handoff_status')}`",
-        (
-            f"- recommended_action_id: "
-            f"`{scientific_remediation_handoff.get('recommended_action_id') or 'none'}`"
-        ),
+        (f"- recommended_action_id: `{scientific_remediation_handoff.get('recommended_action_id') or 'none'}`"),
         f"- tool_name: `{scientific_remediation_handoff.get('tool_name') or 'manual_only'}`",
         f"- reason: {scientific_remediation_handoff.get('reason') or 'No detail'}",
     ]
@@ -746,28 +719,16 @@ def _render_scientific_followup_markdown(
         f"- entry_count: `{scientific_followup_summary.get('entry_count')}`",
         f"- latest_outcome_status: `{scientific_followup_summary.get('latest_outcome_status')}`",
         f"- latest_handoff_status: `{scientific_followup_summary.get('latest_handoff_status')}`",
-        (
-            f"- latest_recommended_action_id: "
-            f"`{scientific_followup_summary.get('latest_recommended_action_id') or 'none'}`"
-        ),
+        (f"- latest_recommended_action_id: `{scientific_followup_summary.get('latest_recommended_action_id') or 'none'}`"),
         f"- latest_tool_name: `{scientific_followup_summary.get('latest_tool_name') or 'none'}`",
-        (
-            f"- latest_dispatch_stage_status: "
-            f"`{scientific_followup_summary.get('latest_dispatch_stage_status') or 'none'}`"
-        ),
+        (f"- latest_dispatch_stage_status: `{scientific_followup_summary.get('latest_dispatch_stage_status') or 'none'}`"),
         f"- report_refreshed: `{scientific_followup_summary.get('report_refreshed')}`",
         f"- history: `{scientific_followup_summary.get('history_virtual_path')}`",
     ]
     if scientific_followup_summary.get("latest_result_report_virtual_path"):
-        lines.append(
-            f"- latest_result_report: "
-            f"`{scientific_followup_summary.get('latest_result_report_virtual_path')}`"
-        )
+        lines.append(f"- latest_result_report: `{scientific_followup_summary.get('latest_result_report_virtual_path')}`")
     if scientific_followup_summary.get("latest_result_supervisor_handoff_virtual_path"):
-        lines.append(
-            f"- latest_result_handoff: "
-            f"`{scientific_followup_summary.get('latest_result_supervisor_handoff_virtual_path')}`"
-        )
+        lines.append(f"- latest_result_handoff: `{scientific_followup_summary.get('latest_result_supervisor_handoff_virtual_path')}`")
     latest_notes = scientific_followup_summary.get("latest_notes") or []
     if latest_notes:
         lines.extend(["", "### Latest Follow-Up Notes"])
@@ -819,9 +780,7 @@ def _render_scientific_verification_markdown(
         lines.extend(["", "### Blocking Issues"])
         lines.extend(f"- {item}" for item in blocking_issues)
 
-    passed_requirements = (
-        scientific_verification_assessment.get("passed_requirements") or []
-    )
+    passed_requirements = scientific_verification_assessment.get("passed_requirements") or []
     if passed_requirements:
         lines.extend(["", "### Passed Requirements"])
         lines.extend(f"- {item}" for item in passed_requirements)
@@ -838,7 +797,7 @@ def _render_scientific_study_html(scientific_study_summary: dict | None) -> str:
         _format_status_count_items(scientific_study_summary.get("study_status_counts")),
     )
     study_sections: list[str] = []
-    for item in (scientific_study_summary.get("studies") or []):
+    for item in scientific_study_summary.get("studies") or []:
         if not isinstance(item, dict):
             continue
         detail_sections = [
@@ -878,9 +837,7 @@ def _render_scientific_study_html(scientific_study_summary: dict | None) -> str:
             f"<p>execution={escape(str(item.get('study_execution_status') or '--'))}, "
             f"verification={escape(str(item.get('verification_status') or '--'))}</p>"
             f"<p>{escape(str(item.get('workflow_detail') or 'No workflow detail'))}</p>"
-            f"<p>{escape(str(item.get('verification_detail') or 'No detail'))}</p>"
-            + "".join(detail_sections)
-            + "</li>"
+            f"<p>{escape(str(item.get('verification_detail') or 'No detail'))}</p>" + "".join(detail_sections) + "</li>"
         )
     study_items = "".join(study_sections) or "<li>None</li>"
 
@@ -901,29 +858,11 @@ def _render_experiment_html(experiment_summary: dict | None) -> str:
     if not experiment_summary:
         return ""
 
-    compare_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (experiment_summary.get("compare_notes") or [])
-    ) or "<li>None</li>"
-    linkage_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (experiment_summary.get("linkage_issues") or [])
-    ) or "<li>None</li>"
-    compare_html = (
-        f"<p><strong>compare:</strong> {escape(str(experiment_summary.get('compare_virtual_path')))}</p>"
-        if experiment_summary.get("compare_virtual_path")
-        else ""
-    )
-    study_manifest_html = (
-        f"<p><strong>study_manifest:</strong> {escape(str(experiment_summary.get('study_manifest_virtual_path')))}</p>"
-        if experiment_summary.get("study_manifest_virtual_path")
-        else ""
-    )
-    expected_variant_run_ids = [
-        str(item)
-        for item in (experiment_summary.get("expected_variant_run_ids") or [])
-        if str(item)
-    ]
+    compare_items = "".join(f"<li>{escape(str(item))}</li>" for item in (experiment_summary.get("compare_notes") or [])) or "<li>None</li>"
+    linkage_items = "".join(f"<li>{escape(str(item))}</li>" for item in (experiment_summary.get("linkage_issues") or [])) or "<li>None</li>"
+    compare_html = f"<p><strong>compare:</strong> {escape(str(experiment_summary.get('compare_virtual_path')))}</p>" if experiment_summary.get("compare_virtual_path") else ""
+    study_manifest_html = f"<p><strong>study_manifest:</strong> {escape(str(experiment_summary.get('study_manifest_virtual_path')))}</p>" if experiment_summary.get("study_manifest_virtual_path") else ""
+    expected_variant_run_ids = [str(item) for item in (experiment_summary.get("expected_variant_run_ids") or []) if str(item)]
     coverage_html = ""
     if expected_variant_run_ids:
         coverage_html = (
@@ -932,11 +871,7 @@ def _render_experiment_html(experiment_summary: dict | None) -> str:
             f"<p><strong>recorded_variant_run_ids:</strong> {escape(', '.join(str(item) for item in (experiment_summary.get('recorded_variant_run_ids') or [])) or '--')}</p>"
             f"<p><strong>compared_variant_run_ids:</strong> {escape(', '.join(str(item) for item in (experiment_summary.get('compared_variant_run_ids') or [])) or '--')}</p>"
         )
-    registered_custom_variant_run_ids = [
-        str(item)
-        for item in (experiment_summary.get("registered_custom_variant_run_ids") or [])
-        if str(item)
-    ]
+    registered_custom_variant_run_ids = [str(item) for item in (experiment_summary.get("registered_custom_variant_run_ids") or []) if str(item)]
     custom_coverage_html = ""
     if registered_custom_variant_run_ids:
         custom_coverage_html = (
@@ -982,17 +917,20 @@ def _render_experiment_compare_html(experiment_compare_summary: dict | None) -> 
     if not experiment_compare_summary:
         return ""
 
-    items = "".join(
-        "<li>"
-        f"<strong>{escape(str(item.get('candidate_run_id') or '--'))}</strong> "
-        f"(<code>{escape(str(item.get('compare_status') or '--'))}</code>)"
-        f"<p>{escape(_format_compare_entry_label(item))}</p>"
-        f"<p><strong>compare_target:</strong> {escape(str(item.get('compare_target_run_id') or item.get('baseline_run_id') or '--'))}</p>"
-        f"<p>{escape(' | '.join(_format_compare_metric_delta_lines(item.get('metric_deltas'))) or str(item.get('notes') or 'No metric delta'))}</p>"
-        "</li>"
-        for item in (experiment_compare_summary.get("comparisons") or [])
-        if isinstance(item, dict)
-    ) or "<li>None</li>"
+    items = (
+        "".join(
+            "<li>"
+            f"<strong>{escape(str(item.get('candidate_run_id') or '--'))}</strong> "
+            f"(<code>{escape(str(item.get('compare_status') or '--'))}</code>)"
+            f"<p>{escape(_format_compare_entry_label(item))}</p>"
+            f"<p><strong>compare_target:</strong> {escape(str(item.get('compare_target_run_id') or item.get('baseline_run_id') or '--'))}</p>"
+            f"<p>{escape(' | '.join(_format_compare_metric_delta_lines(item.get('metric_deltas'))) or str(item.get('notes') or 'No metric delta'))}</p>"
+            "</li>"
+            for item in (experiment_compare_summary.get("comparisons") or [])
+            if isinstance(item, dict)
+        )
+        or "<li>None</li>"
+    )
     return (
         '<section class="panel">'
         "<h2>Experiment Compare</h2>"
@@ -1014,14 +952,8 @@ def _render_research_evidence_html(research_evidence_summary: dict | None) -> st
     if not research_evidence_summary:
         return ""
 
-    passed_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (research_evidence_summary.get("passed_evidence") or [])
-    ) or "<li>None</li>"
-    gap_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (research_evidence_summary.get("evidence_gaps") or [])
-    ) or "<li>None</li>"
+    passed_items = "".join(f"<li>{escape(str(item))}</li>" for item in (research_evidence_summary.get("passed_evidence") or [])) or "<li>None</li>"
+    gap_items = "".join(f"<li>{escape(str(item))}</li>" for item in (research_evidence_summary.get("evidence_gaps") or [])) or "<li>None</li>"
     return (
         '<section class="panel">'
         "<h2>Research Evidence</h2>"
@@ -1042,14 +974,8 @@ def _render_reproducibility_html(reproducibility_summary: dict | None) -> str:
     if not reproducibility_summary:
         return ""
 
-    drift_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (reproducibility_summary.get("drift_reasons") or [])
-    ) or "<li>None</li>"
-    guidance_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (reproducibility_summary.get("recovery_guidance") or [])
-    ) or "<li>None</li>"
+    drift_items = "".join(f"<li>{escape(str(item))}</li>" for item in (reproducibility_summary.get("drift_reasons") or [])) or "<li>None</li>"
+    guidance_items = "".join(f"<li>{escape(str(item))}</li>" for item in (reproducibility_summary.get("recovery_guidance") or [])) or "<li>None</li>"
     return (
         '<section class="panel">'
         "<h2>Reproducibility</h2>"
@@ -1069,18 +995,9 @@ def _render_scientific_gate_html(scientific_supervisor_gate: dict | None) -> str
     if not scientific_supervisor_gate:
         return ""
 
-    artifact_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (scientific_supervisor_gate.get("artifact_virtual_paths") or [])
-    ) or "<li>None</li>"
-    blocking_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (scientific_supervisor_gate.get("blocking_reasons") or [])
-    ) or "<li>None</li>"
-    advisory_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (scientific_supervisor_gate.get("advisory_notes") or [])
-    ) or "<li>None</li>"
+    artifact_items = "".join(f"<li>{escape(str(item))}</li>" for item in (scientific_supervisor_gate.get("artifact_virtual_paths") or [])) or "<li>None</li>"
+    blocking_items = "".join(f"<li>{escape(str(item))}</li>" for item in (scientific_supervisor_gate.get("blocking_reasons") or [])) or "<li>None</li>"
+    advisory_items = "".join(f"<li>{escape(str(item))}</li>" for item in (scientific_supervisor_gate.get("advisory_notes") or [])) or "<li>None</li>"
     return (
         '<section class="panel">'
         "<h2>Scientific Supervisor Gate</h2>"
@@ -1103,19 +1020,19 @@ def _render_scientific_remediation_html(scientific_remediation_summary: dict | N
     if not scientific_remediation_summary:
         return ""
 
-    artifact_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (scientific_remediation_summary.get("artifact_virtual_paths") or [])
-    ) or "<li>None</li>"
-    action_items = "".join(
-        "<li>"
-        f"<strong>{escape(str(item.get('action_id') or '--'))}</strong> "
-        f"(<code>{escape(str(item.get('owner_stage') or '--'))}</code> / <code>{escape(str(item.get('execution_mode') or '--'))}</code>)"
-        f"<p>{escape(str(item.get('evidence_gap') or 'No evidence gap'))}</p>"
-        "</li>"
-        for item in (scientific_remediation_summary.get("actions") or [])
-        if isinstance(item, dict)
-    ) or "<li>None</li>"
+    artifact_items = "".join(f"<li>{escape(str(item))}</li>" for item in (scientific_remediation_summary.get("artifact_virtual_paths") or [])) or "<li>None</li>"
+    action_items = (
+        "".join(
+            "<li>"
+            f"<strong>{escape(str(item.get('action_id') or '--'))}</strong> "
+            f"(<code>{escape(str(item.get('owner_stage') or '--'))}</code> / <code>{escape(str(item.get('execution_mode') or '--'))}</code>)"
+            f"<p>{escape(str(item.get('evidence_gap') or 'No evidence gap'))}</p>"
+            "</li>"
+            for item in (scientific_remediation_summary.get("actions") or [])
+            if isinstance(item, dict)
+        )
+        or "<li>None</li>"
+    )
     return (
         '<section class="panel">'
         "<h2>Scientific Remediation Plan</h2>"
@@ -1137,24 +1054,17 @@ def _render_scientific_remediation_handoff_html(
     if not scientific_remediation_handoff:
         return ""
 
-    artifact_items = "".join(
-        f"<li>{escape(str(item))}</li>"
-        for item in (scientific_remediation_handoff.get("artifact_virtual_paths") or [])
-    ) or "<li>None</li>"
+    artifact_items = "".join(f"<li>{escape(str(item))}</li>" for item in (scientific_remediation_handoff.get("artifact_virtual_paths") or [])) or "<li>None</li>"
     tool_args = scientific_remediation_handoff.get("tool_args") or {}
-    tool_arg_items = "".join(
-        f"<li><strong>{escape(str(key))}</strong>: {escape(str(value))}</li>"
-        for key, value in tool_args.items()
-    ) or "<li>None</li>"
-    manual_action_items = "".join(
-        "<li>"
-        f"<strong>{escape(str(item.get('action_id') or '--'))}</strong> "
-        f"(<code>{escape(str(item.get('owner_stage') or '--'))}</code>)"
-        f"<p>{escape(str(item.get('evidence_gap') or 'Manual follow-up required'))}</p>"
-        "</li>"
-        for item in (scientific_remediation_handoff.get("manual_actions") or [])
-        if isinstance(item, dict)
-    ) or "<li>None</li>"
+    tool_arg_items = "".join(f"<li><strong>{escape(str(key))}</strong>: {escape(str(value))}</li>" for key, value in tool_args.items()) or "<li>None</li>"
+    manual_action_items = (
+        "".join(
+            f"<li><strong>{escape(str(item.get('action_id') or '--'))}</strong> (<code>{escape(str(item.get('owner_stage') or '--'))}</code>)<p>{escape(str(item.get('evidence_gap') or 'Manual follow-up required'))}</p></li>"
+            for item in (scientific_remediation_handoff.get("manual_actions") or [])
+            if isinstance(item, dict)
+        )
+        or "<li>None</li>"
+    )
     return (
         '<section class="panel">'
         "<h2>Scientific Remediation Handoff</h2>"
@@ -1183,14 +1093,13 @@ def _render_scientific_verification_html(
             return "<li>None</li>"
         return "".join(f"<li>{escape(item)}</li>" for item in items)
 
-    requirement_items = "".join(
-        "<li>"
-        f"<strong>{escape(str(item.get('label') or item.get('requirement_id')))}</strong> "
-        f"(<code>{escape(str(item.get('status')))}</code>)"
-        f"<p>{escape(str(item.get('detail') or 'No detail'))}</p>"
-        "</li>"
-        for item in (scientific_verification_assessment.get("requirements") or [])
-    ) or "<li>None</li>"
+    requirement_items = (
+        "".join(
+            f"<li><strong>{escape(str(item.get('label') or item.get('requirement_id')))}</strong> (<code>{escape(str(item.get('status')))}</code>)<p>{escape(str(item.get('detail') or 'No detail'))}</p></li>"
+            for item in (scientific_verification_assessment.get("requirements") or [])
+        )
+        or "<li>None</li>"
+    )
 
     return (
         '<section class="panel">'
@@ -1336,10 +1245,7 @@ def _render_solver_metrics_markdown_enriched(solver_metrics: dict | None) -> lis
         )
         latest_by_field = residual_summary.get("latest_by_field") or {}
         for field_name, entry in latest_by_field.items():
-            lines.append(
-                f"- {field_name}: initial `{entry.get('initial_residual')}`, "
-                f"final `{entry.get('final_residual')}`, iterations `{entry.get('iterations')}`"
-            )
+            lines.append(f"- {field_name}: initial `{entry.get('initial_residual')}`, final `{entry.get('final_residual')}`, iterations `{entry.get('iterations')}`")
     return lines
 
 
@@ -1365,16 +1271,8 @@ def _summarize_postprocess_spec(spec: object) -> str | None:
         selector_type = selector.get("type")
         if selector_type == "patch":
             patches = selector.get("patches")
-            patch_names = [
-                str(item)
-                for item in patches
-                if isinstance(item, str) and item
-            ] if isinstance(patches, list) else []
-            parts.append(
-                f"selector=patch[{','.join(patch_names)}]"
-                if patch_names
-                else "selector=patch"
-            )
+            patch_names = [str(item) for item in patches if isinstance(item, str) and item] if isinstance(patches, list) else []
+            parts.append(f"selector=patch[{','.join(patch_names)}]" if patch_names else "selector=patch")
         elif selector_type == "plane":
             origin_mode = selector.get("origin_mode")
             origin_value = selector.get("origin_value")
@@ -1389,14 +1287,8 @@ def _summarize_postprocess_spec(spec: object) -> str | None:
 
             normal = selector.get("normal")
             normal_summary = ""
-            if (
-                isinstance(normal, list)
-                and len(normal) == 3
-                and all(isinstance(item, (int, float)) for item in normal)
-            ):
-                normal_summary = "; normal=(" + ", ".join(
-                    _format_spec_number(item) for item in normal
-                ) + ")"
+            if isinstance(normal, list) and len(normal) == 3 and all(isinstance(item, (int, float)) for item in normal):
+                normal_summary = "; normal=(" + ", ".join(_format_spec_number(item) for item in normal) + ")"
             parts.append(f"selector=plane[{origin_summary}{normal_summary}]")
 
     time_mode = spec.get("time_mode")
@@ -1424,31 +1316,25 @@ def _build_dynamic_report_recommendations(payload: dict) -> list[str]:
     next_stage = str(payload.get("next_recommended_stage") or "").strip()
     recommendations: list[str] = []
     if review_status == "blocked" and next_stage:
-        recommendations.append(
-            f"回到 `{next_stage}` 补齐验证或整改项后，再刷新最终报告。"
-        )
+        recommendations.append(f"回到 `{next_stage}` 补齐验证或整改项后，再刷新最终报告。")
     if review_status == "ready_for_supervisor" and next_stage == "supervisor-review":
-        recommendations.append(
-            "进入 `supervisor-review` 审阅当前 claim level，并确认是否需要执行手动整改项。"
-        )
+        recommendations.append("进入 `supervisor-review` 审阅当前 claim level，并确认是否需要执行手动整改项。")
     return recommendations
 
 
-def render_markdown(payload: dict) -> str:
+def _legacy_render_markdown_v1(payload: dict) -> str:
     source_artifacts = "\n".join(f"- `{path}`" for path in payload["source_artifact_virtual_paths"]) or "- 暂无"
     final_artifacts = "\n".join(f"- `{path}`" for path in payload["final_artifact_virtual_paths"])
-    requested_outputs = "\n".join(
-        (
-            f"- `{item['output_id']}` | {item['label']} | "
-            f"requested=`{item['requested_label']}` | support=`{item['support_level']}`"
-            + (
-                f" | spec=`{_summarize_postprocess_spec(item.get('postprocess_spec'))}`"
-                if _summarize_postprocess_spec(item.get("postprocess_spec"))
-                else ""
+    requested_outputs = (
+        "\n".join(
+            (
+                f"- `{item['output_id']}` | {item['label']} | "
+                f"requested=`{item['requested_label']}` | support=`{item['support_level']}`" + (f" | spec=`{_summarize_postprocess_spec(item.get('postprocess_spec'))}`" if _summarize_postprocess_spec(item.get("postprocess_spec")) else "")
             )
+            for item in payload.get("requested_outputs") or []
         )
-        for item in payload.get("requested_outputs") or []
-    ) or "- 暂无"
+        or "- 暂无"
+    )
     lines = [
         f"# {payload['report_title']}",
         "",
@@ -1472,10 +1358,7 @@ def render_markdown(payload: dict) -> str:
         f"- review_status: `{payload['review_status']}`",
         f"- next_recommended_stage: `{payload['next_recommended_stage']}`",
         f"- source_report_virtual_path: `{payload['source_report_virtual_path']}`",
-        (
-            f"- supervisor_handoff_virtual_path: "
-            f"`{payload.get('supervisor_handoff_virtual_path') or '当前阶段无'}`"
-        ),
+        (f"- supervisor_handoff_virtual_path: `{payload.get('supervisor_handoff_virtual_path') or '当前阶段无'}`"),
         "",
         "## 来源证据",
         source_artifacts,
@@ -1502,29 +1385,13 @@ def render_markdown(payload: dict) -> str:
     lines.extend(_render_research_evidence_markdown(payload.get("research_evidence_summary")))
     lines.extend(_render_reproducibility_markdown(payload.get("reproducibility_summary")))
     lines.extend(_render_scientific_gate_markdown(payload.get("scientific_supervisor_gate")))
-    lines.extend(
-        _render_scientific_remediation_markdown(
-            payload.get("scientific_remediation_summary")
-        )
-    )
-    lines.extend(
-        _render_scientific_remediation_handoff_markdown(
-            payload.get("scientific_remediation_handoff")
-        )
-    )
-    lines.extend(
-        _render_scientific_followup_markdown(
-            payload.get("scientific_followup_summary")
-        )
-    )
+    lines.extend(_render_scientific_remediation_markdown(payload.get("scientific_remediation_summary")))
+    lines.extend(_render_scientific_remediation_handoff_markdown(payload.get("scientific_remediation_handoff")))
+    lines.extend(_render_scientific_followup_markdown(payload.get("scientific_followup_summary")))
     lines.extend(_render_scientific_study_markdown(payload.get("scientific_study_summary")))
     lines.extend(_render_experiment_compare_markdown(payload.get("experiment_compare_summary")))
     lines.extend(_render_figure_delivery_markdown(payload.get("figure_delivery_summary")))
-    lines.extend(
-        _render_scientific_verification_markdown(
-            payload.get("scientific_verification_assessment")
-        )
-    )
+    lines.extend(_render_scientific_verification_markdown(payload.get("scientific_verification_assessment")))
     lines.extend(_render_output_delivery_markdown(payload.get("output_delivery_plan")))
     lines.extend(
         [
@@ -1552,10 +1419,7 @@ def _render_solver_metrics_html(solver_metrics: dict | None) -> str:
     metric_lines = [
         f"<p><strong>求解完成:</strong> {escape(str(solver_metrics.get('solver_completed')))}</p>",
         f"<p><strong>最终时间步:</strong> {escape(str(solver_metrics.get('final_time_seconds')))}</p>",
-        (
-            "<p><strong>后处理目录:</strong> "
-            f"{escape(str(solver_metrics.get('workspace_postprocess_virtual_path')))}</p>"
-        ),
+        (f"<p><strong>后处理目录:</strong> {escape(str(solver_metrics.get('workspace_postprocess_virtual_path')))}</p>"),
     ]
     if coefficient_metrics:
         metric_lines.extend(
@@ -1583,7 +1447,7 @@ def _render_solver_metrics_html(solver_metrics: dict | None) -> str:
             ]
         )
 
-    return "<section class=\"panel\"><h2>CFD 结果指标</h2>" + "".join(metric_lines) + "</section>"
+    return '<section class="panel"><h2>CFD 结果指标</h2>' + "".join(metric_lines) + "</section>"
 
 
 def _render_solver_metrics_html_enriched(solver_metrics: dict | None) -> str:
@@ -1599,10 +1463,7 @@ def _render_solver_metrics_html_enriched(solver_metrics: dict | None) -> str:
     metric_lines = [
         f"<p><strong>求解完成:</strong> {escape(str(solver_metrics.get('solver_completed')))}</p>",
         f"<p><strong>最终时间步:</strong> {escape(str(solver_metrics.get('final_time_seconds')))}</p>",
-        (
-            "<p><strong>后处理目录:</strong> "
-            f"{escape(str(solver_metrics.get('workspace_postprocess_virtual_path')))}</p>"
-        ),
+        (f"<p><strong>后处理目录:</strong> {escape(str(solver_metrics.get('workspace_postprocess_virtual_path')))}</p>"),
     ]
     if coefficient_metrics:
         metric_lines.extend(
@@ -1663,30 +1524,17 @@ def _render_solver_metrics_html_enriched(solver_metrics: dict | None) -> str:
         )
         latest_by_field = residual_summary.get("latest_by_field") or {}
         for field_name, entry in latest_by_field.items():
-            metric_lines.append(
-                "<p>"
-                f"<strong>{escape(str(field_name))}:</strong> "
-                f"initial {escape(str(entry.get('initial_residual')))}, "
-                f"final {escape(str(entry.get('final_residual')))}, "
-                f"iterations {escape(str(entry.get('iterations')))}"
-                "</p>"
-            )
+            metric_lines.append(f"<p><strong>{escape(str(field_name))}:</strong> initial {escape(str(entry.get('initial_residual')))}, final {escape(str(entry.get('final_residual')))}, iterations {escape(str(entry.get('iterations')))}</p>")
 
-    return "<section class=\"panel\"><h2>CFD 结果指标</h2>" + "".join(metric_lines) + "</section>"
+    return '<section class="panel"><h2>CFD 结果指标</h2>' + "".join(metric_lines) + "</section>"
 
 
 def _render_scientific_followup_html(scientific_followup_summary: dict | None) -> str:
     if not scientific_followup_summary:
         return ""
 
-    artifact_items = "".join(
-        f"<li><code>{escape(str(path))}</code></li>"
-        for path in (scientific_followup_summary.get("artifact_virtual_paths") or [])
-    ) or "<li>None</li>"
-    note_items = "".join(
-        f"<li>{escape(str(note))}</li>"
-        for note in (scientific_followup_summary.get("latest_notes") or [])
-    ) or "<li>None</li>"
+    artifact_items = "".join(f"<li><code>{escape(str(path))}</code></li>" for path in (scientific_followup_summary.get("artifact_virtual_paths") or [])) or "<li>None</li>"
+    note_items = "".join(f"<li>{escape(str(note))}</li>" for note in (scientific_followup_summary.get("latest_notes") or [])) or "<li>None</li>"
     return (
         '<section class="panel">'
         "<h2>Scientific Follow-Up History</h2>"
@@ -1698,11 +1546,7 @@ def _render_scientific_followup_html(scientific_followup_summary: dict | None) -
         f"<p><strong>latest_dispatch_stage_status:</strong> {escape(str(scientific_followup_summary.get('latest_dispatch_stage_status') or 'none'))}</p>"
         f"<p><strong>report_refreshed:</strong> {escape(str(scientific_followup_summary.get('report_refreshed')))}</p>"
         f"<p><strong>history:</strong> {escape(str(scientific_followup_summary.get('history_virtual_path') or '--'))}</p>"
-        + (
-            f"<p><strong>latest_result_report:</strong> {escape(str(scientific_followup_summary.get('latest_result_report_virtual_path')))}</p>"
-            if scientific_followup_summary.get("latest_result_report_virtual_path")
-            else ""
-        )
+        + (f"<p><strong>latest_result_report:</strong> {escape(str(scientific_followup_summary.get('latest_result_report_virtual_path')))}</p>" if scientific_followup_summary.get("latest_result_report_virtual_path") else "")
         + (
             f"<p><strong>latest_result_handoff:</strong> {escape(str(scientific_followup_summary.get('latest_result_supervisor_handoff_virtual_path')))}</p>"
             if scientific_followup_summary.get("latest_result_supervisor_handoff_virtual_path")
@@ -1717,54 +1561,27 @@ def _render_scientific_followup_html(scientific_followup_summary: dict | None) -
 
 
 def _render_recommendations_html(payload: dict) -> str:
-    dynamic_recommendations = [
-        item.replace("`", "<code>", 1).replace("`", "</code>", 1)
-        for item in _build_dynamic_report_recommendations(payload)
-    ]
-    items = "".join(
-        f"<li>{item}</li>" for item in dynamic_recommendations
-    ) + "".join(
-        f"<li>{escape(item)}</li>" for item in _REPORT_RECOMMENDATIONS
-    )
+    dynamic_recommendations = [item.replace("`", "<code>", 1).replace("`", "</code>", 1) for item in _build_dynamic_report_recommendations(payload)]
+    items = "".join(f"<li>{item}</li>" for item in dynamic_recommendations) + "".join(f"<li>{escape(item)}</li>" for item in _REPORT_RECOMMENDATIONS)
     return f'<section class="panel"><h2>建议</h2><ul>{items}</ul></section>'
 
 
-def render_html(payload: dict) -> str:
+def _legacy_render_html_v1(payload: dict) -> str:
     source_items = "".join(f"<li>{escape(path)}</li>" for path in payload["source_artifact_virtual_paths"]) or "<li>暂无</li>"
     final_items = "".join(f"<li>{escape(path)}</li>" for path in payload["final_artifact_virtual_paths"])
     metrics_section = _render_solver_metrics_html_enriched(payload.get("solver_metrics"))
     acceptance_section = _render_acceptance_html(payload.get("acceptance_assessment"))
     experiment_section = _render_experiment_html(payload.get("experiment_summary"))
-    research_evidence_section = _render_research_evidence_html(
-        payload.get("research_evidence_summary")
-    )
-    reproducibility_section = _render_reproducibility_html(
-        payload.get("reproducibility_summary")
-    )
-    scientific_gate_section = _render_scientific_gate_html(
-        payload.get("scientific_supervisor_gate")
-    )
-    scientific_remediation_section = _render_scientific_remediation_html(
-        payload.get("scientific_remediation_summary")
-    )
-    scientific_remediation_handoff_section = _render_scientific_remediation_handoff_html(
-        payload.get("scientific_remediation_handoff")
-    )
-    scientific_followup_section = _render_scientific_followup_html(
-        payload.get("scientific_followup_summary")
-    )
-    scientific_study_section = _render_scientific_study_html(
-        payload.get("scientific_study_summary")
-    )
-    experiment_compare_section = _render_experiment_compare_html(
-        payload.get("experiment_compare_summary")
-    )
-    figure_delivery_section = _render_figure_delivery_html(
-        payload.get("figure_delivery_summary")
-    )
-    scientific_verification_section = _render_scientific_verification_html(
-        payload.get("scientific_verification_assessment")
-    )
+    research_evidence_section = _render_research_evidence_html(payload.get("research_evidence_summary"))
+    reproducibility_section = _render_reproducibility_html(payload.get("reproducibility_summary"))
+    scientific_gate_section = _render_scientific_gate_html(payload.get("scientific_supervisor_gate"))
+    scientific_remediation_section = _render_scientific_remediation_html(payload.get("scientific_remediation_summary"))
+    scientific_remediation_handoff_section = _render_scientific_remediation_handoff_html(payload.get("scientific_remediation_handoff"))
+    scientific_followup_section = _render_scientific_followup_html(payload.get("scientific_followup_summary"))
+    scientific_study_section = _render_scientific_study_html(payload.get("scientific_study_summary"))
+    experiment_compare_section = _render_experiment_compare_html(payload.get("experiment_compare_summary"))
+    figure_delivery_section = _render_figure_delivery_html(payload.get("figure_delivery_summary"))
+    scientific_verification_section = _render_scientific_verification_html(payload.get("scientific_verification_assessment"))
     requested_outputs_section = (
         '<section class="panel"><h2>Requested Outputs</h2><ul>'
         + (
@@ -1773,13 +1590,7 @@ def render_html(payload: dict) -> str:
                 f"<strong>{escape(str(item.get('label')))}</strong> "
                 f"(<code>{escape(str(item.get('output_id')))}</code>)"
                 f"<p>requested={escape(str(item.get('requested_label')))}, "
-                f"support={escape(str(item.get('support_level')))}"
-                + (
-                    f", spec={escape(summary)}"
-                    if (summary := _summarize_postprocess_spec(item.get("postprocess_spec")))
-                    else ""
-                )
-                + "</p>"
+                f"support={escape(str(item.get('support_level')))}" + (f", spec={escape(summary)}" if (summary := _summarize_postprocess_spec(item.get("postprocess_spec"))) else "") + "</p>"
                 "</li>"
                 for item in (payload.get("requested_outputs") or [])
             )
@@ -1793,7 +1604,7 @@ def render_html(payload: dict) -> str:
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <title>{escape(payload['report_title'])}</title>
+    <title>{escape(payload["report_title"])}</title>
     <style>
       body {{
         margin: 0;
@@ -1819,29 +1630,29 @@ def render_html(payload: dict) -> str:
   </head>
   <body>
     <section class="panel">
-      <h1>{escape(payload['report_title'])}</h1>
-      <p>{escape(payload['summary_zh'])}</p>
+      <h1>{escape(payload["report_title"])}</h1>
+      <p>{escape(payload["summary_zh"])}</p>
     </section>
     <section class="panel">
       <h2>运行上下文</h2>
-      <p><strong>来源阶段:</strong> {escape(str(payload['source_runtime_stage']))}</p>
-      <p><strong>任务摘要:</strong> {escape(str(payload.get('task_summary') or '待补充'))}</p>
-      <p><strong>确认状态:</strong> {escape(str(payload.get('confirmation_status') or 'draft'))}</p>
-      <p><strong>执行偏好:</strong> {escape(str(payload.get('execution_preference') or 'plan_only'))}</p>
-      <p><strong>任务类型:</strong> {escape(str(payload['task_type']))}</p>
-      <p><strong>几何文件:</strong> {escape(str(payload['geometry_virtual_path']))}</p>
-      <p><strong>几何家族:</strong> {escape(str(payload.get('geometry_family') or '待确认'))}</p>
-      <p><strong>执行就绪状态:</strong> {escape(str(payload.get('execution_readiness') or '待判定'))}</p>
-      <p><strong>选定案例:</strong> {escape(str(payload.get('selected_case_id') or '未固定'))}</p>
-      <p><strong>Workspace case:</strong> {escape(str(payload.get('workspace_case_dir_virtual_path') or '当前阶段无'))}</p>
-      <p><strong>Run script:</strong> {escape(str(payload.get('run_script_virtual_path') or '当前阶段无'))}</p>
+      <p><strong>来源阶段:</strong> {escape(str(payload["source_runtime_stage"]))}</p>
+      <p><strong>任务摘要:</strong> {escape(str(payload.get("task_summary") or "待补充"))}</p>
+      <p><strong>确认状态:</strong> {escape(str(payload.get("confirmation_status") or "draft"))}</p>
+      <p><strong>执行偏好:</strong> {escape(str(payload.get("execution_preference") or "plan_only"))}</p>
+      <p><strong>任务类型:</strong> {escape(str(payload["task_type"]))}</p>
+      <p><strong>几何文件:</strong> {escape(str(payload["geometry_virtual_path"]))}</p>
+      <p><strong>几何家族:</strong> {escape(str(payload.get("geometry_family") or "待确认"))}</p>
+      <p><strong>执行就绪状态:</strong> {escape(str(payload.get("execution_readiness") or "待判定"))}</p>
+      <p><strong>选定案例:</strong> {escape(str(payload.get("selected_case_id") or "未固定"))}</p>
+      <p><strong>Workspace case:</strong> {escape(str(payload.get("workspace_case_dir_virtual_path") or "当前阶段无"))}</p>
+      <p><strong>Run script:</strong> {escape(str(payload.get("run_script_virtual_path") or "当前阶段无"))}</p>
     </section>
     <section class="panel">
       <h2>当前阶段判断</h2>
-      <p><strong>review_status:</strong> {escape(str(payload['review_status']))}</p>
-      <p><strong>next_recommended_stage:</strong> {escape(str(payload['next_recommended_stage']))}</p>
-      <p><strong>source_report_virtual_path:</strong> {escape(str(payload['source_report_virtual_path']))}</p>
-      <p><strong>supervisor_handoff_virtual_path:</strong> {escape(str(payload.get('supervisor_handoff_virtual_path') or '当前阶段无'))}</p>
+      <p><strong>review_status:</strong> {escape(str(payload["review_status"]))}</p>
+      <p><strong>next_recommended_stage:</strong> {escape(str(payload["next_recommended_stage"]))}</p>
+      <p><strong>source_report_virtual_path:</strong> {escape(str(payload["source_report_virtual_path"]))}</p>
+      <p><strong>supervisor_handoff_virtual_path:</strong> {escape(str(payload.get("supervisor_handoff_virtual_path") or "当前阶段无"))}</p>
     </section>
     <section class="panel">
       <h2>来源证据</h2>
@@ -1897,17 +1708,12 @@ def _report_overview(payload: dict) -> dict[str, object]:
     reproducibility_status = "--"
     if isinstance(reproducibility_summary, dict):
         reproducibility_status = _report_text(
-            reproducibility_summary.get("reproducibility_status")
-            or reproducibility_summary.get("parity_status"),
+            reproducibility_summary.get("reproducibility_status") or reproducibility_summary.get("parity_status"),
             fallback="unknown",
         )
 
     next_stage = _report_text(payload.get("next_recommended_stage"), fallback="")
-    recommended_next_step = (
-        f"建议先进入 `{next_stage}` 阶段继续补齐证据链。"
-        if next_stage
-        else "回到聊天确认下一步研究动作。"
-    )
+    recommended_next_step = f"建议先进入 `{next_stage}` 阶段继续补齐证据链。" if next_stage else "回到聊天确认下一步研究动作。"
     return {
         "current_conclusion_zh": _report_text(
             payload.get("summary_zh"),
@@ -1938,36 +1744,20 @@ def _delivery_highlights(payload: dict) -> dict[str, object]:
 
     if isinstance(solver_metrics, dict):
         coefficient_metrics = solver_metrics.get("latest_force_coefficients") or {}
-        if isinstance(coefficient_metrics, dict) and _is_number(
-            coefficient_metrics.get("Cd")
-        ):
+        if isinstance(coefficient_metrics, dict) and _is_number(coefficient_metrics.get("Cd")):
             metric_lines.append(f"阻力系数 Cd：{float(coefficient_metrics['Cd']):.6f}")
 
         if _is_number(solver_metrics.get("final_time_seconds")):
-            metric_lines.append(
-                f"最终时间步：{float(solver_metrics['final_time_seconds']):g} s"
-            )
+            metric_lines.append(f"最终时间步：{float(solver_metrics['final_time_seconds']):g} s")
 
         forces = solver_metrics.get("latest_forces") or {}
         total_force = forces.get("total_force") if isinstance(forces, dict) else None
-        if (
-            isinstance(total_force, list)
-            and total_force
-            and _is_number(total_force[0])
-        ):
+        if isinstance(total_force, list) and total_force and _is_number(total_force[0]):
             metric_lines.append(f"总阻力 Fx：{float(total_force[0]):.4f} N")
 
-    metric_lines.append(
-        "允许结论等级："
-        + _report_text(overview.get("allowed_claim_level"), fallback="delivery_only")
-    )
-    metric_lines.append(
-        "复核状态：" + _report_text(overview.get("review_status"), fallback="blocked")
-    )
-    metric_lines.append(
-        "可复现状态："
-        + _report_text(overview.get("reproducibility_status"), fallback="unknown")
-    )
+    metric_lines.append("允许结论等级：" + _report_text(overview.get("allowed_claim_level"), fallback="delivery_only"))
+    metric_lines.append("复核状态：" + _report_text(overview.get("review_status"), fallback="blocked"))
+    metric_lines.append("可复现状态：" + _report_text(overview.get("reproducibility_status"), fallback="unknown"))
 
     figure_titles: list[str] = []
     if isinstance(figure_delivery_summary, dict):
@@ -2007,30 +1797,14 @@ def _conclusion_sections(payload: dict) -> list[dict[str, object]]:
                 continue
             normalized.append(
                 {
-                    "conclusion_id": _report_text(
-                        item.get("conclusion_id"), fallback="conclusion"
-                    ),
-                    "title_zh": _report_text(
-                        item.get("title_zh"), fallback="当前结论"
-                    ),
-                    "summary_zh": _report_text(
-                        item.get("summary_zh"), fallback="暂无结论说明。"
-                    ),
-                    "claim_level": _report_text(
-                        item.get("claim_level"), fallback="delivery_only"
-                    ),
-                    "confidence_label": _report_text(
-                        item.get("confidence_label"), fallback="--"
-                    ),
-                    "inline_source_refs": _report_string_list(
-                        item.get("inline_source_refs")
-                    ),
-                    "evidence_gap_notes": _report_string_list(
-                        item.get("evidence_gap_notes")
-                    ),
-                    "artifact_virtual_paths": _report_string_list(
-                        item.get("artifact_virtual_paths")
-                    ),
+                    "conclusion_id": _report_text(item.get("conclusion_id"), fallback="conclusion"),
+                    "title_zh": _report_text(item.get("title_zh"), fallback="当前结论"),
+                    "summary_zh": _report_text(item.get("summary_zh"), fallback="暂无结论说明。"),
+                    "claim_level": _report_text(item.get("claim_level"), fallback="delivery_only"),
+                    "confidence_label": _report_text(item.get("confidence_label"), fallback="--"),
+                    "inline_source_refs": _report_string_list(item.get("inline_source_refs")),
+                    "evidence_gap_notes": _report_string_list(item.get("evidence_gap_notes")),
+                    "artifact_virtual_paths": _report_string_list(item.get("artifact_virtual_paths")),
                 }
             )
         if normalized:
@@ -2123,13 +1897,7 @@ def _evidence_index(payload: dict) -> list[dict[str, object]]:
             "research_evidence",
             "研究证据与科学判断",
             [
-                *(
-                    _report_string_list(
-                        research_evidence_summary.get("artifact_virtual_paths")
-                        if isinstance(research_evidence_summary, dict)
-                        else []
-                    )
-                ),
+                *(_report_string_list(research_evidence_summary.get("artifact_virtual_paths") if isinstance(research_evidence_summary, dict) else [])),
                 payload.get("scientific_gate_virtual_path"),
                 payload.get("stability_evidence_virtual_path"),
             ],
@@ -2140,13 +1908,7 @@ def _evidence_index(payload: dict) -> list[dict[str, object]]:
             "代表图表与交付产物",
             [
                 *(_report_string_list(payload.get("final_artifact_virtual_paths"))),
-                *(
-                    _report_string_list(
-                        figure_delivery_summary.get("artifact_virtual_paths")
-                        if isinstance(figure_delivery_summary, dict)
-                        else []
-                    )
-                ),
+                *(_report_string_list(figure_delivery_summary.get("artifact_virtual_paths") if isinstance(figure_delivery_summary, dict) else [])),
             ],
             provenance_manifest_virtual_path,
         ),
@@ -2163,11 +1925,7 @@ def _evidence_index(payload: dict) -> list[dict[str, object]]:
         _build_evidence_group(
             "followup_and_refresh",
             "后续动作与刷新链路",
-            (
-                scientific_followup_summary.get("artifact_virtual_paths")
-                if isinstance(scientific_followup_summary, dict)
-                else []
-            ),
+            (scientific_followup_summary.get("artifact_virtual_paths") if isinstance(scientific_followup_summary, dict) else []),
             provenance_manifest_virtual_path,
         ),
     ]:
@@ -2205,9 +1963,7 @@ def _render_delivery_highlights_markdown(highlights: dict[str, object]) -> list[
     lines.extend(["", "### 代表图表"])
     lines.extend(f"- {item}" for item in (figure_titles or ["暂无代表图表。"]))
     lines.extend(["", "### 高亮产物"])
-    lines.extend(
-        f"- `{path}`" for path in (highlight_paths or ["暂无高亮产物。"])
-    )
+    lines.extend(f"- `{path}`" for path in (highlight_paths or ["暂无高亮产物。"]))
     return lines
 
 
@@ -2257,13 +2013,9 @@ def _render_evidence_index_markdown(
                 f"### {_report_text(group.get('group_title_zh'), fallback='证据分组')}",
             ]
         )
-        lines.extend(
-            f"- `{path}`" for path in (artifact_paths or ["暂无分组产物。"])
-        )
+        lines.extend(f"- `{path}`" for path in (artifact_paths or ["暂无分组产物。"]))
         if provenance_manifest_virtual_path:
-            lines.append(
-                f"- provenance_manifest_virtual_path：`{provenance_manifest_virtual_path}`"
-            )
+            lines.append(f"- provenance_manifest_virtual_path：`{provenance_manifest_virtual_path}`")
     return lines
 
 
@@ -2285,9 +2037,7 @@ def _render_next_steps_markdown(payload: dict, overview: dict[str, object]) -> l
     if next_stage:
         lines.append(f"- next_recommended_stage：`{next_stage}`")
 
-    source_report_virtual_path = _report_text(
-        payload.get("source_report_virtual_path"), fallback=""
-    )
+    source_report_virtual_path = _report_text(payload.get("source_report_virtual_path"), fallback="")
     if source_report_virtual_path:
         lines.append(f"- source_report_virtual_path：`{source_report_virtual_path}`")
 
@@ -2296,14 +2046,10 @@ def _render_next_steps_markdown(payload: dict, overview: dict[str, object]) -> l
         fallback="",
     )
     if supervisor_handoff_virtual_path:
-        lines.append(
-            f"- supervisor_handoff_virtual_path：`{supervisor_handoff_virtual_path}`"
-        )
+        lines.append(f"- supervisor_handoff_virtual_path：`{supervisor_handoff_virtual_path}`")
 
     if isinstance(followup_summary, dict):
-        history_virtual_path = _report_text(
-            followup_summary.get("history_virtual_path"), fallback=""
-        )
+        history_virtual_path = _report_text(followup_summary.get("history_virtual_path"), fallback="")
         if history_virtual_path:
             lines.append(f"- history_virtual_path：`{history_virtual_path}`")
 
@@ -2363,6 +2109,7 @@ def _formal_render_artifact_manifest_markdown_compact(payload: dict) -> list[str
     """
     return []
 
+
 def _formal_render_artifact_manifest_html_compact(payload: dict) -> str:
     """
     groups = _formal_artifact_group_summary(payload)
@@ -2417,6 +2164,8 @@ def _formal_render_artifact_manifest_html_compact(payload: dict) -> str:
 
     """
     return ""
+
+
 def _formal_render_artifact_manifest_markdown_compact(payload: dict) -> list[str]:
     groups = _formal_artifact_group_summary(payload)
     lines = ["", "## 文件清单与路径索引"]
@@ -2451,9 +2200,7 @@ def _formal_render_artifact_manifest_markdown_compact(payload: dict) -> list[str
                     if value:
                         lines.append(f"- {label}：`{value}`")
                 if "is_final_deliverable" in item:
-                    lines.append(
-                        f"- 最终交付：`{'yes' if bool(item.get('is_final_deliverable')) else 'no'}`"
-                    )
+                    lines.append(f"- 最终交付：`{'yes' if bool(item.get('is_final_deliverable')) else 'no'}`")
         notes = _report_string_list(group.get("notes"))
         if notes:
             lines.extend(["", "#### 说明"])
@@ -2492,15 +2239,8 @@ def _formal_render_artifact_manifest_html_compact(payload: dict) -> str:
                     if value:
                         detail_items.append(f"<li>{escape(label)}：<code>{escape(value)}</code></li>")
                 if "is_final_deliverable" in item:
-                    detail_items.append(
-                        f"<li>最终交付：<code>{'yes' if bool(item.get('is_final_deliverable')) else 'no'}</code></li>"
-                    )
-                cards.append(
-                    '<article class="detail-card">'
-                    f"<h4><code>{escape(_report_text(item.get('filename'), fallback='unknown'))}</code></h4>"
-                    f"<ul>{''.join(detail_items)}</ul>"
-                    "</article>"
-                )
+                    detail_items.append(f"<li>最终交付：<code>{'yes' if bool(item.get('is_final_deliverable')) else 'no'}</code></li>")
+                cards.append(f'<article class="detail-card"><h4><code>{escape(_report_text(item.get("filename"), fallback="unknown"))}</code></h4><ul>{"".join(detail_items)}</ul></article>')
             sections.append("".join(cards))
         notes = _report_string_list(group.get("notes"))
         if notes:
@@ -2510,7 +2250,7 @@ def _formal_render_artifact_manifest_html_compact(payload: dict) -> str:
     return "".join(sections)
 
 
-def render_markdown(payload: dict) -> str:
+def _legacy_render_markdown_v2(payload: dict) -> str:
     overview = _report_overview(payload)
     highlights = _delivery_highlights(payload)
     sections = _conclusion_sections(payload)
@@ -2565,12 +2305,7 @@ def _render_delivery_highlights_html(highlights: dict[str, object]) -> str:
         "<h3>代表图表</h3>"
         f"<ul>{_render_html_list(figure_titles, '暂无代表图表。')}</ul>"
         "<h3>高亮产物</h3>"
-        "<ul>"
-        + (
-            "".join(f"<li><code>{escape(path)}</code></li>" for path in highlight_paths)
-            or "<li>暂无高亮产物。</li>"
-        )
-        + "</ul>"
+        "<ul>" + ("".join(f"<li><code>{escape(path)}</code></li>" for path in highlight_paths) or "<li>暂无高亮产物。</li>") + "</ul>"
         "</section>"
     )
 
@@ -2597,12 +2332,7 @@ def _render_conclusion_sections_html(
             "</article>"
         )
 
-    return (
-        '<section class="panel">'
-        "<h2>结论与证据</h2>"
-        + "".join(rendered_sections)
-        + "</section>"
-    )
+    return '<section class="panel"><h2>结论与证据</h2>' + "".join(rendered_sections) + "</section>"
 
 
 def _render_evidence_index_html(
@@ -2622,25 +2352,13 @@ def _render_evidence_index_html(
             '<div class="evidence-group">'
             f"<h3>{escape(_report_text(group.get('group_title_zh'), fallback='证据分组'))}</h3>"
             "<ul>"
-            + (
-                "".join(f"<li><code>{escape(path)}</code></li>" for path in artifact_paths)
-                or "<li>暂无分组产物。</li>"
-            )
-            + (
-                f"<li><strong>provenance_manifest_virtual_path：</strong> <code>{escape(provenance_manifest_virtual_path)}</code></li>"
-                if provenance_manifest_virtual_path
-                else ""
-            )
+            + ("".join(f"<li><code>{escape(path)}</code></li>" for path in artifact_paths) or "<li>暂无分组产物。</li>")
+            + (f"<li><strong>provenance_manifest_virtual_path：</strong> <code>{escape(provenance_manifest_virtual_path)}</code></li>" if provenance_manifest_virtual_path else "")
             + "</ul>"
             "</div>"
         )
 
-    return (
-        '<section class="panel">'
-        "<h2>证据索引</h2>"
-        + "".join(rendered_groups)
-        + "</section>"
-    )
+    return '<section class="panel"><h2>证据索引</h2>' + "".join(rendered_groups) + "</section>"
 
 
 def _render_next_steps_html(payload: dict, overview: dict[str, object]) -> str:
@@ -2665,27 +2383,17 @@ def _render_next_steps_html(payload: dict, overview: dict[str, object]) -> str:
         ),
         (
             "history_virtual_path",
-            followup_summary.get("history_virtual_path")
-            if isinstance(followup_summary, dict)
-            else None,
+            followup_summary.get("history_virtual_path") if isinstance(followup_summary, dict) else None,
         ),
     ]:
         text = _report_text(value, fallback="")
         if text:
-            detail_items.append(
-                f"<li><strong>{escape(label)}：</strong> <code>{escape(text)}</code></li>"
-            )
+            detail_items.append(f"<li><strong>{escape(label)}：</strong> <code>{escape(text)}</code></li>")
 
-    return (
-        '<section class="panel">'
-        "<h2>建议下一步</h2>"
-        f"<ul>{_render_html_list(suggestions, '回到聊天确认下一步研究动作。')}</ul>"
-        + (f"<ul>{''.join(detail_items)}</ul>" if detail_items else "")
-        + "</section>"
-    )
+    return f'<section class="panel"><h2>建议下一步</h2><ul>{_render_html_list(suggestions, "回到聊天确认下一步研究动作。")}</ul>' + (f"<ul>{''.join(detail_items)}</ul>" if detail_items else "") + "</section>"
 
 
-def render_html(payload: dict) -> str:
+def _legacy_render_html_v2(payload: dict) -> str:
     overview = _report_overview(payload)
     highlights = _delivery_highlights(payload)
     sections = _conclusion_sections(payload)
@@ -2744,6 +2452,7 @@ def render_html(payload: dict) -> str:
 </html>
 """
 
+
 def _formal_render_artifact_manifest_markdown_compact(payload: dict) -> list[str]:
     groups = _formal_artifact_group_summary(payload)
     lines = ["", "## 文件清单与路径索引"]
@@ -2778,9 +2487,7 @@ def _formal_render_artifact_manifest_markdown_compact(payload: dict) -> list[str
                     if value:
                         lines.append(f"- {label}：`{value}`")
                 if "is_final_deliverable" in item:
-                    lines.append(
-                        f"- 最终交付：`{'yes' if bool(item.get('is_final_deliverable')) else 'no'}`"
-                    )
+                    lines.append(f"- 最终交付：`{'yes' if bool(item.get('is_final_deliverable')) else 'no'}`")
         notes = _report_string_list(group.get("notes"))
         if notes:
             lines.extend(["", "#### 说明"])
@@ -2792,9 +2499,7 @@ def _formal_render_artifact_manifest_html_compact(payload: dict) -> str:
     groups = _formal_artifact_group_summary(payload)
     sections = ['<section class="panel">', "<h2>文件清单与路径索引</h2>"]
     for group in groups:
-        sections.append(
-            f"<h3>{escape(_report_text(group.get('title_zh'), fallback='文件分组'))}</h3>"
-        )
+        sections.append(f"<h3>{escape(_report_text(group.get('title_zh'), fallback='文件分组'))}</h3>")
         summary = _report_text(group.get("summary_zh"), fallback="")
         if summary:
             sections.append(f"<p>{escape(summary)}</p>")
@@ -2819,31 +2524,20 @@ def _formal_render_artifact_manifest_html_compact(payload: dict) -> str:
                 ]:
                     value = _report_text(item.get(key), fallback="")
                     if value:
-                        detail_items.append(
-                            f"<li>{escape(label)}：<code>{escape(value)}</code></li>"
-                        )
+                        detail_items.append(f"<li>{escape(label)}：<code>{escape(value)}</code></li>")
                 if "is_final_deliverable" in item:
-                    detail_items.append(
-                        f"<li>最终交付：<code>{'yes' if bool(item.get('is_final_deliverable')) else 'no'}</code></li>"
-                    )
-                cards.append(
-                    '<article class="detail-card">'
-                    f"<h4><code>{escape(_report_text(item.get('filename'), fallback='unknown'))}</code></h4>"
-                    f"<ul>{''.join(detail_items)}</ul>"
-                    "</article>"
-                )
+                    detail_items.append(f"<li>最终交付：<code>{'yes' if bool(item.get('is_final_deliverable')) else 'no'}</code></li>")
+                cards.append(f'<article class="detail-card"><h4><code>{escape(_report_text(item.get("filename"), fallback="unknown"))}</code></h4><ul>{"".join(detail_items)}</ul></article>')
             sections.append("".join(cards))
         notes = _report_string_list(group.get("notes"))
         if notes:
             sections.append("<h4>说明</h4>")
-            sections.append(
-                "<ul>" + "".join(f"<li>{escape(item)}</li>" for item in notes) + "</ul>"
-            )
+            sections.append("<ul>" + "".join(f"<li>{escape(item)}</li>" for item in notes) + "</ul>")
     sections.append("</section>")
     return "".join(sections)
 
 
-def render_markdown(payload: dict) -> str:
+def _legacy_render_markdown_v3(payload: dict) -> str:
     overview = _report_overview(payload)
     lines = [
         f"# {_report_text(payload.get('report_title'), fallback='潜艇 CFD 最终报告')}",
@@ -2859,7 +2553,7 @@ def render_markdown(payload: dict) -> str:
     return "\n".join(lines)
 
 
-def render_html(payload: dict) -> str:
+def _legacy_render_html_v3(payload: dict) -> str:
     overview = _report_overview(payload)
     return f"""<!doctype html>
 <html lang="zh-CN">
@@ -2949,9 +2643,7 @@ def _formal_render_artifact_manifest_markdown_compact(payload: dict) -> list[str
                     if value:
                         lines.append(f"- {label}：`{value}`")
                 if "is_final_deliverable" in item:
-                    lines.append(
-                        f"- 最终交付：`{'yes' if bool(item.get('is_final_deliverable')) else 'no'}`"
-                    )
+                    lines.append(f"- 最终交付：`{'yes' if bool(item.get('is_final_deliverable')) else 'no'}`")
         notes = _report_string_list(group.get("notes"))
         if notes:
             lines.extend(["", "#### 说明"])
@@ -2963,9 +2655,7 @@ def _formal_render_artifact_manifest_html_compact(payload: dict) -> str:
     groups = _formal_artifact_group_summary(payload)
     sections = ['<section class="panel">', "<h2>文件清单与路径索引</h2>"]
     for group in groups:
-        sections.append(
-            f"<h3>{escape(_report_text(group.get('title_zh'), fallback='文件分组'))}</h3>"
-        )
+        sections.append(f"<h3>{escape(_report_text(group.get('title_zh'), fallback='文件分组'))}</h3>")
         summary = _report_text(group.get("summary_zh"), fallback="")
         if summary:
             sections.append(f"<p>{escape(summary)}</p>")
@@ -2990,31 +2680,20 @@ def _formal_render_artifact_manifest_html_compact(payload: dict) -> str:
                 ]:
                     value = _report_text(item.get(key), fallback="")
                     if value:
-                        detail_items.append(
-                            f"<li>{escape(label)}：<code>{escape(value)}</code></li>"
-                        )
+                        detail_items.append(f"<li>{escape(label)}：<code>{escape(value)}</code></li>")
                 if "is_final_deliverable" in item:
-                    detail_items.append(
-                        f"<li>最终交付：<code>{'yes' if bool(item.get('is_final_deliverable')) else 'no'}</code></li>"
-                    )
-                cards.append(
-                    '<article class="detail-card">'
-                    f"<h4><code>{escape(_report_text(item.get('filename'), fallback='unknown'))}</code></h4>"
-                    f"<ul>{''.join(detail_items)}</ul>"
-                    "</article>"
-                )
+                    detail_items.append(f"<li>最终交付：<code>{'yes' if bool(item.get('is_final_deliverable')) else 'no'}</code></li>")
+                cards.append(f'<article class="detail-card"><h4><code>{escape(_report_text(item.get("filename"), fallback="unknown"))}</code></h4><ul>{"".join(detail_items)}</ul></article>')
             sections.append("".join(cards))
         notes = _report_string_list(group.get("notes"))
         if notes:
             sections.append("<h4>说明</h4>")
-            sections.append(
-                "<ul>" + "".join(f"<li>{escape(item)}</li>" for item in notes) + "</ul>"
-            )
+            sections.append("<ul>" + "".join(f"<li>{escape(item)}</li>" for item in notes) + "</ul>")
     sections.append("</section>")
     return "".join(sections)
 
 
-def render_markdown(payload: dict) -> str:
+def _legacy_render_markdown_v4(payload: dict) -> str:
     overview = _report_overview(payload)
     lines = [
         f"# {_report_text(payload.get('report_title'), fallback='潜艇 CFD 最终报告')}",
@@ -3030,7 +2709,7 @@ def render_markdown(payload: dict) -> str:
     return "\n".join(lines)
 
 
-def render_html(payload: dict) -> str:
+def _legacy_render_html_v4(payload: dict) -> str:
     overview = _report_overview(payload)
     return f"""<!doctype html>
 <html lang="zh-CN">
@@ -3189,9 +2868,7 @@ def _formal_render_artifact_manifest_html(payload: dict) -> str:
         ]:
             value = _report_text(workspace_summary.get(key), fallback="")
             if value:
-                summary_items.append(
-                    f"<li><strong>{escape(label)}：</strong> <code>{escape(value)}</code></li>"
-                )
+                summary_items.append(f"<li><strong>{escape(label)}：</strong> <code>{escape(value)}</code></li>")
         for item in _report_string_list(workspace_summary.get("directory_notes")):
             summary_items.append(f"<li>{escape(item)}</li>")
 
@@ -3202,11 +2879,7 @@ def _formal_render_artifact_manifest_html(payload: dict) -> str:
         + ("".join(cards) if cards else "<p>暂无关键文件清单。</p>")
         + "<h3>中间文件位置说明</h3>"
         + "<!-- \u6d93\ue162\u68ff\u93c2\u56e6\u6b22\u6d63\u5d87\u7586\u7487\u5b58\u69d1 -->"
-        + (
-            f"<ul>{''.join(summary_items)}</ul>"
-            if summary_items
-            else "<p>暂无 workspace 位置摘要。</p>"
-        )
+        + (f"<ul>{''.join(summary_items)}</ul>" if summary_items else "<p>暂无 workspace 位置摘要。</p>")
         + "</section>"
     )
 
@@ -3314,9 +2987,7 @@ def _formal_render_artifact_manifest_html(payload: dict) -> str:
         ]:
             value = _report_text(workspace_summary.get(key), fallback="")
             if value:
-                summary_items.append(
-                    f"<li><strong>{escape(label)}：</strong> <code>{escape(value)}</code></li>"
-                )
+                summary_items.append(f"<li><strong>{escape(label)}：</strong> <code>{escape(value)}</code></li>")
         for item in _report_string_list(workspace_summary.get("directory_notes")):
             summary_items.append(f"<li>{escape(item)}</li>")
 
@@ -3327,11 +2998,7 @@ def _formal_render_artifact_manifest_html(payload: dict) -> str:
         + ("".join(cards) if cards else "<p>暂无关键文件清单。</p>")
         + "<h3>中间文件位置说明</h3>"
         + "<!-- \u6d93\ue162\u68ff\u93c2\u56e6\u6b22\u6d63\u5d87\u7586\u7487\u5b58\u69d1 -->"
-        + (
-            f"<ul>{''.join(summary_items)}</ul>"
-            if summary_items
-            else "<p>暂无 workspace 位置摘要。</p>"
-        )
+        + (f"<ul>{''.join(summary_items)}</ul>" if summary_items else "<p>暂无 workspace 位置摘要。</p>")
         + "</section>"
     )
 
@@ -3344,36 +3011,16 @@ def _formal_workspace_storage_summary(payload: dict) -> dict[str, object]:
     if not isinstance(summary, dict):
         return {}
     return {
-        "workspace_run_root_virtual_path": _report_text(
-            summary.get("workspace_run_root_virtual_path"), fallback=""
-        ),
-        "workspace_run_root_absolute_path": _report_text(
-            summary.get("workspace_run_root_absolute_path"), fallback=""
-        ),
-        "workspace_case_dir_virtual_path": _report_text(
-            summary.get("workspace_case_dir_virtual_path"), fallback=""
-        ),
-        "workspace_case_dir_absolute_path": _report_text(
-            summary.get("workspace_case_dir_absolute_path"), fallback=""
-        ),
-        "run_script_virtual_path": _report_text(
-            summary.get("run_script_virtual_path"), fallback=""
-        ),
-        "run_script_absolute_path": _report_text(
-            summary.get("run_script_absolute_path"), fallback=""
-        ),
-        "workspace_postprocess_virtual_path": _report_text(
-            summary.get("workspace_postprocess_virtual_path"), fallback=""
-        ),
-        "workspace_postprocess_absolute_path": _report_text(
-            summary.get("workspace_postprocess_absolute_path"), fallback=""
-        ),
-        "study_workspace_root_virtual_path": _report_text(
-            summary.get("study_workspace_root_virtual_path"), fallback=""
-        ),
-        "study_workspace_root_absolute_path": _report_text(
-            summary.get("study_workspace_root_absolute_path"), fallback=""
-        ),
+        "workspace_run_root_virtual_path": _report_text(summary.get("workspace_run_root_virtual_path"), fallback=""),
+        "workspace_run_root_absolute_path": _report_text(summary.get("workspace_run_root_absolute_path"), fallback=""),
+        "workspace_case_dir_virtual_path": _report_text(summary.get("workspace_case_dir_virtual_path"), fallback=""),
+        "workspace_case_dir_absolute_path": _report_text(summary.get("workspace_case_dir_absolute_path"), fallback=""),
+        "run_script_virtual_path": _report_text(summary.get("run_script_virtual_path"), fallback=""),
+        "run_script_absolute_path": _report_text(summary.get("run_script_absolute_path"), fallback=""),
+        "workspace_postprocess_virtual_path": _report_text(summary.get("workspace_postprocess_virtual_path"), fallback=""),
+        "workspace_postprocess_absolute_path": _report_text(summary.get("workspace_postprocess_absolute_path"), fallback=""),
+        "study_workspace_root_virtual_path": _report_text(summary.get("study_workspace_root_virtual_path"), fallback=""),
+        "study_workspace_root_absolute_path": _report_text(summary.get("study_workspace_root_absolute_path"), fallback=""),
         "directory_notes": _report_string_list(summary.get("directory_notes")),
     }
 
@@ -3467,9 +3114,7 @@ def _formal_render_artifact_manifest_html(payload: dict) -> str:
         ]:
             value = _report_text(workspace_summary.get(key), fallback="")
             if value:
-                summary_items.append(
-                    f"<li><strong>{escape(label)}：</strong> <code>{escape(value)}</code></li>"
-                )
+                summary_items.append(f"<li><strong>{escape(label)}：</strong> <code>{escape(value)}</code></li>")
         for item in _report_string_list(workspace_summary.get("directory_notes")):
             summary_items.append(f"<li>{escape(item)}</li>")
 
@@ -3480,11 +3125,7 @@ def _formal_render_artifact_manifest_html(payload: dict) -> str:
         + ("".join(cards) if cards else "<p>暂无关键文件清单。</p>")
         + "<h3>中间文件位置说明</h3>"
         + "<!-- 娑擃參妫块弬鍥︽娴ｅ秶鐤嗙拠瀛樻 -->"
-        + (
-            f"<ul>{''.join(summary_items)}</ul>"
-            if summary_items
-            else "<p>暂无 workspace 位置摘要。</p>"
-        )
+        + (f"<ul>{''.join(summary_items)}</ul>" if summary_items else "<p>暂无 workspace 位置摘要。</p>")
         + "</section>"
     )
 
@@ -3548,9 +3189,7 @@ def _formal_artifact_manifest(payload: dict) -> list[dict[str, object]]:
                 "description": _report_text(item.get("description"), fallback="暂无说明"),
                 "filename": _report_text(item.get("filename"), fallback="unknown"),
                 "file_type": _report_text(item.get("file_type"), fallback="file"),
-                "location_kind": _report_text(
-                    item.get("location_kind"), fallback="unknown"
-                ),
+                "location_kind": _report_text(item.get("location_kind"), fallback="unknown"),
                 "stage": _report_text(item.get("stage"), fallback="unknown"),
                 "virtual_path": _report_text(item.get("virtual_path"), fallback=""),
                 "absolute_path": _report_text(item.get("absolute_path"), fallback=""),
@@ -3579,9 +3218,7 @@ def _formal_artifact_group_summary(payload: dict) -> list[dict[str, object]]:
                             "description": _report_text(item.get("description"), fallback="暂无说明"),
                             "filename": _report_text(item.get("filename"), fallback="unknown"),
                             "file_type": _report_text(item.get("file_type"), fallback="file"),
-                            "location_kind": _report_text(
-                                item.get("location_kind"), fallback="unknown"
-                            ),
+                            "location_kind": _report_text(item.get("location_kind"), fallback="unknown"),
                             "stage": _report_text(item.get("stage"), fallback=""),
                             "virtual_path": _report_text(item.get("virtual_path"), fallback=""),
                             "absolute_path": _report_text(item.get("absolute_path"), fallback=""),
@@ -3664,18 +3301,14 @@ def _formal_artifact_group_summary(payload: dict) -> list[dict[str, object]]:
             "group_id": "report_outputs",
             "title_zh": "报告交付文件",
             "summary_zh": "最终报告、交付门禁与研究结论说明相关文件。",
-            "items": [
-                item for item in manifest if item.get("location_kind") == "report_output"
-            ],
+            "items": [item for item in manifest if item.get("location_kind") == "report_output"],
             "notes": [],
         },
         {
             "group_id": "solver_outputs",
             "title_zh": "求解与验证输出",
             "summary_zh": "OpenFOAM 主求解结果、稳定性证据与验证摘要。",
-            "items": [
-                item for item in manifest if item.get("location_kind") == "solver_output"
-            ],
+            "items": [item for item in manifest if item.get("location_kind") == "solver_output"],
             "notes": [],
         },
         {
@@ -3697,17 +3330,12 @@ def _formal_render_requested_outputs_markdown(payload: dict) -> list[str]:
     for item in requested_outputs:
         if not isinstance(item, dict):
             continue
-        label = _report_text(
-            item.get("label") or item.get("output_id"), fallback="未命名输出"
-        )
+        label = _report_text(item.get("label") or item.get("output_id"), fallback="未命名输出")
         output_id = _report_text(item.get("output_id"), fallback="unknown")
         requested_label = _report_text(item.get("requested_label"), fallback="未说明")
         support_level = _report_text(item.get("support_level"), fallback="unknown")
         summary = _summarize_postprocess_spec(item.get("postprocess_spec"))
-        line = (
-            f"- `{output_id}` | {label} | requested=`{requested_label}`"
-            f" | support=`{support_level}`"
-        )
+        line = f"- `{output_id}` | {label} | requested=`{requested_label}` | support=`{support_level}`"
         if summary:
             line += f" | spec=`{summary}`"
         lines.append(line)
@@ -3723,24 +3351,13 @@ def _formal_render_requested_outputs_html(payload: dict) -> str:
     for item in requested_outputs:
         if not isinstance(item, dict):
             continue
-        label = _report_text(
-            item.get("label") or item.get("output_id"), fallback="未命名输出"
-        )
+        label = _report_text(item.get("label") or item.get("output_id"), fallback="未命名输出")
         output_id = _report_text(item.get("output_id"), fallback="unknown")
         requested_label = _report_text(item.get("requested_label"), fallback="未说明")
         support_level = _report_text(item.get("support_level"), fallback="unknown")
         summary = _summarize_postprocess_spec(item.get("postprocess_spec"))
-        detail = (
-            f"requested={requested_label} | support={support_level}"
-            + (f" | spec={summary}" if summary else "")
-        )
-        items.append(
-            "<li>"
-            f"<strong>{escape(label)}</strong> "
-            f"(<code>{escape(output_id)}</code>)"
-            f"<p>{escape(detail)}</p>"
-            "</li>"
-        )
+        detail = f"requested={requested_label} | support={support_level}" + (f" | spec={summary}" if summary else "")
+        items.append(f"<li><strong>{escape(label)}</strong> (<code>{escape(output_id)}</code>)<p>{escape(detail)}</p></li>")
     return "<h3>预期交付</h3><ul>" + "".join(items) + "</ul>"
 
 
@@ -3764,10 +3381,7 @@ def _formal_render_task_conditions_markdown(payload: dict) -> list[str]:
                 "### 名义工况",
                 f"- 来流速度：`{_report_text(simulation_requirements.get('inlet_velocity_mps'))}` m/s",
                 f"- 流体密度：`{_report_text(simulation_requirements.get('fluid_density_kg_m3'))}` kg/m^3",
-                (
-                    f"- 运动黏度：`{_report_text(simulation_requirements.get('kinematic_viscosity_m2ps'))}`"
-                    " m^2/s"
-                ),
+                (f"- 运动黏度：`{_report_text(simulation_requirements.get('kinematic_viscosity_m2ps'))}` m^2/s"),
                 f"- 终止时间：`{_report_text(simulation_requirements.get('end_time_seconds'))}` s",
                 f"- 时间步长：`{_report_text(simulation_requirements.get('delta_t_seconds'))}` s",
                 f"- 写出间隔：`{_report_text(simulation_requirements.get('write_interval_steps'))}` steps",
@@ -3821,9 +3435,7 @@ def _formal_render_geometry_settings_markdown(payload: dict) -> list[str]:
         f"- 运行脚本：`{_report_text(payload.get('run_script_virtual_path'), fallback='当前阶段无')}`",
     ]
     if payload.get("workspace_postprocess_virtual_path"):
-        lines.append(
-            f"- 后处理目录：`{_report_text(payload.get('workspace_postprocess_virtual_path'))}`"
-        )
+        lines.append(f"- 后处理目录：`{_report_text(payload.get('workspace_postprocess_virtual_path'))}`")
     if mesh_summary:
         lines.extend(
             [
@@ -3872,10 +3484,7 @@ def _formal_render_geometry_settings_html(payload: dict) -> str:
         )
     postprocess_line = ""
     if payload.get("workspace_postprocess_virtual_path"):
-        postprocess_line = (
-            "<li>后处理目录："
-            f" <code>{escape(_report_text(payload.get('workspace_postprocess_virtual_path')))}</code></li>"
-        )
+        postprocess_line = f"<li>后处理目录： <code>{escape(_report_text(payload.get('workspace_postprocess_virtual_path')))}</code></li>"
     return (
         '<section class="panel">'
         "<h2>几何、网格与计算设置</h2>"
@@ -3917,9 +3526,7 @@ def _formal_render_results_validation_markdown(payload: dict) -> list[str]:
             *(f"- {item}" for item in (figure_titles or ["暂无代表图表。"])),
         ]
     )
-    highlight_paths = _report_string_list(
-        highlights.get("highlight_artifact_virtual_paths")
-    )
+    highlight_paths = _report_string_list(highlights.get("highlight_artifact_virtual_paths"))
     if highlight_paths:
         lines.extend(
             [
@@ -3941,10 +3548,7 @@ def _formal_render_results_validation_markdown(payload: dict) -> list[str]:
                 f"- 来源：{_formal_markdown_inline_paths(_report_string_list(section.get('inline_source_refs')))}",
                 f"- Claim level：`{_report_text(section.get('claim_level'), fallback='delivery_only')}`",
                 f"- 置信度：{_report_text(section.get('confidence_label'), fallback='--')}",
-                (
-                    "- 证据缺口："
-                    + ("；".join(evidence_gap_notes) if evidence_gap_notes else "暂无")
-                ),
+                ("- 证据缺口：" + ("；".join(evidence_gap_notes) if evidence_gap_notes else "暂无")),
                 f"- 关联产物：{_formal_markdown_inline_paths(artifact_paths)}",
             ]
         )
@@ -3965,14 +3569,8 @@ def _formal_render_results_validation_markdown(payload: dict) -> list[str]:
                 f"- acceptance_confidence：`{_report_text(acceptance.get('confidence'), fallback='unknown')}`",
             ]
         )
-        lines.extend(
-            f"- blocking_issue：{item}"
-            for item in _report_string_list(acceptance.get("blocking_issues"))
-        )
-        lines.extend(
-            f"- warning：{item}"
-            for item in _report_string_list(acceptance.get("warnings"))
-        )
+        lines.extend(f"- blocking_issue：{item}" for item in _report_string_list(acceptance.get("blocking_issues")))
+        lines.extend(f"- warning：{item}" for item in _report_string_list(acceptance.get("warnings")))
     if isinstance(scientific_verification, dict) and scientific_verification:
         lines.extend(
             [
@@ -3980,22 +3578,12 @@ def _formal_render_results_validation_markdown(payload: dict) -> list[str]:
                 f"- scientific_verification_confidence：`{_report_text(scientific_verification.get('confidence'), fallback='unknown')}`",
             ]
         )
-        lines.extend(
-            f"- missing_evidence：{item}"
-            for item in _report_string_list(scientific_verification.get("missing_evidence"))
-        )
+        lines.extend(f"- missing_evidence：{item}" for item in _report_string_list(scientific_verification.get("missing_evidence")))
     if isinstance(research_evidence, dict) and research_evidence:
-        lines.append(
-            f"- research_readiness_status：`{_report_text(research_evidence.get('readiness_status'), fallback='unknown')}`"
-        )
-        lines.extend(
-            f"- evidence_gap：{item}"
-            for item in _report_string_list(research_evidence.get("evidence_gaps"))
-        )
+        lines.append(f"- research_readiness_status：`{_report_text(research_evidence.get('readiness_status'), fallback='unknown')}`")
+        lines.extend(f"- evidence_gap：{item}" for item in _report_string_list(research_evidence.get("evidence_gaps")))
     if isinstance(scientific_gate, dict) and scientific_gate:
-        lines.append(
-            f"- scientific_gate_status：`{_report_text(scientific_gate.get('gate_status'), fallback='unknown')}`"
-        )
+        lines.append(f"- scientific_gate_status：`{_report_text(scientific_gate.get('gate_status'), fallback='unknown')}`")
 
     lines.extend(["", "### 证据索引"])
     for group in evidence_index:
@@ -4003,13 +3591,7 @@ def _formal_render_results_validation_markdown(payload: dict) -> list[str]:
             [
                 "",
                 f"#### {_report_text(group.get('group_title_zh'), fallback='证据分组')}",
-                *(
-                    f"- `{path}`"
-                    for path in (
-                        _report_string_list(group.get("artifact_virtual_paths"))
-                        or ["暂无分组产物。"]
-                    )
-                ),
+                *(f"- `{path}`" for path in (_report_string_list(group.get("artifact_virtual_paths")) or ["暂无分组产物。"])),
             ]
         )
         provenance_manifest_virtual_path = _report_text(
@@ -4017,9 +3599,7 @@ def _formal_render_results_validation_markdown(payload: dict) -> list[str]:
             fallback="",
         )
         if provenance_manifest_virtual_path:
-            lines.append(
-                f"- provenance_manifest_virtual_path：`{provenance_manifest_virtual_path}`"
-            )
+            lines.append(f"- provenance_manifest_virtual_path：`{provenance_manifest_virtual_path}`")
     return lines
 
 
@@ -4035,9 +3615,7 @@ def _formal_render_results_validation_html(payload: dict) -> str:
 
     metric_lines = _report_string_list(highlights.get("metric_lines"))
     figure_titles = _report_string_list(highlights.get("figure_titles"))
-    highlight_paths = _report_string_list(
-        highlights.get("highlight_artifact_virtual_paths")
-    )
+    highlight_paths = _report_string_list(highlights.get("highlight_artifact_virtual_paths"))
 
     conclusion_cards = []
     for section in sections:
@@ -4067,14 +3645,8 @@ def _formal_render_results_validation_html(payload: dict) -> str:
                 f"<li>acceptance_confidence：<code>{escape(_report_text(acceptance.get('confidence'), fallback='unknown'))}</code></li>",
             ]
         )
-        validation_items.extend(
-            f"<li>blocking_issue：{escape(item)}</li>"
-            for item in _report_string_list(acceptance.get("blocking_issues"))
-        )
-        validation_items.extend(
-            f"<li>warning：{escape(item)}</li>"
-            for item in _report_string_list(acceptance.get("warnings"))
-        )
+        validation_items.extend(f"<li>blocking_issue：{escape(item)}</li>" for item in _report_string_list(acceptance.get("blocking_issues")))
+        validation_items.extend(f"<li>warning：{escape(item)}</li>" for item in _report_string_list(acceptance.get("warnings")))
     if isinstance(scientific_verification, dict) and scientific_verification:
         validation_items.extend(
             [
@@ -4082,22 +3654,12 @@ def _formal_render_results_validation_html(payload: dict) -> str:
                 f"<li>scientific_verification_confidence：<code>{escape(_report_text(scientific_verification.get('confidence'), fallback='unknown'))}</code></li>",
             ]
         )
-        validation_items.extend(
-            f"<li>missing_evidence：{escape(item)}</li>"
-            for item in _report_string_list(scientific_verification.get("missing_evidence"))
-        )
+        validation_items.extend(f"<li>missing_evidence：{escape(item)}</li>" for item in _report_string_list(scientific_verification.get("missing_evidence")))
     if isinstance(research_evidence, dict) and research_evidence:
-        validation_items.append(
-            f"<li>research_readiness_status：<code>{escape(_report_text(research_evidence.get('readiness_status'), fallback='unknown'))}</code></li>"
-        )
-        validation_items.extend(
-            f"<li>evidence_gap：{escape(item)}</li>"
-            for item in _report_string_list(research_evidence.get("evidence_gaps"))
-        )
+        validation_items.append(f"<li>research_readiness_status：<code>{escape(_report_text(research_evidence.get('readiness_status'), fallback='unknown'))}</code></li>")
+        validation_items.extend(f"<li>evidence_gap：{escape(item)}</li>" for item in _report_string_list(research_evidence.get("evidence_gaps")))
     if isinstance(scientific_gate, dict) and scientific_gate:
-        validation_items.append(
-            f"<li>scientific_gate_status：<code>{escape(_report_text(scientific_gate.get('gate_status'), fallback='unknown'))}</code></li>"
-        )
+        validation_items.append(f"<li>scientific_gate_status：<code>{escape(_report_text(scientific_gate.get('gate_status'), fallback='unknown'))}</code></li>")
 
     evidence_groups = []
     for group in evidence_index:
@@ -4106,29 +3668,14 @@ def _formal_render_results_validation_html(payload: dict) -> str:
             group.get("provenance_manifest_virtual_path"),
             fallback="",
         )
-        group_items = "".join(
-            f"<li><code>{escape(path)}</code></li>"
-            for path in (artifact_paths or ["暂无分组产物。"])
-        )
+        group_items = "".join(f"<li><code>{escape(path)}</code></li>" for path in (artifact_paths or ["暂无分组产物。"]))
         if provenance_manifest_virtual_path:
-            group_items += (
-                "<li><strong>provenance_manifest_virtual_path：</strong> "
-                f"<code>{escape(provenance_manifest_virtual_path)}</code></li>"
-            )
-        evidence_groups.append(
-            '<div class="detail-card">'
-            f"<h4>{escape(_report_text(group.get('group_title_zh'), fallback='证据分组'))}</h4>"
-            f"<ul>{group_items}</ul>"
-            "</div>"
-        )
+            group_items += f"<li><strong>provenance_manifest_virtual_path：</strong> <code>{escape(provenance_manifest_virtual_path)}</code></li>"
+        evidence_groups.append(f'<div class="detail-card"><h4>{escape(_report_text(group.get("group_title_zh"), fallback="证据分组"))}</h4><ul>{group_items}</ul></div>')
 
     highlight_block = ""
     if highlight_paths:
-        highlight_block = (
-            "<h4>高亮产物</h4><ul>"
-            + "".join(f"<li><code>{escape(path)}</code></li>" for path in highlight_paths)
-            + "</ul>"
-        )
+        highlight_block = "<h4>高亮产物</h4><ul>" + "".join(f"<li><code>{escape(path)}</code></li>" for path in highlight_paths) + "</ul>"
 
     return (
         '<section class="panel">'
@@ -4159,9 +3706,7 @@ def _formal_render_traceability_markdown(payload: dict) -> list[str]:
         f"- provenance_manifest_virtual_path：`{_report_text(payload.get('provenance_manifest_virtual_path'), fallback='')}`",
         f"- source_report_virtual_path：`{_report_text(payload.get('source_report_virtual_path'), fallback='')}`",
     ]
-    source_artifact_virtual_paths = _report_string_list(
-        payload.get("source_artifact_virtual_paths")
-    )
+    source_artifact_virtual_paths = _report_string_list(payload.get("source_artifact_virtual_paths"))
     if source_artifact_virtual_paths:
         lines.extend(
             [
@@ -4171,9 +3716,7 @@ def _formal_render_traceability_markdown(payload: dict) -> list[str]:
             ]
         )
     if isinstance(followup_summary, dict):
-        history_virtual_path = _report_text(
-            followup_summary.get("history_virtual_path"), fallback=""
-        )
+        history_virtual_path = _report_text(followup_summary.get("history_virtual_path"), fallback="")
         if history_virtual_path:
             lines.extend(
                 [
@@ -4189,29 +3732,15 @@ def _formal_render_traceability_markdown(payload: dict) -> list[str]:
 def _formal_render_traceability_html(payload: dict) -> str:
     reproducibility_summary = payload.get("reproducibility_summary") or {}
     followup_summary = payload.get("scientific_followup_summary") or {}
-    source_artifact_virtual_paths = _report_string_list(
-        payload.get("source_artifact_virtual_paths")
-    )
+    source_artifact_virtual_paths = _report_string_list(payload.get("source_artifact_virtual_paths"))
     source_block = ""
     if source_artifact_virtual_paths:
-        source_block = (
-            "<h3>来源产物</h3><ul>"
-            + "".join(
-                f"<li><code>{escape(path)}</code></li>"
-                for path in source_artifact_virtual_paths
-            )
-            + "</ul>"
-        )
+        source_block = "<h3>来源产物</h3><ul>" + "".join(f"<li><code>{escape(path)}</code></li>" for path in source_artifact_virtual_paths) + "</ul>"
     followup_block = ""
     if isinstance(followup_summary, dict):
-        history_virtual_path = _report_text(
-            followup_summary.get("history_virtual_path"), fallback=""
-        )
+        history_virtual_path = _report_text(followup_summary.get("history_virtual_path"), fallback="")
         if history_virtual_path:
-            followup_block = (
-                "<h3>跟进链路</h3>"
-                f"<ul><li><strong>history_virtual_path：</strong> <code>{escape(history_virtual_path)}</code></li></ul>"
-            )
+            followup_block = f"<h3>跟进链路</h3><ul><li><strong>history_virtual_path：</strong> <code>{escape(history_virtual_path)}</code></li></ul>"
     return (
         '<section class="panel">'
         "<h2>可复现性与追溯</h2>"
@@ -4270,17 +3799,10 @@ def _formal_render_artifact_manifest_html(payload: dict) -> str:
             "</ul>"
             "</article>"
         )
-    return (
-        '<section class="panel">'
-        "<h2>文件清单与路径索引</h2>"
-        + "".join(cards)
-        + "</section>"
-    )
+    return '<section class="panel"><h2>文件清单与路径索引</h2>' + "".join(cards) + "</section>"
 
 
-def _formal_render_next_steps_markdown(
-    payload: dict, overview: dict[str, object]
-) -> list[str]:
+def _formal_render_next_steps_markdown(payload: dict, overview: dict[str, object]) -> list[str]:
     suggestions = _report_string_list(
         [
             _report_text(
@@ -4302,9 +3824,7 @@ def _formal_render_next_steps_markdown(
         ),
         (
             "history_virtual_path",
-            followup_summary.get("history_virtual_path")
-            if isinstance(followup_summary, dict)
-            else None,
+            followup_summary.get("history_virtual_path") if isinstance(followup_summary, dict) else None,
         ),
     ]:
         text = _report_text(value, fallback="")
@@ -4334,23 +3854,13 @@ def _formal_render_next_steps_html(payload: dict, overview: dict[str, object]) -
         ),
         (
             "history_virtual_path",
-            followup_summary.get("history_virtual_path")
-            if isinstance(followup_summary, dict)
-            else None,
+            followup_summary.get("history_virtual_path") if isinstance(followup_summary, dict) else None,
         ),
     ]:
         text = _report_text(value, fallback="")
         if text:
-            detail_items.append(
-                f"<li><strong>{escape(label)}：</strong> <code>{escape(text)}</code></li>"
-            )
-    return (
-        '<section class="panel">'
-        "<h2>建议下一步</h2>"
-        f"<ul>{_render_html_list(suggestions, '回到聊天中确认下一步研究动作。')}</ul>"
-        + (f"<ul>{''.join(detail_items)}</ul>" if detail_items else "")
-        + "</section>"
-    )
+            detail_items.append(f"<li><strong>{escape(label)}：</strong> <code>{escape(text)}</code></li>")
+    return f'<section class="panel"><h2>建议下一步</h2><ul>{_render_html_list(suggestions, "回到聊天中确认下一步研究动作。")}</ul>' + (f"<ul>{''.join(detail_items)}</ul>" if detail_items else "") + "</section>"
 
 
 def _formal_render_artifact_manifest_markdown_compact(payload: dict) -> list[str]:
@@ -4387,9 +3897,7 @@ def _formal_render_artifact_manifest_markdown_compact(payload: dict) -> list[str
                     if value:
                         lines.append(f"- {label}\uff1a`{value}`")
                 if "is_final_deliverable" in item:
-                    lines.append(
-                        f"- \u6700\u7ec8\u4ea4\u4ed8\uff1a`{'yes' if bool(item.get('is_final_deliverable')) else 'no'}`"
-                    )
+                    lines.append(f"- \u6700\u7ec8\u4ea4\u4ed8\uff1a`{'yes' if bool(item.get('is_final_deliverable')) else 'no'}`")
         notes = _report_string_list(group.get("notes"))
         if notes:
             lines.extend(["", "#### \u8bf4\u660e"])
@@ -4399,17 +3907,15 @@ def _formal_render_artifact_manifest_markdown_compact(payload: dict) -> list[str
 
 def _formal_render_artifact_manifest_html_compact(payload: dict) -> str:
     groups = _formal_artifact_group_summary(payload)
-    sections = ['<section class="panel">', '<h2>\u6587\u4ef6\u6e05\u5355\u4e0e\u8def\u5f84\u7d22\u5f15</h2>']
+    sections = ['<section class="panel">', "<h2>\u6587\u4ef6\u6e05\u5355\u4e0e\u8def\u5f84\u7d22\u5f15</h2>"]
     for group in groups:
-        sections.append(
-            f"<h3>{escape(_report_text(group.get('title_zh'), fallback='\\u6587\\u4ef6\\u5206\\u7ec4'))}</h3>"
-        )
+        sections.append(f"<h3>{escape(_report_text(group.get('title_zh'), fallback='\\u6587\\u4ef6\\u5206\\u7ec4'))}</h3>")
         summary = _report_text(group.get("summary_zh"), fallback="")
         if summary:
             sections.append(f"<p>{escape(summary)}</p>")
         items = group.get("items") if isinstance(group, dict) else []
         if not items:
-            sections.append('<p>\u6682\u65e0\u76f8\u5173\u6587\u4ef6\u3002</p>')
+            sections.append("<p>\u6682\u65e0\u76f8\u5173\u6587\u4ef6\u3002</p>")
         else:
             cards = []
             for item in items:
@@ -4428,28 +3934,17 @@ def _formal_render_artifact_manifest_html_compact(payload: dict) -> str:
                 ]:
                     value = _report_text(item.get(key), fallback="")
                     if value:
-                        detail_items.append(
-                            f"<li>{escape(label)}\uff1a<code>{escape(value)}</code></li>"
-                        )
+                        detail_items.append(f"<li>{escape(label)}\uff1a<code>{escape(value)}</code></li>")
                 if "is_final_deliverable" in item:
-                    detail_items.append(
-                        f"<li>\u6700\u7ec8\u4ea4\u4ed8\uff1a<code>{'yes' if bool(item.get('is_final_deliverable')) else 'no'}</code></li>"
-                    )
-                cards.append(
-                    '<article class="detail-card">'
-                    f"<h4><code>{escape(_report_text(item.get('filename'), fallback='unknown'))}</code></h4>"
-                    f"<ul>{''.join(detail_items)}</ul>"
-                    '</article>'
-                )
-            sections.append(''.join(cards))
+                    detail_items.append(f"<li>\u6700\u7ec8\u4ea4\u4ed8\uff1a<code>{'yes' if bool(item.get('is_final_deliverable')) else 'no'}</code></li>")
+                cards.append(f'<article class="detail-card"><h4><code>{escape(_report_text(item.get("filename"), fallback="unknown"))}</code></h4><ul>{"".join(detail_items)}</ul></article>')
+            sections.append("".join(cards))
         notes = _report_string_list(group.get("notes"))
         if notes:
-            sections.append('<h4>\u8bf4\u660e</h4>')
-            sections.append(
-                '<ul>' + ''.join(f"<li>{escape(item)}</li>" for item in notes) + '</ul>'
-            )
-    sections.append('</section>')
-    return ''.join(sections)
+            sections.append("<h4>\u8bf4\u660e</h4>")
+            sections.append("<ul>" + "".join(f"<li>{escape(item)}</li>" for item in notes) + "</ul>")
+    sections.append("</section>")
+    return "".join(sections)
 
 
 def render_markdown(payload: dict) -> str:

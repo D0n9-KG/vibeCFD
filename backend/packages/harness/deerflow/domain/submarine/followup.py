@@ -72,9 +72,7 @@ def resolve_scientific_followup_history_virtual_path(
             continue
         if not virtual_path.startswith(prefix):
             continue
-        relative_parts = [
-            part for part in virtual_path.removeprefix(prefix).split("/") if part
-        ]
+        relative_parts = [part for part in virtual_path.removeprefix(prefix).split("/") if part]
         if len(relative_parts) < 2:
             continue
         return f"{prefix}{relative_parts[0]}/scientific-followup-history.json"
@@ -87,21 +85,15 @@ def load_scientific_followup_history(
     artifact_virtual_path: str,
 ) -> dict[str, Any]:
     if not artifact_path.exists():
-        raise ValueError(
-            f"Scientific follow-up history artifact was not found: {artifact_virtual_path}"
-        )
+        raise ValueError(f"Scientific follow-up history artifact was not found: {artifact_virtual_path}")
 
     try:
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(
-            f"Scientific follow-up history artifact is unreadable: {artifact_virtual_path}"
-        ) from exc
+        raise ValueError(f"Scientific follow-up history artifact is unreadable: {artifact_virtual_path}") from exc
 
     if not isinstance(payload, Mapping):
-        raise ValueError(
-            f"Scientific follow-up history artifact must contain a JSON object: {artifact_virtual_path}"
-        )
+        raise ValueError(f"Scientific follow-up history artifact must contain a JSON object: {artifact_virtual_path}")
     return dict(payload)
 
 
@@ -118,9 +110,7 @@ def append_scientific_followup_history(
         )
         existing_entries = existing_payload.get("entries")
         if isinstance(existing_entries, list):
-            entries = [
-                dict(item) for item in existing_entries if isinstance(item, Mapping)
-            ]
+            entries = [dict(item) for item in existing_entries if isinstance(item, Mapping)]
         else:
             entries = []
     else:
@@ -131,61 +121,25 @@ def append_scientific_followup_history(
     normalized_entry = {
         "entry_id": f"scientific-followup-{sequence_index:04d}",
         "sequence_index": sequence_index,
-        "source_handoff_virtual_path": (
-            str(entry.get("source_handoff_virtual_path"))
-            if entry.get("source_handoff_virtual_path")
-            else None
-        ),
-        "source_report_virtual_path": (
-            str(entry.get("source_report_virtual_path"))
-            if entry.get("source_report_virtual_path")
-            else None
-        ),
+        "source_handoff_virtual_path": (str(entry.get("source_handoff_virtual_path")) if entry.get("source_handoff_virtual_path") else None),
+        "source_report_virtual_path": (str(entry.get("source_report_virtual_path")) if entry.get("source_report_virtual_path") else None),
         "source_run_id": _optional_string(entry.get("source_run_id")),
-        "baseline_reference_run_id": _optional_string(
-            entry.get("baseline_reference_run_id")
-        ),
-        "compare_target_run_id": _optional_string(
-            entry.get("compare_target_run_id")
-        ),
+        "baseline_reference_run_id": _optional_string(entry.get("baseline_reference_run_id")),
+        "compare_target_run_id": _optional_string(entry.get("compare_target_run_id")),
         "derived_run_ids": _as_string_list(entry.get("derived_run_ids")),
         "handoff_status": str(entry.get("handoff_status") or "unknown"),
-        "recommended_action_id": (
-            str(entry.get("recommended_action_id"))
-            if entry.get("recommended_action_id") is not None
-            else None
-        ),
-        "tool_name": (
-            str(entry.get("tool_name")) if entry.get("tool_name") is not None else None
-        ),
+        "recommended_action_id": (str(entry.get("recommended_action_id")) if entry.get("recommended_action_id") is not None else None),
+        "tool_name": (str(entry.get("tool_name")) if entry.get("tool_name") is not None else None),
         "followup_kind": followup_kind,
         "decision_summary_zh": _optional_string(entry.get("decision_summary_zh")),
         "source_conclusion_ids": _as_string_list(entry.get("source_conclusion_ids")),
-        "source_evidence_gap_ids": _as_string_list(
-            entry.get("source_evidence_gap_ids")
-        ),
+        "source_evidence_gap_ids": _as_string_list(entry.get("source_evidence_gap_ids")),
         "outcome_status": str(entry.get("outcome_status") or "unknown"),
-        "dispatch_stage_status": (
-            str(entry.get("dispatch_stage_status"))
-            if entry.get("dispatch_stage_status") is not None
-            else None
-        ),
+        "dispatch_stage_status": (str(entry.get("dispatch_stage_status")) if entry.get("dispatch_stage_status") is not None else None),
         "report_refreshed": bool(entry.get("report_refreshed")),
-        "result_report_virtual_path": (
-            str(entry.get("result_report_virtual_path"))
-            if entry.get("result_report_virtual_path")
-            else None
-        ),
-        "result_provenance_manifest_virtual_path": (
-            str(entry.get("result_provenance_manifest_virtual_path"))
-            if entry.get("result_provenance_manifest_virtual_path")
-            else None
-        ),
-        "result_supervisor_handoff_virtual_path": (
-            str(entry.get("result_supervisor_handoff_virtual_path"))
-            if entry.get("result_supervisor_handoff_virtual_path")
-            else None
-        ),
+        "result_report_virtual_path": (str(entry.get("result_report_virtual_path")) if entry.get("result_report_virtual_path") else None),
+        "result_provenance_manifest_virtual_path": (str(entry.get("result_provenance_manifest_virtual_path")) if entry.get("result_provenance_manifest_virtual_path") else None),
+        "result_supervisor_handoff_virtual_path": (str(entry.get("result_supervisor_handoff_virtual_path")) if entry.get("result_supervisor_handoff_virtual_path") else None),
         "task_completion_status": _normalize_task_completion_status(
             entry.get("task_completion_status"),
             followup_kind=followup_kind,
@@ -215,9 +169,7 @@ def build_scientific_followup_summary(
     history: Mapping[str, Any],
     history_virtual_path: str,
 ) -> dict[str, Any] | None:
-    entries = [
-        dict(item) for item in history.get("entries", []) if isinstance(item, Mapping)
-    ]
+    entries = [dict(item) for item in history.get("entries", []) if isinstance(item, Mapping)]
     if not entries:
         return None
 
@@ -229,32 +181,20 @@ def build_scientific_followup_summary(
         "latest_outcome_status": latest_entry.get("outcome_status"),
         "latest_handoff_status": latest_entry.get("handoff_status"),
         "latest_source_run_id": latest_entry.get("source_run_id"),
-        "latest_baseline_reference_run_id": latest_entry.get(
-            "baseline_reference_run_id"
-        ),
+        "latest_baseline_reference_run_id": latest_entry.get("baseline_reference_run_id"),
         "latest_compare_target_run_id": latest_entry.get("compare_target_run_id"),
         "latest_derived_run_ids": _as_string_list(latest_entry.get("derived_run_ids")),
         "latest_recommended_action_id": latest_entry.get("recommended_action_id"),
         "latest_tool_name": latest_entry.get("tool_name"),
         "latest_followup_kind": latest_entry.get("followup_kind"),
         "latest_decision_summary_zh": latest_entry.get("decision_summary_zh"),
-        "latest_source_conclusion_ids": _as_string_list(
-            latest_entry.get("source_conclusion_ids")
-        ),
-        "latest_source_evidence_gap_ids": _as_string_list(
-            latest_entry.get("source_evidence_gap_ids")
-        ),
+        "latest_source_conclusion_ids": _as_string_list(latest_entry.get("source_conclusion_ids")),
+        "latest_source_evidence_gap_ids": _as_string_list(latest_entry.get("source_evidence_gap_ids")),
         "latest_dispatch_stage_status": latest_entry.get("dispatch_stage_status"),
         "report_refreshed": bool(latest_entry.get("report_refreshed")),
-        "latest_result_report_virtual_path": latest_entry.get(
-            "result_report_virtual_path"
-        ),
-        "latest_result_provenance_manifest_virtual_path": latest_entry.get(
-            "result_provenance_manifest_virtual_path"
-        ),
-        "latest_result_supervisor_handoff_virtual_path": latest_entry.get(
-            "result_supervisor_handoff_virtual_path"
-        ),
+        "latest_result_report_virtual_path": latest_entry.get("result_report_virtual_path"),
+        "latest_result_provenance_manifest_virtual_path": latest_entry.get("result_provenance_manifest_virtual_path"),
+        "latest_result_supervisor_handoff_virtual_path": latest_entry.get("result_supervisor_handoff_virtual_path"),
         "latest_notes": _as_string_list(latest_entry.get("notes")),
         "artifact_virtual_paths": _merge_string_lists(
             history.get("artifact_virtual_paths"),

@@ -78,39 +78,16 @@ def build_selected_case_provenance_summary(
     return {
         "case_id": selected_case.case_id,
         "title": selected_case.title,
-        "source_label": (
-            primary_source.source_label or primary_source.title
-            if primary_source is not None
-            else None
-        ),
+        "source_label": (primary_source.source_label or primary_source.title if primary_source is not None else None),
         "source_url": primary_source.url if primary_source is not None else None,
         "source_type": primary_source.source_type if primary_source is not None else None,
         "applicability_conditions": _collect_case_applicability_conditions(selected_case),
-        "confidence_note": (
-            primary_source.confidence_note if primary_source is not None else None
-        ),
-        "is_placeholder": (
-            primary_source.is_placeholder if primary_source is not None else False
-        ),
-        "evidence_gap_note": (
-            primary_source.evidence_gap_note if primary_source is not None else None
-        ),
-        "acceptance_profile_summary_zh": (
-            selected_case.acceptance_profile.summary_zh
-            if selected_case.acceptance_profile is not None
-            else None
-        ),
-        "benchmark_metric_ids": (
-            [
-                target.metric_id
-                for target in selected_case.acceptance_profile.benchmark_targets
-            ]
-            if selected_case.acceptance_profile is not None
-            else []
-        ),
-        "reference_sources": [
-            source.model_dump(mode="json") for source in selected_case.reference_sources
-        ],
+        "confidence_note": (primary_source.confidence_note if primary_source is not None else None),
+        "is_placeholder": (primary_source.is_placeholder if primary_source is not None else False),
+        "evidence_gap_note": (primary_source.evidence_gap_note if primary_source is not None else None),
+        "acceptance_profile_summary_zh": (selected_case.acceptance_profile.summary_zh if selected_case.acceptance_profile is not None else None),
+        "benchmark_metric_ids": ([target.metric_id for target in selected_case.acceptance_profile.benchmark_targets] if selected_case.acceptance_profile is not None else []),
+        "reference_sources": [source.model_dump(mode="json") for source in selected_case.reference_sources],
     }
 
 
@@ -128,11 +105,7 @@ def _count_statuses(statuses: list[str | None]) -> dict[str, int]:
 
 
 def _candidate_variant_dicts(definition: dict) -> list[dict]:
-    return [
-        item
-        for item in (definition.get("variants") or [])
-        if isinstance(item, dict) and str(item.get("variant_id") or "").strip() != "baseline"
-    ]
+    return [item for item in (definition.get("variants") or []) if isinstance(item, dict) and str(item.get("variant_id") or "").strip() != "baseline"]
 
 
 def _variant_run_ids_by_status(
@@ -164,20 +137,13 @@ def _build_study_workflow_detail(
     if blocked_variant_run_ids:
         details.append("Blocked variants: " + ", ".join(blocked_variant_run_ids))
     if in_progress_variant_run_ids:
-        details.append(
-            "Running variants: " + ", ".join(in_progress_variant_run_ids)
-        )
+        details.append("Running variants: " + ", ".join(in_progress_variant_run_ids))
     if planned_variant_run_ids:
         details.append("Pending variants: " + ", ".join(planned_variant_run_ids))
     if planned_compare_variant_run_ids:
-        details.append(
-            "Pending compare coverage: " + ", ".join(planned_compare_variant_run_ids)
-        )
+        details.append("Pending compare coverage: " + ", ".join(planned_compare_variant_run_ids))
     if missing_metrics_variant_run_ids:
-        details.append(
-            "Incomplete compare metrics: "
-            + ", ".join(missing_metrics_variant_run_ids)
-        )
+        details.append("Incomplete compare metrics: " + ", ".join(missing_metrics_variant_run_ids))
     if details:
         return " ".join(details)
     if workflow_status == "completed":
@@ -196,49 +162,25 @@ def _build_experiment_workflow_detail(summary: dict) -> str:
     missing_metrics_variant_run_ids = summary.get("missing_metrics_variant_run_ids") or []
     planned_custom_variant_run_ids = summary.get("planned_custom_variant_run_ids") or []
     completed_custom_variant_run_ids = summary.get("completed_custom_variant_run_ids") or []
-    missing_custom_compare_entry_ids = (
-        summary.get("missing_custom_compare_entry_ids") or []
-    )
-    registered_custom_variant_run_ids = (
-        summary.get("registered_custom_variant_run_ids") or []
-    )
+    missing_custom_compare_entry_ids = summary.get("missing_custom_compare_entry_ids") or []
+    registered_custom_variant_run_ids = summary.get("registered_custom_variant_run_ids") or []
 
     if blocked_variant_run_ids:
         details.append("Blocked variants: " + ", ".join(map(str, blocked_variant_run_ids)))
     if missing_run_records:
-        details.append(
-            "Missing run records: " + ", ".join(map(str, missing_run_records))
-        )
+        details.append("Missing run records: " + ", ".join(map(str, missing_run_records)))
     if missing_compare_entries:
-        details.append(
-            "Missing compare entries: "
-            + ", ".join(map(str, missing_compare_entries))
-        )
+        details.append("Missing compare entries: " + ", ".join(map(str, missing_compare_entries)))
     if planned_variant_run_ids:
-        details.append(
-            "Pending variant execution: "
-            + ", ".join(map(str, planned_variant_run_ids))
-        )
+        details.append("Pending variant execution: " + ", ".join(map(str, planned_variant_run_ids)))
     if missing_metrics_variant_run_ids:
-        details.append(
-            "Compare metrics not ready: "
-            + ", ".join(map(str, missing_metrics_variant_run_ids))
-        )
+        details.append("Compare metrics not ready: " + ", ".join(map(str, missing_metrics_variant_run_ids)))
     if planned_custom_variant_run_ids:
-        details.append(
-            "Pending custom variants: "
-            + ", ".join(map(str, planned_custom_variant_run_ids))
-        )
+        details.append("Pending custom variants: " + ", ".join(map(str, planned_custom_variant_run_ids)))
     if missing_custom_compare_entry_ids:
-        details.append(
-            "Custom variants missing compare entries: "
-            + ", ".join(map(str, missing_custom_compare_entry_ids))
-        )
+        details.append("Custom variants missing compare entries: " + ", ".join(map(str, missing_custom_compare_entry_ids)))
     if completed_custom_variant_run_ids and not details:
-        details.append(
-            "Completed custom variants: "
-            + ", ".join(map(str, completed_custom_variant_run_ids))
-        )
+        details.append("Completed custom variants: " + ", ".join(map(str, completed_custom_variant_run_ids)))
     if details:
         return " ".join(details)
     workflow_status = str(summary.get("workflow_status") or "").strip()
@@ -268,19 +210,11 @@ def _format_compare_entry_label(item: dict) -> str:
 def _format_compare_note(item: dict) -> str:
     candidate_run_id = str(item.get("candidate_run_id") or "unknown").strip() or "unknown"
     compare_status = str(item.get("compare_status") or "unknown").strip() or "unknown"
-    compare_target_run_id = (
-        str(item.get("compare_target_run_id") or item.get("baseline_run_id") or "baseline").strip()
-        or "baseline"
-    )
+    compare_target_run_id = str(item.get("compare_target_run_id") or item.get("baseline_run_id") or "baseline").strip() or "baseline"
     if _is_custom_variant_entry(item):
         variant_label = str(item.get("variant_label") or item.get("variant_id") or candidate_run_id)
-        return (
-            f"Custom Variant | {variant_label} | {candidate_run_id} | {compare_status} "
-            f"| compare target {compare_target_run_id}"
-        )
-    return (
-        f"{_format_compare_entry_label(item)} | {candidate_run_id} | {compare_status}"
-    )
+        return f"Custom Variant | {variant_label} | {candidate_run_id} | {compare_status} | compare target {compare_target_run_id}"
+    return f"{_format_compare_entry_label(item)} | {candidate_run_id} | {compare_status}"
 
 
 def build_scientific_study_summary(
@@ -299,11 +233,7 @@ def build_scientific_study_summary(
 
     manifest_virtual_path, manifest = loaded
     study_definitions = manifest.get("study_definitions") or []
-    requirement_index = {
-        str(item.get("requirement_id")): item
-        for item in (scientific_verification_assessment or {}).get("requirements") or []
-        if isinstance(item, dict)
-    }
+    requirement_index = {str(item.get("requirement_id")): item for item in (scientific_verification_assessment or {}).get("requirements") or [] if isinstance(item, dict)}
 
     studies: list[dict[str, object]] = []
     for definition in study_definitions:
@@ -313,19 +243,8 @@ def build_scientific_study_summary(
         requirement = requirement_index.get(_study_type_to_requirement_id(study_type), {})
         variants = definition.get("variants") or []
         candidate_variants = _candidate_variant_dicts(definition)
-        variant_status_counts = definition.get("variant_status_counts") or _count_statuses(
-            [
-                str(item.get("execution_status") or "").strip()
-                for item in variants
-                if isinstance(item, dict)
-            ]
-        )
-        compare_status_counts = definition.get("compare_status_counts") or _count_statuses(
-            [
-                str(item.get("compare_status") or "").strip()
-                for item in candidate_variants
-            ]
-        )
+        variant_status_counts = definition.get("variant_status_counts") or _count_statuses([str(item.get("execution_status") or "").strip() for item in variants if isinstance(item, dict)])
+        compare_status_counts = definition.get("compare_status_counts") or _count_statuses([str(item.get("compare_status") or "").strip() for item in candidate_variants])
         planned_variant_run_ids = _variant_run_ids_by_status(
             candidate_variants,
             field="execution_status",
@@ -366,13 +285,7 @@ def build_scientific_study_summary(
             field="compare_status",
             statuses={"missing_metrics"},
         )
-        workflow_status = str(
-            definition.get("workflow_status")
-            or definition.get("study_execution_status")
-            or manifest.get("workflow_status")
-            or manifest.get("study_execution_status")
-            or "planned"
-        ).strip()
+        workflow_status = str(definition.get("workflow_status") or definition.get("study_execution_status") or manifest.get("workflow_status") or manifest.get("study_execution_status") or "planned").strip()
         studies.append(
             {
                 "study_type": study_type,
@@ -408,15 +321,8 @@ def build_scientific_study_summary(
     return {
         "selected_case_id": manifest.get("selected_case_id"),
         "study_execution_status": manifest.get("study_execution_status"),
-        "workflow_status": manifest.get("workflow_status")
-        or manifest.get("study_execution_status"),
-        "study_status_counts": manifest.get("study_status_counts") or _count_statuses(
-            [
-                str(item.get("workflow_status") or "").strip()
-                for item in studies
-                if isinstance(item, dict)
-            ]
-        ),
+        "workflow_status": manifest.get("workflow_status") or manifest.get("study_execution_status"),
+        "study_status_counts": manifest.get("study_status_counts") or _count_statuses([str(item.get("workflow_status") or "").strip() for item in studies if isinstance(item, dict)]),
         "manifest_virtual_path": manifest_virtual_path,
         "artifact_virtual_paths": manifest.get("artifact_virtual_paths") or [manifest_virtual_path],
         "studies": studies,
@@ -467,9 +373,7 @@ def build_experiment_summary(
     return {
         "experiment_id": manifest.get("experiment_id"),
         "experiment_status": manifest.get("experiment_status"),
-        "workflow_status": linkage_assessment.get("workflow_status")
-        or manifest.get("workflow_status")
-        or manifest.get("experiment_status"),
+        "workflow_status": linkage_assessment.get("workflow_status") or manifest.get("workflow_status") or manifest.get("experiment_status"),
         "baseline_run_id": manifest.get("baseline_run_id"),
         "run_count": len([item for item in run_records if isinstance(item, dict)]),
         "study_manifest_virtual_path": study_manifest_virtual_path,
@@ -478,12 +382,9 @@ def build_experiment_summary(
         "artifact_virtual_paths": list(
             dict.fromkeys(
                 [
-                    *(
-                        manifest.get("artifact_virtual_paths")
-                        or [manifest_virtual_path]
-                    ),
-                    *( [study_manifest_virtual_path] if study_manifest_virtual_path else [] ),
-                    *( [compare_virtual_path] if compare_virtual_path else [] ),
+                    *(manifest.get("artifact_virtual_paths") or [manifest_virtual_path]),
+                    *([study_manifest_virtual_path] if study_manifest_virtual_path else []),
+                    *([compare_virtual_path] if compare_virtual_path else []),
                 ]
             )
         ),
@@ -532,18 +433,10 @@ def build_reproducibility_summary(
     if manifest_virtual_path is None and not environment_parity_assessment:
         return None
 
-    parity_mapping = _as_mapping(environment_parity_assessment) or _as_mapping(
-        _as_mapping(manifest).get("environment_parity_assessment")
-    )
+    parity_mapping = _as_mapping(environment_parity_assessment) or _as_mapping(_as_mapping(manifest).get("environment_parity_assessment"))
     fingerprint_mapping = _as_mapping(_as_mapping(manifest).get("environment_fingerprint"))
-    parity_status = str(
-        parity_mapping.get("parity_status")
-        or fingerprint_mapping.get("parity_status")
-        or "unknown"
-    )
-    profile_id = str(
-        parity_mapping.get("profile_id") or fingerprint_mapping.get("profile_id") or "unknown"
-    )
+    parity_status = str(parity_mapping.get("parity_status") or fingerprint_mapping.get("parity_status") or "unknown")
+    profile_id = str(parity_mapping.get("profile_id") or fingerprint_mapping.get("profile_id") or "unknown")
 
     return {
         "manifest_virtual_path": manifest_virtual_path,
@@ -575,11 +468,7 @@ def build_experiment_compare_summary(
 
     _, manifest = manifest_loaded
     compare_virtual_path, compare_summary = compare_loaded
-    run_record_index = {
-        str(item.get("run_id") or "unknown"): item
-        for item in (manifest.get("run_records") or [])
-        if isinstance(item, dict)
-    }
+    run_record_index = {str(item.get("run_id") or "unknown"): item for item in (manifest.get("run_records") or []) if isinstance(item, dict)}
     baseline_run_id = str(compare_summary.get("baseline_run_id") or "baseline")
     baseline_record = run_record_index.get(baseline_run_id, {})
 
@@ -593,36 +482,20 @@ def build_experiment_compare_summary(
             {
                 "candidate_run_id": candidate_run_id,
                 "run_role": item.get("run_role") or candidate_record.get("run_role"),
-                "variant_origin": item.get("variant_origin")
-                or candidate_record.get("variant_origin")
-                or candidate_record.get("run_role"),
+                "variant_origin": item.get("variant_origin") or candidate_record.get("variant_origin") or candidate_record.get("run_role"),
                 "study_type": item.get("study_type"),
                 "variant_id": item.get("variant_id"),
-                "variant_label": item.get("variant_label")
-                or candidate_record.get("variant_label"),
-                "baseline_reference_run_id": item.get("baseline_reference_run_id")
-                or candidate_record.get("baseline_reference_run_id")
-                or baseline_run_id,
-                "compare_target_run_id": item.get("compare_target_run_id")
-                or candidate_record.get("compare_target_run_id")
-                or baseline_run_id,
+                "variant_label": item.get("variant_label") or candidate_record.get("variant_label"),
+                "baseline_reference_run_id": item.get("baseline_reference_run_id") or candidate_record.get("baseline_reference_run_id") or baseline_run_id,
+                "compare_target_run_id": item.get("compare_target_run_id") or candidate_record.get("compare_target_run_id") or baseline_run_id,
                 "compare_status": item.get("compare_status"),
-                "candidate_execution_status": item.get("candidate_execution_status")
-                or candidate_record.get("execution_status"),
+                "candidate_execution_status": item.get("candidate_execution_status") or candidate_record.get("execution_status"),
                 "notes": item.get("notes"),
                 "metric_deltas": item.get("metric_deltas") or {},
-                "baseline_solver_results_virtual_path": baseline_record.get(
-                    "solver_results_virtual_path"
-                ),
-                "candidate_solver_results_virtual_path": candidate_record.get(
-                    "solver_results_virtual_path"
-                ),
-                "baseline_run_record_virtual_path": baseline_record.get(
-                    "run_record_virtual_path"
-                ),
-                "candidate_run_record_virtual_path": candidate_record.get(
-                    "run_record_virtual_path"
-                ),
+                "baseline_solver_results_virtual_path": baseline_record.get("solver_results_virtual_path"),
+                "candidate_solver_results_virtual_path": candidate_record.get("solver_results_virtual_path"),
+                "baseline_run_record_virtual_path": baseline_record.get("run_record_virtual_path"),
+                "candidate_run_record_virtual_path": candidate_record.get("run_record_virtual_path"),
             }
         )
 
@@ -636,45 +509,19 @@ def build_experiment_compare_summary(
             "blocked"
             if any(item.get("compare_status") == "blocked" for item in comparisons)
             else "completed"
-            if comparisons
-            and all(item.get("compare_status") == "completed" for item in comparisons)
+            if comparisons and all(item.get("compare_status") == "completed" for item in comparisons)
             else "planned"
-            if comparisons
-            and all(item.get("compare_status") == "planned" for item in comparisons)
+            if comparisons and all(item.get("compare_status") == "planned" for item in comparisons)
             else "partial"
             if comparisons
             else "planned"
         ),
-        "compare_status_counts": compare_summary.get("compare_status_counts")
-        or _count_statuses(
-            [
-                str(item.get("compare_status") or "").strip()
-                for item in comparisons
-                if isinstance(item, dict)
-            ]
-        ),
-        "planned_candidate_run_ids": [
-            item.get("candidate_run_id")
-            for item in comparisons
-            if item.get("compare_status") == "planned"
-        ],
-        "completed_candidate_run_ids": [
-            item.get("candidate_run_id")
-            for item in comparisons
-            if item.get("compare_status") == "completed"
-        ],
-        "blocked_candidate_run_ids": [
-            item.get("candidate_run_id")
-            for item in comparisons
-            if item.get("compare_status") == "blocked"
-        ],
-        "missing_metrics_candidate_run_ids": [
-            item.get("candidate_run_id")
-            for item in comparisons
-            if item.get("compare_status") == "missing_metrics"
-        ],
-        "artifact_virtual_paths": compare_summary.get("artifact_virtual_paths")
-        or [compare_virtual_path],
+        "compare_status_counts": compare_summary.get("compare_status_counts") or _count_statuses([str(item.get("compare_status") or "").strip() for item in comparisons if isinstance(item, dict)]),
+        "planned_candidate_run_ids": [item.get("candidate_run_id") for item in comparisons if item.get("compare_status") == "planned"],
+        "completed_candidate_run_ids": [item.get("candidate_run_id") for item in comparisons if item.get("compare_status") == "completed"],
+        "blocked_candidate_run_ids": [item.get("candidate_run_id") for item in comparisons if item.get("compare_status") == "blocked"],
+        "missing_metrics_candidate_run_ids": [item.get("candidate_run_id") for item in comparisons if item.get("compare_status") == "missing_metrics"],
+        "artifact_virtual_paths": compare_summary.get("artifact_virtual_paths") or [compare_virtual_path],
         "comparisons": comparisons,
     }
 
@@ -749,18 +596,10 @@ def _recommended_next_step_zh(
     reproducibility_summary: dict | None,
     scientific_followup_summary: dict | None,
 ) -> str:
-    blocking_reasons = _dedupe_strings(
-        (scientific_supervisor_gate or {}).get("blocking_reasons")
-    )
-    evidence_gaps = _dedupe_strings(
-        (research_evidence_summary or {}).get("evidence_gaps")
-    )
-    drift_reasons = _dedupe_strings(
-        (reproducibility_summary or {}).get("drift_reasons")
-    )
-    followup_history_path = str(
-        (scientific_followup_summary or {}).get("history_virtual_path") or ""
-    ).strip()
+    blocking_reasons = _dedupe_strings((scientific_supervisor_gate or {}).get("blocking_reasons"))
+    evidence_gaps = _dedupe_strings((research_evidence_summary or {}).get("evidence_gaps"))
+    drift_reasons = _dedupe_strings((reproducibility_summary or {}).get("drift_reasons"))
+    followup_history_path = str((scientific_followup_summary or {}).get("history_virtual_path") or "").strip()
 
     if blocking_reasons:
         return "先处理当前阻塞项并修正设置或证据链，再决定是否继续求解。"
@@ -782,15 +621,8 @@ def build_report_overview(
     scientific_followup_summary: dict | None,
     research_evidence_summary: dict | None,
 ) -> dict:
-    allowed_claim_level = str(
-        (scientific_supervisor_gate or {}).get("allowed_claim_level")
-        or "delivery_only"
-    )
-    reproducibility_status = str(
-        (reproducibility_summary or {}).get("reproducibility_status")
-        or (reproducibility_summary or {}).get("parity_status")
-        or "unknown"
-    )
+    allowed_claim_level = str((scientific_supervisor_gate or {}).get("allowed_claim_level") or "delivery_only")
+    reproducibility_status = str((reproducibility_summary or {}).get("reproducibility_status") or (reproducibility_summary or {}).get("parity_status") or "unknown")
     return {
         "current_conclusion_zh": summary_zh.strip() or "当前暂无可交付结论摘要。",
         "allowed_claim_level": allowed_claim_level,
@@ -831,28 +663,11 @@ def build_delivery_highlights(
     if total_force and isinstance(total_force[0], (int, float)):
         metric_lines.append(f"总阻力 Fx：{total_force[0]:.4f} N")
 
-    metric_lines.append(
-        "允许结论等级："
-        + _claim_level_label_zh(
-            (scientific_supervisor_gate or {}).get("allowed_claim_level")
-        )
-    )
+    metric_lines.append("允许结论等级：" + _claim_level_label_zh((scientific_supervisor_gate or {}).get("allowed_claim_level")))
     metric_lines.append("复核状态：" + _review_status_label_zh(review_status))
-    metric_lines.append(
-        "复现状态："
-        + _reproducibility_status_label_zh(
-            (reproducibility_summary or {}).get("reproducibility_status")
-            or (reproducibility_summary or {}).get("parity_status")
-        )
-    )
+    metric_lines.append("复现状态：" + _reproducibility_status_label_zh((reproducibility_summary or {}).get("reproducibility_status") or (reproducibility_summary or {}).get("parity_status")))
 
-    figure_titles = _dedupe_strings(
-        [
-            item.get("title") or item.get("output_id")
-            for item in (figure_delivery_summary or {}).get("figures") or []
-            if isinstance(item, dict)
-        ]
-    )
+    figure_titles = _dedupe_strings([item.get("title") or item.get("output_id") for item in (figure_delivery_summary or {}).get("figures") or [] if isinstance(item, dict)])
     highlight_artifact_virtual_paths = _dedupe_strings(
         [
             source_report_virtual_path,
@@ -860,12 +675,7 @@ def build_delivery_highlights(
             scientific_gate_virtual_path,
             *(final_artifact_virtual_paths or []),
             *((figure_delivery_summary or {}).get("artifact_virtual_paths") or []),
-            *(
-                path
-                for item in (figure_delivery_summary or {}).get("figures") or []
-                if isinstance(item, dict)
-                for path in (item.get("artifact_virtual_paths") or [])
-            ),
+            *(path for item in (figure_delivery_summary or {}).get("figures") or [] if isinstance(item, dict) for path in (item.get("artifact_virtual_paths") or [])),
         ]
     )
     return {
@@ -903,13 +713,7 @@ def build_conclusion_sections(
     drift_reasons = _dedupe_strings(reproducibility.get("drift_reasons"))
     provenance_highlights = _dedupe_strings(research.get("provenance_highlights"))
 
-    figure_titles = _dedupe_strings(
-        [
-            item.get("title") or item.get("output_id")
-            for item in (figure_delivery_summary or {}).get("figures") or []
-            if isinstance(item, dict)
-        ]
-    )
+    figure_titles = _dedupe_strings([item.get("title") or item.get("output_id") for item in (figure_delivery_summary or {}).get("figures") or [] if isinstance(item, dict)])
 
     sections = [
         {
@@ -948,17 +752,15 @@ def build_conclusion_sections(
             "inline_source_refs": _dedupe_strings(
                 [
                     scientific_gate_virtual_path,
-                    *((research.get("artifact_virtual_paths") or [])),
+                    *(research.get("artifact_virtual_paths") or []),
                     stability_evidence_virtual_path,
                 ]
             ),
-            "evidence_gap_notes": evidence_gaps[:4]
-            or blocking_reasons[:4]
-            or advisory_notes[:4],
+            "evidence_gap_notes": evidence_gaps[:4] or blocking_reasons[:4] or advisory_notes[:4],
             "artifact_virtual_paths": _dedupe_strings(
                 [
                     scientific_gate_virtual_path,
-                    *((research.get("artifact_virtual_paths") or [])),
+                    *(research.get("artifact_virtual_paths") or []),
                     stability_evidence_virtual_path,
                 ]
             )[:8],
@@ -969,10 +771,7 @@ def build_conclusion_sections(
             "summary_zh": "；".join(
                 [
                     f"复现状态为“{_reproducibility_status_label_zh(reproducibility.get('reproducibility_status') or reproducibility.get('parity_status'))}”",
-                    *(
-                        provenance_highlights[:1]
-                        or (["已记录 provenance manifest。"] if provenance_manifest_virtual_path else [])
-                    ),
+                    *(provenance_highlights[:1] or (["已记录 provenance manifest。"] if provenance_manifest_virtual_path else [])),
                     *(figure_titles[:1] and [f"代表图表可从“{figure_titles[0]}”开始追溯。"] or []),
                 ]
             ),
@@ -1042,12 +841,7 @@ def build_evidence_index(
         [
             *final_artifact_virtual_paths,
             *((figure_delivery_summary or {}).get("artifact_virtual_paths") or []),
-            *(
-                path
-                for item in (figure_delivery_summary or {}).get("figures") or []
-                if isinstance(item, dict)
-                for path in (item.get("artifact_virtual_paths") or [])
-            ),
+            *(path for item in (figure_delivery_summary or {}).get("figures") or [] if isinstance(item, dict) for path in (item.get("artifact_virtual_paths") or [])),
         ],
     )
     add_group(
@@ -1066,12 +860,11 @@ def build_evidence_index(
         [
             *((scientific_followup_summary or {}).get("artifact_virtual_paths") or []),
             (scientific_followup_summary or {}).get("latest_result_report_virtual_path"),
-            (
-                scientific_followup_summary or {}
-            ).get("latest_result_supervisor_handoff_virtual_path"),
+            (scientific_followup_summary or {}).get("latest_result_supervisor_handoff_virtual_path"),
         ],
     )
     return index
+
 
 __all__ = [
     "build_conclusion_sections",

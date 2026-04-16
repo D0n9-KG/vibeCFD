@@ -226,9 +226,7 @@ def test_task_tool_prefers_explicit_target_skills_over_graph_recommendations(mon
     assert isinstance(output, Command)
     assert output.update["messages"][0].content == "Task Succeeded. Result: done"
     assert captured["executor_kwargs"]["config"].system_prompt == "Base system prompt"
-    assert output.update["submarine_runtime"]["activity_timeline"][-1]["skill_names"] == [
-        "submarine-report"
-    ]
+    assert output.update["submarine_runtime"]["activity_timeline"][-1]["skill_names"] == ["submarine-report"]
 
 
 def test_task_tool_does_not_append_skill_appendix_for_specialized_submarine_subagents(
@@ -279,10 +277,7 @@ def test_task_tool_does_not_append_skill_appendix_for_specialized_submarine_suba
 
     assert isinstance(output, Command)
     assert output.update["messages"][0].content == "Task Succeeded. Result: done"
-    assert (
-        captured["executor_kwargs"]["config"].system_prompt
-        == "Specialized submarine prompt"
-    )
+    assert captured["executor_kwargs"]["config"].system_prompt == "Specialized submarine prompt"
 
 
 def test_task_tool_keeps_specialized_subagent_turn_budget_above_builtin_floor(monkeypatch):

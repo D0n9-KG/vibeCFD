@@ -21,6 +21,8 @@ from .calculation_plan import (
 from .contracts import SubmarineRequestedOutput, build_supervisor_review_contract
 from .environment_parity import (
     build_environment_fingerprint as build_environment_fingerprint_assessment_input,
+)
+from .environment_parity import (
     build_environment_parity_assessment,
 )
 from .experiments import (
@@ -47,13 +49,6 @@ from .provenance import (
     build_run_provenance_manifest,
 )
 from .solver_dispatch_case import (
-    DEFAULT_DELTA_T_SECONDS,
-    DEFAULT_END_TIME_SECONDS,
-    DEFAULT_FLUID_DENSITY_KG_M3,
-    DEFAULT_INLET_VELOCITY_MPS,
-    DEFAULT_KINEMATIC_VISCOSITY_M2PS,
-    DEFAULT_WRITE_INTERVAL_STEPS,
-    GEOMETRY_CONVERSION_REQUIRED,
     STL_READY_EXECUTION,
     platform_fs_path,
     resolve_simulation_requirements,
@@ -101,10 +96,7 @@ def _study_variant_virtual_path(
     variant_id: str,
     filename: str,
 ) -> str:
-    return (
-        f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/studies/"
-        f"{_study_slug(study_type)}/{variant_id}/{filename}"
-    )
+    return f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/studies/{_study_slug(study_type)}/{variant_id}/{filename}"
 
 
 def _study_case_relative_dir(study_type: str, variant_id: str) -> str:
@@ -133,10 +125,7 @@ def _custom_variant_virtual_path(
     variant_id: str,
     filename: str,
 ) -> str:
-    return (
-        f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/custom-variants/"
-        f"{_custom_variant_slug(variant_id)}/{filename}"
-    )
+    return f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/custom-variants/{_custom_variant_slug(variant_id)}/{filename}"
 
 
 def _custom_variant_run_record_virtual_path(
@@ -204,9 +193,7 @@ def _normalize_custom_variants(
             run_role="custom_variant",
         )
         if run_id in seen_run_ids:
-            raise ValueError(
-                f"Duplicate custom variant id `{variant.variant_id}` resolves to `{run_id}`."
-            )
+            raise ValueError(f"Duplicate custom variant id `{variant.variant_id}` resolves to `{run_id}`.")
         seen_run_ids.add(run_id)
         normalized.append(variant)
     return normalized
@@ -275,11 +262,14 @@ def _workspace_raw_command_log_path(
 ) -> Path | None:
     if workspace_dir is None:
         return None
-    return _workspace_case_dir(
-        workspace_dir=workspace_dir,
-        run_dir_name=run_dir_name,
-        case_relative_dir=case_relative_dir,
-    ) / _RAW_COMMAND_LOG_FILENAME
+    return (
+        _workspace_case_dir(
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+            case_relative_dir=case_relative_dir,
+        )
+        / _RAW_COMMAND_LOG_FILENAME
+    )
 
 
 def _workspace_command_exit_status_path(
@@ -290,11 +280,14 @@ def _workspace_command_exit_status_path(
 ) -> Path | None:
     if workspace_dir is None:
         return None
-    return _workspace_case_dir(
-        workspace_dir=workspace_dir,
-        run_dir_name=run_dir_name,
-        case_relative_dir=case_relative_dir,
-    ) / _COMMAND_EXIT_STATUS_FILENAME
+    return (
+        _workspace_case_dir(
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+            case_relative_dir=case_relative_dir,
+        )
+        / _COMMAND_EXIT_STATUS_FILENAME
+    )
 
 
 def _compose_logged_solver_command(
@@ -305,13 +298,8 @@ def _compose_logged_solver_command(
     if not raw_log_virtual_path:
         return command
     if not command_exit_status_virtual_path:
-        return f"({command}) > \"{raw_log_virtual_path}\" 2>&1 || true"
-    return (
-        f"rm -f \"{command_exit_status_virtual_path}\"; "
-        f"status=0; ({command}) > \"{raw_log_virtual_path}\" 2>&1 || status=$?; "
-        f"printf \"%s\" \"$status\" > \"{command_exit_status_virtual_path}\"; "
-        "true"
-    )
+        return f'({command}) > "{raw_log_virtual_path}" 2>&1 || true'
+    return f'rm -f "{command_exit_status_virtual_path}"; status=0; ({command}) > "{raw_log_virtual_path}" 2>&1 || status=$?; printf "%s" "$status" > "{command_exit_status_virtual_path}"; true'
 
 
 def _read_workspace_command_exit_status(
@@ -490,10 +478,7 @@ def _wait_for_workspace_log_completion(
         )
         if exit_status not in (None, 0):
             return latest_output
-        if (
-            exit_status == 0
-            and time.monotonic() - last_change_at >= stability_window_seconds
-        ):
+        if exit_status == 0 and time.monotonic() - last_change_at >= stability_window_seconds:
             return latest_output
         if time.monotonic() - last_change_at >= stall_timeout_seconds:
             return latest_output
@@ -506,9 +491,7 @@ def _resolve_geometry_scale_factor(scale_assessment: dict[str, object] | None) -
     if not isinstance(scale_assessment, dict):
         return None
     applied_scale_factor = scale_assessment.get("applied_scale_factor")
-    if not isinstance(applied_scale_factor, (int, float)) or isinstance(
-        applied_scale_factor, bool
-    ):
+    if not isinstance(applied_scale_factor, (int, float)) or isinstance(applied_scale_factor, bool):
         return None
     scale_factor = float(applied_scale_factor)
     if scale_factor <= 0:
@@ -525,9 +508,7 @@ def _compose_summary(
 ) -> str:
     case_text = f"当前优先采用案例模板“{selected_case.title}”。" if selected_case else "当前未命中明确案例模板，将按通用潜艇外流场路径准备求解。"
     geometry_text = (
-        "v1 直接求解输入以 clean STL 为主，当前几何已具备直接进入求解派发的条件。"
-        if geometry.input_format == "stl"
-        else "v1 直接求解输入严格限定为 STL；当前几何不满足 STL-only 运行时边界，应先回到 Supervisor 审核而不是继续派发求解。"
+        "v1 直接求解输入以 clean STL 为主，当前几何已具备直接进入求解派发的条件。" if geometry.input_format == "stl" else "v1 直接求解输入严格限定为 STL；当前几何不满足 STL-only 运行时边界，应先回到 Supervisor 审核而不是继续派发求解。"
     )
     if dispatch_status == "executed":
         status_text = "已执行 sandbox 内求解派发命令。"
@@ -536,10 +517,7 @@ def _compose_summary(
     else:
         status_text = "已生成受控求解派发清单，等待进一步执行。"
     action_text = "本轮请求要求立即执行。" if execute_now else "本轮仅生成派发计划，不直接执行。"
-    return (
-        f"已为 `{geometry.file_name}` 生成 OpenFOAM 派发方案，几何家族识别为 `{geometry.geometry_family}`。"
-        f"{geometry_text}{case_text}{status_text}{action_text}"
-    )
+    return f"已为 `{geometry.file_name}` 生成 OpenFOAM 派发方案，几何家族识别为 `{geometry.geometry_family}`。{geometry_text}{case_text}{status_text}{action_text}"
 
 
 def _recommended_actions(*, dispatch_status: str, review_status: str) -> list[str]:
@@ -600,9 +578,7 @@ def _render_markdown(payload: dict) -> str:
     if payload.get("solver_results_virtual_path"):
         lines.append(f"- 姹傝В缁撴灉 JSON: `{payload['solver_results_virtual_path']}`")
     if payload.get("solver_results_markdown_virtual_path"):
-        lines.append(
-            f"- 姹傝В缁撴灉 Markdown: `{payload['solver_results_markdown_virtual_path']}`"
-        )
+        lines.append(f"- 姹傝В缁撴灉 Markdown: `{payload['solver_results_markdown_virtual_path']}`")
 
     if payload.get("solver_command"):
         lines.extend(
@@ -628,21 +604,9 @@ def _render_markdown(payload: dict) -> str:
 
 def _render_html(payload: dict) -> str:
     selected_case = payload.get("selected_case")
-    case_html = (
-        f"<p><strong>{selected_case['title']}</strong> ({selected_case['case_id']})</p><p>{selected_case['rationale']}</p>"
-        if selected_case
-        else "<p>当前没有命中明确案例模板，使用通用潜艇外流场派发路径。</p>"
-    )
-    log_html = (
-        f"<p><strong>执行日志:</strong> {payload['execution_log_virtual_path']}</p>"
-        if payload.get("execution_log_virtual_path")
-        else ""
-    )
-    command_html = (
-        f"<pre>{payload['solver_command']}</pre>"
-        if payload.get("solver_command")
-        else "<p>当前仅生成派发计划，尚未绑定具体执行命令。</p>"
-    )
+    case_html = f"<p><strong>{selected_case['title']}</strong> ({selected_case['case_id']})</p><p>{selected_case['rationale']}</p>" if selected_case else "<p>当前没有命中明确案例模板，使用通用潜艇外流场派发路径。</p>"
+    log_html = f"<p><strong>执行日志:</strong> {payload['execution_log_virtual_path']}</p>" if payload.get("execution_log_virtual_path") else ""
+    command_html = f"<pre>{payload['solver_command']}</pre>" if payload.get("solver_command") else "<p>当前仅生成派发计划，尚未绑定具体执行命令。</p>"
     return f"""<!doctype html>
 <html lang="zh-CN">
   <head>
@@ -674,12 +638,12 @@ def _render_html(payload: dict) -> str:
   <body>
     <section class="panel">
       <h1>潜艇求解派发摘要</h1>
-      <p>{payload['summary_zh']}</p>
+      <p>{payload["summary_zh"]}</p>
     </section>
     <section class="panel">
       <h2>状态</h2>
-      <p><strong>派发状态:</strong> {payload['dispatch_status']}</p>
-      <p><strong>任务类型:</strong> {payload['task_type']}</p>
+      <p><strong>派发状态:</strong> {payload["dispatch_status"]}</p>
+      <p><strong>任务类型:</strong> {payload["task_type"]}</p>
       {log_html}
     </section>
     <section class="panel">
@@ -738,19 +702,9 @@ def run_solver_dispatch(
         geometry_file_name=geometry.file_name,
     )
     selected_case = _select_case(candidate_cases, selected_case_id)
-    normalized_requested_outputs = [
-        SubmarineRequestedOutput.model_validate(item).model_dump(mode="json")
-        for item in (requested_outputs or [])
-    ]
-    requested_output_ids = [
-        str(item.get("output_id"))
-        for item in normalized_requested_outputs
-        if isinstance(item.get("output_id"), str) and item.get("output_id")
-    ]
-    normalized_custom_variants = [
-        item.model_dump(mode="json")
-        for item in _normalize_custom_variants(custom_variants)
-    ]
+    normalized_requested_outputs = [SubmarineRequestedOutput.model_validate(item).model_dump(mode="json") for item in (requested_outputs or [])]
+    requested_output_ids = [str(item.get("output_id")) for item in normalized_requested_outputs if isinstance(item.get("output_id"), str) and item.get("output_id")]
+    normalized_custom_variants = [item.model_dump(mode="json") for item in _normalize_custom_variants(custom_variants)]
     custom_variant_run_ids = [
         build_experiment_run_id(
             study_type=None,
@@ -768,31 +722,15 @@ def run_solver_dispatch(
         write_interval_steps=write_interval_steps,
     )
     selected_reference_inputs = extract_geometry_reference_inputs(calculation_plan)
-    if (
-        selected_reference_inputs is None
-        and reference_value_suggestions
-    ):
-        low_risk_values = {
-            item.get("quantity"): item.get("value")
-            for item in reference_value_suggestions
-            if item.get("is_low_risk") and not item.get("requires_confirmation")
-        }
+    if selected_reference_inputs is None and reference_value_suggestions:
+        low_risk_values = {item.get("quantity"): item.get("value") for item in reference_value_suggestions if item.get("is_low_risk") and not item.get("requires_confirmation")}
         if low_risk_values:
-            selected_reference_inputs = {
-                key: value
-                for key, value in low_risk_values.items()
-                if value is not None
-            }
+            selected_reference_inputs = {key: value for key, value in low_risk_values.items() if value is not None}
             if selected_reference_inputs:
                 selected_reference_inputs["approval_state"] = "pending_researcher_confirmation"
-                selected_reference_inputs["justification"] = (
-                    "Derived from low-risk geometry reference suggestions."
-                )
+                selected_reference_inputs["justification"] = "Derived from low-risk geometry reference suggestions."
     pending_calculation_plan = calculation_plan_requires_confirmation(calculation_plan)
-    requires_immediate_confirmation = (
-        requires_immediate_confirmation
-        or calculation_plan_requires_immediate_confirmation(calculation_plan)
-    )
+    requires_immediate_confirmation = requires_immediate_confirmation or calculation_plan_requires_immediate_confirmation(calculation_plan)
     geometry_scale_factor = _resolve_geometry_scale_factor(scale_assessment)
 
     run_dir_name = _slugify(geometry_path.stem)
@@ -916,27 +854,21 @@ def run_solver_dispatch(
                             "solver-results.json",
                         ),
                         "execution_status": "planned",
-                        "compare_status": (
-                            None if variant.variant_id == "baseline" else "planned"
-                        ),
+                        "compare_status": (None if variant.variant_id == "baseline" else "planned"),
                     }
                 )
                 if variant.variant_id != "baseline":
-                    variant_update["run_record_virtual_path"] = (
-                        _study_variant_run_record_virtual_path(
-                            run_dir_name,
-                            definition.study_type,
-                            variant.variant_id,
-                        )
+                    variant_update["run_record_virtual_path"] = _study_variant_run_record_virtual_path(
+                        run_dir_name,
+                        definition.study_type,
+                        variant.variant_id,
                     )
         scientific_study_manifest_model = build_scientific_study_manifest_with_variant_updates(
             manifest=scientific_study_manifest_model,
             variant_updates=study_variant_updates,
             artifact_virtual_paths=planned_study_artifact_paths,
         )
-        scientific_study_plan = build_scientific_study_plan_payload(
-            scientific_study_manifest_model
-        )
+        scientific_study_plan = build_scientific_study_plan_payload(scientific_study_manifest_model)
         scientific_study_manifest = scientific_study_manifest_model.model_dump(mode="json")
 
     case_scaffold: dict[str, object] = {}
@@ -953,9 +885,7 @@ def run_solver_dispatch(
             geometry_scale_factor=geometry_scale_factor,
         )
 
-    effective_solver_command = solver_command or (
-        f"bash {case_scaffold['run_script_virtual_path']}" if case_scaffold.get("run_script_virtual_path") else None
-    )
+    effective_solver_command = solver_command or (f"bash {case_scaffold['run_script_virtual_path']}" if case_scaffold.get("run_script_virtual_path") else None)
 
     dispatch_status = "planned"
     execution_log_virtual_path: str | None = None
@@ -969,12 +899,7 @@ def run_solver_dispatch(
     scientific_study_artifacts: list[str] = []
     scientific_variant_results: dict[str, dict[str, dict[str, object] | None]] = {}
     experiment_artifacts: list[str] = []
-    if (
-        execute_now
-        and not pending_calculation_plan
-        and effective_solver_command
-        and execute_command is not None
-    ):
+    if execute_now and not pending_calculation_plan and effective_solver_command and execute_command is not None:
         _clear_workspace_solver_run_outputs(
             workspace_dir=workspace_dir,
             run_dir_name=run_dir_name,
@@ -1007,12 +932,7 @@ def run_solver_dispatch(
             workspace_dir=workspace_dir,
             run_dir_name=run_dir_name,
         )
-        if (
-            raw_command_log_path is not None
-            and _platform_fs_path(raw_command_log_path).exists()
-            and not _looks_like_solver_failure(command_output)
-            and not _command_output_looks_complete(command_output)
-        ):
+        if raw_command_log_path is not None and _platform_fs_path(raw_command_log_path).exists() and not _looks_like_solver_failure(command_output) and not _command_output_looks_complete(command_output):
             if command_exit_status is None:
                 command_exit_status = _wait_for_workspace_command_completion(
                     workspace_dir=workspace_dir,
@@ -1053,14 +973,8 @@ def run_solver_dispatch(
                 _render_solver_results_markdown_enriched(solver_results),
                 encoding="utf-8",
             )
-            require_force_coefficients = bool(
-                selected_case_definition is not None
-                and selected_case_definition.acceptance_profile.require_force_coefficients
-            )
-            baseline_failed = baseline_failed or not bool(solver_results.get("solver_completed")) or (
-                require_force_coefficients
-                and not bool(solver_results.get("latest_force_coefficients"))
-            )
+            require_force_coefficients = bool(selected_case_definition is not None and selected_case_definition.acceptance_profile.require_force_coefficients)
+            baseline_failed = baseline_failed or not bool(solver_results.get("solver_completed")) or (require_force_coefficients and not bool(solver_results.get("latest_force_coefficients")))
             solver_results_virtual_path = _solver_results_virtual_path(
                 run_dir_name,
                 "solver-results.json",
@@ -1074,11 +988,7 @@ def run_solver_dispatch(
                 "stability-evidence.json",
             )
             stability_evidence = build_stability_evidence(
-                acceptance_profile=(
-                    selected_case_definition.acceptance_profile
-                    if selected_case_definition is not None
-                    else None
-                ),
+                acceptance_profile=(selected_case_definition.acceptance_profile if selected_case_definition is not None else None),
                 task_type=task_type,
                 solver_metrics=solver_results,
                 solver_results_virtual_path=solver_results_virtual_path,
@@ -1111,9 +1021,7 @@ def run_solver_dispatch(
                     "solver-results.json",
                 ),
                 run_record_virtual_path=baseline_run_record_virtual_path,
-                execution_status=(
-                    "completed" if solver_results.get("solver_completed") else "blocked"
-                ),
+                execution_status=("completed" if solver_results.get("solver_completed") else "blocked"),
                 metric_snapshot=build_metric_snapshot(solver_results=solver_results),
             )
             baseline_run_record_path.write_text(
@@ -1153,11 +1061,7 @@ def run_solver_dispatch(
                     run_compare_summary_virtual_path,
                     experiment_manifest_virtual_path,
                 ],
-                experiment_status=(
-                    "completed"
-                    if baseline_run_record_model.execution_status == "completed"
-                    else "blocked"
-                ),
+                experiment_status=("completed" if baseline_run_record_model.execution_status == "completed" else "blocked"),
             )
             experiment_manifest_path.write_text(
                 json.dumps(
@@ -1188,20 +1092,8 @@ def run_solver_dispatch(
                         {},
                     )
                     for variant in definition.variants:
-                        variant_output_path = _platform_fs_path(
-                            artifact_dir
-                            / "studies"
-                            / _study_slug(definition.study_type)
-                            / variant.variant_id
-                            / "solver-results.json"
-                        )
-                        variant_run_record_path = _platform_fs_path(
-                            artifact_dir
-                            / "studies"
-                            / _study_slug(definition.study_type)
-                            / variant.variant_id
-                            / "run-record.json"
-                        )
+                        variant_output_path = _platform_fs_path(artifact_dir / "studies" / _study_slug(definition.study_type) / variant.variant_id / "solver-results.json")
+                        variant_run_record_path = _platform_fs_path(artifact_dir / "studies" / _study_slug(definition.study_type) / variant.variant_id / "run-record.json")
                         variant_output_path.parent.mkdir(parents=True, exist_ok=True)
                         variant_virtual_path = _study_variant_virtual_path(
                             run_dir_name,
@@ -1209,12 +1101,10 @@ def run_solver_dispatch(
                             variant.variant_id,
                             "solver-results.json",
                         )
-                        variant_run_record_virtual_path = (
-                            _study_variant_run_record_virtual_path(
-                                run_dir_name,
-                                definition.study_type,
-                                variant.variant_id,
-                            )
+                        variant_run_record_virtual_path = _study_variant_run_record_virtual_path(
+                            run_dir_name,
+                            definition.study_type,
+                            variant.variant_id,
                         )
                         variant_update = _ensure_study_variant_update(
                             study_variant_updates,
@@ -1279,17 +1169,11 @@ def run_solver_dispatch(
                             simulation_requirements=variant_execution["simulation_requirements"],
                             case_relative_dir=case_relative_dir,
                             mesh_scale_factor=float(variant_execution["mesh_scale_factor"]),
-                            domain_extent_multiplier=float(
-                                variant_execution["domain_extent_multiplier"]
-                            ),
+                            domain_extent_multiplier=float(variant_execution["domain_extent_multiplier"]),
                             reference_inputs=selected_reference_inputs,
                             geometry_scale_factor=geometry_scale_factor,
                         )
-                        variant_command = (
-                            f"bash {variant_scaffold['run_script_virtual_path']}"
-                            if variant_scaffold.get("run_script_virtual_path")
-                            else None
-                        )
+                        variant_command = f"bash {variant_scaffold['run_script_virtual_path']}" if variant_scaffold.get("run_script_virtual_path") else None
                         _clear_workspace_solver_run_outputs(
                             workspace_dir=workspace_dir,
                             run_dir_name=run_dir_name,
@@ -1308,19 +1192,13 @@ def run_solver_dispatch(
                         if raw_variant_log_path is not None:
                             _platform_fs_path(raw_variant_log_path).unlink(missing_ok=True)
                         if variant_command_exit_status_path is not None:
-                            _platform_fs_path(variant_command_exit_status_path).unlink(
-                                missing_ok=True
-                            )
+                            _platform_fs_path(variant_command_exit_status_path).unlink(missing_ok=True)
                         variant_command_output = (
                             execute_command(
                                 _compose_logged_solver_command(
                                     variant_command,
-                                    _workspace_raw_command_log_virtual_path(
-                                        variant_scaffold
-                                    ),
-                                    _workspace_command_exit_status_virtual_path(
-                                        variant_scaffold
-                                    ),
+                                    _workspace_raw_command_log_virtual_path(variant_scaffold),
+                                    _workspace_command_exit_status_virtual_path(variant_scaffold),
                                 )
                             )
                             if variant_command
@@ -1337,12 +1215,7 @@ def run_solver_dispatch(
                             run_dir_name=run_dir_name,
                             case_relative_dir=case_relative_dir,
                         )
-                        if (
-                            raw_variant_log_path is not None
-                            and _platform_fs_path(raw_variant_log_path).exists()
-                            and not _looks_like_solver_failure(variant_command_output)
-                            and not _command_output_looks_complete(variant_command_output)
-                        ):
+                        if raw_variant_log_path is not None and _platform_fs_path(raw_variant_log_path).exists() and not _looks_like_solver_failure(variant_command_output) and not _command_output_looks_complete(variant_command_output):
                             if variant_command_exit_status is None:
                                 variant_command_exit_status = _wait_for_workspace_command_completion(
                                     workspace_dir=workspace_dir,
@@ -1360,12 +1233,7 @@ def run_solver_dispatch(
                                 run_dir_name=run_dir_name,
                                 case_relative_dir=case_relative_dir,
                             )
-                        variant_failed = (
-                            not variant_command
-                            or _looks_like_solver_failure(variant_command_output)
-                            or variant_command_exit_status not in (None, 0)
-                            or bool(variant_scaffold.get("requires_geometry_conversion"))
-                        )
+                        variant_failed = not variant_command or _looks_like_solver_failure(variant_command_output) or variant_command_exit_status not in (None, 0) or bool(variant_scaffold.get("requires_geometry_conversion"))
                         variant_case_dir = _workspace_case_dir(
                             workspace_dir=workspace_dir,
                             run_dir_name=run_dir_name,
@@ -1378,28 +1246,11 @@ def run_solver_dispatch(
                                 run_dir_name=run_dir_name,
                                 case_relative_dir=case_relative_dir,
                                 command_output=variant_command_output,
-                                reference_values=_solver_reference_values(
-                                    variant_scaffold
-                                ),
-                                simulation_requirements=variant_execution[
-                                    "simulation_requirements"
-                                ],
+                                reference_values=_solver_reference_values(variant_scaffold),
+                                simulation_requirements=variant_execution["simulation_requirements"],
                             )
-                            require_force_coefficients = bool(
-                                selected_case_definition is not None
-                                and selected_case_definition.acceptance_profile.require_force_coefficients
-                            )
-                            if (
-                                not variant_solver_results.get("solver_completed")
-                                or (
-                                    require_force_coefficients
-                                    and not bool(
-                                        variant_solver_results.get(
-                                            "latest_force_coefficients"
-                                        )
-                                    )
-                                )
-                            ):
+                            require_force_coefficients = bool(selected_case_definition is not None and selected_case_definition.acceptance_profile.require_force_coefficients)
+                            if not variant_solver_results.get("solver_completed") or (require_force_coefficients and not bool(variant_solver_results.get("latest_force_coefficients"))):
                                 variant_failed = True
 
                         variant_payload: dict[str, object] = {
@@ -1408,12 +1259,8 @@ def run_solver_dispatch(
                             "variant_label": variant.variant_label,
                             "parameter_overrides": variant.parameter_overrides,
                             "solver_command": variant_command,
-                            "workspace_case_dir_virtual_path": variant_scaffold.get(
-                                "workspace_case_dir_virtual_path"
-                            ),
-                            "run_script_virtual_path": variant_scaffold.get(
-                                "run_script_virtual_path"
-                            ),
+                            "workspace_case_dir_virtual_path": variant_scaffold.get("workspace_case_dir_virtual_path"),
+                            "run_script_virtual_path": variant_scaffold.get("run_script_virtual_path"),
                             "baseline_solver_results_virtual_path": _solver_results_virtual_path(
                                 run_dir_name,
                                 "solver-results.json",
@@ -1452,9 +1299,7 @@ def run_solver_dispatch(
                             solver_results_virtual_path=variant_virtual_path,
                             run_record_virtual_path=variant_run_record_virtual_path,
                             execution_status=str(variant_payload["execution_status"]),
-                            metric_snapshot=build_metric_snapshot(
-                                solver_results=variant_solver_results
-                            ),
+                            metric_snapshot=build_metric_snapshot(solver_results=variant_solver_results),
                         )
                         variant_run_record_path.write_text(
                             json.dumps(
@@ -1491,13 +1336,7 @@ def run_solver_dispatch(
                         {},
                     )
                     for variant in definition.variants:
-                        variant_output_path = _platform_fs_path(
-                            artifact_dir
-                            / "studies"
-                            / _study_slug(definition.study_type)
-                            / variant.variant_id
-                            / "solver-results.json"
-                        )
+                        variant_output_path = _platform_fs_path(artifact_dir / "studies" / _study_slug(definition.study_type) / variant.variant_id / "solver-results.json")
                         variant_output_path.parent.mkdir(parents=True, exist_ok=True)
                         variant_virtual_path = _study_variant_virtual_path(
                             run_dir_name,
@@ -1505,12 +1344,10 @@ def run_solver_dispatch(
                             variant.variant_id,
                             "solver-results.json",
                         )
-                        variant_run_record_virtual_path = (
-                            _study_variant_run_record_virtual_path(
-                                run_dir_name,
-                                definition.study_type,
-                                variant.variant_id,
-                            )
+                        variant_run_record_virtual_path = _study_variant_run_record_virtual_path(
+                            run_dir_name,
+                            definition.study_type,
+                            variant.variant_id,
                         )
                         variant_update = _ensure_study_variant_update(
                             study_variant_updates,
@@ -1605,13 +1442,7 @@ def run_solver_dispatch(
                             execution_status="planned",
                             metric_snapshot={},
                         )
-                        variant_run_record_path = _platform_fs_path(
-                            artifact_dir
-                            / "studies"
-                            / _study_slug(definition.study_type)
-                            / variant.variant_id
-                            / "run-record.json"
-                        )
+                        variant_run_record_path = _platform_fs_path(artifact_dir / "studies" / _study_slug(definition.study_type) / variant.variant_id / "run-record.json")
                         variant_run_record_path.write_text(
                             json.dumps(
                                 planned_run_record_model.model_dump(mode="json"),
@@ -1651,15 +1482,8 @@ def run_solver_dispatch(
             variant_id = str(custom_variant.get("variant_id") or "")
             if not variant_id:
                 continue
-            compare_target_run_id = str(
-                custom_variant.get("compare_target_run_id") or baseline_run_id
-            )
-            variant_output_path = _platform_fs_path(
-                artifact_dir
-                / "custom-variants"
-                / _custom_variant_slug(variant_id)
-                / "solver-results.json"
-            )
+            compare_target_run_id = str(custom_variant.get("compare_target_run_id") or baseline_run_id)
+            variant_output_path = _platform_fs_path(artifact_dir / "custom-variants" / _custom_variant_slug(variant_id) / "solver-results.json")
             variant_output_path.parent.mkdir(parents=True, exist_ok=True)
             variant_virtual_path = _custom_variant_virtual_path(
                 run_dir_name,
@@ -1713,12 +1537,7 @@ def run_solver_dispatch(
                 execution_status="planned",
                 metric_snapshot={},
             )
-            variant_run_record_path = _platform_fs_path(
-                artifact_dir
-                / "custom-variants"
-                / _custom_variant_slug(variant_id)
-                / "run-record.json"
-            )
+            variant_run_record_path = _platform_fs_path(artifact_dir / "custom-variants" / _custom_variant_slug(variant_id) / "run-record.json")
             variant_run_record_path.write_text(
                 json.dumps(
                     planned_run_record_model.model_dump(mode="json"),
@@ -1739,23 +1558,16 @@ def run_solver_dispatch(
             baseline_run_record_model,
             *candidate_run_record_models,
         ]
-        all_run_record_payloads = [
-            item.model_dump(mode="json") for item in all_run_records
-        ]
+        all_run_record_payloads = [item.model_dump(mode="json") for item in all_run_records]
         run_compare_summary_model = build_run_compare_summary(
             experiment_id=experiment_id,
             baseline_run_id=baseline_run_record_model.run_id,
             baseline_record=baseline_run_record_model.model_dump(mode="json"),
-            candidate_records=[
-                item.model_dump(mode="json") for item in candidate_run_record_models
-            ],
+            candidate_records=[item.model_dump(mode="json") for item in candidate_run_record_models],
             artifact_virtual_paths=[
                 baseline_run_record_virtual_path,
                 run_compare_summary_virtual_path,
-                *[
-                    item.run_record_virtual_path
-                    for item in candidate_run_record_models
-                ],
+                *[item.run_record_virtual_path for item in candidate_run_record_models],
             ],
         )
         run_compare_summary_path.write_text(
@@ -1776,37 +1588,17 @@ def run_solver_dispatch(
                 baseline_run_record_virtual_path,
                 run_compare_summary_virtual_path,
                 experiment_manifest_virtual_path,
-                *[
-                    item.run_record_virtual_path
-                    for item in candidate_run_record_models
-                ],
+                *[item.run_record_virtual_path for item in candidate_run_record_models],
             ],
             experiment_status=build_experiment_workflow_status(
                 run_records=all_run_record_payloads,
-                compare_statuses=[
-                    comparison.compare_status
-                    for comparison in run_compare_summary_model.comparisons
-                ],
+                compare_statuses=[comparison.compare_status for comparison in run_compare_summary_model.comparisons],
             ),
             workflow_status=build_experiment_workflow_status(
                 run_records=all_run_record_payloads,
-                compare_statuses=[
-                    comparison.compare_status
-                    for comparison in run_compare_summary_model.comparisons
-                ],
+                compare_statuses=[comparison.compare_status for comparison in run_compare_summary_model.comparisons],
             ),
-            run_status_counts={
-                status: len(
-                    [
-                        item
-                        for item in candidate_run_record_models
-                        if item.execution_status == status
-                    ]
-                )
-                for status in {
-                    item.execution_status for item in candidate_run_record_models
-                }
-            },
+            run_status_counts={status: len([item for item in candidate_run_record_models if item.execution_status == status]) for status in {item.execution_status for item in candidate_run_record_models}},
             compare_status_counts=run_compare_summary_model.compare_status_counts,
         )
         experiment_manifest_path.write_text(
@@ -1829,10 +1621,7 @@ def run_solver_dispatch(
         )
 
         if scientific_study_manifest_model is not None:
-            compare_status_by_run_id = {
-                comparison.candidate_run_id: comparison.compare_status
-                for comparison in run_compare_summary_model.comparisons
-            }
+            compare_status_by_run_id = {comparison.candidate_run_id: comparison.compare_status for comparison in run_compare_summary_model.comparisons}
             for definition in scientific_study_manifest_model.study_definitions:
                 for variant in definition.variants:
                     if variant.variant_id == "baseline":
@@ -1861,9 +1650,7 @@ def run_solver_dispatch(
             ),
         )
         scientific_study_manifest = scientific_study_manifest_model.model_dump(mode="json")
-        scientific_study_plan = build_scientific_study_plan_payload(
-            scientific_study_manifest_model
-        )
+        scientific_study_plan = build_scientific_study_plan_payload(scientific_study_manifest_model)
 
     artifacts = build_canonical_solver_dispatch_artifact_bundle(
         run_dir_name=run_dir_name,
@@ -1877,11 +1664,7 @@ def run_solver_dispatch(
         experiment_artifacts=experiment_artifacts,
     )
     scientific_verification_assessment = build_scientific_verification_assessment(
-        acceptance_profile=(
-            selected_case_definition.acceptance_profile
-            if selected_case_definition is not None
-            else None
-        ),
+        acceptance_profile=(selected_case_definition.acceptance_profile if selected_case_definition is not None else None),
         task_type=task_type,
         solver_metrics=solver_results,
         artifact_virtual_paths=artifacts,
@@ -1938,24 +1721,18 @@ def run_solver_dispatch(
             "study-manifest.json",
         )
     if experiment_manifest is not None:
-        provenance_artifact_entrypoints["experiment_manifest"] = (
-            experiment_manifest_virtual_path
-        )
+        provenance_artifact_entrypoints["experiment_manifest"] = experiment_manifest_virtual_path
     if baseline_run_record_model is not None:
         provenance_artifact_entrypoints["run_record"] = baseline_run_record_virtual_path
     if run_compare_summary is not None:
-        provenance_artifact_entrypoints["run_compare_summary"] = (
-            run_compare_summary_virtual_path
-        )
+        provenance_artifact_entrypoints["run_compare_summary"] = run_compare_summary_virtual_path
     environment_fingerprint = _build_environment_fingerprint(
         workspace_dir=workspace_dir,
         artifact_dir=artifact_dir,
         outputs_dir=outputs_dir,
         execute_command=execute_command,
     )
-    environment_parity_assessment = build_environment_parity_assessment(
-        environment_fingerprint
-    ).model_dump(mode="json")
+    environment_parity_assessment = build_environment_parity_assessment(environment_fingerprint).model_dump(mode="json")
     provenance_manifest_model = build_run_provenance_manifest(
         experiment_id=experiment_id,
         run_id=baseline_run_id,

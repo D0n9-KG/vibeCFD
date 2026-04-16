@@ -114,6 +114,7 @@ def test_apply_prompt_template_for_skill_creator_requires_structured_skill_studi
     assert "validation-report" in prompt
     assert "publish-readiness" in prompt
 
+
 def test_project_skill_bindings_prompt_section_lists_explicit_role_bindings(monkeypatch):
     monkeypatch.setattr(
         prompt_module,
@@ -317,9 +318,7 @@ def test_get_skills_prompt_section_legacy_snapshot_does_not_rebuild_live_metadat
     monkeypatch.setattr(
         prompt_module,
         "load_skills",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            AssertionError("load_skills should not run for legacy pinned snapshots")
-        ),
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("load_skills should not run for legacy pinned snapshots")),
     )
 
     section = prompt_module.get_skills_prompt_section(
@@ -341,9 +340,7 @@ def test_get_skills_prompt_section_uses_snapshot_prompt_entries_without_live_loo
     monkeypatch.setattr(
         prompt_module,
         "load_skills",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            AssertionError("load_skills should not run when snapshot entries exist")
-        ),
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("load_skills should not run when snapshot entries exist")),
     )
 
     section = prompt_module.get_skills_prompt_section(
@@ -391,16 +388,12 @@ def test_get_enabled_skills_snapshot_source_state_avoids_recursive_scan_when_cac
     )
     monkeypatch.setattr(
         "deerflow.config.get_app_config",
-        lambda: SimpleNamespace(
-            skills=SimpleNamespace(get_skills_path=lambda: skills_root)
-        ),
+        lambda: SimpleNamespace(skills=SimpleNamespace(get_skills_path=lambda: skills_root)),
     )
     monkeypatch.setattr(
         Path,
         "rglob",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError("rglob should not run when cached skills are present")
-        ),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("rglob should not run when cached skills are present")),
         raising=False,
     )
 
@@ -434,9 +427,7 @@ def test_get_enabled_skills_snapshot_returns_stale_cache_inside_running_loop(mon
     monkeypatch.setattr(
         prompt_module,
         "load_skills",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            AssertionError("load_skills should not run synchronously in an active event loop")
-        ),
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("load_skills should not run synchronously in an active event loop")),
     )
     monkeypatch.setattr(
         prompt_module,
@@ -466,9 +457,7 @@ def test_enabled_skills_snapshot_source_state_changes_when_skill_file_changes(
 
     monkeypatch.setattr(
         "deerflow.config.get_app_config",
-        lambda: SimpleNamespace(
-            skills=SimpleNamespace(get_skills_path=lambda: skills_root)
-        ),
+        lambda: SimpleNamespace(skills=SimpleNamespace(get_skills_path=lambda: skills_root)),
     )
 
     first = prompt_module._get_enabled_skills_snapshot_source_state()
@@ -500,17 +489,13 @@ def test_enabled_skills_snapshot_source_state_changes_when_runtime_revision_chan
 
     monkeypatch.setattr(
         "deerflow.config.get_app_config",
-        lambda: SimpleNamespace(
-            skills=SimpleNamespace(get_skills_path=lambda: skills_root)
-        ),
+        lambda: SimpleNamespace(skills=SimpleNamespace(get_skills_path=lambda: skills_root)),
     )
     monkeypatch.setattr(prompt_module, "_CACHED_ENABLED_SKILLS", None, raising=False)
     monkeypatch.setattr(
         prompt_module,
         "load_skill_lifecycle_registry",
-        lambda *args, **kwargs: SimpleNamespace(
-            runtime_revision=runtime_revision["value"]
-        ),
+        lambda *args, **kwargs: SimpleNamespace(runtime_revision=runtime_revision["value"]),
     )
     monkeypatch.setattr(
         prompt_module,

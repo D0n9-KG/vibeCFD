@@ -87,17 +87,11 @@ def _format_benchmark_comparison_narrative(item: Mapping[str, Any]) -> str:
 
     segments = [f"Benchmark {metric_id} ({quantity}) reported {status}."]
     if observed_value is not None or reference_value is not None:
-        segments.append(
-            f"Observed {_format_decimal(observed_value)} vs reference {_format_decimal(reference_value)}."
-        )
+        segments.append(f"Observed {_format_decimal(observed_value)} vs reference {_format_decimal(reference_value)}.")
     if relative_error is not None or relative_tolerance is not None:
-        segments.append(
-            f"Relative error {_format_percent(relative_error)} against tolerance {_format_percent(relative_tolerance)}."
-        )
+        segments.append(f"Relative error {_format_percent(relative_error)} against tolerance {_format_percent(relative_tolerance)}.")
     if target_velocity is not None or observed_velocity is not None:
-        segments.append(
-            f"Velocity scope target {_format_decimal(target_velocity, 2)} m/s vs observed {_format_decimal(observed_velocity, 2)} m/s."
-        )
+        segments.append(f"Velocity scope target {_format_decimal(target_velocity, 2)} m/s vs observed {_format_decimal(observed_velocity, 2)} m/s.")
     if source_label:
         segments.append(f"Reference source: {source_label}.")
     if source_url:
@@ -144,18 +138,10 @@ def build_validation_status(
     profile = _as_mapping(acceptance_profile)
     assessment = _as_mapping(acceptance_assessment)
     benchmark_targets = profile.get("benchmark_targets")
-    benchmark_target_items = (
-        [item for item in benchmark_targets if isinstance(item, Mapping)]
-        if isinstance(benchmark_targets, list)
-        else []
-    )
+    benchmark_target_items = [item for item in benchmark_targets if isinstance(item, Mapping)] if isinstance(benchmark_targets, list) else []
     target_count = len(benchmark_target_items)
     comparisons = assessment.get("benchmark_comparisons")
-    comparison_items = (
-        [item for item in comparisons if isinstance(item, Mapping)]
-        if isinstance(comparisons, list)
-        else []
-    )
+    comparison_items = [item for item in comparisons if isinstance(item, Mapping)] if isinstance(comparisons, list) else []
     blocking_issues = _as_string_list(assessment.get("blocking_issues"))
     evidence_gaps: list[str] = []
     highlights: list[str] = []
@@ -166,17 +152,10 @@ def build_validation_status(
 
     if not comparison_items:
         if blocking_issues:
-            evidence_gaps.append(
-                "Benchmark validation could not be synthesized because the acceptance assessment is already blocked."
-            )
+            evidence_gaps.append("Benchmark validation could not be synthesized because the acceptance assessment is already blocked.")
             return "blocked", blocking_issues, evidence_gaps, highlights
 
-        evidence_gaps.extend(
-            [
-                f"{_format_benchmark_target_reference(target)} No matched validation comparison was produced for the current run."
-                for target in benchmark_target_items
-            ]
-        )
+        evidence_gaps.extend([f"{_format_benchmark_target_reference(target)} No matched validation comparison was produced for the current run." for target in benchmark_target_items])
         return "missing_validation_reference", blocking_issues, evidence_gaps, highlights
 
     has_failure = False
@@ -219,41 +198,17 @@ def build_provenance_status(
     delivery_items = output_delivery_plan or []
 
     has_provenance_manifest = bool(provenance.get("manifest_virtual_path"))
-    manifest_completeness_status = str(
-        provenance.get("manifest_completeness_status") or ""
-    ).strip()
-    has_report_artifact = any(
-        path.endswith("/final-report.json") or path.endswith("/delivery-readiness.json")
-        for path in artifacts
-    )
+    manifest_completeness_status = str(provenance.get("manifest_completeness_status") or "").strip()
+    has_report_artifact = any(path.endswith("/final-report.json") or path.endswith("/delivery-readiness.json") for path in artifacts)
     has_experiment_manifest = bool(experiment.get("manifest_virtual_path"))
     has_experiment_compare = bool(experiment.get("compare_virtual_path"))
-    experiment_linkage_status = str(
-        experiment.get("linkage_status") or "consistent"
-    ).strip()
-    experiment_workflow_status = str(
-        experiment.get("workflow_status")
-        or experiment.get("experiment_status")
-        or "planned"
-    ).strip()
+    experiment_linkage_status = str(experiment.get("linkage_status") or "consistent").strip()
+    experiment_workflow_status = str(experiment.get("workflow_status") or experiment.get("experiment_status") or "planned").strip()
     experiment_linkage_issues = _as_string_list(experiment.get("linkage_issues"))
     has_study_manifest = bool(studies.get("manifest_virtual_path"))
-    study_workflow_status = str(
-        studies.get("workflow_status")
-        or studies.get("study_execution_status")
-        or "planned"
-    ).strip()
-    delivered_outputs = [
-        item
-        for item in delivery_items
-        if isinstance(item, Mapping)
-        and str(item.get("delivery_status") or "") == "delivered"
-    ]
-    delivered_artifact_paths = [
-        path
-        for item in delivered_outputs
-        for path in _as_string_list(item.get("artifact_virtual_paths"))
-    ]
+    study_workflow_status = str(studies.get("workflow_status") or studies.get("study_execution_status") or "planned").strip()
+    delivered_outputs = [item for item in delivery_items if isinstance(item, Mapping) and str(item.get("delivery_status") or "") == "delivered"]
+    delivered_artifact_paths = [path for item in delivered_outputs for path in _as_string_list(item.get("artifact_virtual_paths"))]
     reproducibility_status = str(provenance.get("parity_status") or "unknown").strip()
     reproducibility_gaps = _as_string_list(provenance.get("drift_reasons"))
     reproducibility_guidance = _as_string_list(provenance.get("recovery_guidance"))
@@ -267,12 +222,8 @@ def build_provenance_status(
         highlights.append("Canonical provenance manifest is complete.")
     if has_experiment_manifest and has_experiment_compare:
         highlights.append("Experiment manifest and compare summary are available.")
-    if experiment_linkage_status == "consistent" and (
-        has_experiment_manifest or has_experiment_compare
-    ):
-        highlights.append(
-            "Experiment registry coverage is consistent with the planned scientific variants."
-        )
+    if experiment_linkage_status == "consistent" and (has_experiment_manifest or has_experiment_compare):
+        highlights.append("Experiment registry coverage is consistent with the planned scientific variants.")
     if has_study_manifest:
         highlights.append("Scientific study manifest is available.")
     if experiment_workflow_status == "completed":
@@ -282,14 +233,9 @@ def build_provenance_status(
     if delivered_artifact_paths:
         highlights.append("Requested output artifacts were exported for this run.")
     if reproducibility_status == "matched":
-        highlights.append(
-            "Environment parity matches the declared runtime profile for reproducible reruns."
-        )
+        highlights.append("Environment parity matches the declared runtime profile for reproducible reruns.")
     has_core_evidence_artifacts = any(
-        path.endswith("/solver-results.json")
-        or path.endswith("/verification-mesh-independence.json")
-        or path.endswith("/verification-domain-sensitivity.json")
-        or path.endswith("/verification-time-step-sensitivity.json")
+        path.endswith("/solver-results.json") or path.endswith("/verification-mesh-independence.json") or path.endswith("/verification-domain-sensitivity.json") or path.endswith("/verification-time-step-sensitivity.json")
         for path in artifacts
     )
     if has_core_evidence_artifacts:
@@ -311,13 +257,7 @@ def build_provenance_status(
     if traceable:
         return "traceable", [], gaps, highlights
 
-    if (
-        has_provenance_manifest
-        or has_report_artifact
-        or has_experiment_manifest
-        or has_study_manifest
-        or delivered_outputs
-    ):
+    if has_provenance_manifest or has_report_artifact or has_experiment_manifest or has_study_manifest or delivered_outputs:
         if not has_provenance_manifest:
             gaps.append("Canonical provenance manifest is missing from the evidence trail.")
         elif manifest_completeness_status != "complete":
@@ -325,43 +265,23 @@ def build_provenance_status(
         if not has_experiment_manifest or not has_experiment_compare:
             gaps.append("Experiment registry entrypoints are incomplete.")
         if experiment_linkage_status != "consistent":
-            gaps.extend(
-                experiment_linkage_issues
-                or ["Experiment registry coverage is incomplete for the planned studies."]
-            )
+            gaps.extend(experiment_linkage_issues or ["Experiment registry coverage is incomplete for the planned studies."])
         if not has_study_manifest:
             gaps.append("Scientific study manifest is missing from the evidence trail.")
         elif study_workflow_status != "completed":
-            gaps.append(
-                f"Scientific study workflow is still {study_workflow_status}."
-            )
+            gaps.append(f"Scientific study workflow is still {study_workflow_status}.")
         if has_experiment_manifest and experiment_workflow_status != "completed":
-            gaps.append(
-                f"Experiment compare workflow is still {experiment_workflow_status}."
-            )
+            gaps.append(f"Experiment compare workflow is still {experiment_workflow_status}.")
         if not delivered_artifact_paths and not has_core_evidence_artifacts:
-            gaps.append(
-                "Requested outputs or core scientific evidence artifacts are not yet linked."
-            )
+            gaps.append("Requested outputs or core scientific evidence artifacts are not yet linked.")
         if reproducibility_status == "drifted_but_runnable":
-            gaps.append(
-                "Environment parity drifted from the declared runtime profile, so reruns are only partially reproducible."
-            )
+            gaps.append("Environment parity drifted from the declared runtime profile, so reruns are only partially reproducible.")
         elif reproducibility_status == "unknown":
-            gaps.append(
-                "Environment parity could not be confirmed for this run, so reproducibility remains partial."
-            )
+            gaps.append("Environment parity could not be confirmed for this run, so reproducibility remains partial.")
         elif reproducibility_status == "blocked":
-            gaps.append(
-                "Environment parity is blocked because one or more runtime prerequisites are missing."
-            )
-        gaps.extend(
-            f"Environment parity detail: {item}" for item in reproducibility_gaps
-        )
-        gaps.extend(
-            f"Reproducibility recovery guidance: {item}"
-            for item in reproducibility_guidance
-        )
+            gaps.append("Environment parity is blocked because one or more runtime prerequisites are missing.")
+        gaps.extend(f"Environment parity detail: {item}" for item in reproducibility_gaps)
+        gaps.extend(f"Reproducibility recovery guidance: {item}" for item in reproducibility_guidance)
         return "partial", [], gaps, highlights
 
     return "missing", [], ["Research provenance artifacts are missing."], highlights

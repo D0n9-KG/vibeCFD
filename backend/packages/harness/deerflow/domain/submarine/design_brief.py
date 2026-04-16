@@ -106,41 +106,13 @@ def _compose_summary(
     expected_outputs: list[str],
     open_questions: list[str],
 ) -> str:
-    geometry_text = (
-        f"几何文件 `{geometry_virtual_path}`"
-        if geometry_virtual_path
-        else "当前尚未绑定具体几何文件"
-    )
-    family_text = (
-        f"，潜艇家族线索为 `{geometry_family_hint}`"
-        if geometry_family_hint
-        else ""
-    )
-    case_text = (
-        f"，建议基线案例为 `{selected_case_id}`"
-        if selected_case_id
-        else ""
-    )
-    outputs_text = (
-        f"目标交付物包含 {len(expected_outputs)} 项"
-        if expected_outputs
-        else "交付物仍待进一步细化"
-    )
-    confirmation_text = (
-        "方案已基本确认，可进入几何预检"
-        if confirmation_status == "confirmed"
-        else "方案仍在澄清中"
-    )
-    open_questions_text = (
-        f"，还有 {len(open_questions)} 项待确认"
-        if open_questions
-        else ""
-    )
-    return (
-        f"已整理 CFD 设计简报：{task_description}。"
-        f"{geometry_text}{family_text}{case_text}。"
-        f"{outputs_text}，{confirmation_text}{open_questions_text}。"
-    )
+    geometry_text = f"几何文件 `{geometry_virtual_path}`" if geometry_virtual_path else "当前尚未绑定具体几何文件"
+    family_text = f"，潜艇家族线索为 `{geometry_family_hint}`" if geometry_family_hint else ""
+    case_text = f"，建议基线案例为 `{selected_case_id}`" if selected_case_id else ""
+    outputs_text = f"目标交付物包含 {len(expected_outputs)} 项" if expected_outputs else "交付物仍待进一步细化"
+    confirmation_text = "方案已基本确认，可进入几何预检" if confirmation_status == "confirmed" else "方案仍在澄清中"
+    open_questions_text = f"，还有 {len(open_questions)} 项待确认" if open_questions else ""
+    return f"已整理 CFD 设计简报：{task_description}。{geometry_text}{family_text}{case_text}。{outputs_text}，{confirmation_text}{open_questions_text}。"
 
 
 def _infer_iteration_mode(
@@ -170,23 +142,11 @@ def _resolve_goal_status(*, approval_state: str) -> str:
 
 
 def _render_markdown(payload: dict) -> str:
-    requested_outputs = "\n".join(
-        (
-            f"- `{item['output_id']}` | {item['label']} | "
-            f"requested=`{item['requested_label']}` | support=`{item['support_level']}`"
-        )
-        for item in payload.get("requested_outputs") or []
-    ) or "- 暂无"
+    requested_outputs = "\n".join((f"- `{item['output_id']}` | {item['label']} | requested=`{item['requested_label']}` | support=`{item['support_level']}`") for item in payload.get("requested_outputs") or []) or "- 暂无"
     expected_outputs = "\n".join(f"- {item}" for item in payload["expected_outputs"]) or "- 暂无"
     user_constraints = "\n".join(f"- {item}" for item in payload["user_constraints"]) or "- 暂无"
     open_questions = "\n".join(f"- {item}" for item in payload["open_questions"]) or "- 暂无"
-    execution_outline = "\n".join(
-        (
-            f"- `{item['role_id']}` / {item['owner']} / `{item['status']}`："
-            f"{item['goal']}"
-        )
-        for item in payload["execution_outline"]
-    )
+    execution_outline = "\n".join((f"- `{item['role_id']}` / {item['owner']} / `{item['status']}`：{item['goal']}") for item in payload["execution_outline"])
     lines = [
         f"# {payload['report_title']}",
         "",
@@ -240,11 +200,7 @@ def _render_markdown(payload: dict) -> str:
         ]
     )
     insertion_index = next(
-        (
-            index
-            for index, value in enumerate(lines)
-            if value == user_constraints
-        ),
+        (index for index, value in enumerate(lines) if value == user_constraints),
         None,
     )
     if insertion_index is not None:
@@ -257,36 +213,23 @@ def _render_markdown(payload: dict) -> str:
 
 
 def _render_html(payload: dict) -> str:
-    requested_outputs = "".join(
-        (
-            "<li>"
-            f"<strong>{escape(item['label'])}</strong> "
-            f"(<code>{escape(item['output_id'])}</code>)"
-            f"<br />requested: {escape(item['requested_label'])}"
-            f"<br />support: <code>{escape(item['support_level'])}</code>"
-            "</li>"
+    requested_outputs = (
+        "".join(
+            (f"<li><strong>{escape(item['label'])}</strong> (<code>{escape(item['output_id'])}</code>)<br />requested: {escape(item['requested_label'])}<br />support: <code>{escape(item['support_level'])}</code></li>")
+            for item in payload.get("requested_outputs") or []
         )
-        for item in payload.get("requested_outputs") or []
-    ) or "<li>暂无</li>"
+        or "<li>暂无</li>"
+    )
     expected_outputs = "".join(f"<li>{escape(item)}</li>" for item in payload["expected_outputs"]) or "<li>暂无</li>"
     user_constraints = "".join(f"<li>{escape(item)}</li>" for item in payload["user_constraints"]) or "<li>暂无</li>"
     open_questions = "".join(f"<li>{escape(item)}</li>" for item in payload["open_questions"]) or "<li>暂无</li>"
-    execution_outline = "".join(
-        (
-            "<li>"
-            f"<strong>{escape(item['role_id'])}</strong> / {escape(item['owner'])}"
-            f" / <code>{escape(item['status'])}</code>"
-            f"<br />{escape(item['goal'])}"
-            "</li>"
-        )
-        for item in payload["execution_outline"]
-    )
+    execution_outline = "".join((f"<li><strong>{escape(item['role_id'])}</strong> / {escape(item['owner'])} / <code>{escape(item['status'])}</code><br />{escape(item['goal'])}</li>") for item in payload["execution_outline"])
 
     requirements = payload.get("simulation_requirements") or {}
     requirements_html = ""
     if requirements:
         requirements_html = (
-            "<section class=\"panel\"><h2>计算要求</h2>"
+            '<section class="panel"><h2>计算要求</h2>'
             f"<p><strong>inlet_velocity_mps:</strong> {escape(str(requirements.get('inlet_velocity_mps')))}</p>"
             f"<p><strong>fluid_density_kg_m3:</strong> {escape(str(requirements.get('fluid_density_kg_m3')))}</p>"
             f"<p><strong>kinematic_viscosity_m2ps:</strong> {escape(str(requirements.get('kinematic_viscosity_m2ps')))}</p>"
@@ -372,36 +315,12 @@ def _render_html(payload: dict) -> str:
 
 
 def _render_markdown_v2(payload: dict) -> str:
-    requested_outputs = "\n".join(
-        (
-            f"- `{item['output_id']}` | {item['label']} | "
-            f"requested=`{item['requested_label']}` | support=`{item['support_level']}`"
-        )
-        for item in payload.get("requested_outputs") or []
-    ) or "- 暂无"
-    expected_outputs = "\n".join(
-        f"- {item}" for item in payload.get("expected_outputs") or []
-    ) or "- 暂无"
-    scientific_verification_requirements = "\n".join(
-        (
-            f"- `{item['requirement_id']}` | {item['label']} | "
-            f"check=`{item['check_type']}`"
-        )
-        for item in payload.get("scientific_verification_requirements") or []
-    ) or "- 暂无"
-    user_constraints = "\n".join(
-        f"- {item}" for item in payload.get("user_constraints") or []
-    ) or "- 暂无"
-    open_questions = "\n".join(
-        f"- {item}" for item in payload.get("open_questions") or []
-    ) or "- 暂无"
-    execution_outline = "\n".join(
-        (
-            f"- `{item['role_id']}` / {item['owner']} / `{item['status']}`: "
-            f"{item['goal']}"
-        )
-        for item in payload.get("execution_outline") or []
-    ) or "- 暂无"
+    requested_outputs = "\n".join((f"- `{item['output_id']}` | {item['label']} | requested=`{item['requested_label']}` | support=`{item['support_level']}`") for item in payload.get("requested_outputs") or []) or "- 暂无"
+    expected_outputs = "\n".join(f"- {item}" for item in payload.get("expected_outputs") or []) or "- 暂无"
+    scientific_verification_requirements = "\n".join((f"- `{item['requirement_id']}` | {item['label']} | check=`{item['check_type']}`") for item in payload.get("scientific_verification_requirements") or []) or "- 暂无"
+    user_constraints = "\n".join(f"- {item}" for item in payload.get("user_constraints") or []) or "- 暂无"
+    open_questions = "\n".join(f"- {item}" for item in payload.get("open_questions") or []) or "- 暂无"
+    execution_outline = "\n".join((f"- `{item['role_id']}` / {item['owner']} / `{item['status']}`: {item['goal']}") for item in payload.get("execution_outline") or []) or "- 暂无"
 
     lines = [
         f"# {payload['report_title']}",
@@ -464,52 +383,31 @@ def _render_markdown_v2(payload: dict) -> str:
 
 
 def _render_html_v2(payload: dict) -> str:
-    requested_outputs = "".join(
-        (
-            "<li>"
-            f"<strong>{escape(item['label'])}</strong> "
-            f"(<code>{escape(item['output_id'])}</code>)"
-            f"<br />requested: {escape(item['requested_label'])}"
-            f"<br />support: <code>{escape(item['support_level'])}</code>"
-            "</li>"
+    requested_outputs = (
+        "".join(
+            (f"<li><strong>{escape(item['label'])}</strong> (<code>{escape(item['output_id'])}</code>)<br />requested: {escape(item['requested_label'])}<br />support: <code>{escape(item['support_level'])}</code></li>")
+            for item in payload.get("requested_outputs") or []
         )
-        for item in payload.get("requested_outputs") or []
-    ) or "<li>暂无</li>"
-    expected_outputs = "".join(
-        f"<li>{escape(item)}</li>" for item in payload.get("expected_outputs") or []
-    ) or "<li>暂无</li>"
-    scientific_verification_requirements = "".join(
-        (
-            "<li>"
-            f"<strong>{escape(item['label'])}</strong> "
-            f"(<code>{escape(item['requirement_id'])}</code>)"
-            f"<br />check: <code>{escape(item['check_type'])}</code>"
-            "</li>"
+        or "<li>暂无</li>"
+    )
+    expected_outputs = "".join(f"<li>{escape(item)}</li>" for item in payload.get("expected_outputs") or []) or "<li>暂无</li>"
+    scientific_verification_requirements = (
+        "".join(
+            (f"<li><strong>{escape(item['label'])}</strong> (<code>{escape(item['requirement_id'])}</code>)<br />check: <code>{escape(item['check_type'])}</code></li>") for item in payload.get("scientific_verification_requirements") or []
         )
-        for item in payload.get("scientific_verification_requirements") or []
-    ) or "<li>暂无</li>"
-    user_constraints = "".join(
-        f"<li>{escape(item)}</li>" for item in payload.get("user_constraints") or []
-    ) or "<li>暂无</li>"
-    open_questions = "".join(
-        f"<li>{escape(item)}</li>" for item in payload.get("open_questions") or []
-    ) or "<li>暂无</li>"
-    execution_outline = "".join(
-        (
-            "<li>"
-            f"<strong>{escape(item['role_id'])}</strong> / {escape(item['owner'])}"
-            f" / <code>{escape(item['status'])}</code>"
-            f"<br />{escape(item['goal'])}"
-            "</li>"
-        )
-        for item in payload.get("execution_outline") or []
-    ) or "<li>暂无</li>"
+        or "<li>暂无</li>"
+    )
+    user_constraints = "".join(f"<li>{escape(item)}</li>" for item in payload.get("user_constraints") or []) or "<li>暂无</li>"
+    open_questions = "".join(f"<li>{escape(item)}</li>" for item in payload.get("open_questions") or []) or "<li>暂无</li>"
+    execution_outline = (
+        "".join((f"<li><strong>{escape(item['role_id'])}</strong> / {escape(item['owner'])} / <code>{escape(item['status'])}</code><br />{escape(item['goal'])}</li>") for item in payload.get("execution_outline") or []) or "<li>暂无</li>"
+    )
 
     requirements = payload.get("simulation_requirements") or {}
     requirements_html = ""
     if requirements:
         requirements_html = (
-            "<section class=\"panel\"><h2>计算要求</h2>"
+            '<section class="panel"><h2>计算要求</h2>'
             f"<p><strong>inlet_velocity_mps:</strong> {escape(str(requirements.get('inlet_velocity_mps')))}</p>"
             f"<p><strong>fluid_density_kg_m3:</strong> {escape(str(requirements.get('fluid_density_kg_m3')))}</p>"
             f"<p><strong>kinematic_viscosity_m2ps:</strong> {escape(str(requirements.get('kinematic_viscosity_m2ps')))}</p>"
@@ -631,9 +529,7 @@ def run_design_brief(
         requested_outputs,
         stage="task-intelligence",
     )
-    capability_gaps = [
-        item for item in requested_outputs if item.get("support_level") != "supported"
-    ]
+    capability_gaps = [item for item in requested_outputs if item.get("support_level") != "supported"]
     user_constraints = [item.strip() for item in user_constraints or [] if item and item.strip()]
     open_questions = [item.strip() for item in open_questions or [] if item and item.strip()]
     simulation_requirements = _maybe_resolve_simulation_requirements(
@@ -645,11 +541,7 @@ def run_design_brief(
         write_interval_steps=write_interval_steps,
     )
 
-    run_basis = (
-        geometry_virtual_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-        if geometry_virtual_path
-        else task_description
-    )
+    run_basis = geometry_virtual_path.rsplit("/", 1)[-1].rsplit(".", 1)[0] if geometry_virtual_path else task_description
     run_dir_name = _build_run_dir_name(outputs_dir=outputs_dir, run_basis=run_basis)
     report_title = "潜艇 CFD 设计简报"
     report_virtual_path = _artifact_virtual_path(run_dir_name, "cfd-design-brief.md")
@@ -663,16 +555,8 @@ def run_design_brief(
         open_questions=open_questions,
     )
     goal_status = _resolve_goal_status(approval_state=approval_state)
-    review_status = (
-        "ready_for_supervisor"
-        if confirmation_status == "confirmed" and not open_questions
-        else "needs_user_confirmation"
-    )
-    next_recommended_stage = (
-        "geometry-preflight"
-        if review_status == "ready_for_supervisor"
-        else "user-confirmation"
-    )
+    review_status = "ready_for_supervisor" if confirmation_status == "confirmed" and not open_questions else "needs_user_confirmation"
+    next_recommended_stage = "geometry-preflight" if review_status == "ready_for_supervisor" else "user-confirmation"
     execution_outline = build_execution_plan(confirmation_status=confirmation_status)
     selected_case = load_case_library().case_index.get(selected_case_id or "")
     scientific_verification_requirements = [
@@ -682,20 +566,12 @@ def run_design_brief(
             task_type=task_type,
         )
     ]
-    contract_revision = (
-        previous_contract_revision + 1
-        if isinstance(previous_contract_revision, int) and previous_contract_revision > 0
-        else 1
-    )
+    contract_revision = previous_contract_revision + 1 if isinstance(previous_contract_revision, int) and previous_contract_revision > 0 else 1
     iteration_mode = _infer_iteration_mode(
         previous_contract_revision=previous_contract_revision,
         existing_custom_variants=existing_custom_variants,
     )
-    revision_summary = (
-        "Updated the structured CFD design brief."
-        if contract_revision > 1
-        else "Initialized the structured CFD design brief."
-    )
+    revision_summary = "Updated the structured CFD design brief." if contract_revision > 1 else "Initialized the structured CFD design brief."
     unresolved_decisions = [
         {
             "decision_id": f"open-question-{index + 1}",
@@ -708,10 +584,7 @@ def run_design_brief(
     unresolved_decisions.extend(
         {
             "decision_id": f"capability-gap-{item['output_id']}",
-            "label": (
-                f"Confirm whether the current support boundary for "
-                f"{item.get('requested_label') or item.get('label') or item['output_id']} is acceptable."
-            ),
+            "label": (f"Confirm whether the current support boundary for {item.get('requested_label') or item.get('label') or item['output_id']} is acceptable."),
             "source": "capability_gap",
             "status": "pending_user_confirmation",
             "output_id": item["output_id"],
@@ -777,17 +650,9 @@ def run_design_brief(
         "review_status": review_status,
         "stage_hints": {
             "current": "task-intelligence",
-            "suggested_next": (
-                ready_stage_when_confirmed or next_recommended_stage
-                if review_status == "ready_for_supervisor"
-                else next_recommended_stage
-            ),
+            "suggested_next": (ready_stage_when_confirmed or next_recommended_stage if review_status == "ready_for_supervisor" else next_recommended_stage),
         },
-        "next_recommended_stage": (
-            ready_stage_when_confirmed or next_recommended_stage
-            if review_status == "ready_for_supervisor"
-            else next_recommended_stage
-        ),
+        "next_recommended_stage": (ready_stage_when_confirmed or next_recommended_stage if review_status == "ready_for_supervisor" else next_recommended_stage),
         "report_virtual_path": report_virtual_path,
         "artifact_virtual_paths": artifact_virtual_paths,
     }

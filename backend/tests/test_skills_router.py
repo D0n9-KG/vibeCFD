@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -10,8 +11,6 @@ from deerflow.config.extensions_config import ExtensionsConfig
 from deerflow.config.paths import Paths
 from deerflow.domain.submarine.skill_studio import run_skill_studio
 from deerflow.skills.loader import load_skills as load_skills_from_path
-from collections.abc import Callable
-
 from deerflow.skills.validation import _validate_skill_frontmatter
 
 VALIDATE_SKILL_FRONTMATTER = cast(

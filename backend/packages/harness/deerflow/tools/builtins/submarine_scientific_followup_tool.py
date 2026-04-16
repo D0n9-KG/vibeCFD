@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from pathlib import Path
-import re
 from types import SimpleNamespace
 from typing import Annotated
 
@@ -13,8 +13,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.types import Command
 from langgraph.typing import ContextT
 
-from deerflow.agents.thread_state import ThreadState
-from deerflow.agents.thread_state import merge_artifacts
+from deerflow.agents.thread_state import ThreadState, merge_artifacts
 from deerflow.domain.submarine.followup import (
     append_scientific_followup_history,
     resolve_scientific_followup_history_virtual_path,
@@ -29,11 +28,9 @@ from deerflow.tools.builtins.submarine_design_brief_tool import (
     submarine_design_brief_tool,
 )
 from deerflow.tools.builtins.submarine_result_report_tool import (
-    submarine_result_report_tool,
-)
-from deerflow.tools.builtins.submarine_result_report_tool import (
     _get_runtime_snapshot,
     _get_thread_dir,
+    submarine_result_report_tool,
 )
 from deerflow.tools.builtins.submarine_solver_dispatch_tool import (
     submarine_solver_dispatch_tool,
@@ -168,9 +165,7 @@ def _augment_runtime_update(
         updated_runtime = base_runtime
 
     artifact_virtual_paths = merge_artifacts(
-        updated_runtime.get("artifact_virtual_paths")
-        if isinstance(updated_runtime.get("artifact_virtual_paths"), list)
-        else [],
+        updated_runtime.get("artifact_virtual_paths") if isinstance(updated_runtime.get("artifact_virtual_paths"), list) else [],
         [history_virtual_path],
     )
     updated_runtime["artifact_virtual_paths"] = artifact_virtual_paths
@@ -201,11 +196,7 @@ _SOLVER_DISPATCH_ALLOWED_TOOL_ARGS = {
 
 
 def _sanitize_solver_dispatch_tool_args(tool_args: Mapping[str, object]) -> dict[str, object]:
-    return {
-        key: value
-        for key, value in dict(tool_args).items()
-        if key in _SOLVER_DISPATCH_ALLOWED_TOOL_ARGS
-    }
+    return {key: value for key, value in dict(tool_args).items() if key in _SOLVER_DISPATCH_ALLOWED_TOOL_ARGS}
 
 
 def _requested_output_ids(items: object) -> set[str]:
@@ -226,11 +217,7 @@ def _extract_visible_text_content(content: object) -> str:
         return content
 
     if isinstance(content, list):
-        return "".join(
-            part
-            for part in (_extract_visible_text_content(item) for item in content)
-            if part
-        )
+        return "".join(part for part in (_extract_visible_text_content(item) for item in content) if part)
 
     if isinstance(content, Mapping):
         item_type = content.get("type")
@@ -292,11 +279,7 @@ def _resolve_followup_task_description(
     runtime: ToolRuntime[ContextT, ThreadState],
     tool_args: Mapping[str, object],
 ) -> str:
-    fallback_task_description = (
-        str(tool_args.get("task_description")).strip()
-        if isinstance(tool_args.get("task_description"), str)
-        else ""
-    )
+    fallback_task_description = str(tool_args.get("task_description")).strip() if isinstance(tool_args.get("task_description"), str) else ""
     latest_user_text = _latest_user_visible_text(runtime)
     if _should_prefer_latest_user_task_description(
         latest_user_text,
@@ -318,9 +301,7 @@ def _should_sync_design_brief_before_dispatch(
     if not inferred_expected_outputs:
         return False
 
-    inferred_output_ids = _requested_output_ids(
-        resolve_requested_outputs(inferred_expected_outputs)
-    )
+    inferred_output_ids = _requested_output_ids(resolve_requested_outputs(inferred_expected_outputs))
     if not inferred_output_ids:
         return False
 
@@ -328,9 +309,7 @@ def _should_sync_design_brief_before_dispatch(
     if not inferred_output_ids.issubset(existing_output_ids):
         return True
 
-    planned_output_ids = _requested_output_ids(
-        getattr(snapshot, "output_delivery_plan", None)
-    )
+    planned_output_ids = _requested_output_ids(getattr(snapshot, "output_delivery_plan", None))
     return not inferred_output_ids.issubset(planned_output_ids)
 
 
@@ -355,10 +334,7 @@ def _should_refresh_report_without_rerun_for_output_sync(
             "无须重跑",
             "不需要重跑",
         )
-    ) or any(
-        phrase in normalized
-        for phrase in _NO_RERUN_ENGLISH_PHRASES
-    )
+    ) or any(phrase in normalized for phrase in _NO_RERUN_ENGLISH_PHRASES)
 
 
 def _sync_design_brief_before_dispatch(
@@ -382,29 +358,13 @@ def _sync_design_brief_before_dispatch(
 
     design_brief_result = submarine_design_brief_tool.func(
         runtime=runtime,
-        task_description=(
-            tool_args.get("task_description")
-            if isinstance(tool_args.get("task_description"), str)
-            else None
-        ),
-        geometry_path=(
-            tool_args.get("geometry_path")
-            if isinstance(tool_args.get("geometry_path"), str)
-            else None
-        ),
+        task_description=(tool_args.get("task_description") if isinstance(tool_args.get("task_description"), str) else None),
+        geometry_path=(tool_args.get("geometry_path") if isinstance(tool_args.get("geometry_path"), str) else None),
         task_type=tool_args.get("task_type") if isinstance(tool_args.get("task_type"), str) else None,
         confirmation_status=confirmation_status,
         execution_preference=execution_preference,
-        geometry_family_hint=(
-            tool_args.get("geometry_family_hint")
-            if isinstance(tool_args.get("geometry_family_hint"), str)
-            else None
-        ),
-        selected_case_id=(
-            tool_args.get("selected_case_id")
-            if isinstance(tool_args.get("selected_case_id"), str)
-            else None
-        ),
+        geometry_family_hint=(tool_args.get("geometry_family_hint") if isinstance(tool_args.get("geometry_family_hint"), str) else None),
+        selected_case_id=(tool_args.get("selected_case_id") if isinstance(tool_args.get("selected_case_id"), str) else None),
         inlet_velocity_mps=tool_args.get("inlet_velocity_mps"),
         fluid_density_kg_m3=tool_args.get("fluid_density_kg_m3"),
         kinematic_viscosity_m2ps=tool_args.get("kinematic_viscosity_m2ps"),
@@ -413,17 +373,8 @@ def _sync_design_brief_before_dispatch(
         write_interval_steps=tool_args.get("write_interval_steps"),
         tool_call_id=tool_call_id,
     )
-    design_brief_update = (
-        design_brief_result.update
-        if isinstance(design_brief_result.update, Mapping)
-        else None
-    )
-    design_brief_runtime = (
-        design_brief_update.get("submarine_runtime")
-        if isinstance(design_brief_update, Mapping)
-        and isinstance(design_brief_update.get("submarine_runtime"), Mapping)
-        else None
-    )
+    design_brief_update = design_brief_result.update if isinstance(design_brief_result.update, Mapping) else None
+    design_brief_runtime = design_brief_update.get("submarine_runtime") if isinstance(design_brief_update, Mapping) and isinstance(design_brief_update.get("submarine_runtime"), Mapping) else None
     if design_brief_runtime is None:
         return runtime, design_brief_update, None
     return (
@@ -442,16 +393,12 @@ def _augment_command_update(
     update = command.update if isinstance(command.update, Mapping) else {}
     augmented_update = dict(update)
     augmented_update["submarine_runtime"] = _augment_runtime_update(
-        update.get("submarine_runtime")
-        if isinstance(update.get("submarine_runtime"), Mapping)
-        else None,
+        update.get("submarine_runtime") if isinstance(update.get("submarine_runtime"), Mapping) else None,
         snapshot=snapshot,
         history_virtual_path=history_virtual_path,
     )
     augmented_update["artifacts"] = merge_artifacts(
-        update.get("artifacts")
-        if isinstance(update.get("artifacts"), list)
-        else [],
+        update.get("artifacts") if isinstance(update.get("artifacts"), list) else [],
         [history_virtual_path],
     )
     return augmented_update
@@ -505,9 +452,7 @@ def _iter_candidate_handoff_virtual_paths(
 
     report_virtual_path = getattr(snapshot, "report_virtual_path", None)
     if isinstance(report_virtual_path, str) and report_virtual_path.strip():
-        derived_report_sibling = (
-            Path(report_virtual_path).with_name(_SCIENTIFIC_HANDOFF_FILENAME).as_posix()
-        )
+        derived_report_sibling = Path(report_virtual_path).with_name(_SCIENTIFIC_HANDOFF_FILENAME).as_posix()
         for candidate in add(derived_report_sibling):
             yield candidate
 
@@ -609,9 +554,7 @@ def _record_followup_history(
             "dispatch_stage_status": dispatch_stage_status,
             "report_refreshed": report_refreshed,
             "result_report_virtual_path": result_report_virtual_path,
-            "result_provenance_manifest_virtual_path": (
-                result_provenance_manifest_virtual_path
-            ),
+            "result_provenance_manifest_virtual_path": (result_provenance_manifest_virtual_path),
             "result_supervisor_handoff_virtual_path": result_supervisor_handoff_virtual_path,
             "task_completion_status": task_completion_status,
             "artifact_virtual_paths": _with_unique_paths(
@@ -659,17 +602,13 @@ def submarine_scientific_followup_tool(
             explicit_handoff_virtual_path=handoff_virtual_path,
         )
         if not resolved_handoff_virtual_path:
-            raise ValueError(
-                "Submarine runtime is missing supervisor_handoff_virtual_path for scientific follow-up"
-            )
+            raise ValueError("Submarine runtime is missing supervisor_handoff_virtual_path for scientific follow-up")
         handoff = load_scientific_remediation_handoff(
             outputs_dir=outputs_dir,
             artifact_virtual_path=resolved_handoff_virtual_path,
         )
     except ValueError as exc:
-        error_command = Command(
-            update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id)]}
-        )
+        error_command = Command(update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id)]})
         if snapshot is None or outputs_dir is None:
             return error_command
         history_virtual_path = _record_followup_history(
@@ -684,9 +623,7 @@ def submarine_scientific_followup_tool(
             source_conclusion_ids=source_conclusion_ids,
             source_evidence_gap_ids=source_evidence_gap_ids,
             outcome_status="error",
-            task_completion_status=_task_completion_status_for_followup_kind(
-                followup_kind
-            ),
+            task_completion_status=_task_completion_status_for_followup_kind(followup_kind),
             notes=[str(exc)],
         )
         if not history_virtual_path:
@@ -708,29 +645,11 @@ def submarine_scientific_followup_tool(
         "decision_summary_zh": decision_summary_zh,
         "source_conclusion_ids": source_conclusion_ids,
         "source_evidence_gap_ids": source_evidence_gap_ids,
-        "source_run_id": (
-            str(handoff.get("source_run_id"))
-            if handoff.get("source_run_id") is not None
-            else None
-        ),
-        "baseline_reference_run_id": (
-            str(handoff.get("baseline_reference_run_id"))
-            if handoff.get("baseline_reference_run_id") is not None
-            else None
-        ),
-        "compare_target_run_id": (
-            str(handoff.get("compare_target_run_id"))
-            if handoff.get("compare_target_run_id") is not None
-            else None
-        ),
-        "derived_run_ids": [
-            item
-            for item in (handoff.get("derived_run_ids") or [])
-            if isinstance(item, str) and item
-        ],
-        "task_completion_status": _task_completion_status_for_followup_kind(
-            followup_kind
-        ),
+        "source_run_id": (str(handoff.get("source_run_id")) if handoff.get("source_run_id") is not None else None),
+        "baseline_reference_run_id": (str(handoff.get("baseline_reference_run_id")) if handoff.get("baseline_reference_run_id") is not None else None),
+        "compare_target_run_id": (str(handoff.get("compare_target_run_id")) if handoff.get("compare_target_run_id") is not None else None),
+        "derived_run_ids": [item for item in (handoff.get("derived_run_ids") or []) if isinstance(item, str) and item],
+        "task_completion_status": _task_completion_status_for_followup_kind(followup_kind),
     }
 
     if followup_kind == "task_complete":
@@ -738,11 +657,7 @@ def submarine_scientific_followup_tool(
             update={
                 "messages": [
                     ToolMessage(
-                        (
-                            "Scientific follow-up recorded task completion without "
-                            f"executing a rerun. handoff_status={handoff_status}; "
-                            f"recommended_action_id={recommended_action_id}"
-                        ),
+                        (f"Scientific follow-up recorded task completion without executing a rerun. handoff_status={handoff_status}; recommended_action_id={recommended_action_id}"),
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -758,12 +673,8 @@ def submarine_scientific_followup_tool(
             outcome_status="task_complete",
             report_refreshed=False,
             result_report_virtual_path=snapshot.report_virtual_path,
-            result_provenance_manifest_virtual_path=(
-                snapshot.provenance_manifest_virtual_path
-            ),
-            artifact_virtual_paths=handoff.get("artifact_virtual_paths")
-            if isinstance(handoff.get("artifact_virtual_paths"), list)
-            else None,
+            result_provenance_manifest_virtual_path=(snapshot.provenance_manifest_virtual_path),
+            artifact_virtual_paths=handoff.get("artifact_virtual_paths") if isinstance(handoff.get("artifact_virtual_paths"), list) else None,
             notes=[decision_summary_zh or reason],
             **followup_history_kwargs,
         )
@@ -782,12 +693,7 @@ def submarine_scientific_followup_tool(
             update={
                 "messages": [
                     ToolMessage(
-                        (
-                            "Scientific follow-up did not execute. "
-                            f"handoff_status={handoff_status}; "
-                            f"recommended_action_id={recommended_action_id}; "
-                            f"reason={reason}"
-                        ),
+                        (f"Scientific follow-up did not execute. handoff_status={handoff_status}; recommended_action_id={recommended_action_id}; reason={reason}"),
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -801,9 +707,7 @@ def submarine_scientific_followup_tool(
             recommended_action_id=recommended_action_id,
             tool_name=tool_name if isinstance(tool_name, str) else None,
             outcome_status=handoff_status,
-            artifact_virtual_paths=handoff.get("artifact_virtual_paths")
-            if isinstance(handoff.get("artifact_virtual_paths"), list)
-            else None,
+            artifact_virtual_paths=handoff.get("artifact_virtual_paths") if isinstance(handoff.get("artifact_virtual_paths"), list) else None,
             notes=[reason],
             **followup_history_kwargs,
         )
@@ -823,11 +727,7 @@ def submarine_scientific_followup_tool(
             update={
                 "messages": [
                     ToolMessage(
-                        (
-                            "Scientific follow-up could not execute because the handoff "
-                            f"tool_args payload is invalid. tool_name={tool_name}; "
-                            f"recommended_action_id={recommended_action_id}"
-                        ),
+                        (f"Scientific follow-up could not execute because the handoff tool_args payload is invalid. tool_name={tool_name}; recommended_action_id={recommended_action_id}"),
                         tool_call_id=tool_call_id,
                     )
                 ]
@@ -864,9 +764,7 @@ def submarine_scientific_followup_tool(
         design_brief_update: Mapping[str, object] | None = None
         design_brief_runtime: Mapping[str, object] | None = None
         augment_snapshot: Mapping[str, object] | object = snapshot
-        should_refresh_without_rerun = _should_refresh_report_without_rerun_for_output_sync(
-            effective_tool_args
-        )
+        should_refresh_without_rerun = _should_refresh_report_without_rerun_for_output_sync(effective_tool_args)
         if _should_sync_design_brief_before_dispatch(snapshot, effective_tool_args):
             (
                 dispatch_runtime_context,
@@ -886,16 +784,8 @@ def submarine_scientific_followup_tool(
                 runtime=dispatch_runtime_context,
                 tool_call_id=tool_call_id,
             )
-            report_update = (
-                report_result.update
-                if isinstance(report_result.update, Mapping)
-                else {}
-            )
-            report_runtime = (
-                report_update.get("submarine_runtime")
-                if isinstance(report_update.get("submarine_runtime"), Mapping)
-                else None
-            )
+            report_update = report_result.update if isinstance(report_result.update, Mapping) else {}
+            report_runtime = report_update.get("submarine_runtime") if isinstance(report_update.get("submarine_runtime"), Mapping) else None
             history_virtual_path = _record_followup_history(
                 runtime=runtime,
                 snapshot=snapshot,
@@ -905,30 +795,14 @@ def submarine_scientific_followup_tool(
                 tool_name=tool_name,
                 outcome_status="result_report_refreshed",
                 report_refreshed=True,
-                result_report_virtual_path=(
-                    str(report_runtime.get("report_virtual_path"))
-                    if report_runtime and report_runtime.get("report_virtual_path")
-                    else None
-                ),
+                result_report_virtual_path=(str(report_runtime.get("report_virtual_path")) if report_runtime and report_runtime.get("report_virtual_path") else None),
                 result_provenance_manifest_virtual_path=(
-                    str(report_runtime.get("provenance_manifest_virtual_path"))
-                    if report_runtime and report_runtime.get("provenance_manifest_virtual_path")
-                    else snapshot.provenance_manifest_virtual_path
+                    str(report_runtime.get("provenance_manifest_virtual_path")) if report_runtime and report_runtime.get("provenance_manifest_virtual_path") else snapshot.provenance_manifest_virtual_path
                 ),
-                result_supervisor_handoff_virtual_path=(
-                    str(report_runtime.get("supervisor_handoff_virtual_path"))
-                    if report_runtime
-                    and report_runtime.get("supervisor_handoff_virtual_path")
-                    else None
-                ),
+                result_supervisor_handoff_virtual_path=(str(report_runtime.get("supervisor_handoff_virtual_path")) if report_runtime and report_runtime.get("supervisor_handoff_virtual_path") else None),
                 artifact_virtual_paths=_with_unique_paths(
-                    design_brief_update.get("artifacts")
-                    if isinstance(design_brief_update, Mapping)
-                    and isinstance(design_brief_update.get("artifacts"), list)
-                    else [],
-                    report_update.get("artifacts")
-                    if isinstance(report_update.get("artifacts"), list)
-                    else [],
+                    design_brief_update.get("artifacts") if isinstance(design_brief_update, Mapping) and isinstance(design_brief_update.get("artifacts"), list) else [],
+                    report_update.get("artifacts") if isinstance(report_update.get("artifacts"), list) else [],
                 ),
                 notes=[
                     reason,
@@ -944,13 +818,8 @@ def submarine_scientific_followup_tool(
                     update={
                         **report_update,
                         "artifacts": _with_unique_paths(
-                            report_update.get("artifacts")
-                            if isinstance(report_update.get("artifacts"), list)
-                            else [],
-                            design_brief_update.get("artifacts")
-                            if isinstance(design_brief_update, Mapping)
-                            and isinstance(design_brief_update.get("artifacts"), list)
-                            else [],
+                            report_update.get("artifacts") if isinstance(report_update.get("artifacts"), list) else [],
+                            design_brief_update.get("artifacts") if isinstance(design_brief_update, Mapping) and isinstance(design_brief_update.get("artifacts"), list) else [],
                         ),
                     }
                 )
@@ -978,11 +847,7 @@ def submarine_scientific_followup_tool(
             tool_call_id=tool_call_id,
             **dispatch_args,
         )
-        dispatch_update = (
-            dispatch_result.update
-            if isinstance(dispatch_result.update, Mapping)
-            else {}
-        )
+        dispatch_update = dispatch_result.update if isinstance(dispatch_result.update, Mapping) else {}
         dispatch_runtime = dispatch_update.get("submarine_runtime")
         if not isinstance(dispatch_runtime, Mapping):
             return dispatch_result
@@ -998,30 +863,13 @@ def submarine_scientific_followup_tool(
                 outcome_status=f"dispatch_{dispatch_stage_status}",
                 dispatch_stage_status=dispatch_stage_status,
                 report_refreshed=False,
-                result_report_virtual_path=(
-                    str(dispatch_runtime.get("report_virtual_path"))
-                    if dispatch_runtime.get("report_virtual_path")
-                    else None
-                ),
-                result_provenance_manifest_virtual_path=(
-                    str(dispatch_runtime.get("provenance_manifest_virtual_path"))
-                    if dispatch_runtime.get("provenance_manifest_virtual_path")
-                    else snapshot.provenance_manifest_virtual_path
-                ),
-                result_supervisor_handoff_virtual_path=(
-                    str(dispatch_runtime.get("supervisor_handoff_virtual_path"))
-                    if dispatch_runtime.get("supervisor_handoff_virtual_path")
-                    else None
-                ),
+                result_report_virtual_path=(str(dispatch_runtime.get("report_virtual_path")) if dispatch_runtime.get("report_virtual_path") else None),
+                result_provenance_manifest_virtual_path=(str(dispatch_runtime.get("provenance_manifest_virtual_path")) if dispatch_runtime.get("provenance_manifest_virtual_path") else snapshot.provenance_manifest_virtual_path),
+                result_supervisor_handoff_virtual_path=(str(dispatch_runtime.get("supervisor_handoff_virtual_path")) if dispatch_runtime.get("supervisor_handoff_virtual_path") else None),
                 artifact_virtual_paths=(
                     _with_unique_paths(
-                        design_brief_update.get("artifacts")
-                        if isinstance(design_brief_update, Mapping)
-                        and isinstance(design_brief_update.get("artifacts"), list)
-                        else None,
-                        dispatch_update.get("artifacts")
-                        if isinstance(dispatch_update.get("artifacts"), list)
-                        else None,
+                        design_brief_update.get("artifacts") if isinstance(design_brief_update, Mapping) and isinstance(design_brief_update.get("artifacts"), list) else None,
+                        dispatch_update.get("artifacts") if isinstance(dispatch_update.get("artifacts"), list) else None,
                     )
                 ),
                 notes=[reason],
@@ -1035,13 +883,8 @@ def submarine_scientific_followup_tool(
                     update={
                         **dispatch_update,
                         "artifacts": merge_artifacts(
-                            dispatch_update.get("artifacts")
-                            if isinstance(dispatch_update.get("artifacts"), list)
-                            else [],
-                            design_brief_update.get("artifacts")
-                            if isinstance(design_brief_update, Mapping)
-                            and isinstance(design_brief_update.get("artifacts"), list)
-                            else [],
+                            dispatch_update.get("artifacts") if isinstance(dispatch_update.get("artifacts"), list) else [],
+                            design_brief_update.get("artifacts") if isinstance(design_brief_update, Mapping) and isinstance(design_brief_update.get("artifacts"), list) else [],
                         ),
                     }
                 )
@@ -1061,11 +904,7 @@ def submarine_scientific_followup_tool(
             tool_call_id=tool_call_id,
         )
         report_update = report_result.update if isinstance(report_result.update, Mapping) else {}
-        report_runtime = (
-            report_update.get("submarine_runtime")
-            if isinstance(report_update.get("submarine_runtime"), Mapping)
-            else None
-        )
+        report_runtime = report_update.get("submarine_runtime") if isinstance(report_update.get("submarine_runtime"), Mapping) else None
         history_virtual_path = _record_followup_history(
             runtime=runtime,
             snapshot=snapshot,
@@ -1076,33 +915,13 @@ def submarine_scientific_followup_tool(
             outcome_status="dispatch_refreshed_report",
             dispatch_stage_status=dispatch_stage_status,
             report_refreshed=True,
-            result_report_virtual_path=(
-                str(report_runtime.get("report_virtual_path"))
-                if report_runtime and report_runtime.get("report_virtual_path")
-                else None
-            ),
-            result_provenance_manifest_virtual_path=(
-                str(report_runtime.get("provenance_manifest_virtual_path"))
-                if report_runtime and report_runtime.get("provenance_manifest_virtual_path")
-                else snapshot.provenance_manifest_virtual_path
-            ),
-            result_supervisor_handoff_virtual_path=(
-                str(report_runtime.get("supervisor_handoff_virtual_path"))
-                if report_runtime
-                and report_runtime.get("supervisor_handoff_virtual_path")
-                else None
-            ),
+            result_report_virtual_path=(str(report_runtime.get("report_virtual_path")) if report_runtime and report_runtime.get("report_virtual_path") else None),
+            result_provenance_manifest_virtual_path=(str(report_runtime.get("provenance_manifest_virtual_path")) if report_runtime and report_runtime.get("provenance_manifest_virtual_path") else snapshot.provenance_manifest_virtual_path),
+            result_supervisor_handoff_virtual_path=(str(report_runtime.get("supervisor_handoff_virtual_path")) if report_runtime and report_runtime.get("supervisor_handoff_virtual_path") else None),
             artifact_virtual_paths=_with_unique_paths(
-                design_brief_update.get("artifacts")
-                if isinstance(design_brief_update, Mapping)
-                and isinstance(design_brief_update.get("artifacts"), list)
-                else [],
-                dispatch_update.get("artifacts")
-                if isinstance(dispatch_update.get("artifacts"), list)
-                else [],
-                report_update.get("artifacts")
-                if isinstance(report_update.get("artifacts"), list)
-                else [],
+                design_brief_update.get("artifacts") if isinstance(design_brief_update, Mapping) and isinstance(design_brief_update.get("artifacts"), list) else [],
+                dispatch_update.get("artifacts") if isinstance(dispatch_update.get("artifacts"), list) else [],
+                report_update.get("artifacts") if isinstance(report_update.get("artifacts"), list) else [],
             ),
             notes=[reason],
             **followup_history_kwargs,
@@ -1115,16 +934,9 @@ def submarine_scientific_followup_tool(
                 update={
                     **report_update,
                     "artifacts": _with_unique_paths(
-                        report_update.get("artifacts")
-                        if isinstance(report_update.get("artifacts"), list)
-                        else [],
-                        design_brief_update.get("artifacts")
-                        if isinstance(design_brief_update, Mapping)
-                        and isinstance(design_brief_update.get("artifacts"), list)
-                        else [],
-                        dispatch_update.get("artifacts")
-                        if isinstance(dispatch_update.get("artifacts"), list)
-                        else [],
+                        report_update.get("artifacts") if isinstance(report_update.get("artifacts"), list) else [],
+                        design_brief_update.get("artifacts") if isinstance(design_brief_update, Mapping) and isinstance(design_brief_update.get("artifacts"), list) else [],
+                        dispatch_update.get("artifacts") if isinstance(dispatch_update.get("artifacts"), list) else [],
                     ),
                 }
             )
@@ -1143,11 +955,7 @@ def submarine_scientific_followup_tool(
             **dict(tool_args),
         )
         report_update = report_result.update if isinstance(report_result.update, Mapping) else {}
-        report_runtime = (
-            report_update.get("submarine_runtime")
-            if isinstance(report_update.get("submarine_runtime"), Mapping)
-            else None
-        )
+        report_runtime = report_update.get("submarine_runtime") if isinstance(report_update.get("submarine_runtime"), Mapping) else None
         history_virtual_path = _record_followup_history(
             runtime=runtime,
             snapshot=snapshot,
@@ -1157,27 +965,10 @@ def submarine_scientific_followup_tool(
             tool_name=tool_name,
             outcome_status="result_report_refreshed",
             report_refreshed=True,
-            result_report_virtual_path=(
-                str(report_runtime.get("report_virtual_path"))
-                if report_runtime and report_runtime.get("report_virtual_path")
-                else None
-            ),
-            result_provenance_manifest_virtual_path=(
-                str(report_runtime.get("provenance_manifest_virtual_path"))
-                if report_runtime and report_runtime.get("provenance_manifest_virtual_path")
-                else snapshot.provenance_manifest_virtual_path
-            ),
-            result_supervisor_handoff_virtual_path=(
-                str(report_runtime.get("supervisor_handoff_virtual_path"))
-                if report_runtime
-                and report_runtime.get("supervisor_handoff_virtual_path")
-                else None
-            ),
-            artifact_virtual_paths=(
-                report_update.get("artifacts")
-                if isinstance(report_update.get("artifacts"), list)
-                else None
-            ),
+            result_report_virtual_path=(str(report_runtime.get("report_virtual_path")) if report_runtime and report_runtime.get("report_virtual_path") else None),
+            result_provenance_manifest_virtual_path=(str(report_runtime.get("provenance_manifest_virtual_path")) if report_runtime and report_runtime.get("provenance_manifest_virtual_path") else snapshot.provenance_manifest_virtual_path),
+            result_supervisor_handoff_virtual_path=(str(report_runtime.get("supervisor_handoff_virtual_path")) if report_runtime and report_runtime.get("supervisor_handoff_virtual_path") else None),
+            artifact_virtual_paths=(report_update.get("artifacts") if isinstance(report_update.get("artifacts"), list) else None),
             notes=[reason],
             **followup_history_kwargs,
         )
@@ -1195,13 +986,7 @@ def submarine_scientific_followup_tool(
         update={
             "messages": [
                 ToolMessage(
-                    (
-                        "Scientific follow-up found an executable handoff, "
-                        f"but the tool target is not supported yet. "
-                        f"tool_name={tool_name}; "
-                        f"recommended_action_id={recommended_action_id}; "
-                        f"reason={reason}"
-                    ),
+                    (f"Scientific follow-up found an executable handoff, but the tool target is not supported yet. tool_name={tool_name}; recommended_action_id={recommended_action_id}; reason={reason}"),
                     tool_call_id=tool_call_id,
                 )
             ]
@@ -1215,9 +1000,7 @@ def submarine_scientific_followup_tool(
         recommended_action_id=recommended_action_id,
         tool_name=tool_name if isinstance(tool_name, str) else None,
         outcome_status="unsupported_target",
-        artifact_virtual_paths=handoff.get("artifact_virtual_paths")
-        if isinstance(handoff.get("artifact_virtual_paths"), list)
-        else None,
+        artifact_virtual_paths=handoff.get("artifact_virtual_paths") if isinstance(handoff.get("artifact_virtual_paths"), list) else None,
         notes=[reason],
         **followup_history_kwargs,
     )

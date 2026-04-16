@@ -6,19 +6,11 @@ from typing import Any
 
 
 def requested_output_ids(requested_outputs: list[dict] | None) -> set[str]:
-    return {
-        str(item.get("output_id"))
-        for item in (requested_outputs or [])
-        if isinstance(item, dict) and item.get("output_id")
-    }
+    return {str(item.get("output_id")) for item in (requested_outputs or []) if isinstance(item, dict) and item.get("output_id")}
 
 
 def _requested_output_map(requested_outputs: list[dict] | None) -> dict[str, dict]:
-    return {
-        str(item.get("output_id")): item
-        for item in (requested_outputs or [])
-        if isinstance(item, dict) and item.get("output_id")
-    }
+    return {str(item.get("output_id")): item for item in (requested_outputs or []) if isinstance(item, dict) and item.get("output_id")}
 
 
 def _as_float(value: Any, default: float) -> float:
@@ -31,11 +23,7 @@ def _vector3(
     value: Any,
     default: tuple[float, float, float],
 ) -> tuple[float, float, float]:
-    if (
-        isinstance(value, list | tuple)
-        and len(value) == 3
-        and all(isinstance(component, (int, float)) for component in value)
-    ):
+    if isinstance(value, list | tuple) and len(value) == 3 and all(isinstance(component, (int, float)) for component in value):
         return (float(value[0]), float(value[1]), float(value[2]))
     return default
 
@@ -50,21 +38,13 @@ def _surface_pressure_spec(requested_output: dict | None) -> dict:
         },
         "formats": ["csv", "png", "report"],
     }
-    spec = (
-        requested_output.get("postprocess_spec")
-        if isinstance(requested_output, dict)
-        else None
-    )
+    spec = requested_output.get("postprocess_spec") if isinstance(requested_output, dict) else None
     if not isinstance(spec, dict):
         return base
 
     selector = spec.get("selector") if isinstance(spec.get("selector"), dict) else {}
     patches = selector.get("patches")
-    resolved_patches = (
-        [str(patch) for patch in patches if isinstance(patch, str)]
-        if isinstance(patches, list) and patches
-        else ["hull"]
-    )
+    resolved_patches = [str(patch) for patch in patches if isinstance(patch, str)] if isinstance(patches, list) and patches else ["hull"]
     return {
         "field": str(spec.get("field") or "p"),
         "time_mode": str(spec.get("time_mode") or "latest"),
@@ -72,9 +52,7 @@ def _surface_pressure_spec(requested_output: dict | None) -> dict:
             "type": "patch",
             "patches": resolved_patches,
         },
-        "formats": spec.get("formats")
-        if isinstance(spec.get("formats"), list)
-        else ["csv", "png", "report"],
+        "formats": spec.get("formats") if isinstance(spec.get("formats"), list) else ["csv", "png", "report"],
     }
 
 
@@ -90,11 +68,7 @@ def _wake_velocity_slice_spec(requested_output: dict | None) -> dict:
         },
         "formats": ["csv", "png", "report"],
     }
-    spec = (
-        requested_output.get("postprocess_spec")
-        if isinstance(requested_output, dict)
-        else None
-    )
+    spec = requested_output.get("postprocess_spec") if isinstance(requested_output, dict) else None
     if not isinstance(spec, dict):
         return base
 
@@ -113,9 +87,7 @@ def _wake_velocity_slice_spec(requested_output: dict | None) -> dict:
             "origin_value": _as_float(selector.get("origin_value"), 1.25),
             "normal": [normal[0], normal[1], normal[2]],
         },
-        "formats": spec.get("formats")
-        if isinstance(spec.get("formats"), list)
-        else ["csv", "png", "report"],
+        "formats": spec.get("formats") if isinstance(spec.get("formats"), list) else ["csv", "png", "report"],
     }
 
 
@@ -217,11 +189,7 @@ def requested_output_formats(
     requested_output: dict | None,
 ) -> set[str]:
     spec = resolve_requested_postprocess_spec(output_id, requested_output)
-    return {
-        str(item).strip().lower()
-        for item in spec.get("formats", [])
-        if isinstance(item, str) and item.strip()
-    }
+    return {str(item).strip().lower() for item in spec.get("formats", []) if isinstance(item, str) and item.strip()}
 
 
 def _format_vector(values: tuple[float, float, float]) -> str:

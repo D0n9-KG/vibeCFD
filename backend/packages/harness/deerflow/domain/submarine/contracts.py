@@ -45,19 +45,25 @@ class SupervisorReviewContract(BaseModel):
     report_virtual_path: str
     artifact_virtual_paths: list[str] = Field(default_factory=list)
     scientific_gate_status: Literal["ready_for_claim", "claim_limited", "blocked"] | None = None
-    allowed_claim_level: Literal[
-        "delivery_only",
-        "verified_but_not_validated",
-        "validated_with_gaps",
-        "research_ready",
-    ] | None = None
+    allowed_claim_level: (
+        Literal[
+            "delivery_only",
+            "verified_but_not_validated",
+            "validated_with_gaps",
+            "research_ready",
+        ]
+        | None
+    ) = None
     scientific_gate_virtual_path: str | None = None
-    decision_status: Literal[
-        "ready_for_user_decision",
-        "needs_more_evidence",
-        "blocked_by_setup",
-    ] | None = None
-    delivery_decision_summary: "SubmarineDeliveryDecisionSummary | None" = None
+    decision_status: (
+        Literal[
+            "ready_for_user_decision",
+            "needs_more_evidence",
+            "blocked_by_setup",
+        ]
+        | None
+    ) = None
+    delivery_decision_summary: SubmarineDeliveryDecisionSummary | None = None
 
 
 class SubmarineRuntimeEvent(BaseModel):
@@ -70,11 +76,7 @@ class SubmarineRuntimeEvent(BaseModel):
     summary: str
     status: str | None = None
     skill_names: list[str] = Field(default_factory=list)
-    timestamp: str = Field(
-        default_factory=lambda: datetime.now(UTC)
-        .replace(microsecond=0)
-        .isoformat()
-    )
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).replace(microsecond=0).isoformat())
 
 
 ExecutionPlanStatus = Literal[
@@ -329,9 +331,7 @@ class SubmarineRuntimeSnapshot(BaseModel):
     execution_readiness: Literal["stl_ready", "geometry_conversion_required"] | None = None
     geometry_findings: list[GeometryFinding] = Field(default_factory=list)
     scale_assessment: GeometryScaleAssessment | None = None
-    reference_value_suggestions: list[GeometryReferenceValueSuggestion] = Field(
-        default_factory=list
-    )
+    reference_value_suggestions: list[GeometryReferenceValueSuggestion] = Field(default_factory=list)
     clarification_required: bool = False
     calculation_plan: list[CalculationPlanItem] = Field(default_factory=list)
     requires_immediate_confirmation: bool = False
@@ -593,9 +593,6 @@ def extend_runtime_timeline(
         else:
             raw_existing = existing_snapshot.get("activity_timeline") or []
 
-    timeline = [
-        SubmarineRuntimeEvent.model_validate(item).model_dump(mode="json")
-        for item in raw_existing
-    ]
+    timeline = [SubmarineRuntimeEvent.model_validate(item).model_dump(mode="json") for item in raw_existing]
     timeline.append(event.model_dump(mode="json"))
     return timeline

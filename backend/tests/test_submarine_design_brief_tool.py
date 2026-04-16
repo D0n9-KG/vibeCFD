@@ -209,9 +209,7 @@ def test_submarine_design_brief_tool_merges_existing_brief_context(tmp_path, mon
     assert runtime_state["execution_plan"][1]["status"] == "ready"
 
 
-def test_submarine_design_brief_preserves_existing_followup_handoff_state(
-    tmp_path, monkeypatch
-):
+def test_submarine_design_brief_preserves_existing_followup_handoff_state(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-preserve-followup"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -244,9 +242,7 @@ def test_submarine_design_brief_preserves_existing_followup_handoff_state(
         "stage_status": "blocked",
         "next_recommended_stage": "result-reporting",
         "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/preserve-followup/final-report.md",
-        "artifact_virtual_paths": [
-            "/mnt/user-data/outputs/submarine/reports/preserve-followup/final-report.json"
-        ],
+        "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/reports/preserve-followup/final-report.json"],
         "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/preserve-followup/provenance-manifest.json",
         "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/preserve-followup/scientific-remediation-handoff.json",
         "scientific_gate_virtual_path": "/mnt/user-data/outputs/submarine/reports/preserve-followup/supervisor-scientific-gate.json",
@@ -258,11 +254,7 @@ def test_submarine_design_brief_preserves_existing_followup_handoff_state(
     result = tool_module.submarine_design_brief_tool.func(
         runtime=runtime,
         geometry_path="/mnt/user-data/uploads/preserve-followup.stl",
-        task_description=(
-            "请继续建议的修正流程：基于当前科学审查给出的 remediation handoff，"
-            "复用现有几何、案例和已确认设置，立即重跑当前求解并补齐缺失的 solver metrics，"
-            "然后刷新结果报告。整个过程请保持在当前线程中可追踪。"
-        ),
+        task_description=("请继续建议的修正流程：基于当前科学审查给出的 remediation handoff，复用现有几何、案例和已确认设置，立即重跑当前求解并补齐缺失的 solver metrics，然后刷新结果报告。整个过程请保持在当前线程中可追踪。"),
         task_type="resistance",
         geometry_family_hint="DARPA SUBOFF",
         confirmation_status="confirmed",
@@ -273,18 +265,9 @@ def test_submarine_design_brief_preserves_existing_followup_handoff_state(
     runtime_state = result.update["submarine_runtime"]
 
     assert runtime_state["current_stage"] == "task-intelligence"
-    assert (
-        runtime_state["supervisor_handoff_virtual_path"]
-        == "/mnt/user-data/outputs/submarine/reports/preserve-followup/scientific-remediation-handoff.json"
-    )
-    assert (
-        runtime_state["scientific_gate_virtual_path"]
-        == "/mnt/user-data/outputs/submarine/reports/preserve-followup/supervisor-scientific-gate.json"
-    )
-    assert (
-        runtime_state["provenance_manifest_virtual_path"]
-        == "/mnt/user-data/outputs/submarine/solver-dispatch/preserve-followup/provenance-manifest.json"
-    )
+    assert runtime_state["supervisor_handoff_virtual_path"] == "/mnt/user-data/outputs/submarine/reports/preserve-followup/scientific-remediation-handoff.json"
+    assert runtime_state["scientific_gate_virtual_path"] == "/mnt/user-data/outputs/submarine/reports/preserve-followup/supervisor-scientific-gate.json"
+    assert runtime_state["provenance_manifest_virtual_path"] == "/mnt/user-data/outputs/submarine/solver-dispatch/preserve-followup/provenance-manifest.json"
 
 
 def test_submarine_design_brief_normalizes_requested_outputs(tmp_path, monkeypatch):
@@ -312,13 +295,7 @@ def test_submarine_design_brief_normalizes_requested_outputs(tmp_path, monkeypat
         tool_call_id="tc-design-brief-requested-outputs",
     )
 
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "design-brief"
-        / "requested-outputs"
-        / "cfd-design-brief.json"
-    )
+    json_path = outputs_dir / "submarine" / "design-brief" / "requested-outputs" / "cfd-design-brief.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     requested_outputs = payload["requested_outputs"]
     runtime_state = result.update["submarine_runtime"]
@@ -424,10 +401,7 @@ def test_submarine_design_brief_clears_geometry_preflight_confirmation_flags(
     assert runtime_state["requires_immediate_confirmation"] is False
     assert runtime_state["review_status"] == "ready_for_supervisor"
     assert runtime_state["next_recommended_stage"] != "user-confirmation"
-    assert all(
-        item["approval_state"] == "researcher_confirmed"
-        for item in runtime_state["calculation_plan"]
-    )
+    assert all(item["approval_state"] == "researcher_confirmed" for item in runtime_state["calculation_plan"])
 
 
 def test_submarine_design_brief_assigns_default_postprocess_specs(tmp_path, monkeypatch):
@@ -454,13 +428,7 @@ def test_submarine_design_brief_assigns_default_postprocess_specs(tmp_path, monk
         tool_call_id="tc-brief-postprocess-spec",
     )
 
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "design-brief"
-        / "postprocess-spec"
-        / "cfd-design-brief.json"
-    )
+    json_path = outputs_dir / "submarine" / "design-brief" / "postprocess-spec" / "cfd-design-brief.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     requested_outputs = payload["requested_outputs"]
     runtime_state = result.update["submarine_runtime"]
@@ -475,9 +443,7 @@ def test_submarine_design_brief_assigns_default_postprocess_specs(tmp_path, monk
     assert runtime_state["requested_outputs"] == requested_outputs
 
 
-def test_submarine_design_brief_recovers_geometry_from_uploaded_files_state(
-    tmp_path, monkeypatch
-):
+def test_submarine_design_brief_recovers_geometry_from_uploaded_files_state(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-uploaded-files-brief"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -509,13 +475,7 @@ def test_submarine_design_brief_recovers_geometry_from_uploaded_files_state(
         tool_call_id="tc-design-brief-uploaded-files",
     )
 
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "design-brief"
-        / "uploaded-files-brief"
-        / "cfd-design-brief.json"
-    )
+    json_path = outputs_dir / "submarine" / "design-brief" / "uploaded-files-brief" / "cfd-design-brief.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     runtime_state = result.update["submarine_runtime"]
 
@@ -523,9 +483,7 @@ def test_submarine_design_brief_recovers_geometry_from_uploaded_files_state(
     assert runtime_state["geometry_virtual_path"] == "/mnt/user-data/uploads/uploaded-files-brief.stl"
 
 
-def test_submarine_design_brief_includes_scientific_verification_requirements(
-    tmp_path, monkeypatch
-):
+def test_submarine_design_brief_includes_scientific_verification_requirements(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-verification-brief"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -550,20 +508,8 @@ def test_submarine_design_brief_includes_scientific_verification_requirements(
         tool_call_id="tc-design-brief-verification",
     )
 
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "design-brief"
-        / "verification-brief"
-        / "cfd-design-brief.json"
-    )
-    md_path = (
-        outputs_dir
-        / "submarine"
-        / "design-brief"
-        / "verification-brief"
-        / "cfd-design-brief.md"
-    )
+    json_path = outputs_dir / "submarine" / "design-brief" / "verification-brief" / "cfd-design-brief.json"
+    md_path = outputs_dir / "submarine" / "design-brief" / "verification-brief" / "cfd-design-brief.md"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     markdown = md_path.read_text(encoding="utf-8")
 
@@ -574,17 +520,12 @@ def test_submarine_design_brief_includes_scientific_verification_requirements(
         "domain_sensitivity_study",
         "time_step_sensitivity_study",
     ]
-    assert (
-        payload["scientific_verification_requirements"][1]["force_coefficient"]
-        == "Cd"
-    )
+    assert payload["scientific_verification_requirements"][1]["force_coefficient"] == "Cd"
     assert "科研验证要求" in markdown
     assert "mesh_independence_study" in markdown
 
 
-def test_submarine_design_brief_captures_direct_execution_preference(
-    tmp_path, monkeypatch
-):
+def test_submarine_design_brief_captures_direct_execution_preference(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-execution-preference"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -613,13 +554,7 @@ def test_submarine_design_brief_captures_direct_execution_preference(
         tool_call_id="tc-design-brief-execution-preference",
     )
 
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "design-brief"
-        / "execution-preference"
-        / "cfd-design-brief.json"
-    )
+    json_path = outputs_dir / "submarine" / "design-brief" / "execution-preference" / "cfd-design-brief.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     runtime_state = result.update["submarine_runtime"]
 
@@ -627,9 +562,7 @@ def test_submarine_design_brief_captures_direct_execution_preference(
     assert runtime_state["execution_preference"] == "execute_now"
 
 
-def test_submarine_design_brief_caps_fallback_run_dir_name_on_long_task_description(
-    tmp_path, monkeypatch
-):
+def test_submarine_design_brief_caps_fallback_run_dir_name_on_long_task_description(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-long-run-basis"
     uploads_dir = paths.sandbox_uploads_dir(thread_id)
@@ -639,10 +572,7 @@ def test_submarine_design_brief_caps_fallback_run_dir_name_on_long_task_descript
 
     monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
 
-    long_task_description = (
-        "DARPA SUBOFF 5 mps CFD scientific verification "
-        "submarine result acceptance visible preflight then execute "
-    ) * 3
+    long_task_description = ("DARPA SUBOFF 5 mps CFD scientific verification submarine result acceptance visible preflight then execute ") * 3
 
     result = tool_module.submarine_design_brief_tool.func(
         runtime=_make_runtime(paths, thread_id),
@@ -654,19 +584,9 @@ def test_submarine_design_brief_caps_fallback_run_dir_name_on_long_task_descript
         tool_call_id="tc-design-brief-long-run-basis",
     )
 
-    json_artifact = next(
-        path
-        for path in result.update["artifacts"]
-        if path.endswith("/cfd-design-brief.json")
-    )
+    json_artifact = next(path for path in result.update["artifacts"] if path.endswith("/cfd-design-brief.json"))
     run_dir_name = json_artifact.split("/")[-2]
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "design-brief"
-        / run_dir_name
-        / "cfd-design-brief.json"
-    )
+    json_path = outputs_dir / "submarine" / "design-brief" / run_dir_name / "cfd-design-brief.json"
 
     assert json_path.exists()
     assert len(run_dir_name) <= 80
@@ -674,27 +594,14 @@ def test_submarine_design_brief_caps_fallback_run_dir_name_on_long_task_descript
 
 
 def test_submarine_design_brief_run_dir_budget_respects_near_limit_output_root():
-    outputs_dir = (
-        Path("C:/near-limit-root")
-        / ("solver-segment-" * 4)
-        / ("artifact-segment-" * 4)
-    )
-    run_basis = (
-        "DARPA SUBOFF 5 mps CFD scientific verification "
-        "submarine result acceptance visible preflight then execute "
-    ) * 4
+    outputs_dir = Path("C:/near-limit-root") / ("solver-segment-" * 4) / ("artifact-segment-" * 4)
+    run_basis = ("DARPA SUBOFF 5 mps CFD scientific verification submarine result acceptance visible preflight then execute ") * 4
 
     run_dir_name = design_brief_module._build_run_dir_name(
         outputs_dir=outputs_dir,
         run_basis=run_basis,
     )
-    artifact_path = (
-        outputs_dir
-        / "submarine"
-        / "design-brief"
-        / run_dir_name
-        / "cfd-design-brief.json"
-    )
+    artifact_path = outputs_dir / "submarine" / "design-brief" / run_dir_name / "cfd-design-brief.json"
 
     assert len(run_dir_name) <= design_brief_module._resolve_run_dir_name_budget(outputs_dir)
     assert len(run_dir_name.rsplit("-", 1)[-1]) == design_brief_module._RUN_DIR_HASH_CHARS
@@ -729,18 +636,10 @@ def test_submarine_design_brief_builds_initial_output_delivery_plan(
         tool_call_id="tc-design-brief-initial-output-delivery",
     )
 
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "design-brief"
-        / "initial-output-delivery"
-        / "cfd-design-brief.json"
-    )
+    json_path = outputs_dir / "submarine" / "design-brief" / "initial-output-delivery" / "cfd-design-brief.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     runtime_state = result.update["submarine_runtime"]
-    delivery_by_id = {
-        item["output_id"]: item for item in payload["output_delivery_plan"]
-    }
+    delivery_by_id = {item["output_id"]: item for item in payload["output_delivery_plan"]}
 
     assert delivery_by_id["drag_coefficient"]["delivery_status"] == "planned"
     assert delivery_by_id["wake_velocity_slice"]["delivery_status"] == "planned"
@@ -783,10 +682,7 @@ def test_submarine_design_brief_merges_inferred_added_outputs_when_tool_args_omi
     updated = tool_module.submarine_design_brief_tool.func(
         runtime=runtime,
         geometry_path="/mnt/user-data/uploads/infer-added-outputs.stl",
-        task_description=(
-            "在当前已确认基线的基础上，追加两个交付输出：尾流速度切片和流线图。"
-            "请更新当前设计简报与交付计划，并明确支持边界。"
-        ),
+        task_description=("在当前已确认基线的基础上，追加两个交付输出：尾流速度切片和流线图。请更新当前设计简报与交付计划，并明确支持边界。"),
         task_type="resistance",
         geometry_family_hint="DARPA SUBOFF",
         confirmation_status="confirmed",
@@ -794,19 +690,11 @@ def test_submarine_design_brief_merges_inferred_added_outputs_when_tool_args_omi
         tool_call_id="tc-design-brief-infer-added-update",
     )
 
-    json_path = (
-        outputs_dir
-        / "submarine"
-        / "design-brief"
-        / "infer-added-outputs"
-        / "cfd-design-brief.json"
-    )
+    json_path = outputs_dir / "submarine" / "design-brief" / "infer-added-outputs" / "cfd-design-brief.json"
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     runtime_state = updated.update["submarine_runtime"]
     requested_outputs = payload["requested_outputs"]
-    delivery_by_id = {
-        item["output_id"]: item for item in payload["output_delivery_plan"]
-    }
+    delivery_by_id = {item["output_id"]: item for item in payload["output_delivery_plan"]}
 
     assert payload["expected_outputs"] == [
         "阻力系数 Cd",

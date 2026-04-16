@@ -52,9 +52,7 @@ def _looks_like_scientific_remediation_handoff(payload: Mapping[str, Any]) -> bo
         return False
 
     recommended_action_id = payload.get("recommended_action_id")
-    if recommended_action_id is not None and not isinstance(
-        recommended_action_id, str
-    ):
+    if recommended_action_id is not None and not isinstance(recommended_action_id, str):
         return False
 
     tool_name = payload.get("tool_name")
@@ -85,25 +83,15 @@ def _resolve_lineage_context(
 ) -> dict[str, Any]:
     variant_policy = runtime_snapshot.get("variant_policy")
     if isinstance(variant_policy, Mapping):
-        default_compare_target_run_id = variant_policy.get(
-            "default_compare_target_run_id"
-        )
+        default_compare_target_run_id = variant_policy.get("default_compare_target_run_id")
     else:
         default_compare_target_run_id = None
 
-    baseline_reference_run_id = (
-        experiment_compare_summary.get("baseline_run_id")
-        or experiment_summary.get("baseline_run_id")
-        or default_compare_target_run_id
-    )
+    baseline_reference_run_id = experiment_compare_summary.get("baseline_run_id") or experiment_summary.get("baseline_run_id") or default_compare_target_run_id
     compare_target_run_id = default_compare_target_run_id or baseline_reference_run_id
     derived_run_ids = _as_string_list(experiment_summary.get("recorded_variant_run_ids"))
     if not derived_run_ids:
-        derived_run_ids = [
-            str(item.get("candidate_run_id"))
-            for item in _as_dict_list(experiment_compare_summary.get("comparisons"))
-            if item.get("candidate_run_id")
-        ]
+        derived_run_ids = [str(item.get("candidate_run_id")) for item in _as_dict_list(experiment_compare_summary.get("comparisons")) if item.get("candidate_run_id")]
     if recommended_action_id == "rerun-current-baseline":
         source_run_id = baseline_reference_run_id
     else:
@@ -142,17 +130,11 @@ def _build_solver_dispatch_tool_args(
         tool_args.update(
             {
                 "inlet_velocity_mps": simulation_requirements.get("inlet_velocity_mps"),
-                "fluid_density_kg_m3": simulation_requirements.get(
-                    "fluid_density_kg_m3"
-                ),
-                "kinematic_viscosity_m2ps": simulation_requirements.get(
-                    "kinematic_viscosity_m2ps"
-                ),
+                "fluid_density_kg_m3": simulation_requirements.get("fluid_density_kg_m3"),
+                "kinematic_viscosity_m2ps": simulation_requirements.get("kinematic_viscosity_m2ps"),
                 "end_time_seconds": simulation_requirements.get("end_time_seconds"),
                 "delta_t_seconds": simulation_requirements.get("delta_t_seconds"),
-                "write_interval_steps": simulation_requirements.get(
-                    "write_interval_steps"
-                ),
+                "write_interval_steps": simulation_requirements.get("write_interval_steps"),
             }
         )
     return tool_args
@@ -165,19 +147,13 @@ def load_scientific_remediation_handoff(
 ) -> dict[str, Any]:
     local_path = resolve_outputs_artifact(outputs_dir, artifact_virtual_path)
     if local_path is None:
-        raise ValueError(
-            f"Scientific remediation handoff path must stay inside outputs: {artifact_virtual_path}"
-        )
+        raise ValueError(f"Scientific remediation handoff path must stay inside outputs: {artifact_virtual_path}")
     if not local_path.exists():
-        raise ValueError(
-            f"Scientific remediation handoff artifact was not found: {artifact_virtual_path}"
-        )
+        raise ValueError(f"Scientific remediation handoff artifact was not found: {artifact_virtual_path}")
 
     payload = read_json_mapping(local_path)
     if payload is None or not _looks_like_scientific_remediation_handoff(payload):
-        raise ValueError(
-            f"Scientific remediation handoff artifact is unreadable: {artifact_virtual_path}"
-        )
+        raise ValueError(f"Scientific remediation handoff artifact is unreadable: {artifact_virtual_path}")
     return payload
 
 
@@ -194,14 +170,8 @@ def build_scientific_remediation_handoff(
     experiment_summary_mapping = _as_mapping(experiment_summary)
     experiment_compare_summary_mapping = _as_mapping(experiment_compare_summary)
     actions = _as_dict_list(remediation.get("actions"))
-    auto_actions = [
-        item for item in actions if str(item.get("execution_mode") or "") == "auto_executable"
-    ]
-    manual_actions = [
-        item
-        for item in actions
-        if str(item.get("execution_mode") or "") == "manual_required"
-    ]
+    auto_actions = [item for item in actions if str(item.get("execution_mode") or "") == "auto_executable"]
+    manual_actions = [item for item in actions if str(item.get("execution_mode") or "") == "manual_required"]
 
     if str(remediation.get("plan_status") or "") == "not_needed":
         return {
@@ -248,9 +218,7 @@ def build_scientific_remediation_handoff(
             "tool_name": tool_name,
             "tool_args": tool_args,
             **lineage_context,
-            "reason": action.get("evidence_gap")
-            or action.get("summary")
-            or "An auto-executable remediation step is available.",
+            "reason": action.get("evidence_gap") or action.get("summary") or "An auto-executable remediation step is available.",
             "artifact_virtual_paths": artifact_virtual_paths or [],
             "manual_actions": manual_actions,
         }
@@ -267,8 +235,7 @@ def build_scientific_remediation_handoff(
             "tool_name": None,
             "tool_args": None,
             **lineage_context,
-            "reason": manual_actions[0].get("evidence_gap")
-            or "Manual remediation input is still required.",
+            "reason": manual_actions[0].get("evidence_gap") or "Manual remediation input is still required.",
             "artifact_virtual_paths": artifact_virtual_paths or [],
             "manual_actions": manual_actions,
         }

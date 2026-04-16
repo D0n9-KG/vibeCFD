@@ -1,7 +1,7 @@
 """Middleware for intercepting clarification requests and presenting them to the user."""
 
-from collections.abc import Callable
 import sys
+from collections.abc import Callable
 from typing import override
 
 from langchain.agents import AgentState

@@ -28,18 +28,13 @@ def _build_skill_archive(
     payload, _ = run_skill_studio(
         outputs_dir=outputs_dir,
         skill_name="Submarine Result Acceptance",
-        skill_purpose=(
-            "Define how Claude Code and reporting subagents should decide whether a "
-            "submarine CFD run is trustworthy, needs review, or should be rerun."
-            f"{skill_purpose_suffix}"
-        ),
+        skill_purpose=(f"Define how Claude Code and reporting subagents should decide whether a submarine CFD run is trustworthy, needs review, or should be rerun.{skill_purpose_suffix}"),
         trigger_conditions=[
             "the user asks whether the current CFD result is trustworthy",
             "Claude Code needs a final acceptance decision before delivery",
         ],
         workflow_steps=[
-            "review mesh, residual, and force summaries from the current run"
-            f"{workflow_suffix}",
+            f"review mesh, residual, and force summaries from the current run{workflow_suffix}",
             "decide whether the run is deliverable, risky, or should be rerun",
             "produce a Chinese acceptance conclusion with evidence and next-step advice",
         ],
@@ -56,12 +51,8 @@ def _build_skill_archive(
     )
     skill_slug = payload["skill_name"]
     archive_virtual_path = f"/mnt/user-data/outputs/submarine/skill-studio/{skill_slug}/{skill_slug}.skill"
-    archive_path = (
-        outputs_dir / "submarine" / "skill-studio" / skill_slug / f"{skill_slug}.skill"
-    )
-    draft_virtual_path = (
-        f"/mnt/user-data/outputs/submarine/skill-studio/{skill_slug}/skill-draft.json"
-    )
+    archive_path = outputs_dir / "submarine" / "skill-studio" / skill_slug / f"{skill_slug}.skill"
+    draft_virtual_path = f"/mnt/user-data/outputs/submarine/skill-studio/{skill_slug}/skill-draft.json"
     draft_path = outputs_dir / "submarine" / "skill-studio" / skill_slug / "skill-draft.json"
     return (
         {
@@ -93,14 +84,7 @@ def _create_client(
         return resolved_paths[(thread_id, path)]
 
     async def load_thread_state(thread_id: str) -> dict:
-        return {
-            "values": {
-                "messages": [
-                    {"id": message_id, "type": "ai", "content": ""}
-                    for message_id in traceable_message_ids.get(thread_id, [])
-                ]
-            }
-        }
+        return {"values": {"messages": [{"id": message_id, "type": "ai", "content": ""} for message_id in traceable_message_ids.get(thread_id, [])]}}
 
     monkeypatch.setattr(
         skills,
@@ -137,9 +121,7 @@ def test_load_thread_state_uses_configured_langgraph_url(monkeypatch) -> None:
     monkeypatch.setattr(
         skills,
         "get_app_config",
-        lambda: SimpleNamespace(
-            model_extra={"channels": {"langgraph_url": "http://localhost:3024"}}
-        ),
+        lambda: SimpleNamespace(model_extra={"channels": {"langgraph_url": "http://localhost:3024"}}),
     )
     monkeypatch.setattr("langgraph_sdk.get_client", fake_get_client)
 
@@ -361,13 +343,7 @@ def test_publish_skill_route_tracks_revisions_and_supports_rollback(
         registry_path=tmp_path / "skills" / "custom" / ".skill-studio-registry.json",
     )
     record = registry.records["submarine-result-acceptance"]
-    revision_dir = (
-        tmp_path
-        / "skills"
-        / "custom"
-        / "submarine-result-acceptance"
-        / ".revisions"
-    )
+    revision_dir = tmp_path / "skills" / "custom" / "submarine-result-acceptance" / ".revisions"
     assert (revision_dir / "rev-001.skill").is_file() is True
     assert (revision_dir / "rev-002.skill").is_file() is True
     assert len(record.published_revisions) == 2
@@ -377,9 +353,7 @@ def test_publish_skill_route_tracks_revisions_and_supports_rollback(
     assert record.binding_targets[0].role_id == "scientific-verification"
     assert record.enabled is True
 
-    installed_skill = (
-        tmp_path / "skills" / "custom" / "submarine-result-acceptance" / "SKILL.md"
-    ).read_text(encoding="utf-8")
+    installed_skill = (tmp_path / "skills" / "custom" / "submarine-result-acceptance" / "SKILL.md").read_text(encoding="utf-8")
     assert "review mesh, residual, and force summaries from the current run" in installed_skill
     assert "Second release with rollback coverage." not in installed_skill
     assert "compare against the rollback baseline" not in installed_skill
@@ -418,9 +392,7 @@ def test_publish_skill_route_rejects_archive_without_passing_dry_run_evidence(
         registry_path=tmp_path / "skills" / "custom" / ".skill-studio-registry.json",
     )
     assert registry.records == {}
-    assert (
-        tmp_path / "skills" / "custom" / "submarine-result-acceptance"
-    ).exists() is False
+    assert (tmp_path / "skills" / "custom" / "submarine-result-acceptance").exists() is False
 
 
 def test_record_dry_run_evidence_rejects_passed_status_without_traceable_message_ids(
@@ -508,9 +480,7 @@ def test_publish_skill_route_rejects_archive_without_ready_for_review_publish_st
                             int(payload.get("blocking_count", 0)),
                             1,
                         )
-                        contents = json.dumps(payload, ensure_ascii=False, indent=2).encode(
-                            "utf-8"
-                        )
+                        contents = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
                     target_archive.writestr(member.filename, contents)
 
@@ -574,9 +544,7 @@ def test_publish_skill_route_rejects_archive_with_untraceable_root_dry_run_evide
                     if Path(member.filename).name == "dry-run-evidence.json":
                         payload = json.loads(contents)
                         payload["message_ids"] = []
-                        contents = json.dumps(payload, ensure_ascii=False, indent=2).encode(
-                            "utf-8"
-                        )
+                        contents = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
                     target_archive.writestr(member.filename, contents)
 
@@ -635,9 +603,7 @@ def test_publish_skill_route_rejects_archive_with_fabricated_traceable_message_i
                     if Path(member.filename).name == "dry-run-evidence.json":
                         payload = json.loads(contents)
                         payload["message_ids"] = ["fake-1"]
-                        contents = json.dumps(payload, ensure_ascii=False, indent=2).encode(
-                            "utf-8"
-                        )
+                        contents = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
                     target_archive.writestr(member.filename, contents)
 

@@ -293,11 +293,7 @@ def build_runtime_status_payload(
     resolved_blocker_detail = blocker_detail or missing_artifact_detail
     if resolved_status == "failed" and resolved_blocker_detail is None:
         resolved_blocker_detail = "运行日志标记为失败，请检查求解命令、网格质量和边界条件。"
-    if (
-        resolved_status == "blocked"
-        and resolved_blocker_detail is None
-        and execution_readiness == "geometry_conversion_required"
-    ):
+    if resolved_status == "blocked" and resolved_blocker_detail is None and execution_readiness == "geometry_conversion_required":
         resolved_blocker_detail = "当前几何仍需要清洗或格式转换，不能直接进入 STL-only 求解链路。"
 
     resolved_summary = runtime_summary
@@ -331,20 +327,14 @@ def build_scientific_capability_updates_for_dispatch(
     study_manifest = _as_mapping(payload.get("scientific_study_manifest"))
     experiment_manifest = _as_mapping(payload.get("experiment_manifest"))
     run_compare_summary = _as_mapping(payload.get("run_compare_summary"))
-    scientific_verification_assessment = _as_mapping(
-        payload.get("scientific_verification_assessment")
-    )
+    scientific_verification_assessment = _as_mapping(payload.get("scientific_verification_assessment"))
     dispatch_status = payload.get("dispatch_status")
 
     return {
-        "scientific-study": _map_scientific_study_status(
-            study_manifest.get("workflow_status")
-            or study_manifest.get("study_execution_status")
-        ),
+        "scientific-study": _map_scientific_study_status(study_manifest.get("workflow_status") or study_manifest.get("study_execution_status")),
         "experiment-compare": _build_experiment_compare_status(
             experiment_status=experiment_manifest.get("experiment_status"),
-            compare_workflow_status=run_compare_summary.get("workflow_status")
-            or experiment_manifest.get("workflow_status"),
+            compare_workflow_status=run_compare_summary.get("workflow_status") or experiment_manifest.get("workflow_status"),
             compare_count=len(run_compare_summary.get("comparisons") or []),
         ),
         "scientific-verification": _build_scientific_verification_status(
@@ -361,28 +351,18 @@ def build_scientific_capability_updates_for_report(
     study_summary = _as_mapping(payload.get("scientific_study_summary"))
     experiment_summary = _as_mapping(payload.get("experiment_summary"))
     experiment_compare_summary = _as_mapping(payload.get("experiment_compare_summary"))
-    scientific_verification_assessment = _as_mapping(
-        payload.get("scientific_verification_assessment")
-    )
-    scientific_remediation_handoff = _as_mapping(
-        payload.get("scientific_remediation_handoff")
-    )
+    scientific_verification_assessment = _as_mapping(payload.get("scientific_verification_assessment"))
+    scientific_remediation_handoff = _as_mapping(payload.get("scientific_remediation_handoff"))
     scientific_followup_summary = _as_mapping(payload.get("scientific_followup_summary"))
 
     return {
-        "scientific-study": _map_scientific_study_status(
-            study_summary.get("workflow_status")
-            or study_summary.get("study_execution_status")
-        ),
+        "scientific-study": _map_scientific_study_status(study_summary.get("workflow_status") or study_summary.get("study_execution_status")),
         "experiment-compare": _build_experiment_compare_status(
             experiment_status=experiment_summary.get("experiment_status"),
-            compare_workflow_status=experiment_compare_summary.get("workflow_status")
-            or experiment_summary.get("workflow_status"),
+            compare_workflow_status=experiment_compare_summary.get("workflow_status") or experiment_summary.get("workflow_status"),
             compare_count=experiment_compare_summary.get("compare_count"),
         ),
-        "scientific-verification": _build_scientific_verification_status(
-            verification_status=scientific_verification_assessment.get("status")
-        ),
+        "scientific-verification": _build_scientific_verification_status(verification_status=scientific_verification_assessment.get("status")),
         "scientific-followup": _build_scientific_followup_status(
             handoff_status=scientific_remediation_handoff.get("handoff_status"),
             followup_entry_count=scientific_followup_summary.get("entry_count"),

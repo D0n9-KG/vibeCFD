@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from html import escape
 from pathlib import Path
 
@@ -28,7 +28,7 @@ def _artifact_virtual_path(skill_slug: str, filename: str) -> str:
 
 
 def _utc_timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _fallback_assistant_label(agent_name: str) -> str:
@@ -47,11 +47,7 @@ def _resolve_assistant_profile(agent_name: str | None) -> tuple[str, str]:
     except (FileNotFoundError, ValueError):
         agent_config = None
 
-    assistant_label = (
-        agent_config.display_name
-        if agent_config and agent_config.display_name
-        else _fallback_assistant_label(assistant_mode)
-    )
+    assistant_label = agent_config.display_name if agent_config and agent_config.display_name else _fallback_assistant_label(assistant_mode)
     return assistant_mode, assistant_label
 
 
@@ -109,9 +105,7 @@ def _build_skill_markdown(
     test_scenarios: list[str],
 ) -> str:
     triggers_md = "\n".join(f"- {item}" for item in trigger_conditions)
-    workflow_md = "\n".join(
-        f"{index}. {item}" for index, item in enumerate(workflow_steps, start=1)
-    )
+    workflow_md = "\n".join(f"{index}. {item}" for index, item in enumerate(workflow_steps, start=1))
     acceptance_md = "\n".join(f"- {item}" for item in acceptance_criteria)
     scenarios_md = "\n".join(f"- {item}" for item in test_scenarios)
     return "\n".join(
@@ -175,9 +169,7 @@ def _build_openai_yaml(
     skill_slug: str,
 ) -> str:
     short_description = description
-    default_prompt = (
-        f"Help me draft, validate, and prepare the {skill_slug} skill for publishing."
-    )
+    default_prompt = f"Help me draft, validate, and prepare the {skill_slug} skill for publishing."
     return "\n".join(
         [
             f"display_name: {skill_title.strip()}",
@@ -199,24 +191,12 @@ def _validate_skill(
     test_scenarios: list[str],
 ) -> dict:
     checks = {
-        "skill_name_slug_format": (
-            "passed" if re.fullmatch(r"[a-z0-9-]{1,64}", skill_name) else "failed"
-        ),
-        "description_starts_with_use_when": (
-            "passed" if description.startswith("Use when") else "failed"
-        ),
-        "has_overview_section": (
-            "passed" if "## Overview" in skill_markdown else "failed"
-        ),
-        "has_workflow_section": (
-            "passed" if "## Workflow" in skill_markdown else "failed"
-        ),
-        "has_acceptance_section": (
-            "passed" if "## Acceptance Criteria" in skill_markdown else "failed"
-        ),
-        "has_validation_section": (
-            "passed" if "## Validation Scenarios" in skill_markdown else "failed"
-        ),
+        "skill_name_slug_format": ("passed" if re.fullmatch(r"[a-z0-9-]{1,64}", skill_name) else "failed"),
+        "description_starts_with_use_when": ("passed" if description.startswith("Use when") else "failed"),
+        "has_overview_section": ("passed" if "## Overview" in skill_markdown else "failed"),
+        "has_workflow_section": ("passed" if "## Workflow" in skill_markdown else "failed"),
+        "has_acceptance_section": ("passed" if "## Acceptance Criteria" in skill_markdown else "failed"),
+        "has_validation_section": ("passed" if "## Validation Scenarios" in skill_markdown else "failed"),
         "trigger_conditions_present": "passed" if trigger_conditions else "failed",
         "workflow_steps_present": "passed" if workflow_steps else "failed",
         "acceptance_criteria_present": "passed" if acceptance_criteria else "failed",
@@ -254,9 +234,7 @@ def _build_test_matrix(
                 "id": f"scenario-{index}",
                 "scenario": scenario,
                 "status": "ready_for_dry_run" if can_dry_run else "blocked",
-                "expected_outcome": (
-                    "Claude Code should trigger the drafted skill and produce a reviewable output."
-                ),
+                "expected_outcome": ("Claude Code should trigger the drafted skill and produce a reviewable output."),
                 "blocking_reasons": [] if can_dry_run else blocked_reasons,
             }
         )
@@ -278,13 +256,9 @@ def _build_publish_readiness(
     ui_metadata_virtual_path: str,
     dry_run_evidence_status: str | None = None,
 ) -> dict:
-    dry_run_gate_status = (
-        "passed" if test_matrix["status"] == "ready_for_dry_run" else "failed"
-    )
+    dry_run_gate_status = "passed" if test_matrix["status"] == "ready_for_dry_run" else "failed"
     if dry_run_evidence_status is not None and dry_run_gate_status == "passed":
-        dry_run_gate_status = (
-            "passed" if dry_run_evidence_status == "passed" else "blocked"
-        )
+        dry_run_gate_status = "passed" if dry_run_evidence_status == "passed" else "blocked"
 
     gates = [
         {
@@ -295,11 +269,7 @@ def _build_publish_readiness(
         {
             "id": "trigger",
             "label": "Trigger description is discoverable",
-            "status": (
-                "passed"
-                if validation["checks"]["description_starts_with_use_when"] == "passed"
-                else "failed"
-            ),
+            "status": ("passed" if validation["checks"]["description_starts_with_use_when"] == "passed" else "failed"),
         },
         {
             "id": "scenarios",
@@ -560,16 +530,8 @@ def record_skill_studio_dry_run_evidence(
     test_matrix = _load_json_file(draft_dir / "test-matrix.json")
 
     skill_package_path = draft_dir / "skill-package.json"
-    skill_package_payload = (
-        _load_json_file(skill_package_path)
-        if skill_package_path.is_file()
-        else {}
-    )
-    normalized_message_ids = (
-        _normalize_message_ids(message_ids)
-        if message_ids is not None
-        else _normalize_message_ids(existing_evidence.get("message_ids"))
-    )
+    skill_package_payload = _load_json_file(skill_package_path) if skill_package_path.is_file() else {}
+    normalized_message_ids = _normalize_message_ids(message_ids) if message_ids is not None else _normalize_message_ids(existing_evidence.get("message_ids"))
     if status == "passed" and not normalized_message_ids:
         raise ValueError(
             "Passed dry-run evidence requires non-empty traceable message_ids.",
@@ -590,23 +552,13 @@ def record_skill_studio_dry_run_evidence(
         skill_slug=skill_slug,
         validation=validation_payload,
         test_matrix=test_matrix,
-        ui_metadata_virtual_path=str(
-            draft_payload.get("ui_metadata_virtual_path")
-            or skill_package_payload.get("ui_metadata_virtual_path")
-            or ""
-        ),
+        ui_metadata_virtual_path=str(draft_payload.get("ui_metadata_virtual_path") or skill_package_payload.get("ui_metadata_virtual_path") or ""),
         dry_run_evidence_status=dry_run_evidence["status"],
     )
 
-    dry_run_evidence_virtual_path = str(
-        draft_payload.get("dry_run_evidence_virtual_path")
-        or _artifact_virtual_path(skill_slug, "dry-run-evidence.json")
-    )
+    dry_run_evidence_virtual_path = str(draft_payload.get("dry_run_evidence_virtual_path") or _artifact_virtual_path(skill_slug, "dry-run-evidence.json"))
     package_archive_virtual_path = str(
-        draft_payload.get("package_archive_virtual_path")
-        or skill_package_payload.get("package_archive_virtual_path")
-        or skill_package_payload.get("archive_virtual_path")
-        or _artifact_virtual_path(skill_slug, f"{skill_slug}.skill")
+        draft_payload.get("package_archive_virtual_path") or skill_package_payload.get("package_archive_virtual_path") or skill_package_payload.get("archive_virtual_path") or _artifact_virtual_path(skill_slug, f"{skill_slug}.skill")
     )
     archive_path = draft_dir / Path(package_archive_virtual_path).name
 

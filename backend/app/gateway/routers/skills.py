@@ -18,19 +18,19 @@ from deerflow.config.app_config import get_app_config
 from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
 from deerflow.domain.submarine.skill_lifecycle import (
     SkillLifecycleBinding,
-    SkillLifecycleRevision,
     SkillLifecycleRecord,
     SkillLifecycleRegistry,
+    SkillLifecycleRevision,
     append_skill_lifecycle_revision,
     apply_skill_lifecycle_revision,
     bump_skill_runtime_revision,
     get_next_skill_revision_id,
     get_skill_lifecycle_binding_count,
-    load_skill_lifecycle_record,
-    load_skill_lifecycle_registry,
     get_skill_lifecycle_revision,
     get_skill_lifecycle_revision_count,
     get_skill_revision_archive_path,
+    load_skill_lifecycle_record,
+    load_skill_lifecycle_registry,
     merge_skill_lifecycle_record,
     save_skill_lifecycle_registry,
     utc_timestamp,
@@ -319,10 +319,7 @@ async def _load_thread_state(thread_id: str) -> dict:
         )
         raise HTTPException(
             status_code=503,
-            detail=(
-                "Unable to verify dry-run evidence against the LangGraph thread "
-                "state right now."
-            ),
+            detail=("Unable to verify dry-run evidence against the LangGraph thread state right now."),
         ) from exc
 
 
@@ -411,11 +408,7 @@ async def _require_thread_message_ids(
 
     thread_state = await _load_thread_state(thread_id)
     thread_message_ids = _extract_thread_message_ids(thread_state)
-    missing_ids = [
-        message_id
-        for message_id in normalized_message_ids
-        if message_id not in thread_message_ids
-    ]
+    missing_ids = [message_id for message_id in normalized_message_ids if message_id not in thread_message_ids]
     if missing_ids:
         joined_ids = ", ".join(missing_ids[:3])
         suffix = "..." if len(missing_ids) > 3 else ""
@@ -460,17 +453,11 @@ class SkillLifecycleUpdateRequest(BaseModel):
     )
     thread_id: str | None = Field(
         default=None,
-        description=(
-            "Optional thread ID for an unpublished Skill Studio draft whose "
-            "lifecycle state should be updated."
-        ),
+        description=("Optional thread ID for an unpublished Skill Studio draft whose lifecycle state should be updated."),
     )
     path: str | None = Field(
         default=None,
-        description=(
-            "Optional virtual path to the Skill Studio draft or lifecycle "
-            "artifact used to persist a pre-publish lifecycle update."
-        ),
+        description=("Optional virtual path to the Skill Studio draft or lifecycle artifact used to persist a pre-publish lifecycle update."),
     )
 
 
@@ -509,11 +496,7 @@ def _find_custom_skill(skill_name: str) -> Skill | None:
         enabled_only=False,
     )
     return next(
-        (
-            skill
-            for skill in skills
-            if skill.name == skill_name and skill.category == "custom"
-        ),
+        (skill for skill in skills if skill.name == skill_name and skill.category == "custom"),
         None,
     )
 
@@ -563,10 +546,7 @@ def _resolve_draft_skill_lifecycle_path(
     if resolved_path.name != "skill-lifecycle.json":
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Draft lifecycle updates require a Skill Studio "
-                "'skill-lifecycle.json' or 'skill-draft.json' path."
-            ),
+            detail=("Draft lifecycle updates require a Skill Studio 'skill-lifecycle.json' or 'skill-draft.json' path."),
         )
     if not resolved_path.exists():
         raise HTTPException(
@@ -592,10 +572,7 @@ def _to_skill_lifecycle_summary(
     return SkillLifecycleSummaryResponse(
         skill_name=record.skill_name,
         enabled=record.enabled,
-        binding_targets=[
-            binding.model_copy(deep=True)
-            for binding in record.binding_targets
-        ],
+        binding_targets=[binding.model_copy(deep=True) for binding in record.binding_targets],
         revision_count=get_skill_lifecycle_revision_count(record),
         binding_count=get_skill_lifecycle_binding_count(record),
         active_revision_id=record.active_revision_id,
@@ -633,10 +610,7 @@ def _build_published_skill_revision(
         archive_path=str(revision_archive_path),
         published_path=str(published_path),
         version_note=record.version_note,
-        binding_targets=[
-            binding.model_copy(deep=True)
-            for binding in record.binding_targets
-        ],
+        binding_targets=[binding.model_copy(deep=True) for binding in record.binding_targets],
         enabled=record.enabled,
         source_thread_id=source_thread_id,
     )
@@ -655,14 +629,8 @@ def _get_extensions_config_path() -> Path:
 
 def _write_extensions_config(config_path: Path, extensions_config: ExtensionsConfig) -> None:
     config_data = {
-        "mcpServers": {
-            name: server.model_dump()
-            for name, server in extensions_config.mcp_servers.items()
-        },
-        "skills": {
-            name: {"enabled": skill_config.enabled}
-            for name, skill_config in extensions_config.skills.items()
-        },
+        "mcpServers": {name: server.model_dump() for name, server in extensions_config.mcp_servers.items()},
+        "skills": {name: {"enabled": skill_config.enabled} for name, skill_config in extensions_config.skills.items()},
     }
 
     with open(config_path, "w", encoding="utf-8") as f:
@@ -712,10 +680,7 @@ def _install_skill_archive(skill_file_path: Path, *, overwrite: bool = False) ->
             if not overwrite:
                 raise HTTPException(
                     status_code=409,
-                    detail=(
-                        f"Skill '{skill_name}' already exists. "
-                        "Use overwrite=true to replace it."
-                    ),
+                    detail=(f"Skill '{skill_name}' already exists. Use overwrite=true to replace it."),
                 )
             revision_dir = target_dir / ".revisions"
             if revision_dir.exists():
@@ -752,35 +717,15 @@ def _load_archive_root_json_payload(
         raise HTTPException(status_code=400, detail="File is not a valid ZIP archive")
 
     with zipfile.ZipFile(skill_file_path, "r") as archive:
-        archive_members = [
-            Path(info.filename)
-            for info in archive.infolist()
-            if not info.is_dir() and not _should_ignore_archive_entry(Path(info.filename))
-        ]
+        archive_members = [Path(info.filename) for info in archive.infolist() if not info.is_dir() and not _should_ignore_archive_entry(Path(info.filename))]
         if len(archive_members) == 0:
             raise HTTPException(status_code=400, detail="Skill archive is empty")
 
-        top_level_entries = {
-            member.parts[0]
-            for member in archive_members
-            if len(member.parts) > 0
-        }
-        root_prefix = (
-            Path(next(iter(top_level_entries)))
-            if len(top_level_entries) == 1
-            else Path()
-        )
-        expected_member_name = (
-            (root_prefix / member_name).as_posix()
-            if root_prefix != Path()
-            else member_name
-        )
+        top_level_entries = {member.parts[0] for member in archive_members if len(member.parts) > 0}
+        root_prefix = Path(next(iter(top_level_entries))) if len(top_level_entries) == 1 else Path()
+        expected_member_name = (root_prefix / member_name).as_posix() if root_prefix != Path() else member_name
         archive_member = next(
-            (
-                info
-                for info in archive.infolist()
-                if not info.is_dir() and info.filename == expected_member_name
-            ),
+            (info for info in archive.infolist() if not info.is_dir() and info.filename == expected_member_name),
             None,
         )
         if archive_member is None:
@@ -866,10 +811,7 @@ async def list_skills() -> SkillsListResponse:
     "/skills/graph",
     response_model=SkillGraphResponse,
     summary="Get Skill Relationship Graph",
-    description=(
-        "Analyze the local DeerFlow skill library and return a lightweight "
-        "SkillNet-style relationship graph for governance and routing."
-    ),
+    description=("Analyze the local DeerFlow skill library and return a lightweight SkillNet-style relationship graph for governance and routing."),
 )
 async def get_skill_graph(skill_name: str | None = None) -> SkillGraphResponse:
     try:
@@ -896,26 +838,15 @@ async def list_skill_lifecycle() -> SkillLifecycleListResponse:
     try:
         skills_root = get_skills_root_path()
         registry = load_skill_lifecycle_registry(skills_root=skills_root)
-        custom_skills = [
-            skill
-            for skill in load_skills(enabled_only=False)
-            if skill.category == "custom"
-        ]
-        custom_skills_by_name = {
-            skill.name: skill
-            for skill in custom_skills
-        }
+        custom_skills = [skill for skill in load_skills(enabled_only=False) if skill.category == "custom"]
+        custom_skills_by_name = {skill.name: skill for skill in custom_skills}
         lifecycle_names = sorted(
             set(custom_skills_by_name) | set(registry.records),
         )
         summaries = []
         for skill_name in lifecycle_names:
             skill = custom_skills_by_name.get(skill_name)
-            record = (
-                _resolve_skill_lifecycle_record(skill, registry)
-                if skill is not None
-                else registry.records[skill_name].model_copy(deep=True)
-            )
+            record = _resolve_skill_lifecycle_record(skill, registry) if skill is not None else registry.records[skill_name].model_copy(deep=True)
             summaries.append(_to_skill_lifecycle_summary(record))
         summaries.sort(key=lambda item: item.skill_name)
         return SkillLifecycleListResponse(skills=summaries)
@@ -1009,10 +940,7 @@ async def update_skill_lifecycle(
                 if lifecycle_payload.skill_name != skill_name:
                     raise HTTPException(
                         status_code=400,
-                        detail=(
-                            "Skill lifecycle draft does not match the "
-                            f"requested skill '{skill_name}'."
-                        ),
+                        detail=(f"Skill lifecycle draft does not match the requested skill '{skill_name}'."),
                     )
             elif registry.records.get(skill_name) is None:
                 raise HTTPException(
@@ -1076,10 +1004,7 @@ async def rollback_skill_revision(
         if revision is None:
             raise HTTPException(
                 status_code=404,
-                detail=(
-                    f"Published revision '{request.revision_id}' not found for "
-                    f"skill '{skill_name}'"
-                ),
+                detail=(f"Published revision '{request.revision_id}' not found for skill '{skill_name}'"),
             )
 
         revision_archive_path = Path(revision.archive_path)
@@ -1096,10 +1021,7 @@ async def rollback_skill_revision(
         if restored_skill_name != skill_name:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    f"Revision '{request.revision_id}' does not match "
-                    f"skill '{skill_name}'"
-                ),
+                detail=(f"Revision '{request.revision_id}' does not match skill '{skill_name}'"),
             )
 
         _set_skill_enabled(skill_name, revision.enabled)
@@ -1332,10 +1254,7 @@ async def install_skill(request: SkillInstallRequest) -> SkillInstallResponse:
     "/skills/dry-run-evidence",
     response_model=SkillDryRunEvidenceResponse,
     summary="Record Skill Studio Dry-Run Evidence",
-    description=(
-        "Persist the reviewed dry-run result for a Skill Studio draft, refresh "
-        "publish-readiness artifacts, and rebuild the packaged .skill archive."
-    ),
+    description=("Persist the reviewed dry-run result for a Skill Studio draft, refresh publish-readiness artifacts, and rebuild the packaged .skill archive."),
 )
 async def record_skill_dry_run_evidence(
     request: SkillDryRunEvidenceRequest,
@@ -1348,10 +1267,7 @@ async def record_skill_dry_run_evidence(
                 thread_id=request.thread_id,
                 message_ids=request.message_ids,
                 required_detail="Passed dry-run evidence requires non-empty traceable message_ids.",
-                mismatch_detail=(
-                    "Passed dry-run evidence message_ids do not belong to the "
-                    "requested thread"
-                ),
+                mismatch_detail=("Passed dry-run evidence message_ids do not belong to the requested thread"),
             )
         result = record_skill_studio_dry_run_evidence(
             draft_path=draft_path,
@@ -1383,10 +1299,7 @@ async def record_skill_dry_run_evidence(
     "/skills/publish",
     response_model=SkillPublishResponse,
     summary="Publish Skill Draft",
-    description=(
-        "Publish a generated Skill Studio .skill archive into the project's "
-        "custom skills directory and optionally enable it immediately."
-    ),
+    description=("Publish a generated Skill Studio .skill archive into the project's custom skills directory and optionally enable it immediately."),
 )
 async def publish_skill(request: SkillPublishRequest) -> SkillPublishResponse:
     """Publish a generated skill package from Skill Studio into the repo."""
@@ -1412,10 +1325,7 @@ async def publish_skill(request: SkillPublishRequest) -> SkillPublishResponse:
             thread_id=request.thread_id,
             message_ids=dry_run_evidence.get("message_ids"),
             required_detail="Publish blocked: dry-run evidence is missing traceable message_ids.",
-            mismatch_detail=(
-                "Publish blocked: dry-run evidence message_ids do not belong to "
-                "the requested thread"
-            ),
+            mismatch_detail=("Publish blocked: dry-run evidence message_ids do not belong to the requested thread"),
         )
         publish_readiness = _load_archive_publish_readiness(skill_file_path)
         if publish_readiness.get("status") != "ready_for_review":

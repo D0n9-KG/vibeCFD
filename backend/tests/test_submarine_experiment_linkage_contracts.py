@@ -17,15 +17,7 @@ def _write_json(path: Path, payload: dict) -> None:
 def _write_ascii_stl(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        "solid demo\n"
-        "  facet normal 0 0 0\n"
-        "    outer loop\n"
-        "      vertex 0 0 0\n"
-        "      vertex 1 0 0\n"
-        "      vertex 0 1 0\n"
-        "    endloop\n"
-        "  endfacet\n"
-        "endsolid demo\n",
+        "solid demo\n  facet normal 0 0 0\n    outer loop\n      vertex 0 0 0\n      vertex 1 0 0\n      vertex 0 1 0\n    endloop\n  endfacet\nendsolid demo\n",
         encoding="utf-8",
     )
 
@@ -65,17 +57,13 @@ def _mesh_manifest_artifact(run_dir_name: str) -> dict:
                 ],
             }
         ],
-        "artifact_virtual_paths": [
-            f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/study-manifest.json"
-        ],
+        "artifact_virtual_paths": [f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/study-manifest.json"],
         "study_execution_status": "completed",
     }
 
 
 def test_experiment_summary_flags_incomplete_planned_variant_linkage(tmp_path):
-    summaries_module = importlib.import_module(
-        "deerflow.domain.submarine.reporting_summaries"
-    )
+    summaries_module = importlib.import_module("deerflow.domain.submarine.reporting_summaries")
 
     outputs_dir = tmp_path / "outputs"
     run_dir_name = "contract-gap"
@@ -120,9 +108,7 @@ def test_experiment_summary_flags_incomplete_planned_variant_linkage(tmp_path):
         {
             "experiment_id": "research-evidence-validated-case-contract-gap-resistance",
             "baseline_run_id": "baseline",
-            "artifact_virtual_paths": [
-                f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/run-compare-summary.json"
-            ],
+            "artifact_virtual_paths": [f"/mnt/user-data/outputs/submarine/solver-dispatch/{run_dir_name}/run-compare-summary.json"],
             "comparisons": [
                 {
                     "baseline_run_id": "baseline",
@@ -151,23 +137,13 @@ def test_experiment_summary_flags_incomplete_planned_variant_linkage(tmp_path):
     ]
     assert summary["recorded_variant_run_ids"] == ["mesh_independence:coarse"]
     assert summary["compared_variant_run_ids"] == ["mesh_independence:coarse"]
-    assert any(
-        "mesh_independence:fine" in item and "run record" in item
-        for item in summary["linkage_issues"]
-    )
-    assert any(
-        "mesh_independence:fine" in item and "compare entry" in item
-        for item in summary["linkage_issues"]
-    )
+    assert any("mesh_independence:fine" in item and "run record" in item for item in summary["linkage_issues"])
+    assert any("mesh_independence:fine" in item and "compare entry" in item for item in summary["linkage_issues"])
 
 
 def test_runtime_request_accepts_declared_custom_variants_and_defaults_compare_target():
-    contracts_module = importlib.import_module(
-        "deerflow.domain.submarine.contracts"
-    )
-    experiments_module = importlib.import_module(
-        "deerflow.domain.submarine.experiments"
-    )
+    contracts_module = importlib.import_module("deerflow.domain.submarine.contracts")
+    experiments_module = importlib.import_module("deerflow.domain.submarine.experiments")
 
     request = contracts_module.SubmarineRuntimeRequest(
         task_summary="Register a custom pressure sweep experiment variant",
@@ -197,9 +173,7 @@ def test_solver_dispatch_registers_declared_custom_variants_before_execution(
     tmp_path,
     monkeypatch,
 ):
-    solver_dispatch_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch"
-    )
+    solver_dispatch_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch")
     models_module = importlib.import_module("deerflow.domain.submarine.models")
 
     outputs_dir = tmp_path / "outputs"
@@ -231,14 +205,8 @@ def test_solver_dispatch_registers_declared_custom_variants_before_execution(
         solver_dispatch_module,
         "_write_openfoam_case_scaffold",
         lambda **kwargs: {
-            "workspace_case_dir_virtual_path": (
-                "/mnt/user-data/workspace/submarine/solver-dispatch/"
-                "custom-variant-demo/openfoam-case"
-            ),
-            "run_script_virtual_path": (
-                "/mnt/user-data/workspace/submarine/solver-dispatch/"
-                "custom-variant-demo/openfoam-case/Allrun"
-            ),
+            "workspace_case_dir_virtual_path": ("/mnt/user-data/workspace/submarine/solver-dispatch/custom-variant-demo/openfoam-case"),
+            "run_script_virtual_path": ("/mnt/user-data/workspace/submarine/solver-dispatch/custom-variant-demo/openfoam-case/Allrun"),
             "solver_application": "simpleFoam",
             "requires_geometry_conversion": False,
             "execution_readiness": "stl_ready",
@@ -299,39 +267,19 @@ def test_solver_dispatch_registers_declared_custom_variants_before_execution(
     )
 
     run_dir = outputs_dir / "submarine" / "solver-dispatch" / "custom-variant-demo"
-    experiment_manifest = json.loads(
-        (run_dir / "experiment-manifest.json").read_text(encoding="utf-8")
-    )
-    compare_summary = json.loads(
-        (run_dir / "run-compare-summary.json").read_text(encoding="utf-8")
-    )
-    custom_run_record = json.loads(
-        (
-            run_dir
-            / "custom-variants"
-            / "pressure-sweep"
-            / "run-record.json"
-        ).read_text(encoding="utf-8")
-    )
+    experiment_manifest = json.loads((run_dir / "experiment-manifest.json").read_text(encoding="utf-8"))
+    compare_summary = json.loads((run_dir / "run-compare-summary.json").read_text(encoding="utf-8"))
+    custom_run_record = json.loads((run_dir / "custom-variants" / "pressure-sweep" / "run-record.json").read_text(encoding="utf-8"))
 
-    custom_manifest_record = next(
-        item
-        for item in experiment_manifest["run_records"]
-        if item["run_id"] == "custom:pressure-sweep"
-    )
+    custom_manifest_record = next(item for item in experiment_manifest["run_records"] if item["run_id"] == "custom:pressure-sweep")
 
     assert payload["custom_variant_run_ids"] == ["custom:pressure-sweep"]
     assert payload["custom_variants"][0]["compare_target_run_id"] == "baseline"
-    assert any(
-        path.endswith("/custom-variants/pressure-sweep/run-record.json")
-        for path in artifacts
-    )
+    assert any(path.endswith("/custom-variants/pressure-sweep/run-record.json") for path in artifacts)
     assert custom_manifest_record["run_role"] == "custom_variant"
     assert custom_manifest_record["variant_origin"] == "custom_variant"
     assert custom_manifest_record["variant_label"] == "Pressure Sweep"
-    assert custom_manifest_record["parameter_overrides"] == {
-        "outlet_pressure_pa": 250
-    }
+    assert custom_manifest_record["parameter_overrides"] == {"outlet_pressure_pa": 250}
     assert custom_manifest_record["baseline_reference_run_id"] == "baseline"
     assert custom_manifest_record["compare_target_run_id"] == "baseline"
     assert custom_manifest_record["execution_status"] == "planned"
@@ -339,20 +287,14 @@ def test_solver_dispatch_registers_declared_custom_variants_before_execution(
     assert custom_run_record["run_role"] == "custom_variant"
     assert custom_run_record["baseline_reference_run_id"] == "baseline"
     assert custom_run_record["compare_target_run_id"] == "baseline"
-    assert any(
-        item["candidate_run_id"] == "custom:pressure-sweep"
-        and item["compare_status"] == "planned"
-        for item in compare_summary["comparisons"]
-    )
+    assert any(item["candidate_run_id"] == "custom:pressure-sweep" and item["compare_status"] == "planned" for item in compare_summary["comparisons"])
 
 
 def test_solver_dispatch_persists_iterative_contract_metadata_in_experiment_records(
     tmp_path,
     monkeypatch,
 ):
-    solver_dispatch_module = importlib.import_module(
-        "deerflow.domain.submarine.solver_dispatch"
-    )
+    solver_dispatch_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch")
     models_module = importlib.import_module("deerflow.domain.submarine.models")
 
     outputs_dir = tmp_path / "outputs"
@@ -384,14 +326,8 @@ def test_solver_dispatch_persists_iterative_contract_metadata_in_experiment_reco
         solver_dispatch_module,
         "_write_openfoam_case_scaffold",
         lambda **kwargs: {
-            "workspace_case_dir_virtual_path": (
-                "/mnt/user-data/workspace/submarine/solver-dispatch/"
-                "iterative-lineage-demo/openfoam-case"
-            ),
-            "run_script_virtual_path": (
-                "/mnt/user-data/workspace/submarine/solver-dispatch/"
-                "iterative-lineage-demo/openfoam-case/Allrun"
-            ),
+            "workspace_case_dir_virtual_path": ("/mnt/user-data/workspace/submarine/solver-dispatch/iterative-lineage-demo/openfoam-case"),
+            "run_script_virtual_path": ("/mnt/user-data/workspace/submarine/solver-dispatch/iterative-lineage-demo/openfoam-case/Allrun"),
             "solver_application": "simpleFoam",
             "requires_geometry_conversion": False,
             "execution_readiness": "stl_ready",
@@ -470,26 +406,11 @@ def test_solver_dispatch_persists_iterative_contract_metadata_in_experiment_reco
     )
 
     run_dir = outputs_dir / "submarine" / "solver-dispatch" / "iterative-lineage-demo"
-    experiment_manifest = json.loads(
-        (run_dir / "experiment-manifest.json").read_text(encoding="utf-8")
-    )
-    baseline_run_record = json.loads(
-        (run_dir / "run-record.json").read_text(encoding="utf-8")
-    )
-    custom_run_record = json.loads(
-        (
-            run_dir
-            / "custom-variants"
-            / "pressure-sweep"
-            / "run-record.json"
-        ).read_text(encoding="utf-8")
-    )
+    experiment_manifest = json.loads((run_dir / "experiment-manifest.json").read_text(encoding="utf-8"))
+    baseline_run_record = json.loads((run_dir / "run-record.json").read_text(encoding="utf-8"))
+    custom_run_record = json.loads((run_dir / "custom-variants" / "pressure-sweep" / "run-record.json").read_text(encoding="utf-8"))
 
-    custom_manifest_record = next(
-        item
-        for item in experiment_manifest["run_records"]
-        if item["run_id"] == "custom:pressure-sweep"
-    )
+    custom_manifest_record = next(item for item in experiment_manifest["run_records"] if item["run_id"] == "custom:pressure-sweep")
 
     assert payload["contract_revision"] == 3
     assert baseline_run_record["contract_revision"] == 3
@@ -498,25 +419,17 @@ def test_solver_dispatch_persists_iterative_contract_metadata_in_experiment_reco
         "wake_velocity_slice",
     ]
     assert custom_manifest_record["contract_revision"] == 3
-    assert custom_manifest_record["lineage_reason"] == (
-        "Add wake velocity slice delivery and pressure sweep lineage."
-    )
+    assert custom_manifest_record["lineage_reason"] == ("Add wake velocity slice delivery and pressure sweep lineage.")
     assert custom_manifest_record["requested_output_ids"] == [
         "drag_coefficient",
         "wake_velocity_slice",
     ]
     assert custom_run_record["contract_revision"] == 3
-    assert custom_run_record["lineage_reason"] == (
-        "Add wake velocity slice delivery and pressure sweep lineage."
-    )
+    assert custom_run_record["lineage_reason"] == ("Add wake velocity slice delivery and pressure sweep lineage.")
 
 
-def test_result_report_marks_validated_run_with_incomplete_experiment_linkage_as_gap(
-    tmp_path, monkeypatch
-):
-    report_tool_module = importlib.import_module(
-        "deerflow.tools.builtins.submarine_result_report_tool"
-    )
+def test_result_report_marks_validated_run_with_incomplete_experiment_linkage_as_gap(tmp_path, monkeypatch):
+    report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
     reporting_module = importlib.import_module("deerflow.domain.submarine.reporting")
     models_module = importlib.import_module("deerflow.domain.submarine.models")
 
@@ -685,9 +598,7 @@ def test_result_report_marks_validated_run_with_incomplete_experiment_linkage_as
     )
 
     final_report_dir = outputs_dir / "submarine" / "reports" / "suboff_solid"
-    final_payload = json.loads(
-        (final_report_dir / "final-report.json").read_text(encoding="utf-8")
-    )
+    final_payload = json.loads((final_report_dir / "final-report.json").read_text(encoding="utf-8"))
     final_markdown = (final_report_dir / "final-report.md").read_text(encoding="utf-8")
     final_html = (final_report_dir / "final-report.html").read_text(encoding="utf-8")
     research = final_payload["research_evidence_summary"]
@@ -699,10 +610,7 @@ def test_result_report_marks_validated_run_with_incomplete_experiment_linkage_as
     assert final_payload["experiment_summary"]["workflow_status"] == "partial"
     assert final_payload["scientific_study_summary"]["workflow_status"] == "completed"
     assert final_payload["experiment_compare_summary"]["workflow_status"] == "completed"
-    assert any(
-        "mesh_independence:fine" in item
-        for item in final_payload["experiment_summary"]["linkage_issues"]
-    )
+    assert any("mesh_independence:fine" in item for item in final_payload["experiment_summary"]["linkage_issues"])
     assert research["validation_status"] == "validated"
     assert research["provenance_status"] == "partial"
     assert research["readiness_status"] == "validated_with_gaps"

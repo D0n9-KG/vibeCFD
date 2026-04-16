@@ -44,9 +44,7 @@ def _build_benchmark_comparison(
         "relative_error": relative_error,
         "relative_tolerance": benchmark_target.relative_tolerance,
         "target_inlet_velocity_mps": benchmark_target.inlet_velocity_mps,
-        "observed_inlet_velocity_mps": (
-            float(inlet_velocity) if _is_number(inlet_velocity) else None
-        ),
+        "observed_inlet_velocity_mps": (float(inlet_velocity) if _is_number(inlet_velocity) else None),
         "source_label": benchmark_target.source_label,
         "source_url": benchmark_target.source_url,
     }
@@ -82,10 +80,7 @@ def _evaluate_benchmark_target(
     inlet_velocity = simulation_requirements.get("inlet_velocity_mps")
     if benchmark_target.inlet_velocity_mps is not None:
         if not _is_number(inlet_velocity):
-            detail = (
-                f"Benchmark {benchmark_target.metric_id} requires inlet_velocity_mps "
-                f"{benchmark_target.inlet_velocity_mps:.2f}, but the solver run did not record it."
-            )
+            detail = f"Benchmark {benchmark_target.metric_id} requires inlet_velocity_mps {benchmark_target.inlet_velocity_mps:.2f}, but the solver run did not record it."
             return _build_benchmark_comparison(
                 benchmark_target,
                 status=benchmark_target.on_miss_status,
@@ -115,10 +110,7 @@ def _evaluate_benchmark_target(
 
     observed_value = _resolve_benchmark_observed_value(benchmark_target, solver_metrics)
     if observed_value is None:
-        detail = (
-            f"Benchmark {benchmark_target.metric_id} applies to this run, but observed "
-            f"{benchmark_target.quantity} is unavailable."
-        )
+        detail = f"Benchmark {benchmark_target.metric_id} applies to this run, but observed {benchmark_target.quantity} is unavailable."
         return _build_benchmark_comparison(
             benchmark_target,
             status=benchmark_target.on_miss_status,
@@ -131,11 +123,7 @@ def _evaluate_benchmark_target(
 
     reference_value = float(benchmark_target.reference_value)
     absolute_error = abs(observed_value - reference_value)
-    relative_error = (
-        absolute_error / abs(reference_value)
-        if reference_value != 0.0
-        else 0.0
-    )
+    relative_error = absolute_error / abs(reference_value) if reference_value != 0.0 else 0.0
     passed = relative_error <= benchmark_target.relative_tolerance
     status = "passed" if passed else benchmark_target.on_miss_status
     detail = (
@@ -270,10 +258,7 @@ def build_acceptance_assessment(
                 detail=detail,
             )
         else:
-            detail = (
-                "Residual summary captured, but max_final_residual "
-                f"{max_final_residual} needs supervisor review."
-            )
+            detail = f"Residual summary captured, but max_final_residual {max_final_residual} needs supervisor review."
             warnings.append(detail)
             add_gate(
                 gate_id="residuals_available",
@@ -291,10 +276,7 @@ def build_acceptance_assessment(
             detail=detail,
         )
 
-    simulation_requirements = (
-        (solver_metrics.get("simulation_requirements") or {})
-        or (snapshot.simulation_requirements or {})
-    )
+    simulation_requirements = (solver_metrics.get("simulation_requirements") or {}) or (snapshot.simulation_requirements or {})
     planned_end_time = simulation_requirements.get("end_time_seconds")
     final_time = solver_metrics.get("final_time_seconds")
     if _is_number(planned_end_time) and _is_number(final_time):
@@ -308,10 +290,7 @@ def build_acceptance_assessment(
                 detail=detail,
             )
         else:
-            detail = (
-                f"Solver final time {_format_float(final_time)} is below planned "
-                f"end_time_seconds {_format_float(planned_end_time)}."
-            )
+            detail = f"Solver final time {_format_float(final_time)} is below planned end_time_seconds {_format_float(planned_end_time)}."
             warnings.append(detail)
             add_gate(
                 gate_id="planned_end_time_reached",
@@ -371,16 +350,9 @@ def build_acceptance_assessment(
     acceptance_profile = selected_case.acceptance_profile if selected_case else None
     if acceptance_profile:
         if acceptance_profile.required_artifacts:
-            missing_artifacts = [
-                artifact_name
-                for artifact_name in acceptance_profile.required_artifacts
-                if not _has_required_artifact(merged_artifact_virtual_paths, artifact_name)
-            ]
+            missing_artifacts = [artifact_name for artifact_name in acceptance_profile.required_artifacts if not _has_required_artifact(merged_artifact_virtual_paths, artifact_name)]
             if missing_artifacts:
-                detail = (
-                    f"Case profile {acceptance_profile.profile_id} is missing required artifacts: "
-                    + ", ".join(missing_artifacts)
-                )
+                detail = f"Case profile {acceptance_profile.profile_id} is missing required artifacts: " + ", ".join(missing_artifacts)
                 blocking_issues.append(detail)
                 add_gate(
                     gate_id="case_required_artifacts",
@@ -389,9 +361,7 @@ def build_acceptance_assessment(
                     detail=detail,
                 )
             else:
-                detail = (
-                    f"Case profile {acceptance_profile.profile_id} required artifacts are present."
-                )
+                detail = f"Case profile {acceptance_profile.profile_id} required artifacts are present."
                 passed_checks.append(detail)
                 add_gate(
                     gate_id="case_required_artifacts",
@@ -401,20 +371,12 @@ def build_acceptance_assessment(
                 )
 
         if acceptance_profile.minimum_completed_fraction_of_planned_time is not None:
-            planned_end_time = (
-                (solver_metrics.get("simulation_requirements") or {}).get("end_time_seconds")
-                if solver_metrics
-                else None
-            )
+            planned_end_time = (solver_metrics.get("simulation_requirements") or {}).get("end_time_seconds") if solver_metrics else None
             final_time = solver_metrics.get("final_time_seconds") if solver_metrics else None
             if _is_number(planned_end_time) and float(planned_end_time) > 0 and _is_number(final_time):
                 completed_fraction = float(final_time) / float(planned_end_time)
                 if completed_fraction >= acceptance_profile.minimum_completed_fraction_of_planned_time:
-                    detail = (
-                        f"Case profile {acceptance_profile.profile_id} completed_fraction "
-                        f"{completed_fraction:.3f} meets the threshold "
-                        f"{acceptance_profile.minimum_completed_fraction_of_planned_time:.3f}."
-                    )
+                    detail = f"Case profile {acceptance_profile.profile_id} completed_fraction {completed_fraction:.3f} meets the threshold {acceptance_profile.minimum_completed_fraction_of_planned_time:.3f}."
                     passed_checks.append(detail)
                     add_gate(
                         gate_id="case_completed_fraction",
@@ -423,11 +385,7 @@ def build_acceptance_assessment(
                         detail=detail,
                     )
                 else:
-                    detail = (
-                        f"Case profile {acceptance_profile.profile_id} completed_fraction "
-                        f"{completed_fraction:.3f} is below the threshold "
-                        f"{acceptance_profile.minimum_completed_fraction_of_planned_time:.3f}."
-                    )
+                    detail = f"Case profile {acceptance_profile.profile_id} completed_fraction {completed_fraction:.3f} is below the threshold {acceptance_profile.minimum_completed_fraction_of_planned_time:.3f}."
                     warnings.append(detail)
                     add_gate(
                         gate_id="case_completed_fraction",
@@ -441,11 +399,7 @@ def build_acceptance_assessment(
             max_final_residual = residual_summary.get("max_final_residual")
             if _is_number(max_final_residual):
                 if float(max_final_residual) <= acceptance_profile.max_final_residual:
-                    detail = (
-                        f"Case profile {acceptance_profile.profile_id} max_final_residual "
-                        f"{float(max_final_residual):.6f} is within the threshold "
-                        f"{acceptance_profile.max_final_residual:.6f}."
-                    )
+                    detail = f"Case profile {acceptance_profile.profile_id} max_final_residual {float(max_final_residual):.6f} is within the threshold {acceptance_profile.max_final_residual:.6f}."
                     passed_checks.append(detail)
                     add_gate(
                         gate_id="case_max_final_residual",
@@ -454,11 +408,7 @@ def build_acceptance_assessment(
                         detail=detail,
                     )
                 else:
-                    detail = (
-                        f"Case profile {acceptance_profile.profile_id} max_final_residual "
-                        f"{float(max_final_residual):.6f} exceeds the threshold "
-                        f"{acceptance_profile.max_final_residual:.6f}."
-                    )
+                    detail = f"Case profile {acceptance_profile.profile_id} max_final_residual {float(max_final_residual):.6f} exceeds the threshold {acceptance_profile.max_final_residual:.6f}."
                     blocking_issues.append(detail)
                     add_gate(
                         gate_id="case_max_final_residual",
@@ -481,11 +431,7 @@ def build_acceptance_assessment(
             else:
                 warnings.append(detail)
             target_velocity = benchmark_target.inlet_velocity_mps
-            label_suffix = (
-                f" @ {target_velocity:.2f} m/s"
-                if target_velocity is not None
-                else ""
-            )
+            label_suffix = f" @ {target_velocity:.2f} m/s" if target_velocity is not None else ""
             add_gate(
                 gate_id=f"benchmark_{benchmark_target.metric_id}",
                 label=f"Benchmark {benchmark_target.quantity}{label_suffix}",
@@ -511,5 +457,6 @@ def build_acceptance_assessment(
         "benchmark_comparisons": benchmark_comparisons,
         "gates": gates,
     }
+
 
 __all__ = ["build_acceptance_assessment"]

@@ -144,11 +144,7 @@ class TestTitleMiddlewareCoreLogic:
         _set_test_title_config(max_chars=50)
         middleware = TitleMiddleware()
         fake_model = MagicMock()
-        fake_model.ainvoke = AsyncMock(
-            return_value=MagicMock(
-                content="I'll continue based on your latest request. If I need anything else, I'll ask clearly."
-            )
-        )
+        fake_model.ainvoke = AsyncMock(return_value=MagicMock(content="I'll continue based on your latest request. If I need anything else, I'll ask clearly."))
         monkeypatch.setattr(
             "deerflow.agents.middlewares.title_middleware.create_chat_model",
             lambda **kwargs: fake_model,
@@ -222,11 +218,7 @@ class TestTitleMiddlewareCoreLogic:
         _set_test_title_config(max_chars=80)
         middleware = TitleMiddleware()
         fake_model = MagicMock()
-        fake_model.invoke = MagicMock(
-            return_value=MagicMock(
-                content="请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；."
-            )
-        )
+        fake_model.invoke = MagicMock(return_value=MagicMock(content="请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；."))
         monkeypatch.setattr(
             "deerflow.agents.middlewares.title_middleware.create_chat_model",
             lambda **kwargs: fake_model,
@@ -234,9 +226,7 @@ class TestTitleMiddlewareCoreLogic:
 
         state = {
             "messages": [
-                HumanMessage(
-                    content="请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；当前不要启动求解。"
-                ),
+                HumanMessage(content="请先对这个 STL 做几何可用性预检，确认尺度、封闭性与是否适合做 SUBOFF 裸艇阻力基线研究；当前不要启动求解。"),
                 AIMessage(content="Working on it."),
             ]
         }

@@ -7,7 +7,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 FigureRenderStatus = Literal["rendered", "skipped", "blocked"]
 
 
@@ -55,10 +54,7 @@ def build_figure_manifest(
     run_dir_name: str,
     figures: list[SubmarineFigureItem | Mapping[str, Any] | dict[str, Any]] | None,
 ) -> dict[str, Any]:
-    normalized_figures = [
-        SubmarineFigureItem.model_validate(item).model_dump(mode="json")
-        for item in (figures or [])
-    ]
+    normalized_figures = [SubmarineFigureItem.model_validate(item).model_dump(mode="json") for item in (figures or [])]
     artifact_virtual_paths: list[str] = []
     for item in normalized_figures:
         for path in _as_string_list(_as_mapping(item).get("artifact_virtual_paths")):
@@ -83,18 +79,11 @@ def build_figure_delivery_summary(
     if not manifest_mapping:
         return None
 
-    figures = [
-        _as_mapping(item)
-        for item in manifest_mapping.get("figures") or []
-        if isinstance(item, Mapping) or hasattr(item, "model_dump")
-    ]
+    figures = [_as_mapping(item) for item in manifest_mapping.get("figures") or [] if isinstance(item, Mapping) or hasattr(item, "model_dump")]
     return {
         "figure_count": len(figures),
         "manifest_virtual_path": manifest_virtual_path,
-        "artifact_virtual_paths": _as_string_list(
-            manifest_mapping.get("artifact_virtual_paths")
-        )
-        or ([manifest_virtual_path] if manifest_virtual_path else []),
+        "artifact_virtual_paths": _as_string_list(manifest_mapping.get("artifact_virtual_paths")) or ([manifest_virtual_path] if manifest_virtual_path else []),
         "figures": [
             {
                 "figure_id": str(item.get("figure_id") or "unknown"),
@@ -104,12 +93,8 @@ def build_figure_delivery_summary(
                 "render_status": str(item.get("render_status") or "--"),
                 "selector_summary": str(item.get("selector_summary") or "--"),
                 "field": str(item.get("field") or "--"),
-                "artifact_virtual_paths": _as_string_list(
-                    _as_mapping(item).get("artifact_virtual_paths")
-                ),
-                "source_csv_virtual_path": str(
-                    item.get("source_csv_virtual_path") or "--"
-                ),
+                "artifact_virtual_paths": _as_string_list(_as_mapping(item).get("artifact_virtual_paths")),
+                "source_csv_virtual_path": str(item.get("source_csv_virtual_path") or "--"),
             }
             for item in figures
         ],

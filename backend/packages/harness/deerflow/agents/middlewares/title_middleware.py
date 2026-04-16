@@ -55,11 +55,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         return ""
 
     def _extract_uploaded_filenames(self, content: str) -> list[str]:
-        return [
-            match.group(1).strip()
-            for match in self._UPLOAD_FILENAME_RE.finditer(content)
-            if match.group(1).strip()
-        ]
+        return [match.group(1).strip() for match in self._UPLOAD_FILENAME_RE.finditer(content) if match.group(1).strip()]
 
     def _clean_user_message(self, content: object) -> str:
         normalized = self._normalize_content(content)
@@ -138,12 +134,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
 
     def _looks_like_placeholder_title(self, title: str) -> bool:
         normalized = title.strip()
-        return any(
-            normalized == placeholder
-            or placeholder.startswith(normalized)
-            or normalized.startswith(placeholder)
-            for placeholder in self._PLACEHOLDER_TITLES
-        )
+        return any(normalized == placeholder or placeholder.startswith(normalized) or normalized.startswith(placeholder) for placeholder in self._PLACEHOLDER_TITLES)
 
     def _fallback_title(self, user_msg: str) -> str:
         config = get_title_config()

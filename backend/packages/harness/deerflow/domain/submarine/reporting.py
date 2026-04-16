@@ -39,8 +39,8 @@ from .reporting_summaries import (
     build_provenance_summary,
     build_report_overview,
     build_reproducibility_summary,
-    build_selected_case_provenance_summary,
     build_scientific_study_summary,
+    build_selected_case_provenance_summary,
     resolve_outputs_artifact,
     resolve_selected_case,
 )
@@ -160,22 +160,14 @@ def _build_delivery_decision_summary(
         "add_evidence": SubmarineDeliveryDecisionOption(
             option_id="add_evidence",
             label_zh="补充证据",
-            summary_zh=(
-                f"优先补齐缺失证据：{primary_reason}"
-                if primary_reason
-                else "补齐缺失的验证证据、基准对照或证据链后，再决定是否提升 claim level。"
-            ),
+            summary_zh=(f"优先补齐缺失证据：{primary_reason}" if primary_reason else "补齐缺失的验证证据、基准对照或证据链后，再决定是否提升 claim level。"),
             followup_kind="evidence_supplement",
             requires_additional_execution=True,
         ),
         "fix_setup": SubmarineDeliveryDecisionOption(
             option_id="fix_setup",
             label_zh="修正设置",
-            summary_zh=(
-                f"先修正当前阻塞项：{primary_reason}"
-                if primary_reason
-                else "先修正当前设置、输入或关键产物，再重新执行并刷新报告。"
-            ),
+            summary_zh=(f"先修正当前阻塞项：{primary_reason}" if primary_reason else "先修正当前设置、输入或关键产物，再重新执行并刷新报告。"),
             followup_kind="parameter_correction",
             requires_additional_execution=True,
         ),
@@ -244,35 +236,20 @@ def _compose_summary(
         "result-reporting": "当前结果已经进入报告整理阶段，可直接交由 Supervisor 做质量复核。",
     }.get(source_runtime_stage, "当前结果已整理为可审阅交付物。")
 
-    case_text = (
-        f"选定案例 `{snapshot.selected_case_id}`。"
-        if snapshot.selected_case_id
-        else "当前尚未固定单一案例模板。"
-    )
-    family_text = (
-        f"几何家族识别为 `{snapshot.geometry_family}`。"
-        if snapshot.geometry_family
-        else "几何家族仍待进一步确认。"
-    )
+    case_text = f"选定案例 `{snapshot.selected_case_id}`。" if snapshot.selected_case_id else "当前尚未固定单一案例模板。"
+    family_text = f"几何家族识别为 `{snapshot.geometry_family}`。" if snapshot.geometry_family else "几何家族仍待进一步确认。"
     metrics_text = ""
     if solver_metrics and solver_metrics.get("latest_force_coefficients"):
         cd = solver_metrics["latest_force_coefficients"].get("Cd")
         final_time = solver_metrics.get("final_time_seconds")
         metrics_text = f" 已提取 CFD 指标，最终时间步 `{final_time}`，Cd `{cd}`。"
 
-    return (
-        f"已生成《{report_title}》，来源阶段为 `{source_runtime_stage}`。"
-        f"{family_text}{case_text}{stage_text}{metrics_text}"
-    )
+    return f"已生成《{report_title}》，来源阶段为 `{source_runtime_stage}`。{family_text}{case_text}{stage_text}{metrics_text}"
 
 
 def _load_solver_metrics(outputs_dir: Path, artifact_virtual_paths: list[str]) -> dict | None:
-    preferred_paths = [
-        virtual_path for virtual_path in artifact_virtual_paths if virtual_path.endswith("/solver-results.json")
-    ]
-    fallback_paths = [
-        virtual_path for virtual_path in artifact_virtual_paths if virtual_path.endswith("/openfoam-request.json")
-    ]
+    preferred_paths = [virtual_path for virtual_path in artifact_virtual_paths if virtual_path.endswith("/solver-results.json")]
+    fallback_paths = [virtual_path for virtual_path in artifact_virtual_paths if virtual_path.endswith("/openfoam-request.json")]
 
     for virtual_path in [*preferred_paths, *fallback_paths]:
         local_path = _resolve_outputs_artifact(outputs_dir, virtual_path)
@@ -308,11 +285,7 @@ def _load_previous_report_payload(
     if isinstance(report_virtual_path, str) and report_virtual_path.endswith("/final-report.md"):
         candidate_paths.append(report_virtual_path[:-3] + ".json")
 
-    candidate_paths.extend(
-        path
-        for path in artifact_virtual_paths
-        if isinstance(path, str) and path.endswith("/final-report.json")
-    )
+    candidate_paths.extend(path for path in artifact_virtual_paths if isinstance(path, str) and path.endswith("/final-report.json"))
 
     seen_paths: set[str] = set()
     for virtual_path in candidate_paths:
@@ -347,16 +320,8 @@ def _workspace_run_virtual_paths(
     workspace_case_dir_virtual_path: str | None,
 ) -> list[str]:
     run_root_virtual_path = _workspace_run_root_virtual_path(workspace_case_dir_virtual_path)
-    workspace_case_dir = (
-        resolve_workspace_artifact(outputs_dir, workspace_case_dir_virtual_path)
-        if workspace_case_dir_virtual_path
-        else None
-    )
-    if (
-        run_root_virtual_path is None
-        or workspace_case_dir is None
-        or not workspace_case_dir.exists()
-    ):
+    workspace_case_dir = resolve_workspace_artifact(outputs_dir, workspace_case_dir_virtual_path) if workspace_case_dir_virtual_path else None
+    if run_root_virtual_path is None or workspace_case_dir is None or not workspace_case_dir.exists():
         return []
 
     run_root_dir = workspace_case_dir.parent
@@ -367,11 +332,7 @@ def _workspace_run_virtual_paths(
     for candidate in candidates:
         relative_path = candidate.relative_to(run_root_dir)
         if relative_path.parts:
-            virtual_path = (
-                run_root_virtual_path
-                + "/"
-                + "/".join(relative_path.parts)
-            )
+            virtual_path = run_root_virtual_path + "/" + "/".join(relative_path.parts)
         else:
             virtual_path = run_root_virtual_path
         if virtual_path not in virtual_paths:
@@ -403,10 +364,7 @@ def _artifact_location_kind(
         return "solver_output"
     if workspace_case_dir_virtual_path and virtual_path == workspace_case_dir_virtual_path:
         return "workspace_case"
-    if workspace_postprocess_virtual_path and (
-        virtual_path == workspace_postprocess_virtual_path
-        or virtual_path.startswith(workspace_postprocess_virtual_path.rstrip("/") + "/")
-    ):
+    if workspace_postprocess_virtual_path and (virtual_path == workspace_postprocess_virtual_path or virtual_path.startswith(workspace_postprocess_virtual_path.rstrip("/") + "/")):
         return "workspace_postprocess"
     if "/studies/" in virtual_path:
         return "study_workspace_case"
@@ -583,11 +541,7 @@ def _manifest_entry(
         location_kind=location_kind,
         virtual_path=virtual_path,
     )
-    absolute_path = (
-        str(local_path.resolve(strict=False))
-        if local_path is not None
-        else ""
-    )
+    absolute_path = str(local_path.resolve(strict=False)) if local_path is not None else ""
     return {
         "label": label,
         "description": description,
@@ -648,11 +602,7 @@ def _build_report_artifact_manifest(
 
     candidate_paths = _merge_artifact_paths(
         final_artifact_virtual_paths,
-        [
-            path
-            for path in source_artifact_virtual_paths
-            if isinstance(path, str) and path.strip() and is_key_artifact(path)
-        ],
+        [path for path in source_artifact_virtual_paths if isinstance(path, str) and path.strip() and is_key_artifact(path)],
     )
     manifest = [
         _manifest_entry(
@@ -682,40 +632,16 @@ def _build_workspace_storage_summary(
     run_script_virtual_path: str | None,
     workspace_postprocess_virtual_path: str | None,
 ) -> dict[str, Any]:
-    workspace_case_dir = (
-        resolve_workspace_artifact(outputs_dir, workspace_case_dir_virtual_path)
-        if workspace_case_dir_virtual_path
-        else None
-    )
-    workspace_run_root_virtual_path = _workspace_run_root_virtual_path(
-        workspace_case_dir_virtual_path
-    )
+    workspace_case_dir = resolve_workspace_artifact(outputs_dir, workspace_case_dir_virtual_path) if workspace_case_dir_virtual_path else None
+    workspace_run_root_virtual_path = _workspace_run_root_virtual_path(workspace_case_dir_virtual_path)
     workspace_run_root_dir = workspace_case_dir.parent if workspace_case_dir else None
-    run_script_path = (
-        resolve_workspace_artifact(outputs_dir, run_script_virtual_path)
-        if run_script_virtual_path
-        else None
-    )
-    workspace_postprocess_path = (
-        resolve_workspace_artifact(outputs_dir, workspace_postprocess_virtual_path)
-        if workspace_postprocess_virtual_path
-        else None
-    )
-    study_workspace_root_virtual_path = (
-        f"{workspace_run_root_virtual_path}/studies"
-        if workspace_run_root_virtual_path
-        else ""
-    )
-    study_workspace_root_dir = (
-        workspace_run_root_dir / "studies"
-        if workspace_run_root_dir is not None
-        else None
-    )
+    run_script_path = resolve_workspace_artifact(outputs_dir, run_script_virtual_path) if run_script_virtual_path else None
+    workspace_postprocess_path = resolve_workspace_artifact(outputs_dir, workspace_postprocess_virtual_path) if workspace_postprocess_virtual_path else None
+    study_workspace_root_virtual_path = f"{workspace_run_root_virtual_path}/studies" if workspace_run_root_virtual_path else ""
+    study_workspace_root_dir = workspace_run_root_dir / "studies" if workspace_run_root_dir is not None else None
     directory_notes = []
     if workspace_case_dir_virtual_path:
-        directory_notes.append(
-            "主 OpenFOAM case 的 system、constant 以及各时间步中间文件位于主 case 目录下。"
-        )
+        directory_notes.append("主 OpenFOAM case 的 system、constant 以及各时间步中间文件位于主 case 目录下。")
     if workspace_postprocess_virtual_path:
         directory_notes.append("后处理结果位于 postProcessing 目录下。")
     if study_workspace_root_dir is not None and study_workspace_root_dir.exists():
@@ -723,39 +649,15 @@ def _build_workspace_storage_summary(
 
     return {
         "workspace_run_root_virtual_path": workspace_run_root_virtual_path or "",
-        "workspace_run_root_absolute_path": (
-            str(workspace_run_root_dir.resolve(strict=False))
-            if workspace_run_root_dir is not None
-            else ""
-        ),
+        "workspace_run_root_absolute_path": (str(workspace_run_root_dir.resolve(strict=False)) if workspace_run_root_dir is not None else ""),
         "workspace_case_dir_virtual_path": workspace_case_dir_virtual_path or "",
-        "workspace_case_dir_absolute_path": (
-            str(workspace_case_dir.resolve(strict=False))
-            if workspace_case_dir is not None
-            else ""
-        ),
+        "workspace_case_dir_absolute_path": (str(workspace_case_dir.resolve(strict=False)) if workspace_case_dir is not None else ""),
         "run_script_virtual_path": run_script_virtual_path or "",
-        "run_script_absolute_path": (
-            str(run_script_path.resolve(strict=False))
-            if run_script_path is not None
-            else ""
-        ),
+        "run_script_absolute_path": (str(run_script_path.resolve(strict=False)) if run_script_path is not None else ""),
         "workspace_postprocess_virtual_path": workspace_postprocess_virtual_path or "",
-        "workspace_postprocess_absolute_path": (
-            str(workspace_postprocess_path.resolve(strict=False))
-            if workspace_postprocess_path is not None
-            else ""
-        ),
-        "study_workspace_root_virtual_path": (
-            study_workspace_root_virtual_path
-            if study_workspace_root_dir is not None and study_workspace_root_dir.exists()
-            else ""
-        ),
-        "study_workspace_root_absolute_path": (
-            str(study_workspace_root_dir.resolve(strict=False))
-            if study_workspace_root_dir is not None and study_workspace_root_dir.exists()
-            else ""
-        ),
+        "workspace_postprocess_absolute_path": (str(workspace_postprocess_path.resolve(strict=False)) if workspace_postprocess_path is not None else ""),
+        "study_workspace_root_virtual_path": (study_workspace_root_virtual_path if study_workspace_root_dir is not None and study_workspace_root_dir.exists() else ""),
+        "study_workspace_root_absolute_path": (str(study_workspace_root_dir.resolve(strict=False)) if study_workspace_root_dir is not None and study_workspace_root_dir.exists() else ""),
         "directory_notes": directory_notes,
     }
 
@@ -772,9 +674,7 @@ def _workspace_group_item(
         "label": label,
         "description": description,
         "filename": filename,
-        "file_type": (
-            Path(filename).suffix.lstrip(".") if Path(filename).suffix else "directory"
-        ),
+        "file_type": (Path(filename).suffix.lstrip(".") if Path(filename).suffix else "directory"),
         "location_kind": "workspace_intermediate",
         "stage": "solver-dispatch",
         "virtual_path": virtual_path,
@@ -803,21 +703,9 @@ def _build_artifact_group_summary(
     artifact_manifest: list[dict[str, Any]],
     workspace_storage_summary: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    report_items = [
-        dict(item)
-        for item in artifact_manifest
-        if item.get("location_kind") == "report_output"
-    ]
-    solver_items = [
-        dict(item)
-        for item in artifact_manifest
-        if item.get("location_kind") == "solver_output"
-    ]
-    workspace_items = [
-        dict(item)
-        for item in artifact_manifest
-        if item.get("location_kind") not in {"report_output", "solver_output"}
-    ]
+    report_items = [dict(item) for item in artifact_manifest if item.get("location_kind") == "report_output"]
+    solver_items = [dict(item) for item in artifact_manifest if item.get("location_kind") == "solver_output"]
+    workspace_items = [dict(item) for item in artifact_manifest if item.get("location_kind") not in {"report_output", "solver_output"}]
 
     for filename, label, description, virtual_key, absolute_key in [
         (
@@ -920,11 +808,7 @@ def _resolve_source_runtime_stage(
         artifact_virtual_paths=snapshot.artifact_virtual_paths,
         report_virtual_path=snapshot.report_virtual_path,
     )
-    previous_stage = (
-        previous_payload.get("source_runtime_stage")
-        if isinstance(previous_payload, dict)
-        else None
-    )
+    previous_stage = previous_payload.get("source_runtime_stage") if isinstance(previous_payload, dict) else None
     if isinstance(previous_stage, str) and previous_stage.strip():
         normalized_previous_stage = previous_stage.strip()
         if normalized_previous_stage != "task-intelligence":
@@ -933,10 +817,7 @@ def _resolve_source_runtime_stage(
     if previous_payload is not None:
         return "result-reporting"
 
-    if any(
-        isinstance(path, str) and path.endswith("/solver-results.json")
-        for path in snapshot.artifact_virtual_paths
-    ):
+    if any(isinstance(path, str) and path.endswith("/solver-results.json") for path in snapshot.artifact_virtual_paths):
         return "solver-dispatch"
 
     return snapshot.current_stage
@@ -956,18 +837,10 @@ def run_result_report(
     report_title = report_title or "潜艇 CFD 阶段报告"
     delivery_markdown_artifact = _artifact_virtual_path(run_dir_name, "delivery-readiness.md")
     delivery_json_artifact = _artifact_virtual_path(run_dir_name, "delivery-readiness.json")
-    research_evidence_json_artifact = _artifact_virtual_path(
-        run_dir_name, "research-evidence-summary.json"
-    )
-    scientific_gate_json_artifact = _artifact_virtual_path(
-        run_dir_name, "supervisor-scientific-gate.json"
-    )
-    scientific_remediation_json_artifact = _artifact_virtual_path(
-        run_dir_name, "scientific-remediation-plan.json"
-    )
-    scientific_remediation_handoff_json_artifact = _artifact_virtual_path(
-        run_dir_name, "scientific-remediation-handoff.json"
-    )
+    research_evidence_json_artifact = _artifact_virtual_path(run_dir_name, "research-evidence-summary.json")
+    scientific_gate_json_artifact = _artifact_virtual_path(run_dir_name, "supervisor-scientific-gate.json")
+    scientific_remediation_json_artifact = _artifact_virtual_path(run_dir_name, "scientific-remediation-plan.json")
+    scientific_remediation_handoff_json_artifact = _artifact_virtual_path(run_dir_name, "scientific-remediation-handoff.json")
     json_artifact = _artifact_virtual_path(run_dir_name, "final-report.json")
     markdown_artifact = _artifact_virtual_path(run_dir_name, "final-report.md")
     html_artifact = _artifact_virtual_path(run_dir_name, "final-report.html")
@@ -991,9 +864,7 @@ def run_result_report(
     stability_evidence_virtual_path = loaded_stability_evidence[0] if loaded_stability_evidence else None
     stability_evidence = loaded_stability_evidence[1] if loaded_stability_evidence else None
     selected_case = _resolve_selected_case(snapshot.selected_case_id)
-    selected_case_provenance_summary = _build_selected_case_provenance_summary(
-        selected_case
-    )
+    selected_case_provenance_summary = _build_selected_case_provenance_summary(selected_case)
     scientific_verification_requirements = [
         item.model_dump(mode="json")
         for item in build_effective_scientific_verification_requirements(
@@ -1037,11 +908,7 @@ def run_result_report(
         artifact_virtual_paths=all_artifacts,
         provenance_manifest_virtual_path=snapshot.provenance_manifest_virtual_path,
     )
-    provenance_manifest_virtual_path = (
-        provenance_summary.get("manifest_virtual_path")
-        if isinstance(provenance_summary, dict)
-        else snapshot.provenance_manifest_virtual_path
-    )
+    provenance_manifest_virtual_path = provenance_summary.get("manifest_virtual_path") if isinstance(provenance_summary, dict) else snapshot.provenance_manifest_virtual_path
     reproducibility_summary = _build_reproducibility_summary(
         outputs_dir=outputs_dir,
         artifact_virtual_paths=all_artifacts,
@@ -1108,11 +975,7 @@ def run_result_report(
                     history=followup_history,
                     history_virtual_path=snapshot.scientific_followup_history_virtual_path,
                 )
-    review_status = (
-        "blocked"
-        if scientific_supervisor_gate["gate_status"] == "blocked"
-        else "ready_for_supervisor"
-    )
+    review_status = "blocked" if scientific_supervisor_gate["gate_status"] == "blocked" else "ready_for_supervisor"
     source_runtime_stage = _resolve_source_runtime_stage(
         snapshot,
         outputs_dir=outputs_dir,
@@ -1181,9 +1044,7 @@ def run_result_report(
     )
     workspace_postprocess_virtual_path = None
     if isinstance(solver_metrics, dict):
-        raw_workspace_postprocess_virtual_path = solver_metrics.get(
-            "workspace_postprocess_virtual_path"
-        )
+        raw_workspace_postprocess_virtual_path = solver_metrics.get("workspace_postprocess_virtual_path")
         if isinstance(raw_workspace_postprocess_virtual_path, str):
             workspace_postprocess_virtual_path = raw_workspace_postprocess_virtual_path
     artifact_manifest = _build_report_artifact_manifest(
@@ -1224,15 +1085,9 @@ def run_result_report(
         "unresolved_decisions": snapshot.unresolved_decisions,
         "evidence_expectations": snapshot.evidence_expectations,
         "variant_policy": snapshot.variant_policy,
-        "requested_outputs": [
-            item.model_dump(mode="json") for item in snapshot.requested_outputs
-        ],
+        "requested_outputs": [item.model_dump(mode="json") for item in snapshot.requested_outputs],
         "scientific_verification_requirements": scientific_verification_requirements,
-        "selected_case_acceptance_profile": (
-            selected_case.acceptance_profile.model_dump(mode="json")
-            if selected_case and selected_case.acceptance_profile
-            else None
-        ),
+        "selected_case_acceptance_profile": (selected_case.acceptance_profile.model_dump(mode="json") if selected_case and selected_case.acceptance_profile else None),
         "selected_case_provenance_summary": selected_case_provenance_summary,
         "workspace_case_dir_virtual_path": snapshot.workspace_case_dir_virtual_path,
         "run_script_virtual_path": snapshot.run_script_virtual_path,
@@ -1260,11 +1115,7 @@ def run_result_report(
         "scientific_gate_status": scientific_supervisor_gate["gate_status"],
         "allowed_claim_level": scientific_supervisor_gate["allowed_claim_level"],
         "decision_status": review.decision_status,
-        "delivery_decision_summary": (
-            review.delivery_decision_summary.model_dump(mode="json")
-            if review.delivery_decision_summary
-            else None
-        ),
+        "delivery_decision_summary": (review.delivery_decision_summary.model_dump(mode="json") if review.delivery_decision_summary else None),
         "recommended_actions": _recommended_actions(
             review_status=review.review_status,
             decision_status=review.decision_status,

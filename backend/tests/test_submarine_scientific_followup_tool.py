@@ -2,9 +2,10 @@ import importlib
 import json
 from types import SimpleNamespace
 
-from deerflow.config.paths import Paths
 from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.types import Command
+
+from deerflow.config.paths import Paths
 
 
 def _make_runtime(

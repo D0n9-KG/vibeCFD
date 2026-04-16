@@ -71,10 +71,10 @@ def test_submarine_workflow_prompt_section_refreshes_design_brief_on_material_co
 def test_submarine_workflow_prompt_section_requires_confirmed_brief_before_solver_dispatch():
     section = prompt_module.get_submarine_workflow_prompt_section()
 
-    assert "confirmation_status=\"confirmed\"" in section
+    assert 'confirmation_status="confirmed"' in section
     assert "rerun `submarine_design_brief`" in section.lower()
     assert "before calling `submarine_solver_dispatch`" in section.lower()
-    assert "approval_state=\"approved\"" in section
+    assert 'approval_state="approved"' in section
 
 
 def test_submarine_workflow_prompt_section_forbids_todo_only_replies_when_bound_stl_and_concrete_request_exist():
@@ -90,7 +90,7 @@ def test_submarine_workflow_prompt_section_forbids_todo_only_replies_when_bound_
 def test_submarine_workflow_prompt_section_keeps_draft_when_confirmation_is_partial():
     section = prompt_module.get_submarine_workflow_prompt_section()
 
-    assert "confirmation_status=\"draft\"" in section
+    assert 'confirmation_status="draft"' in section
     assert "still-unresolved items" in section
     assert "stop before solver dispatch" in section.lower()
 
@@ -113,9 +113,7 @@ def test_apply_prompt_template_includes_submarine_workflow_protocol(monkeypatch)
 
 
 def test_submarine_role_boundaries_keep_stl_only_v1_language():
-    boundaries = {
-        boundary.role_id: boundary for boundary in get_subagent_role_boundaries()
-    }
+    boundaries = {boundary.role_id: boundary for boundary in get_subagent_role_boundaries()}
 
     geometry_preflight = boundaries["geometry-preflight"]
 
@@ -124,9 +122,7 @@ def test_submarine_role_boundaries_keep_stl_only_v1_language():
 
 
 def test_submarine_role_boundaries_include_scientific_capability_roles():
-    boundaries = {
-        boundary.role_id: boundary for boundary in get_subagent_role_boundaries()
-    }
+    boundaries = {boundary.role_id: boundary for boundary in get_subagent_role_boundaries()}
 
     assert {
         "scientific-study",
@@ -137,13 +133,7 @@ def test_submarine_role_boundaries_include_scientific_capability_roles():
 
 
 def test_submarine_orchestrator_skill_guides_judgment_without_fixed_tool_order():
-    skill_path = (
-        Path(__file__).resolve().parents[2]
-        / "skills"
-        / "public"
-        / "submarine-orchestrator"
-        / "SKILL.md"
-    )
+    skill_path = Path(__file__).resolve().parents[2] / "skills" / "public" / "submarine-orchestrator" / "SKILL.md"
     content = skill_path.read_text(encoding="utf-8")
 
     assert "when the primary agent should" in content.lower()
@@ -152,13 +142,7 @@ def test_submarine_orchestrator_skill_guides_judgment_without_fixed_tool_order()
 
 
 def test_submarine_orchestrator_skill_mentions_confirmation_refresh_before_execution():
-    skill_path = (
-        Path(__file__).resolve().parents[2]
-        / "skills"
-        / "public"
-        / "submarine-orchestrator"
-        / "SKILL.md"
-    )
+    skill_path = Path(__file__).resolve().parents[2] / "skills" / "public" / "submarine-orchestrator" / "SKILL.md"
     content = skill_path.read_text(encoding="utf-8")
 
     assert 'confirmation_status="confirmed"' in content

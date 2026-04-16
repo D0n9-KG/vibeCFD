@@ -82,9 +82,7 @@ def _design_brief_runtime_update() -> dict:
 def _delegation_runtime_update() -> dict:
     return {
         "provenance_summary": {
-            "artifact_entrypoints": {
-                "request": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json"
-            },
+            "artifact_entrypoints": {"request": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-request.json"},
             "manifest_completeness_status": "complete",
         },
         "environment_fingerprint": {
@@ -104,9 +102,7 @@ def _delegation_runtime_update() -> dict:
                 "output_id": "drag_coefficient",
                 "delivery_status": "delivered",
                 "detail": "Delivered through solver-results.json.",
-                "artifact_virtual_paths": [
-                    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
-                ],
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"],
             }
         ],
         "execution_plan": [
@@ -181,34 +177,20 @@ def test_thread_state_merges_parallel_submarine_runtime_updates():
         "/mnt/user-data/outputs/submarine/reports/demo/cfd-design-brief.md",
     ]
     assert runtime_state["request_virtual_path"].endswith("/openfoam-request.json")
-    assert runtime_state["provenance_manifest_virtual_path"].endswith(
-        "/provenance-manifest.json"
-    )
-    assert runtime_state["provenance_summary"]["manifest_virtual_path"].endswith(
-        "/provenance-manifest.json"
-    )
-    assert runtime_state["provenance_summary"]["artifact_entrypoints"]["request"].endswith(
-        "/openfoam-request.json"
-    )
+    assert runtime_state["provenance_manifest_virtual_path"].endswith("/provenance-manifest.json")
+    assert runtime_state["provenance_summary"]["manifest_virtual_path"].endswith("/provenance-manifest.json")
+    assert runtime_state["provenance_summary"]["artifact_entrypoints"]["request"].endswith("/openfoam-request.json")
     assert runtime_state["provenance_summary"]["manifest_completeness_status"] == "complete"
     assert runtime_state["environment_fingerprint"]["profile_id"] == "local_cli"
     assert runtime_state["environment_fingerprint"]["docker_socket_available"] is False
     assert runtime_state["environment_parity_assessment"]["profile_id"] == "local_cli"
     assert runtime_state["environment_parity_assessment"]["parity_status"] == "matched"
-    assert runtime_state["environment_parity_assessment"]["drift_reasons"] == [
-        "Host mount strategy drifted from the declared profile."
-    ]
-    assert runtime_state["requested_outputs"][0]["notes"] == (
-        "Promoted into the execution-ready baseline package."
-    )
+    assert runtime_state["environment_parity_assessment"]["drift_reasons"] == ["Host mount strategy drifted from the declared profile."]
+    assert runtime_state["requested_outputs"][0]["notes"] == ("Promoted into the execution-ready baseline package.")
     assert runtime_state["output_delivery_plan"][0]["delivery_status"] == "delivered"
-    assert runtime_state["output_delivery_plan"][0]["artifact_virtual_paths"] == [
-        "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"
-    ]
+    assert runtime_state["output_delivery_plan"][0]["artifact_virtual_paths"] == ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json"]
 
-    geometry_preflight = next(
-        item for item in runtime_state["execution_plan"] if item["role_id"] == "geometry-preflight"
-    )
+    geometry_preflight = next(item for item in runtime_state["execution_plan"] if item["role_id"] == "geometry-preflight")
     assert geometry_preflight["status"] == "ready"
     assert geometry_preflight["target_skills"] == ["submarine-geometry-preflight"]
 
@@ -236,19 +218,11 @@ def test_thread_state_prefers_blocked_runtime_truth_when_parallel_updates_disagr
 
     runtime_state = result["submarine_runtime"]
     assert runtime_state["runtime_status"] == "blocked"
-    assert runtime_state["runtime_summary"] == (
-        "Current thread is missing the canonical solver-results evidence."
-    )
-    assert runtime_state["recovery_guidance"] == (
-        "Re-run solver dispatch so solver-results.json is registered again."
-    )
-    assert runtime_state["blocker_detail"] == (
-        "solver-dispatch 缺少可恢复的关键证据: 求解结果。"
-    )
+    assert runtime_state["runtime_summary"] == ("Current thread is missing the canonical solver-results evidence.")
+    assert runtime_state["recovery_guidance"] == ("Re-run solver dispatch so solver-results.json is registered again.")
+    assert runtime_state["blocker_detail"] == ("solver-dispatch 缺少可恢复的关键证据: 求解结果。")
     assert runtime_state["request_virtual_path"].endswith("/openfoam-request.json")
-    solver_dispatch = next(
-        item for item in runtime_state["execution_plan"] if item["role_id"] == "solver-dispatch"
-    )
+    solver_dispatch = next(item for item in runtime_state["execution_plan"] if item["role_id"] == "solver-dispatch")
     assert solver_dispatch["status"] == "blocked"
     assert solver_dispatch["target_skills"] == ["submarine-solver-dispatch"]
 
@@ -276,6 +250,4 @@ def test_thread_state_preserves_skill_runtime_snapshot():
     )
 
     assert result["skill_runtime_snapshot"]["runtime_revision"] == 4
-    assert result["skill_runtime_snapshot"]["enabled_skill_names"] == [
-        "submarine-result-acceptance"
-    ]
+    assert result["skill_runtime_snapshot"]["enabled_skill_names"] == ["submarine-result-acceptance"]

@@ -28,11 +28,7 @@ def _family_matches(hint: str | None, family: str) -> bool:
         return False
     normalized_hint = hint.strip().lower()
     normalized_family = family.strip().lower()
-    return (
-        normalized_hint == normalized_family
-        or normalized_hint in normalized_family
-        or normalized_family in normalized_hint
-    )
+    return normalized_hint == normalized_family or normalized_hint in normalized_family or normalized_family in normalized_hint
 
 
 def _suffix_matches(geometry_file_name: str | None, input_requirements: list[str]) -> bool:
@@ -86,10 +82,7 @@ def _build_confidence_note(case: SubmarineCase) -> str:
 @lru_cache(maxsize=1)
 def load_case_library() -> SubmarineCaseLibrary:
     """Load and normalize the submarine case library from source JSON."""
-    cases = [
-        SubmarineCase.model_validate(raw_case)
-        for raw_case in load_submarine_cases_payload().get("cases", [])
-    ]
+    cases = [SubmarineCase.model_validate(raw_case) for raw_case in load_submarine_cases_payload().get("cases", [])]
     case_index = {case.case_id: case for case in cases}
     families = sorted({case.geometry_family for case in cases})
     task_types = sorted({case.task_type for case in cases})
@@ -104,10 +97,7 @@ def load_case_library() -> SubmarineCaseLibrary:
 @lru_cache(maxsize=1)
 def load_skill_registry() -> SubmarineSkillRegistry:
     """Load and normalize the submarine skill registry from source JSON."""
-    skills = [
-        SubmarineSkillDefinition.model_validate(raw_skill)
-        for raw_skill in load_submarine_skills_payload().get("skills", [])
-    ]
+    skills = [SubmarineSkillDefinition.model_validate(raw_skill) for raw_skill in load_submarine_skills_payload().get("skills", [])]
     return SubmarineSkillRegistry(
         skills=skills,
         skill_index={skill.skill_id: skill for skill in skills},
@@ -124,13 +114,7 @@ def rank_cases(
 ) -> list[SubmarineCaseMatch]:
     """Rank submarine benchmark or engineering cases for a task."""
     library = load_case_library()
-    description_tokens = _tokenize(
-        " ".join(
-            part
-            for part in [task_description, task_type, geometry_family_hint or "", geometry_file_name or ""]
-            if part
-        )
-    )
+    description_tokens = _tokenize(" ".join(part for part in [task_description, task_type, geometry_family_hint or "", geometry_file_name or ""] if part))
     ranked: list[SubmarineCaseMatch] = []
 
     for case in library.cases:
@@ -206,32 +190,15 @@ def rank_cases(
                 expected_outputs=case.expected_outputs,
                 linked_skills=case.linked_skills,
                 reference_sources=case.reference_sources,
-                source_label=(
-                    primary_reference.source_label or primary_reference.title
-                    if primary_reference
-                    else None
-                ),
+                source_label=(primary_reference.source_label or primary_reference.title if primary_reference else None),
                 source_url=primary_reference.url if primary_reference else None,
                 source_type=primary_reference.source_type if primary_reference else None,
                 applicability_conditions=_collect_applicability_conditions(case),
                 confidence_note=_build_confidence_note(case),
                 is_placeholder=primary_reference.is_placeholder if primary_reference else False,
-                evidence_gap_note=(
-                    primary_reference.evidence_gap_note if primary_reference else None
-                ),
-                acceptance_profile_summary_zh=(
-                    case.acceptance_profile.summary_zh
-                    if case.acceptance_profile is not None
-                    else None
-                ),
-                benchmark_metric_ids=(
-                    [
-                        target.metric_id
-                        for target in case.acceptance_profile.benchmark_targets
-                    ]
-                    if case.acceptance_profile is not None
-                    else []
-                ),
+                evidence_gap_note=(primary_reference.evidence_gap_note if primary_reference else None),
+                acceptance_profile_summary_zh=(case.acceptance_profile.summary_zh if case.acceptance_profile is not None else None),
+                benchmark_metric_ids=([target.metric_id for target in case.acceptance_profile.benchmark_targets] if case.acceptance_profile is not None else []),
             )
         )
 

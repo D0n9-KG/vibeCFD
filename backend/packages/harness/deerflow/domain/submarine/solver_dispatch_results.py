@@ -19,10 +19,7 @@ def _workspace_postprocess_virtual_path(
     case_relative_dir: str = "",
 ) -> str:
     relative = f"/{case_relative_dir.strip('/')}" if case_relative_dir else ""
-    return (
-        f"{WORKSPACE_VIRTUAL_ROOT}/submarine/solver-dispatch/"
-        f"{run_dir_name}{relative}/openfoam-case/postProcessing"
-    )
+    return f"{WORKSPACE_VIRTUAL_ROOT}/submarine/solver-dispatch/{run_dir_name}{relative}/openfoam-case/postProcessing"
 
 
 def _find_latest_postprocess_file(case_dir: Path, object_name: str, filename: str) -> Path | None:
@@ -129,9 +126,7 @@ def _parse_vector_triplet(value: str) -> list[float] | None:
 
 
 def _parse_force_line(line: str) -> dict | None:
-    pattern = re.compile(
-        r"^(?P<time>[-+0-9.eE]+)\s+\(\((?P<pf>[^)]+)\)\s+\((?P<vf>[^)]+)\)\)\s+\(\((?P<pm>[^)]+)\)\s+\((?P<vm>[^)]+)\)\)$"
-    )
+    pattern = re.compile(r"^(?P<time>[-+0-9.eE]+)\s+\(\((?P<pf>[^)]+)\)\s+\((?P<vf>[^)]+)\)\)\s+\(\((?P<pm>[^)]+)\)\s+\((?P<vm>[^)]+)\)\)$")
     match = pattern.match(line)
     if match is None:
         return None
@@ -363,11 +358,7 @@ def _build_residual_summary(
     for entry in latest_by_field.values():
         final_residual = entry.get("final_residual")
         if isinstance(final_residual, float):
-            max_final_residual = (
-                final_residual
-                if max_final_residual is None
-                else max(max_final_residual, final_residual)
-            )
+            max_final_residual = final_residual if max_final_residual is None else max(max_final_residual, final_residual)
 
     return {
         "history": residual_history,
@@ -485,10 +476,7 @@ def render_solver_results_markdown_enriched(results: dict) -> str:
         )
         latest_by_field = residual_summary.get("latest_by_field") or {}
         for field_name, entry in latest_by_field.items():
-            lines.append(
-                f"- {field_name}: initial `{entry.get('initial_residual')}`, "
-                f"final `{entry.get('final_residual')}`, iterations `{entry.get('iterations')}`"
-            )
+            lines.append(f"- {field_name}: initial `{entry.get('initial_residual')}`, final `{entry.get('final_residual')}`, iterations `{entry.get('iterations')}`")
     if coeffs:
         lines.extend(
             [
@@ -572,18 +560,16 @@ def solver_reference_values(case_scaffold: dict[str, str | bool | float | None])
     values: dict[str, float | str] = {
         "reference_length_m": float(case_scaffold.get("reference_length_m", 0.0)),
         "reference_area_m2": float(case_scaffold.get("reference_area_m2", 0.0)),
-        "inlet_velocity_mps": float(
-            case_scaffold.get("inlet_velocity_mps", DEFAULT_INLET_VELOCITY_MPS)
-        ),
-        "fluid_density_kg_m3": float(
-            case_scaffold.get("fluid_density_kg_m3", DEFAULT_FLUID_DENSITY_KG_M3)
-        ),
+        "inlet_velocity_mps": float(case_scaffold.get("inlet_velocity_mps", DEFAULT_INLET_VELOCITY_MPS)),
+        "fluid_density_kg_m3": float(case_scaffold.get("fluid_density_kg_m3", DEFAULT_FLUID_DENSITY_KG_M3)),
     }
     if case_scaffold.get("reference_value_approval_state"):
         values["approval_state"] = str(case_scaffold["reference_value_approval_state"])
     if case_scaffold.get("reference_value_justification"):
         values["justification"] = str(case_scaffold["reference_value_justification"])
     return values
+
+
 def looks_like_solver_failure(output: str) -> bool:
     markers = [
         "FOAM FATAL",
@@ -596,6 +582,7 @@ def looks_like_solver_failure(output: str) -> bool:
     ]
     lowered = output.lower()
     return any(marker.lower() in lowered for marker in markers)
+
 
 __all__ = [
     "collect_solver_results",

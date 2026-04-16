@@ -467,10 +467,7 @@ def _get_enabled_skills_snapshot_source_state():
                 if skill_file is not None:
                     watch_paths.add(Path(skill_file))
 
-                current_path = Path(
-                    getattr(skill, "skill_dir", None)
-                    or getattr(skill, "skill_file", skills_root)
-                )
+                current_path = Path(getattr(skill, "skill_dir", None) or getattr(skill, "skill_file", skills_root))
                 category_root = skills_root / getattr(skill, "category", "public")
 
                 while current_path.exists():
@@ -517,9 +514,7 @@ def _get_enabled_skills_snapshot_source_state():
 
         skill_files = list(skills_root.rglob("SKILL.md"))
         if skill_files:
-            watch_state = tuple(
-                sorted((str(skill_file), skill_file.stat().st_mtime) for skill_file in skill_files)
-            )
+            watch_state = tuple(sorted((str(skill_file), skill_file.stat().st_mtime) for skill_file in skill_files))
         else:
             watch_state = ((str(skills_root), skills_root.stat().st_mtime),)
 
@@ -583,10 +578,7 @@ def _get_enabled_skills_snapshot():
     global _CACHED_ENABLED_SKILLS, _CACHED_ENABLED_SKILLS_SOURCE_STATE
     current_source_state = _get_enabled_skills_snapshot_source_state()
 
-    if (
-        _CACHED_ENABLED_SKILLS is not None
-        and _CACHED_ENABLED_SKILLS_SOURCE_STATE == current_source_state
-    ):
+    if _CACHED_ENABLED_SKILLS is not None and _CACHED_ENABLED_SKILLS_SOURCE_STATE == current_source_state:
         return list(_CACHED_ENABLED_SKILLS)
 
     if _is_event_loop_running():
@@ -615,18 +607,9 @@ def get_skills_prompt_section(
     Returns the <skill_system>...</skill_system> block listing all enabled skills,
     suitable for injection into any agent's system prompt.
     """
-    snapshot_skill_names = [
-        name
-        for name in (skill_snapshot or {}).get("enabled_skill_names", [])
-        if isinstance(name, str)
-    ]
+    snapshot_skill_names = [name for name in (skill_snapshot or {}).get("enabled_skill_names", []) if isinstance(name, str)]
     snapshot_skill_entries = [
-        entry
-        for entry in (skill_snapshot or {}).get("skill_prompt_entries", [])
-        if isinstance(entry, dict)
-        and isinstance(entry.get("name"), str)
-        and isinstance(entry.get("description"), str)
-        and isinstance(entry.get("location"), str)
+        entry for entry in (skill_snapshot or {}).get("skill_prompt_entries", []) if isinstance(entry, dict) and isinstance(entry.get("name"), str) and isinstance(entry.get("description"), str) and isinstance(entry.get("location"), str)
     ]
     if skill_snapshot is not None and not snapshot_skill_entries and snapshot_skill_names:
         snapshot_skill_entries = [
@@ -639,21 +622,12 @@ def get_skills_prompt_section(
         ]
     if snapshot_skill_entries:
         if available_skills is not None:
-            snapshot_skill_entries = [
-                entry
-                for entry in snapshot_skill_entries
-                if entry["name"] in available_skills
-            ]
+            snapshot_skill_entries = [entry for entry in snapshot_skill_entries if entry["name"] in available_skills]
         if not snapshot_skill_entries:
             return ""
 
         skill_items = "\n".join(
-            "    <skill>\n"
-            f"        <name>{entry['name']}</name>\n"
-            f"        <description>{entry['description']}</description>\n"
-            f"        <location>{entry['location']}</location>\n"
-            "    </skill>"
-            for entry in snapshot_skill_entries
+            f"    <skill>\n        <name>{entry['name']}</name>\n        <description>{entry['description']}</description>\n        <location>{entry['location']}</location>\n    </skill>" for entry in snapshot_skill_entries
         )
         skills_list = f"<available_skills>\n{skill_items}\n</available_skills>"
         return f"""<skill_system>
@@ -736,9 +710,7 @@ def get_subagent_skill_routing_prompt_section() -> str:
         recommended = recommend_skills_for_subagent(subagent_name)
         if not recommended:
             continue
-        routing_lines.append(
-            f"- {subagent_name}: {', '.join(sorted(recommended))}"
-        )
+        routing_lines.append(f"- {subagent_name}: {', '.join(sorted(recommended))}")
 
     if not routing_lines:
         return ""
@@ -763,39 +735,22 @@ def get_project_skill_bindings_prompt_section(
 
     if skill_snapshot is not None:
         resolved_bindings = {
-            entry["role_id"]: sorted(
-                target
-                for target in entry.get("target_skills", [])
-                if isinstance(target, str) and target
-            )
+            entry["role_id"]: sorted(target for target in entry.get("target_skills", []) if isinstance(target, str) and target)
             for entry in (skill_snapshot.get("resolved_binding_targets") or [])
-            if isinstance(entry, dict)
-            and isinstance(entry.get("role_id"), str)
+            if isinstance(entry, dict) and isinstance(entry.get("role_id"), str)
         }
-        applied_roles = sorted(
-            role_id
-            for role_id in (skill_snapshot.get("binding_targets_applied") or [])
-            if isinstance(role_id, str) and role_id
-        )
+        applied_roles = sorted(role_id for role_id in (skill_snapshot.get("binding_targets_applied") or []) if isinstance(role_id, str) and role_id)
         runtime_revision = skill_snapshot.get("runtime_revision")
         lines = []
         for role_id in _PROJECT_SKILL_BINDING_ROLE_IDS:
             if resolved_bindings.get(role_id):
-                lines.append(
-                    f"- {role_id} -> {', '.join(resolved_bindings[role_id])}"
-                )
+                lines.append(f"- {role_id} -> {', '.join(resolved_bindings[role_id])}")
             elif role_id in applied_roles:
-                lines.append(
-                    f"- {role_id} -> explicit binding captured in this thread snapshot"
-                )
+                lines.append(f"- {role_id} -> explicit binding captured in this thread snapshot")
             else:
                 lines.append(f"- {role_id} -> captured enabled skill pool")
 
-        revision_text = (
-            f"runtime revision {runtime_revision}"
-            if runtime_revision is not None
-            else "an earlier runtime revision"
-        )
+        revision_text = f"runtime revision {runtime_revision}" if runtime_revision is not None else "an earlier runtime revision"
         return f"""<project_skill_bindings>
 This thread is pinned to a captured skill snapshot from {revision_text}.
 Use the captured enabled skill pool when routing work for this thread. The
@@ -810,10 +765,7 @@ snapshot was captured.
     except Exception:
         return ""
 
-    bindings_by_role: dict[str, set[str]] = {
-        role_id: set()
-        for role_id in _PROJECT_SKILL_BINDING_ROLE_IDS
-    }
+    bindings_by_role: dict[str, set[str]] = {role_id: set() for role_id in _PROJECT_SKILL_BINDING_ROLE_IDS}
 
     for record in registry.records.values():
         for binding in record.binding_targets:
@@ -874,7 +826,10 @@ For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resi
    In other words, rerun `submarine_design_brief` before calling `submarine_solver_dispatch` whenever the latest user message is the confirmation that unlocks execution.
 6. `submarine_result_report` is recommended only after geometry or solver artifacts exist and the report can be grounded in actual DeerFlow evidence.
    Keep scientific-claim language bounded by the available evidence and the structured runtime outputs.
-   Do not refresh `submarine_result_report` immediately after a contract-only revision unless you are either surfacing unchanged prior evidence with explicit boundaries or you have already run the downstream execution / post-processing work needed for the revised outputs.
+   Do not refresh `submarine_result_report` immediately after a contract-only revision
+   unless you are either surfacing unchanged prior evidence with explicit boundaries
+   or you have already run the downstream execution / post-processing work needed
+   for the revised outputs.
 </submarine_workflow_protocol>"""
 
 
@@ -892,7 +847,10 @@ For Skill Studio authoring, validation, and publish-readiness requests, the prim
 3. Infer a practical initial `skill_name`, `skill_purpose`, `trigger_conditions`, `workflow_steps`, `expert_rules`, `acceptance_criteria`, and `test_scenarios` from the user's request and uploaded files when possible.
 4. A minimal validation or test-skill request is usually enough information for a credible first draft. Do not wait for exhaustive requirements before calling the tool.
 5. Ask `ask_clarification` before the tool call only when a missing domain judgment truly blocks a credible first draft. Otherwise, draft the package first and surface uncertainties inside the structured outputs.
-6. Successful Skill Studio progress means producing structured artifacts such as `skill-draft.json`, `validation-report.json`, `test-matrix.json`, `publish-readiness.json`, and `skill-package.json`, not merely replying with free-form chat text.
+6. Successful Skill Studio progress means producing structured artifacts such as
+   `skill-draft.json`, `validation-report.json`, `test-matrix.json`,
+   `publish-readiness.json`, and `skill-package.json`, not merely replying
+   with free-form chat text.
 7. After the package exists, use follow-up conversation to refine the draft, review validation findings, and prepare publish / rollback decisions.
 </skill_studio_workflow_protocol>"""
 
@@ -975,9 +933,7 @@ def apply_prompt_template(
         project_skill_bindings_section = get_project_skill_bindings_prompt_section(
             skill_snapshot=skill_snapshot,
         )
-    skill_routing_section = (
-        get_subagent_skill_routing_prompt_section() if subagent_enabled else ""
-    )
+    skill_routing_section = get_subagent_skill_routing_prompt_section() if subagent_enabled else ""
     submarine_workflow_section = "\n\n".join(
         section
         for section in [
