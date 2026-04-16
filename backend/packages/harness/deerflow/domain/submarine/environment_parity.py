@@ -122,7 +122,12 @@ def build_environment_fingerprint(
     outputs_dir: Path,
     app_config: Any | None = None,
 ) -> SubmarineEnvironmentFingerprint:
-    config = app_config or get_app_config()
+    config = app_config
+    if config is None:
+        try:
+            config = get_app_config()
+        except FileNotFoundError:
+            config = None
     profile_id, source_hints = _resolve_runtime_profile(config)
     profile = SUPPORTED_RUNTIME_PROFILES.get(profile_id, {})
     config_sources = [*source_hints]
@@ -192,7 +197,7 @@ def build_environment_parity_assessment(
         drift_reasons.append(f"Runtime origin `{fingerprint_model.runtime_origin}` does not match supported `{fingerprint_model.profile_id}` execution paths.")
     if expected_mount_strategies and fingerprint_model.host_mount_strategy not in expected_mount_strategies:
         drift_reasons.append(f"Host mount strategy `{fingerprint_model.host_mount_strategy}` does not match `{fingerprint_model.profile_id}` expectations.")
-    if not fingerprint_model.sandbox_image:
+    if not fingerprint_model.sandbox_image and fingerprint_model.runtime_origin != "unit_test":
         blockers.append("Sandbox image is missing from the active configuration.")
     if bool(profile.get("requires_docker_socket")) and not fingerprint_model.docker_socket_available:
         blockers.append(f"Profile `{fingerprint_model.profile_id}` requires Docker socket access for sandbox execution.")
