@@ -13,3 +13,14 @@ void test("artifacts context keeps auto-open disabled on first paint to avoid th
     /const \[autoOpen, setAutoOpen\] = useState\(false\);/,
   );
 });
+
+void test("artifacts context exposes a stable open handler so thread routes do not immediately close the file drawer after user clicks", () => {
+  assert.match(
+    artifactsContextSource,
+    /const \w+ = useCallback\(\s*\(isOpen: boolean\) => \{/,
+  );
+  assert.match(
+    artifactsContextSource,
+    /setOpen:\s*\w+,/,
+  );
+});

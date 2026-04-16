@@ -196,7 +196,7 @@ export function SubmarineThreadRoute({
   useEffect(() => {
     deselectArtifact();
     setArtifactsOpen(false);
-  }, [deselectArtifact, setArtifactsOpen]);
+  }, [routeThreadId, deselectArtifact, setArtifactsOpen]);
 
   const { threadId, isNewThread } = threadState;
   const [thread, sendMessage, isUploading, streamMeta] = useThreadStream({

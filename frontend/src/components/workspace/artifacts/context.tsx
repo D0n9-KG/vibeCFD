@@ -35,7 +35,7 @@ export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
   const [artifacts, setArtifacts] = useState<string[]>([]);
   const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
   const [autoSelect, setAutoSelect] = useState(true);
-  const [open, setOpen] = useState(
+  const [open, setOpenState] = useState(
     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
   );
   const [autoOpen, setAutoOpen] = useState(false);
@@ -57,8 +57,19 @@ export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
   const deselect = useCallback(() => {
     setSelectedArtifact(null);
     setAutoSelect(true);
-    setOpen(false);
+    setOpenState(false);
   }, []);
+
+  const handleOpenChange = useCallback(
+    (isOpen: boolean) => {
+      if (!isOpen && autoOpen) {
+        setAutoOpen(false);
+        setAutoSelect(false);
+      }
+      setOpenState(isOpen);
+    },
+    [autoOpen],
+  );
 
   const value: ArtifactsContextType = {
     artifacts,
@@ -67,13 +78,7 @@ export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
     open,
     autoOpen,
     autoSelect,
-    setOpen: (isOpen: boolean) => {
-      if (!isOpen && autoOpen) {
-        setAutoOpen(false);
-        setAutoSelect(false);
-      }
-      setOpen(isOpen);
-    },
+    setOpen: handleOpenChange,
 
     selectedArtifact,
     select,
