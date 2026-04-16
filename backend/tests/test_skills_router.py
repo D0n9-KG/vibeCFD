@@ -299,8 +299,8 @@ def test_skill_lifecycle_routes_round_trip_publish_management_state(
     assert lifecycle_summaries[0]["enabled"] is True
     assert lifecycle_summaries[0]["binding_targets"][0]["role_id"] == "scientific-verification"
     assert lifecycle_summaries[0]["draft_status"] == "published"
-    assert lifecycle_summaries[0]["published_path"].endswith(
-        "skills\\custom\\submarine-result-acceptance",
+    assert lifecycle_summaries[0]["published_path"].replace("\\", "/").endswith(
+        "skills/custom/submarine-result-acceptance",
     )
     assert lifecycle_summaries[0]["last_published_at"] is not None
 

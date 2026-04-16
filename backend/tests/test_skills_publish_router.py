@@ -171,7 +171,9 @@ def test_publish_skill_route_installs_and_enables_skill(tmp_path: Path, monkeypa
     assert data["success"] is True
     assert data["skill_name"] == "submarine-result-acceptance"
     assert data["enabled"] is True
-    assert data["published_path"].endswith("skills\\custom\\submarine-result-acceptance")
+    assert data["published_path"].replace("\\", "/").endswith(
+        "skills/custom/submarine-result-acceptance",
+    )
     installed_skill = tmp_path / "skills" / "custom" / "submarine-result-acceptance" / "SKILL.md"
     assert installed_skill.is_file() is True
 
