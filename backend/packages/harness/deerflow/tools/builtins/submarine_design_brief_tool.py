@@ -25,6 +25,9 @@ from deerflow.domain.submarine.contracts import (
 )
 from deerflow.domain.submarine.design_brief import run_design_brief
 from deerflow.domain.submarine.geometry_check import SUPPORTED_GEOMETRY_SUFFIXES
+from deerflow.domain.submarine.output_contract import (
+    resolve_effective_expected_outputs,
+)
 from deerflow.tools.builtins.submarine_runtime_context import (
     load_existing_design_brief_payload,
     resolve_bound_geometry_virtual_path,
@@ -130,6 +133,7 @@ def submarine_design_brief_tool(
         geometry_path: Optional geometry path. Prefer `/mnt/user-data/uploads/...`. When omitted, the latest uploaded geometry is used if present.
         task_type: CFD task type such as `resistance`, `pressure_distribution`, or `wake_field`. When omitted, reuse the last saved value.
         confirmation_status: Whether the current brief is still a draft or already confirmed with the user. When omitted, reuse the last saved value.
+            If the latest user turn confirms the proposed CFD setup or resolves the pending open questions, pass `confirmed` here and send only the remaining unresolved `open_questions` (use an empty list when everything needed for execution is now confirmed).
         geometry_family_hint: Optional family hint such as `DARPA SUBOFF` or `Type 209`.
         selected_case_id: Optional recommended baseline case ID.
         inlet_velocity_mps: Optional inlet velocity captured from the conversation.
@@ -191,6 +195,11 @@ def submarine_design_brief_tool(
             existing_brief=existing_payload,
             task_description=resolved_task_description,
         )
+        resolved_expected_outputs = resolve_effective_expected_outputs(
+            existing_outputs=existing_payload.get("expected_outputs"),
+            explicit_outputs=expected_outputs,
+            task_description=resolved_task_description,
+        )
         payload, artifacts = run_design_brief(
             outputs_dir=outputs_dir,
             task_description=resolved_task_description,
@@ -230,11 +239,7 @@ def submarine_design_brief_tool(
                 if write_interval_steps is not None
                 else existing_requirements.get("write_interval_steps")
             ),
-            expected_outputs=(
-                expected_outputs
-                if expected_outputs is not None
-                else existing_payload.get("expected_outputs")
-            ),
+            expected_outputs=resolved_expected_outputs,
             user_constraints=(
                 user_constraints
                 if user_constraints is not None
@@ -248,6 +253,14 @@ def submarine_design_brief_tool(
             existing_calculation_plan=(
                 existing_runtime.get("calculation_plan")
                 or existing_payload.get("calculation_plan")
+            ),
+            previous_contract_revision=(
+                existing_runtime.get("contract_revision")
+                or existing_payload.get("contract_revision")
+            ),
+            existing_custom_variants=(
+                existing_runtime.get("custom_variants")
+                or existing_payload.get("custom_variants")
             ),
             ready_stage_when_confirmed=(
                 "solver-dispatch"
@@ -291,15 +304,23 @@ def submarine_design_brief_tool(
         reference_value_suggestions=(
             (existing_runtime or {}).get("reference_value_suggestions")
         ),
+        execution_readiness=(existing_runtime or {}).get("execution_readiness"),
         clarification_required=clarification_required,
         calculation_plan=clarified_calculation_plan,
         requires_immediate_confirmation=requires_immediate_confirmation,
+        contract_revision=payload.get("contract_revision", 1),
+        iteration_mode=payload.get("iteration_mode", "baseline"),
+        revision_summary=payload.get("revision_summary"),
+        capability_gaps=payload.get("capability_gaps"),
+        unresolved_decisions=payload.get("unresolved_decisions"),
+        evidence_expectations=payload.get("evidence_expectations"),
+        variant_policy=payload.get("variant_policy"),
         selected_case_id=payload.get("selected_case_id"),
         simulation_requirements=payload.get("simulation_requirements"),
         requested_outputs=payload.get("requested_outputs"),
         recommended_actions=(existing_runtime or {}).get("recommended_actions"),
         custom_variants=(existing_runtime or {}).get("custom_variants"),
-        output_delivery_plan=(existing_runtime or {}).get("output_delivery_plan"),
+        output_delivery_plan=payload.get("output_delivery_plan"),
         stage_status=payload.get("confirmation_status"),
         runtime_summary=payload["summary_zh"],
         workspace_case_dir_virtual_path=(existing_runtime or {}).get(

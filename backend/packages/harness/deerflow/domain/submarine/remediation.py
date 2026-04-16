@@ -5,6 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+_BASELINE_SOLVER_EVIDENCE_REQUIREMENT_TYPES = {
+    "max_final_residual",
+    "force_coefficient_tail_stability",
+}
+
 
 def _as_mapping(value: object | None) -> Mapping[str, Any]:
     if isinstance(value, Mapping):
@@ -69,6 +74,33 @@ def _collect_actionable_study_types(
     return study_types
 
 
+def _collect_baseline_solver_evidence_gaps(
+    scientific_verification_assessment: Mapping[str, Any],
+) -> list[str]:
+    gaps: list[str] = []
+    requirements = scientific_verification_assessment.get("requirements")
+    if isinstance(requirements, list):
+        for item in requirements:
+            if not isinstance(item, Mapping):
+                continue
+            check_type = str(item.get("check_type") or "").strip()
+            status = str(item.get("status") or "").strip()
+            if check_type not in _BASELINE_SOLVER_EVIDENCE_REQUIREMENT_TYPES:
+                continue
+            if status not in {"missing_evidence", "blocked"}:
+                continue
+            if (
+                check_type == "max_final_residual"
+                and status == "blocked"
+                and item.get("observed_value") is not None
+            ):
+                continue
+            detail = str(item.get("detail") or "").strip()
+            if detail and detail not in gaps:
+                gaps.append(detail)
+    return gaps
+
+
 def _build_action(
     *,
     action_id: str,
@@ -117,6 +149,7 @@ def build_scientific_remediation_summary(
     recommended_stage = str(gate.get("recommended_stage") or "supervisor-review")
     evidence_gaps = _as_string_list(research.get("evidence_gaps"))
     missing_evidence = _as_string_list(verification.get("missing_evidence"))
+    baseline_solver_evidence_gaps = _collect_baseline_solver_evidence_gaps(verification)
     actionable_study_types = _collect_actionable_study_types(study_summary)
     plan_artifacts = _as_string_list(artifact_virtual_paths)
     gate_artifacts = _as_string_list(gate.get("artifact_virtual_paths"))
@@ -132,6 +165,25 @@ def build_scientific_remediation_summary(
             "artifact_virtual_paths": plan_artifacts,
             "actions": [],
         }
+
+    if baseline_solver_evidence_gaps:
+        primary_gap = baseline_solver_evidence_gaps[0]
+        actions.append(
+            _build_action(
+                action_id="rerun-current-baseline",
+                title="Rerun current baseline",
+                summary=(
+                    "Rerun the confirmed baseline with the current case and settings, "
+                    "regenerate the missing solver evidence, and refresh the result report "
+                    "before attempting broader scientific studies."
+                ),
+                owner_stage="solver-dispatch",
+                priority="high",
+                execution_mode="auto_executable",
+                evidence_gap=primary_gap,
+                required_artifacts=gate_artifacts,
+            )
+        )
 
     if missing_evidence or actionable_study_types:
         study_manifest_path = study_summary.get("manifest_virtual_path")
@@ -163,7 +215,7 @@ def build_scientific_remediation_summary(
                     f"for {study_label}."
                 ),
                 owner_stage="solver-dispatch",
-                priority="high",
+                priority="medium" if baseline_solver_evidence_gaps else "high",
                 execution_mode="auto_executable",
                 evidence_gap=evidence_gap,
                 required_artifacts=_merge_artifact_paths(

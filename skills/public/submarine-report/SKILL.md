@@ -26,6 +26,8 @@ Artifacts and report content must stay first-class so the run can be shown, trac
 
 - If runtime JSON already contains `review_status`, `next_recommended_stage`, `report_virtual_path`, or `artifact_virtual_paths`, preserve them in the final structured output.
 - Prefer the thread-level `submarine_runtime` snapshot over reconstructing stage state from chat history.
+- Preserve `contract_revision`, `revision_summary`, `requested_outputs`, and `output_delivery_plan` when they are available so the report keeps the active task contract visible.
+- Keep requested-output support states explicit; if `support_level` or delivery state says an output is pending or unsupported, carry that truth into the report instead of flattening it into generic prose.
 - If the source stage already produced `workspace_case_dir_virtual_path`, `run_script_virtual_path`, or `supervisor_handoff_virtual_path`, carry them into the final report context.
 - Prefer report narratives that point back to artifact paths instead of retelling raw tool output.
 - If only geometry preflight exists, say so clearly and keep the report bounded to preflight conclusions.

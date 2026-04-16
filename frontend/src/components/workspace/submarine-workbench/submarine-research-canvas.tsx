@@ -10,6 +10,7 @@ import type {
   SubmarineSkillRuntimeSnapshotPayload,
   SubmarineRuntimeSnapshotPayload,
 } from "@/components/workspace/submarine-runtime-panel.contract";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 
 import type { SubmarineDetailModel } from "./submarine-detail-model";
 import { SubmarineExperimentBoard } from "./submarine-experiment-board";
@@ -73,7 +74,26 @@ const SUBMARINE_RUNTIME_ROLE_LABELS: Record<string, string> = {
 };
 
 function formatRuntimeRoleLabel(roleId: string) {
-  return SUBMARINE_RUNTIME_ROLE_LABELS[roleId] ?? roleId;
+  return SUBMARINE_RUNTIME_ROLE_LABELS[roleId] ?? "未命名线程角色";
+}
+
+function formatRuntimeBindingMetaLabel(roleId: string) {
+  return `线程角色：${formatRuntimeRoleLabel(roleId)}`;
+}
+
+function formatContractDeliverySummary(
+  contract: SubmarineDetailModel["operatorBoard"]["contract"],
+) {
+  const total =
+    contract.deliveryDeliveredCount +
+    contract.deliveryPlannedCount +
+    contract.deliveryBlockedCount;
+
+  if (total === 0) {
+    return "尚未形成交付计划";
+  }
+
+  return `${contract.deliveryDeliveredCount}/${total} 已交付`;
 }
 
 export function SubmarineResearchCanvas({
@@ -305,6 +325,16 @@ export function SubmarineResearchCanvas({
       verificationRequirements,
     ],
   );
+  const contractSnapshotVisible =
+    detail.operatorBoard.contract.revisionLabel != null ||
+    detail.operatorBoard.contract.iterationModeLabel != null ||
+    detail.operatorBoard.contract.revisionSummary != null ||
+    detail.operatorBoard.contract.capabilityGapCount > 0 ||
+    detail.operatorBoard.contract.unresolvedDecisionCount > 0 ||
+    detail.operatorBoard.contract.evidenceExpectationCount > 0 ||
+    detail.operatorBoard.contract.deliveryDeliveredCount > 0 ||
+    detail.operatorBoard.contract.deliveryPlannedCount > 0 ||
+    detail.operatorBoard.contract.deliveryBlockedCount > 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
@@ -399,7 +429,7 @@ export function SubmarineResearchCanvas({
                   key={skillName}
                   className="rounded-full border border-violet-200 bg-white/92 px-3 py-1 text-xs font-semibold text-violet-700"
                 >
-                  {skillName}
+                  {localizeWorkspaceDisplayText(skillName)}
                 </span>
               ))}
             </div>
@@ -417,7 +447,7 @@ export function SubmarineResearchCanvas({
                     {formatRuntimeRoleLabel(binding.roleId)}
                   </div>
                   <div className="mt-1 text-xs text-slate-500">
-                    {binding.roleId}
+                    {formatRuntimeBindingMetaLabel(binding.roleId)}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {binding.targetSkills.map((skillName) => (
@@ -425,7 +455,7 @@ export function SubmarineResearchCanvas({
                         key={`${binding.roleId}-${skillName}`}
                         className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-800"
                       >
-                        {skillName}
+                        {localizeWorkspaceDisplayText(skillName)}
                       </span>
                     ))}
                   </div>
@@ -453,6 +483,119 @@ export function SubmarineResearchCanvas({
             />
           </div>
       </section>
+
+      {contractSnapshotVisible ? (
+        <section
+          data-submarine-contract-snapshot="submarine"
+          className="rounded-[24px] border border-amber-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,247,237,0.95))] px-4 py-4 shadow-[0_18px_40px_rgba(217,119,6,0.08)]"
+        >
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">
+            任务合同快照
+          </div>
+          <h3 className="mt-2 text-lg font-semibold text-slate-950">
+            当前线程已经沉淀出的合同修订与交付进度
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            这里展示的是结构化运行时快照里的任务合同真相，不是聊天猜测。你可以直接看到本轮修订、交付进度以及还没敲定的研究决策。
+          </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <OverviewMetric
+                label="合同修订"
+                value={detail.operatorBoard.contract.revisionLabel ?? "待同步"}
+              />
+              <OverviewMetric
+                label="迭代模式"
+                value={detail.operatorBoard.contract.iterationModeLabel ?? "待同步"}
+              />
+              <OverviewMetric
+                label="待处理决策"
+                value={`${detail.operatorBoard.contract.unresolvedDecisionCount} 项`}
+              />
+            <OverviewMetric
+              label="交付进度"
+              value={formatContractDeliverySummary(detail.operatorBoard.contract)}
+            />
+          </div>
+
+          <div className="mt-4 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+            <article className="rounded-[22px] border border-white/90 bg-white/92 px-4 py-4 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.45)]">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                本轮修订摘要
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-700">
+                {detail.operatorBoard.contract.revisionSummary ??
+                  "当前没有额外的修订摘要，系统仍按现有合同继续推进。"}
+              </p>
+            </article>
+
+              <article className="rounded-[22px] border border-white/90 bg-white/92 px-4 py-4 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.45)]">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  交付进度
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <OverviewMetric
+                  label="已交付"
+                  value={`${detail.operatorBoard.contract.deliveryDeliveredCount} 项`}
+                />
+                <OverviewMetric
+                  label="待完成"
+                  value={`${detail.operatorBoard.contract.deliveryPlannedCount} 项`}
+                />
+                <OverviewMetric
+                  label="受阻"
+                  value={`${detail.operatorBoard.contract.deliveryBlockedCount} 项`}
+                  />
+                </div>
+              </article>
+            </div>
+
+            {detail.operatorBoard.contract.capabilityGapLabels.length > 0 ? (
+              <article className="mt-4 rounded-[22px] border border-amber-200/80 bg-amber-50/70 px-4 py-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
+                  当前能力缺口
+                </div>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+                  {detail.operatorBoard.contract.capabilityGapLabels.map((label) => (
+                    <li key={label} className="flex gap-3">
+                      <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                      <span>{label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ) : null}
+
+            {detail.operatorBoard.contract.deliveryItems.length > 0 ? (
+              <article className="mt-4 rounded-[22px] border border-slate-200/80 bg-white/92 px-4 py-4 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.45)]">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  交付计划明细
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {detail.operatorBoard.contract.deliveryItems.map((item) => (
+                    <article
+                      key={`${item.outputId ?? item.label}-${item.statusLabel}`}
+                      className="rounded-[18px] border border-slate-200/80 bg-slate-50/70 px-3 py-3"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-sm font-medium text-slate-900">
+                          {item.label}
+                        </div>
+                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                          {item.statusLabel}
+                        </span>
+                      </div>
+                      {item.detail ? (
+                        <p className="mt-2 text-xs leading-5 text-slate-600">
+                          {item.detail}
+                        </p>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </article>
+            ) : null}
+          </section>
+        ) : null}
 
       <div
         className={[

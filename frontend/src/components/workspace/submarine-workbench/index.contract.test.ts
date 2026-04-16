@@ -15,6 +15,10 @@ const cardSource = await readFile(
   new URL("./submarine-research-slice-card.tsx", import.meta.url),
   "utf8",
 );
+const experimentBoardSource = await readFile(
+  new URL("./submarine-experiment-board.tsx", import.meta.url),
+  "utf8",
+);
 const historyBannerSource = await readFile(
   new URL("./submarine-research-slice-history-banner.tsx", import.meta.url),
   "utf8",
@@ -62,7 +66,7 @@ void test("submarine workbench renders a research ribbon and slice card instead 
 
 void test("submarine workbench exposes live progress before structured artifacts arrive", () => {
   assert.match(source, /buildProgressPreviewFromMessage/);
-  assert.match(source, /resolveThreadDisplayTitle\(thread\.values\.title,/);
+  assert.match(source, /resolveThreadDisplayTitle\(\s*thread\.values\.title,/);
   assert.match(source, /latestAssistantPreview/);
   assert.match(source, /latestUserPreview/);
   assert.match(canvasSource, /data-live-progress="submarine"/);
@@ -83,6 +87,9 @@ void test("submarine workbench exposes a visible runtime skill snapshot for bind
   assert.match(canvasSource, /data-submarine-runtime-snapshot="submarine"/);
   assert.match(canvasSource, /data-submarine-runtime-binding=/);
   assert.match(canvasSource, /resolved_binding_targets/);
+  assert.match(canvasSource, /localizeWorkspaceDisplayText\(skillName\)/);
+  assert.match(canvasSource, /formatRuntimeBindingMetaLabel\(binding\.roleId\)/);
+  assert.match(canvasSource, /未命名线程角色/);
 });
 
 void test("submarine center surface no longer renders raw DeerFlow stage ids as visible evidence badges", () => {
@@ -129,4 +136,12 @@ void test("submarine research surface uses motion-safe transitions with reduced-
     historyBannerSource,
     /motion-safe:transition-\[transform,opacity,box-shadow\][\s\S]*motion-reduce:transition-none/,
   );
+});
+
+void test("submarine center surface exposes a dedicated contract snapshot and lineage summary instead of hiding them in backend-only payloads", () => {
+  assert.match(canvasSource, /data-submarine-contract-snapshot="submarine"/);
+  assert.match(canvasSource, /合同修订|鍚堝悓淇/);
+  assert.match(canvasSource, /交付进度|浜や粯杩涘害/);
+  assert.match(experimentBoardSource, /compareTargetRunIds/);
+  assert.match(experimentBoardSource, /followupSourceRunId/);
 });

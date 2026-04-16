@@ -71,19 +71,21 @@ void test("builds experiment and operator boards from report contracts", () => {
         actions: [{ action_id: "a1", title: "Refine mesh" }],
       },
       scientific_followup_summary: {
-        latest_outcome_status: "needs_followup",
+        latest_outcome_status: "manual_followup_required",
       },
       delivery_decision_summary: {
-        decision_status: "needs_followup",
+        decision_status: "needs_more_evidence",
       },
     },
   });
 
   assert.equal(model.experimentBoard.baselineRunId, "baseline-01");
   assert.equal(model.experimentBoard.compareCount, 2);
-  assert.equal(model.operatorBoard.decisionStatus, "needs_followup");
+  assert.equal(model.operatorBoard.decisionStatus, "需要更多证据");
   assert.equal(model.operatorBoard.remediation.actionCount, 1);
+  assert.deepEqual(model.operatorBoard.remediation.actions, ["细化网格"]);
   assert.equal(model.operatorBoard.timelineEntryCount, 1);
+  assert.equal(model.operatorBoard.followup.latestOutcomeStatus, "需要人工跟进");
 });
 
 void test("preserves trust-critical cues across provenance, reproducibility, parity, and scientific gate", () => {
@@ -174,12 +176,12 @@ void test("preserves delivery decision, remediation handoff/manual actions, foll
         actions: [{ action_id: "r1", title: "Refine mesh near hull wake" }],
       },
       scientific_remediation_handoff: {
-        handoff_status: "ready",
+        handoff_status: "manual_followup_required",
         tool_name: "spawn_agent",
-        manual_actions: [{ action_id: "m1", title: "Approve rerun" }],
+        manual_actions: [{ action_id: "m1", title: "Attach validation reference" }],
       },
       scientific_followup_summary: {
-        latest_outcome_status: "pending",
+        latest_outcome_status: "manual_followup_required",
         latest_notes: ["Awaiting supervisor sign-off"],
         latest_tool_name: "spawn_agent",
       },
@@ -188,9 +190,12 @@ void test("preserves delivery decision, remediation handoff/manual actions, foll
 
   assert.equal(model.operatorBoard.deliveryDecision.question?.length ? true : false, true);
   assert.equal(model.operatorBoard.deliveryDecision.optionCount, 1);
-  assert.equal(model.operatorBoard.remediation.handoffStatus, "ready");
+  assert.equal(model.operatorBoard.remediation.handoffStatus, "需要人工跟进");
   assert.equal(model.operatorBoard.remediation.manualActionCount, 1);
-  assert.equal(model.operatorBoard.followup.latestToolName, "spawn_agent");
+  assert.deepEqual(model.operatorBoard.remediation.manualActions, ["补充验证参考"]);
+  assert.equal(model.operatorBoard.remediation.handoffToolName, "子代理协作");
+  assert.equal(model.operatorBoard.followup.latestOutcomeStatus, "需要人工跟进");
+  assert.equal(model.operatorBoard.followup.latestToolName, "子代理协作");
   assert.equal(model.experimentBoard.variantCount, 2);
   assert.equal(model.experimentBoard.comparisons.length, 1);
   assert.equal(model.experimentBoard.studyCount, 1);
@@ -199,9 +204,9 @@ void test("preserves delivery decision, remediation handoff/manual actions, foll
 void test("falls back to runtime delivery and follow-up signals when the final report is not ready", () => {
   const model = buildSubmarineDetailModel({
     runtime: {
-      decision_status: "needs_followup",
+      decision_status: "blocked_by_setup",
       delivery_decision_summary: {
-        decision_status: "needs_followup",
+        decision_status: "blocked_by_setup",
         decision_question_zh: "Ship current findings or request another run?",
         options: [{ option_id: "rerun", label_zh: "Request rerun" }],
       },
@@ -211,7 +216,7 @@ void test("falls back to runtime delivery and follow-up signals when the final r
     finalReport: null,
   });
 
-  assert.equal(model.operatorBoard.decisionStatus, "needs_followup");
+  assert.equal(model.operatorBoard.decisionStatus, "受环境阻塞");
   assert.equal(
     model.operatorBoard.deliveryDecision.question,
     "Ship current findings or request another run?",
@@ -222,4 +227,171 @@ void test("falls back to runtime delivery and follow-up signals when the final r
     "/artifacts/submarine/followup.json",
   );
   assert.equal(model.operatorBoard.timelineEntryCount, 1);
+});
+
+void test("hides unmapped internal slugs behind generic user-facing fallbacks", () => {
+  const model = buildSubmarineDetailModel({
+    runtime: {
+      iteration_mode: "custom_followup_mode",
+      capability_gaps: [{ output_id: "wake_velocity_slice" }],
+      unresolved_decisions: [{ decision_id: "confirm_tail_window" }],
+      output_delivery_plan: [
+        {
+          output_id: "wake_velocity_slice",
+          delivery_status: "queued_for_later",
+        },
+      ],
+      delivery_decision_summary: {
+        decision_question_zh: "Choose the next path.",
+        options: [{ option_id: "request_additional_evidence" }],
+      },
+    },
+    finalReport: null,
+  });
+
+  assert.equal(model.operatorBoard.contract.iterationModeLabel, "待同步迭代模式");
+  assert.deepEqual(model.operatorBoard.contract.capabilityGapLabels, ["未命名研究项"]);
+  assert.deepEqual(model.operatorBoard.contract.unresolvedDecisionLabels, ["未命名研究项"]);
+  assert.deepEqual(model.operatorBoard.deliveryDecision.options, ["待确认路径"]);
+  assert.deepEqual(model.operatorBoard.contract.deliveryItems, [
+    {
+      outputId: "wake_velocity_slice",
+      label: "未命名输出项",
+      statusLabel: "状态待同步",
+      detail: null,
+    },
+  ]);
+});
+
+void test("surfaces iterative contract and lineage context in the operator board", () => {
+  const model = buildSubmarineDetailModel({
+    runtime: {
+      contract_revision: 4,
+      iteration_mode: "derive_variant",
+      revision_summary: "Add wake-focused follow-up to the current baseline family.",
+      capability_gaps: [{ output_id: "streamlines" }],
+      unresolved_decisions: [
+        { decision_id: "confirm-tail-window" },
+        { decision_id: "confirm-wake-origin" },
+      ],
+      output_delivery_plan: [
+        { output_id: "drag_coefficient", delivery_status: "delivered" },
+        { output_id: "wake_velocity_slice", delivery_status: "planned" },
+        { output_id: "streamlines", delivery_status: "not_yet_supported" },
+      ],
+    },
+    finalReport: {
+      scientific_remediation_handoff: {
+        handoff_status: "ready_for_auto_followup",
+        tool_name: "submarine_solver_dispatch",
+        source_run_id: "mesh_independence:coarse",
+        baseline_reference_run_id: "baseline",
+        compare_target_run_id: "baseline",
+        derived_run_ids: ["mesh_independence:coarse"],
+      },
+      scientific_followup_summary: {
+        latest_outcome_status: "dispatch_refreshed_report",
+        latest_tool_name: "submarine_solver_dispatch",
+        latest_source_run_id: "mesh_independence:coarse",
+        latest_baseline_reference_run_id: "baseline",
+        latest_compare_target_run_id: "baseline",
+        latest_derived_run_ids: ["mesh_independence:coarse:followup-1"],
+      },
+    },
+  });
+
+  assert.equal(model.operatorBoard.contract.revisionLabel, "r4");
+  assert.equal(model.operatorBoard.contract.iterationModeLabel, "派生变体");
+  assert.equal(
+    model.operatorBoard.contract.revisionSummary,
+    "Add wake-focused follow-up to the current baseline family.",
+  );
+  assert.equal(model.operatorBoard.contract.capabilityGapCount, 1);
+  assert.equal(model.operatorBoard.contract.unresolvedDecisionCount, 2);
+  assert.equal(model.operatorBoard.contract.deliveryDeliveredCount, 1);
+  assert.equal(model.operatorBoard.contract.deliveryPlannedCount, 1);
+  assert.equal(model.operatorBoard.contract.deliveryBlockedCount, 1);
+  assert.equal(model.experimentBoard.lineageModeLabel, "派生变体");
+  assert.deepEqual(model.experimentBoard.compareTargetRunIds, ["baseline"]);
+  assert.equal(
+    model.experimentBoard.followupSourceRunId,
+    "网格无关性：粗",
+  );
+  assert.equal(
+    model.operatorBoard.remediation.sourceRunId,
+    "网格无关性：粗",
+  );
+  assert.equal(model.operatorBoard.remediation.handoffStatus, "可自动跟进");
+  assert.equal(model.operatorBoard.remediation.handoffToolName, "求解派发");
+  assert.equal(model.operatorBoard.remediation.compareTargetRunId, "基线");
+  assert.deepEqual(model.operatorBoard.remediation.derivedRunIds, [
+    "网格无关性：粗",
+  ]);
+  assert.equal(model.operatorBoard.followup.latestOutcomeStatus, "派发后已刷新报告");
+  assert.equal(model.operatorBoard.followup.latestToolName, "求解派发");
+  assert.equal(
+    model.operatorBoard.followup.latestSourceRunId,
+    "网格无关性：粗",
+  );
+  assert.deepEqual(model.operatorBoard.followup.latestDerivedRunIds, [
+    "网格无关性：粗：跟进-1",
+  ]);
+});
+
+void test("localizes known English revision-summary copy before it reaches the operator board", () => {
+  const model = buildSubmarineDetailModel({
+    runtime: {
+      revision_summary: "Updated the structured CFD design brief.",
+    },
+    finalReport: null,
+  });
+
+  assert.equal(model.operatorBoard.contract.revisionSummary, "已更新结构化 CFD 设计简报。");
+});
+
+void test("falls back to design-brief contract truth before runtime and final-report artifacts arrive", () => {
+  const model = buildSubmarineDetailModel({
+    runtime: null,
+    designBrief: {
+      contract_revision: 2,
+      iteration_mode: "revise_baseline",
+      revision_summary: "Tighten the baseline setup before the first solver dispatch.",
+      capability_gaps: [
+        {
+          output_id: "streamlines",
+          requested_label: "流线图",
+        },
+      ],
+      unresolved_decisions: [
+        {
+          decision_id: "confirm-reference-area",
+          label_zh: "确认参考面积",
+        },
+      ],
+      output_delivery_plan: [
+        {
+          output_id: "drag_coefficient",
+          label: "阻力系数",
+          delivery_status: "planned",
+          detail: "等待首轮求解后生成。",
+        },
+      ],
+    },
+    finalReport: null,
+  });
+
+  assert.equal(model.operatorBoard.contract.revisionLabel, "r2");
+  assert.equal(model.operatorBoard.contract.iterationModeLabel, "修订基线");
+  assert.deepEqual(model.operatorBoard.contract.capabilityGapLabels, ["流线图"]);
+  assert.deepEqual(model.operatorBoard.contract.unresolvedDecisionLabels, [
+    "确认参考面积",
+  ]);
+  assert.deepEqual(model.operatorBoard.contract.deliveryItems, [
+    {
+      outputId: "drag_coefficient",
+      label: "阻力系数",
+      statusLabel: "待完成",
+      detail: "等待首轮求解后生成。",
+    },
+  ]);
 });

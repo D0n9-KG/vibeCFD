@@ -232,7 +232,9 @@ _render_solver_results_markdown_enriched = render_solver_results_markdown_enrich
 _RAW_COMMAND_LOG_FILENAME = ".deerflow-raw-command.log"
 _COMMAND_EXIT_STATUS_FILENAME = ".deerflow-command-exit-status"
 _COMMAND_COMPLETION_WAIT_SECONDS = 120.0
+_COMMAND_ACTIVE_MAX_WAIT_SECONDS = 1800.0
 _COMMAND_COMPLETION_POLL_SECONDS = 0.1
+_COMMAND_LOG_STABILITY_WINDOW_SECONDS = 2.0
 
 
 def _solver_results_virtual_path(run_dir_name: str, filename: str) -> str:
@@ -414,6 +416,104 @@ def _resolve_command_output_from_workspace_log(
         return fallback_output
     raw_output = raw_log_path.read_text(encoding="utf-8")
     return raw_output if raw_output.strip() else fallback_output
+
+
+def _workspace_raw_command_log_signature(
+    *,
+    workspace_dir: Path | None,
+    run_dir_name: str,
+    case_relative_dir: str = "",
+) -> tuple[int | None, int | None]:
+    raw_log_path = _workspace_raw_command_log_path(
+        workspace_dir=workspace_dir,
+        run_dir_name=run_dir_name,
+        case_relative_dir=case_relative_dir,
+    )
+    if raw_log_path is None:
+        return (None, None)
+    raw_log_path = _platform_fs_path(raw_log_path)
+    if not raw_log_path.exists():
+        return (None, None)
+    stat_result = raw_log_path.stat()
+    return (stat_result.st_size, stat_result.st_mtime_ns)
+
+
+def _wait_for_workspace_log_completion(
+    *,
+    fallback_output: str,
+    workspace_dir: Path | None,
+    run_dir_name: str,
+    case_relative_dir: str = "",
+    stall_timeout_seconds: float = _COMMAND_COMPLETION_WAIT_SECONDS,
+    max_wait_seconds: float = _COMMAND_ACTIVE_MAX_WAIT_SECONDS,
+    poll_interval_seconds: float = _COMMAND_COMPLETION_POLL_SECONDS,
+    stability_window_seconds: float = _COMMAND_LOG_STABILITY_WINDOW_SECONDS,
+) -> str:
+    latest_output = _resolve_command_output_from_workspace_log(
+        fallback_output=fallback_output,
+        workspace_dir=workspace_dir,
+        run_dir_name=run_dir_name,
+        case_relative_dir=case_relative_dir,
+    )
+    latest_signature = _workspace_raw_command_log_signature(
+        workspace_dir=workspace_dir,
+        run_dir_name=run_dir_name,
+        case_relative_dir=case_relative_dir,
+    )
+    last_change_at = time.monotonic()
+    deadline = time.monotonic() + max_wait_seconds
+
+    while time.monotonic() <= deadline:
+        current_output = _resolve_command_output_from_workspace_log(
+            fallback_output=latest_output,
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+            case_relative_dir=case_relative_dir,
+        )
+        current_signature = _workspace_raw_command_log_signature(
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+            case_relative_dir=case_relative_dir,
+        )
+        if current_signature != latest_signature or current_output != latest_output:
+            latest_output = current_output
+            latest_signature = current_signature
+            last_change_at = time.monotonic()
+
+        if _command_output_looks_complete(latest_output):
+            return latest_output
+
+        exit_status = _read_workspace_command_exit_status(
+            workspace_dir=workspace_dir,
+            run_dir_name=run_dir_name,
+            case_relative_dir=case_relative_dir,
+        )
+        if exit_status not in (None, 0):
+            return latest_output
+        if (
+            exit_status == 0
+            and time.monotonic() - last_change_at >= stability_window_seconds
+        ):
+            return latest_output
+        if time.monotonic() - last_change_at >= stall_timeout_seconds:
+            return latest_output
+        time.sleep(poll_interval_seconds)
+
+    return latest_output
+
+
+def _resolve_geometry_scale_factor(scale_assessment: dict[str, object] | None) -> float | None:
+    if not isinstance(scale_assessment, dict):
+        return None
+    applied_scale_factor = scale_assessment.get("applied_scale_factor")
+    if not isinstance(applied_scale_factor, (int, float)) or isinstance(
+        applied_scale_factor, bool
+    ):
+        return None
+    scale_factor = float(applied_scale_factor)
+    if scale_factor <= 0:
+        return None
+    return scale_factor
 
 
 def _compose_summary(
@@ -618,6 +718,13 @@ def run_solver_dispatch(
     clarification_required: bool = False,
     calculation_plan: list[dict] | None = None,
     requires_immediate_confirmation: bool = False,
+    contract_revision: int = 1,
+    revision_summary: str | None = None,
+    iteration_mode: str = "baseline",
+    capability_gaps: list[dict] | None = None,
+    unresolved_decisions: list[dict] | None = None,
+    evidence_expectations: list[dict] | None = None,
+    variant_policy: dict[str, object] | None = None,
     solver_command: str | None = None,
     execute_now: bool = False,
     execute_scientific_studies: bool = False,
@@ -634,6 +741,11 @@ def run_solver_dispatch(
     normalized_requested_outputs = [
         SubmarineRequestedOutput.model_validate(item).model_dump(mode="json")
         for item in (requested_outputs or [])
+    ]
+    requested_output_ids = [
+        str(item.get("output_id"))
+        for item in normalized_requested_outputs
+        if isinstance(item.get("output_id"), str) and item.get("output_id")
     ]
     normalized_custom_variants = [
         item.model_dump(mode="json")
@@ -681,6 +793,7 @@ def run_solver_dispatch(
         requires_immediate_confirmation
         or calculation_plan_requires_immediate_confirmation(calculation_plan)
     )
+    geometry_scale_factor = _resolve_geometry_scale_factor(scale_assessment)
 
     run_dir_name = _slugify(geometry_path.stem)
     artifact_dir = outputs_dir / "submarine" / "solver-dispatch" / run_dir_name
@@ -837,6 +950,7 @@ def run_solver_dispatch(
             simulation_requirements=simulation_requirements,
             requested_outputs=normalized_requested_outputs,
             reference_inputs=selected_reference_inputs,
+            geometry_scale_factor=geometry_scale_factor,
         )
 
     effective_solver_command = solver_command or (
@@ -896,16 +1010,20 @@ def run_solver_dispatch(
         if (
             raw_command_log_path is not None
             and _platform_fs_path(raw_command_log_path).exists()
-            and command_exit_status is None
             and not _looks_like_solver_failure(command_output)
             and not _command_output_looks_complete(command_output)
         ):
-            command_exit_status = _wait_for_workspace_command_completion(
+            if command_exit_status is None:
+                command_exit_status = _wait_for_workspace_command_completion(
+                    workspace_dir=workspace_dir,
+                    run_dir_name=run_dir_name,
+                )
+            command_output = _wait_for_workspace_log_completion(
+                fallback_output=command_output,
                 workspace_dir=workspace_dir,
                 run_dir_name=run_dir_name,
             )
-            command_output = _resolve_command_output_from_workspace_log(
-                fallback_output=command_output,
+            command_exit_status = _read_workspace_command_exit_status(
                 workspace_dir=workspace_dir,
                 run_dir_name=run_dir_name,
             )
@@ -985,6 +1103,9 @@ def run_solver_dispatch(
                 run_role="baseline",
                 variant_origin="baseline",
                 variant_label="Baseline",
+                contract_revision=contract_revision,
+                lineage_reason=revision_summary,
+                requested_output_ids=requested_output_ids,
                 solver_results_virtual_path=_solver_results_virtual_path(
                     run_dir_name,
                     "solver-results.json",
@@ -1161,6 +1282,8 @@ def run_solver_dispatch(
                             domain_extent_multiplier=float(
                                 variant_execution["domain_extent_multiplier"]
                             ),
+                            reference_inputs=selected_reference_inputs,
+                            geometry_scale_factor=geometry_scale_factor,
                         )
                         variant_command = (
                             f"bash {variant_scaffold['run_script_virtual_path']}"
@@ -1217,17 +1340,22 @@ def run_solver_dispatch(
                         if (
                             raw_variant_log_path is not None
                             and _platform_fs_path(raw_variant_log_path).exists()
-                            and variant_command_exit_status is None
                             and not _looks_like_solver_failure(variant_command_output)
                             and not _command_output_looks_complete(variant_command_output)
                         ):
-                            variant_command_exit_status = _wait_for_workspace_command_completion(
+                            if variant_command_exit_status is None:
+                                variant_command_exit_status = _wait_for_workspace_command_completion(
+                                    workspace_dir=workspace_dir,
+                                    run_dir_name=run_dir_name,
+                                    case_relative_dir=case_relative_dir,
+                                )
+                            variant_command_output = _wait_for_workspace_log_completion(
+                                fallback_output=variant_command_output,
                                 workspace_dir=workspace_dir,
                                 run_dir_name=run_dir_name,
                                 case_relative_dir=case_relative_dir,
                             )
-                            variant_command_output = _resolve_command_output_from_workspace_log(
-                                fallback_output=variant_command_output,
+                            variant_command_exit_status = _read_workspace_command_exit_status(
                                 workspace_dir=workspace_dir,
                                 run_dir_name=run_dir_name,
                                 case_relative_dir=case_relative_dir,
@@ -1318,6 +1446,9 @@ def run_solver_dispatch(
                             parameter_overrides=variant.parameter_overrides,
                             baseline_reference_run_id=baseline_run_id,
                             compare_target_run_id=baseline_run_id,
+                            contract_revision=contract_revision,
+                            lineage_reason=revision_summary,
+                            requested_output_ids=requested_output_ids,
                             solver_results_virtual_path=variant_virtual_path,
                             run_record_virtual_path=variant_run_record_virtual_path,
                             execution_status=str(variant_payload["execution_status"]),
@@ -1466,6 +1597,9 @@ def run_solver_dispatch(
                             parameter_overrides=variant.parameter_overrides,
                             baseline_reference_run_id=baseline_run_id,
                             compare_target_run_id=baseline_run_id,
+                            contract_revision=contract_revision,
+                            lineage_reason=revision_summary,
+                            requested_output_ids=requested_output_ids,
                             solver_results_virtual_path=variant_virtual_path,
                             run_record_virtual_path=variant_run_record_virtual_path,
                             execution_status="planned",
@@ -1571,6 +1705,9 @@ def run_solver_dispatch(
                 parameter_overrides=custom_variant.get("parameter_overrides") or {},
                 baseline_reference_run_id=baseline_run_id,
                 compare_target_run_id=compare_target_run_id,
+                contract_revision=contract_revision,
+                lineage_reason=revision_summary,
+                requested_output_ids=requested_output_ids,
                 solver_results_virtual_path=variant_virtual_path,
                 run_record_virtual_path=variant_run_record_virtual_path,
                 execution_status="planned",
@@ -1844,6 +1981,9 @@ def run_solver_dispatch(
         "task_type": task_type,
         "confirmation_status": confirmation_status,
         "execution_preference": execution_preference,
+        "contract_revision": contract_revision,
+        "iteration_mode": iteration_mode,
+        "revision_summary": revision_summary,
         "geometry": geometry.model_dump(mode="json"),
         "candidate_cases": [case.model_dump(mode="json") for case in candidate_cases],
         "selected_case": selected_case.model_dump(mode="json") if selected_case else None,
@@ -1868,6 +2008,10 @@ def run_solver_dispatch(
         "clarification_required": clarification_required,
         "calculation_plan": calculation_plan or [],
         "requires_immediate_confirmation": requires_immediate_confirmation,
+        "capability_gaps": capability_gaps or [],
+        "unresolved_decisions": unresolved_decisions or [],
+        "evidence_expectations": evidence_expectations or [],
+        "variant_policy": variant_policy or {},
         "selected_reference_inputs": selected_reference_inputs,
         "output_delivery_plan": output_delivery_plan,
         "scientific_study_plan": scientific_study_plan,
@@ -1910,6 +2054,13 @@ def run_solver_dispatch(
         "requested_outputs": normalized_requested_outputs,
         "custom_variants": normalized_custom_variants,
         "custom_variant_run_ids": custom_variant_run_ids,
+        "contract_revision": contract_revision,
+        "iteration_mode": iteration_mode,
+        "revision_summary": revision_summary,
+        "capability_gaps": capability_gaps or [],
+        "unresolved_decisions": unresolved_decisions or [],
+        "evidence_expectations": evidence_expectations or [],
+        "variant_policy": variant_policy or {},
         "calculation_plan": calculation_plan or [],
         "requires_immediate_confirmation": requires_immediate_confirmation,
         "selected_reference_inputs": selected_reference_inputs,

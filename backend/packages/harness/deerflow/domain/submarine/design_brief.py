@@ -13,7 +13,10 @@ from deerflow.domain.submarine.calculation_plan import (
 )
 from deerflow.domain.submarine.contracts import build_execution_plan
 from deerflow.domain.submarine.library import load_case_library
-from deerflow.domain.submarine.output_contract import resolve_requested_outputs
+from deerflow.domain.submarine.output_contract import (
+    build_output_delivery_plan,
+    resolve_requested_outputs,
+)
 from deerflow.domain.submarine.solver_dispatch import _resolve_simulation_requirements
 from deerflow.domain.submarine.verification import (
     build_effective_scientific_verification_requirements,
@@ -138,6 +141,18 @@ def _compose_summary(
         f"{geometry_text}{family_text}{case_text}。"
         f"{outputs_text}，{confirmation_text}{open_questions_text}。"
     )
+
+
+def _infer_iteration_mode(
+    *,
+    previous_contract_revision: int | None,
+    existing_custom_variants: list[dict] | None,
+) -> str:
+    if existing_custom_variants:
+        return "derive_variant"
+    if isinstance(previous_contract_revision, int) and previous_contract_revision > 0:
+        return "revise_baseline"
+    return "baseline"
 
 
 def _resolve_approval_state(
@@ -603,6 +618,8 @@ def run_design_brief(
     user_constraints: list[str] | None,
     open_questions: list[str] | None,
     existing_calculation_plan: list[dict] | None = None,
+    previous_contract_revision: int | None = None,
+    existing_custom_variants: list[dict] | None = None,
     ready_stage_when_confirmed: str | None = None,
 ) -> tuple[dict, list[str]]:
     if confirmation_status not in {"draft", "confirmed"}:
@@ -610,6 +627,13 @@ def run_design_brief(
 
     expected_outputs = [item.strip() for item in expected_outputs or [] if item and item.strip()]
     requested_outputs = resolve_requested_outputs(expected_outputs)
+    output_delivery_plan = build_output_delivery_plan(
+        requested_outputs,
+        stage="task-intelligence",
+    )
+    capability_gaps = [
+        item for item in requested_outputs if item.get("support_level") != "supported"
+    ]
     user_constraints = [item.strip() for item in user_constraints or [] if item and item.strip()]
     open_questions = [item.strip() for item in open_questions or [] if item and item.strip()]
     simulation_requirements = _maybe_resolve_simulation_requirements(
@@ -658,6 +682,55 @@ def run_design_brief(
             task_type=task_type,
         )
     ]
+    contract_revision = (
+        previous_contract_revision + 1
+        if isinstance(previous_contract_revision, int) and previous_contract_revision > 0
+        else 1
+    )
+    iteration_mode = _infer_iteration_mode(
+        previous_contract_revision=previous_contract_revision,
+        existing_custom_variants=existing_custom_variants,
+    )
+    revision_summary = (
+        "Updated the structured CFD design brief."
+        if contract_revision > 1
+        else "Initialized the structured CFD design brief."
+    )
+    unresolved_decisions = [
+        {
+            "decision_id": f"open-question-{index + 1}",
+            "label": question,
+            "source": "open_question",
+            "status": "pending_user_confirmation",
+        }
+        for index, question in enumerate(open_questions)
+    ]
+    unresolved_decisions.extend(
+        {
+            "decision_id": f"capability-gap-{item['output_id']}",
+            "label": (
+                f"Confirm whether the current support boundary for "
+                f"{item.get('requested_label') or item.get('label') or item['output_id']} is acceptable."
+            ),
+            "source": "capability_gap",
+            "status": "pending_user_confirmation",
+            "output_id": item["output_id"],
+        }
+        for item in capability_gaps
+    )
+    evidence_expectations = [
+        {
+            "expectation_id": item["requirement_id"],
+            "kind": item["check_type"],
+            "label": item["label"],
+        }
+        for item in scientific_verification_requirements
+    ]
+    variant_policy = {
+        "default_compare_target_run_id": "baseline",
+        "allow_custom_variants": True,
+        "custom_variant_count": len(existing_custom_variants or []),
+    }
     calculation_plan = build_design_brief_calculation_plan(
         existing=existing_calculation_plan,
         confirmation_status=confirmation_status,
@@ -682,6 +755,9 @@ def run_design_brief(
         "approval_state": approval_state,
         "goal_status": goal_status,
         "execution_preference": execution_preference,
+        "contract_revision": contract_revision,
+        "iteration_mode": iteration_mode,
+        "revision_summary": revision_summary,
         "geometry_virtual_path": geometry_virtual_path,
         "geometry_family_hint": geometry_family_hint,
         "selected_case_id": selected_case_id,
@@ -689,6 +765,11 @@ def run_design_brief(
         "expected_outputs": expected_outputs,
         "scientific_verification_requirements": scientific_verification_requirements,
         "requested_outputs": requested_outputs,
+        "output_delivery_plan": output_delivery_plan,
+        "capability_gaps": capability_gaps,
+        "unresolved_decisions": unresolved_decisions,
+        "evidence_expectations": evidence_expectations,
+        "variant_policy": variant_policy,
         "user_constraints": user_constraints,
         "open_questions": open_questions,
         "calculation_plan": calculation_plan,

@@ -1,3 +1,5 @@
+import { localizeWorkspaceDisplayText } from "../../core/i18n/workspace-display.ts";
+
 import {
   DEFAULT_SKILL_STUDIO_AGENT,
   labelOfSkillStudioAgentName,
@@ -85,6 +87,39 @@ export function labelOfSkillStudioBindingRoleId(roleId: string) {
   return BINDING_ROLE_LABELS[roleId] ?? roleId;
 }
 
+export function formatSkillStudioBindingMode(mode: string | null | undefined) {
+  if (!mode) {
+    return "未设置";
+  }
+
+  if (mode === "explicit") {
+    return "显式挂载";
+  }
+
+  return localizeWorkspaceDisplayText(mode);
+}
+
+export function describeSkillStudioBindingTargets(
+  targetSkills: string[] | null | undefined,
+  currentSkillName: string,
+) {
+  const normalizedTargets = (targetSkills ?? [])
+    .map((target) => target.trim())
+    .filter((target, index, all) => target.length > 0 && all.indexOf(target) === index);
+
+  if (normalizedTargets.length === 0) {
+    return "当前技能";
+  }
+
+  return normalizedTargets
+    .map((target) =>
+      target === currentSkillName
+        ? "当前技能"
+        : localizeWorkspaceDisplayText(target),
+    )
+    .join("、");
+}
+
 export type SkillStudioLifecycleBindingTarget = {
   role_id: string;
   mode: string;
@@ -168,6 +203,27 @@ export function formatSkillStudioStatus(
     .split("_")
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(" ");
+}
+
+export function resolveSkillStudioEffectivePublishStatus(input: {
+  publishStatus?: SkillStudioStatusValue | null;
+  lifecycleSummary?: SkillStudioLifecycleSummary | null;
+  lifecycleDetail?: SkillStudioLifecycleRecordLike | null;
+}) {
+  const lifecycle = input.lifecycleDetail ?? input.lifecycleSummary ?? null;
+
+  if (lifecycle?.published_path || lifecycle?.published_revision_id) {
+    return "published";
+  }
+
+  if (
+    lifecycle?.draft_status === "rollback_available" &&
+    lifecycle?.active_revision_id
+  ) {
+    return "rollback_available";
+  }
+
+  return input.publishStatus ?? lifecycle?.draft_status ?? "draft_only";
 }
 
 function getArtifactGroupId(path: string): SkillStudioArtifactGroup["id"] {

@@ -32,6 +32,7 @@ export interface Translations {
     cancel: string;
     save: string;
     install: string;
+    installed: string;
     create: string;
     export: string;
     exportAsMarkdown: string;
@@ -275,6 +276,9 @@ export interface Translations {
     clickToViewContent: string;
     writeTodos: string;
     skillInstallTooltip: string;
+    skillAlreadyInstalledTooltip: string;
+    skillInstallSuccessMessage: (skillName: string) => string;
+    skillAlreadyInstalledMessage: (skillName: string) => string;
   };
 
   // Uploads

@@ -2,23 +2,34 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Iterable
 
 from .artifact_store import (
     load_first_json_payload_from_artifacts,
+    load_json_outputs_artifact,
     load_json_payloads_from_artifacts,
 )
 from .models import (
     SubmarineCaseAcceptanceProfile,
+    SubmarineScientificStudyManifest,
     SubmarineScientificVerificationRequirement,
 )
+from .studies import build_completed_scientific_study_results
 
 _STABILITY_EVIDENCE_FILENAME = "stability-evidence.json"
+_STUDY_MANIFEST_FILENAME = "study-manifest.json"
 _STABILITY_REQUIREMENT_TYPES = {
     "max_final_residual",
     "force_coefficient_tail_stability",
 }
+_SCIENTIFIC_STUDY_TYPES = {
+    "mesh_independence",
+    "domain_sensitivity",
+    "time_step_sensitivity",
+}
+_SOLVER_DISPATCH_PREFIX = "/mnt/user-data/outputs/submarine/solver-dispatch/"
 
 
 def _is_number(value: object) -> bool:
@@ -42,6 +53,169 @@ def _load_verification_study_payloads(
         artifact_virtual_paths=artifact_virtual_paths,
         suffixes=required_artifacts,
     )
+
+
+def _study_type_for_required_artifacts(
+    required_artifacts: list[str],
+) -> str | None:
+    for artifact_name in required_artifacts:
+        if not isinstance(artifact_name, str):
+            continue
+        normalized_name = Path(artifact_name).name
+        if not (
+            normalized_name.startswith("verification-")
+            and normalized_name.endswith(".json")
+        ):
+            continue
+        study_type = normalized_name.removeprefix("verification-").removesuffix(
+            ".json"
+        )
+        study_type = study_type.replace("-", "_")
+        if study_type in _SCIENTIFIC_STUDY_TYPES:
+            return study_type
+    return None
+
+
+def _solver_dispatch_run_root(virtual_path: str) -> str | None:
+    if not isinstance(virtual_path, str) or not virtual_path.startswith(
+        _SOLVER_DISPATCH_PREFIX
+    ):
+        return None
+    relative_parts = [
+        part
+        for part in virtual_path.removeprefix(_SOLVER_DISPATCH_PREFIX).split("/")
+        if part
+    ]
+    if not relative_parts:
+        return None
+    return f"{_SOLVER_DISPATCH_PREFIX}{relative_parts[0]}"
+
+
+def _normalize_recovered_variant_payload(
+    *,
+    variant_payload: dict[str, object] | None,
+    run_record_payload: dict | None,
+) -> dict[str, object] | None:
+    candidate_status = ""
+    if isinstance(run_record_payload, Mapping):
+        candidate_status = str(run_record_payload.get("execution_status") or "").strip().lower()
+    if not candidate_status and isinstance(variant_payload, Mapping):
+        candidate_status = str(variant_payload.get("execution_status") or "").strip().lower()
+
+    if candidate_status == "blocked":
+        return {"execution_status": "blocked", **(variant_payload or {})}
+    if candidate_status != "completed":
+        return {"execution_status": candidate_status or "planned"} if candidate_status else None
+    return {"execution_status": "completed", **(variant_payload or {})}
+
+
+def _recover_requirement_row_from_study_manifest(
+    *,
+    outputs_dir: Path | None,
+    artifact_virtual_paths: list[str],
+    matched_artifacts: list[str],
+    required_artifacts: list[str],
+    baseline_solver_results: Mapping[str, object] | None,
+    requirement: SubmarineScientificVerificationRequirement,
+) -> dict | None:
+    if outputs_dir is None:
+        return None
+
+    study_type = _study_type_for_required_artifacts(required_artifacts)
+    if study_type is None:
+        return None
+
+    manifest_candidates = load_json_payloads_from_artifacts(
+        outputs_dir=outputs_dir,
+        artifact_virtual_paths=artifact_virtual_paths,
+        suffixes=[_STUDY_MANIFEST_FILENAME],
+    )
+    expected_run_root = next(
+        (
+            run_root
+            for run_root in (
+                _solver_dispatch_run_root(path)
+                for path in [*matched_artifacts, *artifact_virtual_paths]
+            )
+            if run_root
+        ),
+        None,
+    )
+    if expected_run_root is not None:
+        manifest_candidates = [
+            item
+            for item in manifest_candidates
+            if _solver_dispatch_run_root(item[0]) == expected_run_root
+        ]
+    if not manifest_candidates:
+        return None
+
+    _, manifest_payload = manifest_candidates[0]
+    try:
+        study_manifest = SubmarineScientificStudyManifest.model_validate(
+            manifest_payload
+        )
+    except Exception:
+        return None
+
+    definition = next(
+        (
+            item
+            for item in study_manifest.study_definitions
+            if item.study_type == study_type
+        ),
+        None,
+    )
+    if definition is None:
+        return None
+
+    study_variant_results: dict[str, dict[str, object] | None] = {}
+    for variant in definition.variants:
+        variant_payload: dict[str, object] | None = None
+        if variant.solver_results_virtual_path:
+            variant_payload = load_json_outputs_artifact(
+                outputs_dir,
+                variant.solver_results_virtual_path,
+            )
+        if (
+            variant.run_record_virtual_path
+            and (
+                variant_payload is None
+                or not str(variant_payload.get("execution_status") or "").strip()
+                or str(variant_payload.get("execution_status") or "").strip().lower()
+                == "planned"
+            )
+        ):
+            run_record_payload = load_json_outputs_artifact(
+                outputs_dir,
+                variant.run_record_virtual_path,
+            )
+        else:
+            run_record_payload = None
+        variant_payload = _normalize_recovered_variant_payload(
+            variant_payload=variant_payload,
+            run_record_payload=run_record_payload,
+        )
+        if variant_payload is not None:
+            study_variant_results[variant.variant_id] = variant_payload
+
+    recovered_results = build_completed_scientific_study_results(
+        manifest=study_manifest,
+        baseline_solver_results=baseline_solver_results,
+        variant_results={study_type: study_variant_results},
+    )
+    recovered_result = next(
+        (item for item in recovered_results if item.study_type == study_type),
+        None,
+    )
+    if recovered_result is None:
+        return None
+
+    return {
+        "status": recovered_result.status,
+        "detail": f"{requirement.label}: {recovered_result.summary_zh}",
+        "relative_spread": recovered_result.relative_spread,
+    }
 
 
 def _load_stability_evidence_payload(
@@ -495,9 +669,31 @@ def build_scientific_verification_assessment(
                 )
                 status = "missing_evidence"
 
+            recovered_requirement_row = None
+            if status == "missing_evidence":
+                recovered_requirement_row = _recover_requirement_row_from_study_manifest(
+                    outputs_dir=outputs_dir,
+                    artifact_virtual_paths=artifact_virtual_paths,
+                    matched_artifacts=matched,
+                    required_artifacts=requirement.required_artifacts,
+                    baseline_solver_results=solver_metrics,
+                    requirement=requirement,
+                )
+                if (
+                    isinstance(recovered_requirement_row, dict)
+                    and str(recovered_requirement_row.get("status") or "").strip()
+                    in {"passed", "blocked"}
+                ):
+                    status = str(recovered_requirement_row["status"])
+                    detail = str(recovered_requirement_row.get("detail") or detail)
+
             requirement_row = _merge_requirement_row(
                 requirement,
-                {
+                recovered_requirement_row
+                if isinstance(recovered_requirement_row, dict)
+                and str(recovered_requirement_row.get("status") or "").strip()
+                == status
+                else {
                     "status": status,
                     "detail": detail,
                 },

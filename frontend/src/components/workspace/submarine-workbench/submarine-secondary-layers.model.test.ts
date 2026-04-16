@@ -19,6 +19,9 @@ void test("suppresses empty secondary layers for an early geometry-preflight sli
         compareCompletedCount: 0,
         variantCount: 0,
         variantRunIds: [],
+        lineageModeLabel: null,
+        compareTargetRunIds: [],
+        followupSourceRunId: null,
         lineageNotes: [],
         comparisons: [],
         studyCount: 0,
@@ -27,6 +30,17 @@ void test("suppresses empty secondary layers for an early geometry-preflight sli
       operatorBoard: {
         decisionStatus: null,
         timelineEntryCount: 1,
+        contract: {
+          revisionLabel: null,
+          iterationModeLabel: null,
+          revisionSummary: null,
+          capabilityGapCount: 0,
+          unresolvedDecisionCount: 0,
+          evidenceExpectationCount: 0,
+          deliveryDeliveredCount: 0,
+          deliveryPlannedCount: 0,
+          deliveryBlockedCount: 0,
+        },
         deliveryDecision: {
           question: null,
           optionCount: 0,
@@ -40,12 +54,20 @@ void test("suppresses empty secondary layers for an early geometry-preflight sli
           actions: [],
           handoffStatus: null,
           handoffToolName: null,
+          sourceRunId: null,
+          baselineReferenceRunId: null,
+          compareTargetRunId: null,
+          derivedRunIds: [],
           manualActionCount: 0,
           manualActions: [],
         },
         followup: {
           latestOutcomeStatus: null,
           latestToolName: null,
+          latestSourceRunId: null,
+          latestBaselineReferenceRunId: null,
+          latestCompareTargetRunId: null,
+          latestDerivedRunIds: [],
           latestNotes: [],
           historyVirtualPath: null,
         },
@@ -75,6 +97,9 @@ void test("prioritizes trust and operator layers when a results slice has real r
         compareCompletedCount: 1,
         variantCount: 1,
         variantRunIds: ["variant-a"],
+        lineageModeLabel: null,
+        compareTargetRunIds: ["baseline-01"],
+        followupSourceRunId: null,
         lineageNotes: ["compare.json"],
         comparisons: [
           {
@@ -90,6 +115,17 @@ void test("prioritizes trust and operator layers when a results slice has real r
       operatorBoard: {
         decisionStatus: "needs_followup",
         timelineEntryCount: 2,
+        contract: {
+          revisionLabel: null,
+          iterationModeLabel: null,
+          revisionSummary: null,
+          capabilityGapCount: 0,
+          unresolvedDecisionCount: 0,
+          evidenceExpectationCount: 0,
+          deliveryDeliveredCount: 0,
+          deliveryPlannedCount: 0,
+          deliveryBlockedCount: 0,
+        },
         deliveryDecision: {
           question: "Can this be delivered?",
           optionCount: 1,
@@ -103,12 +139,20 @@ void test("prioritizes trust and operator layers when a results slice has real r
           actions: ["Refine mesh"],
           handoffStatus: null,
           handoffToolName: null,
+          sourceRunId: null,
+          baselineReferenceRunId: null,
+          compareTargetRunId: null,
+          derivedRunIds: [],
           manualActionCount: 0,
           manualActions: [],
         },
         followup: {
           latestOutcomeStatus: null,
           latestToolName: null,
+          latestSourceRunId: null,
+          latestBaselineReferenceRunId: null,
+          latestCompareTargetRunId: null,
+          latestDerivedRunIds: [],
           latestNotes: [],
           historyVirtualPath: null,
         },
@@ -117,4 +161,77 @@ void test("prioritizes trust and operator layers when a results slice has real r
   });
 
   assert.deepEqual(layerIds, ["trust", "studies", "operator"]);
+});
+
+void test("keeps the operator layer visible when iterative contract truth is the only surfaced signal", () => {
+  const layerIds = resolveSubmarineSecondaryLayerIds({
+    sliceId: "simulation-plan",
+    detail: {
+      trustPanels: [
+        { id: "provenance", title: "来源链路", status: "missing", highlights: [] },
+      ],
+      experimentBoard: {
+        baselineRunId: null,
+        runCount: 0,
+        compareCount: 0,
+        compareCompletedCount: 0,
+        variantCount: 0,
+        variantRunIds: [],
+        lineageModeLabel: null,
+        compareTargetRunIds: [],
+        followupSourceRunId: null,
+        lineageNotes: [],
+        comparisons: [],
+        studyCount: 0,
+        studies: [],
+      },
+      operatorBoard: {
+        decisionStatus: null,
+        timelineEntryCount: 0,
+        contract: {
+          revisionLabel: "r4",
+          iterationModeLabel: "派生变体",
+          revisionSummary: "Add wake-focused outputs to the current baseline family.",
+          capabilityGapCount: 1,
+          unresolvedDecisionCount: 2,
+          evidenceExpectationCount: 1,
+          deliveryDeliveredCount: 1,
+          deliveryPlannedCount: 1,
+          deliveryBlockedCount: 1,
+        },
+        deliveryDecision: {
+          question: null,
+          optionCount: 0,
+          options: [],
+          blockingReasons: [],
+          advisoryNotes: [],
+        },
+        remediation: {
+          planStatus: null,
+          actionCount: 0,
+          actions: [],
+          handoffStatus: null,
+          handoffToolName: null,
+          sourceRunId: null,
+          baselineReferenceRunId: null,
+          compareTargetRunId: null,
+          derivedRunIds: [],
+          manualActionCount: 0,
+          manualActions: [],
+        },
+        followup: {
+          latestOutcomeStatus: null,
+          latestToolName: null,
+          latestSourceRunId: null,
+          latestBaselineReferenceRunId: null,
+          latestCompareTargetRunId: null,
+          latestDerivedRunIds: [],
+          latestNotes: [],
+          historyVirtualPath: null,
+        },
+      },
+    },
+  });
+
+  assert.deepEqual(layerIds, ["operator"]);
 });

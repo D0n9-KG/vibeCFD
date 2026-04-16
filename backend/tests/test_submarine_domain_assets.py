@@ -669,6 +669,178 @@ def test_submarine_domain_builds_scientific_remediation_plan_semantics():
     assert research_ready_plan["actions"] == []
 
 
+def test_submarine_domain_prioritizes_baseline_rerun_before_scientific_studies_when_baseline_solver_evidence_is_missing():
+    remediation_module = importlib.import_module("deerflow.domain.submarine.remediation")
+
+    remediation_plan = remediation_module.build_scientific_remediation_summary(
+        scientific_supervisor_gate={
+            "gate_status": "blocked",
+            "allowed_claim_level": "delivery_only",
+            "recommended_stage": "solver-dispatch",
+            "remediation_stage": "solver-dispatch",
+        },
+        research_evidence_summary={
+            "readiness_status": "blocked",
+            "evidence_gaps": [
+                "Final residual threshold: residual summary is unavailable for this run."
+            ],
+        },
+        scientific_verification_assessment={
+            "missing_evidence": [
+                "Final residual threshold: residual summary is unavailable for this run.",
+                "Force coefficient tail stability: need at least 5 Cd samples in force coefficient history.",
+                "Mesh independence study: evidence artifact exists, but its verification status is missing or unsupported.",
+            ],
+            "requirements": [
+                {
+                    "requirement_id": "final_residual_threshold",
+                    "check_type": "max_final_residual",
+                    "status": "missing_evidence",
+                    "detail": "Final residual threshold: residual summary is unavailable for this run.",
+                },
+                {
+                    "requirement_id": "force_coefficient_tail_stability",
+                    "check_type": "force_coefficient_tail_stability",
+                    "status": "missing_evidence",
+                    "detail": "Force coefficient tail stability: need at least 5 Cd samples in force coefficient history.",
+                },
+                {
+                    "requirement_id": "mesh_independence_study",
+                    "check_type": "artifact_presence",
+                    "status": "missing_evidence",
+                    "detail": "Mesh independence study: evidence artifact exists, but its verification status is missing or unsupported.",
+                },
+            ],
+        },
+        scientific_study_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
+            ],
+            "studies": [
+                {
+                    "study_type": "mesh_independence",
+                    "verification_status": "missing_evidence",
+                    "verification_detail": "Mesh independence study: evidence artifact exists, but its verification status is missing or unsupported.",
+                    "blocked_variant_run_ids": ["mesh_independence:fine"],
+                }
+            ],
+        },
+    )
+
+    assert remediation_plan["actions"][0]["action_id"] == "rerun-current-baseline"
+    assert remediation_plan["actions"][0]["owner_stage"] == "solver-dispatch"
+    assert remediation_plan["actions"][0]["execution_mode"] == "auto_executable"
+    assert any(
+        action["action_id"] == "execute-scientific-studies"
+        for action in remediation_plan["actions"][1:]
+    )
+
+
+def test_submarine_domain_does_not_infer_baseline_rerun_from_freeform_study_gap_text_alone():
+    remediation_module = importlib.import_module("deerflow.domain.submarine.remediation")
+
+    remediation_plan = remediation_module.build_scientific_remediation_summary(
+        scientific_supervisor_gate={
+            "gate_status": "blocked",
+            "allowed_claim_level": "delivery_only",
+            "recommended_stage": "solver-dispatch",
+            "remediation_stage": "solver-dispatch",
+        },
+        research_evidence_summary={
+            "readiness_status": "blocked",
+            "evidence_gaps": [
+                "Mesh independence compare coverage is incomplete."
+            ],
+        },
+        scientific_verification_assessment={
+            "missing_evidence": [
+                "Mesh independence compare coverage still lacks Cd delta and residual trace alignment."
+            ]
+        },
+        scientific_study_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
+            ],
+            "studies": [
+                {
+                    "study_type": "mesh_independence",
+                    "verification_status": "missing_evidence",
+                    "verification_detail": "Mesh independence compare coverage still lacks Cd delta and residual trace alignment.",
+                    "missing_metrics_variant_run_ids": ["mesh_independence:coarse"],
+                }
+            ],
+        },
+    )
+
+    assert remediation_plan["actions"][0]["action_id"] == "execute-scientific-studies"
+    assert not any(
+        action["action_id"] == "rerun-current-baseline"
+        for action in remediation_plan["actions"]
+    )
+
+
+def test_submarine_domain_prefers_study_followup_once_baseline_residual_failure_has_observed_evidence():
+    remediation_module = importlib.import_module("deerflow.domain.submarine.remediation")
+
+    remediation_plan = remediation_module.build_scientific_remediation_summary(
+        scientific_supervisor_gate={
+            "gate_status": "blocked",
+            "allowed_claim_level": "delivery_only",
+            "recommended_stage": "solver-dispatch",
+            "remediation_stage": "solver-dispatch",
+        },
+        research_evidence_summary={
+            "readiness_status": "blocked",
+            "evidence_gaps": [
+                "Final residual threshold: observed 0.072008 exceeds limit 0.001000."
+            ],
+        },
+        scientific_verification_assessment={
+            "missing_evidence": [
+                "Mesh independence study: evidence artifact exists, but its verification status is missing or unsupported."
+            ],
+            "requirements": [
+                {
+                    "requirement_id": "final_residual_threshold",
+                    "check_type": "max_final_residual",
+                    "status": "blocked",
+                    "detail": "Final residual threshold: observed 0.072008 exceeds limit 0.001000.",
+                    "observed_value": 0.072007947,
+                    "limit_value": 0.001,
+                },
+                {
+                    "requirement_id": "mesh_independence_study",
+                    "check_type": "artifact_presence",
+                    "status": "missing_evidence",
+                    "detail": "Mesh independence study: evidence artifact exists, but its verification status is missing or unsupported.",
+                },
+            ],
+        },
+        scientific_study_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"
+            ],
+            "studies": [
+                {
+                    "study_type": "mesh_independence",
+                    "verification_status": "missing_evidence",
+                    "verification_detail": "Mesh independence study: evidence artifact exists, but its verification status is missing or unsupported.",
+                    "planned_variant_run_ids": ["mesh_independence:coarse", "mesh_independence:fine"],
+                }
+            ],
+        },
+    )
+
+    assert remediation_plan["actions"][0]["action_id"] == "execute-scientific-studies"
+    assert not any(
+        action["action_id"] == "rerun-current-baseline"
+        for action in remediation_plan["actions"]
+    )
+
+
 def test_submarine_domain_builds_scientific_remediation_handoff_semantics():
     handoff_module = importlib.import_module("deerflow.domain.submarine.handoff")
 
@@ -744,6 +916,77 @@ def test_submarine_domain_builds_scientific_remediation_handoff_semantics():
     )
     assert no_handoff["handoff_status"] == "not_needed"
     assert no_handoff["tool_name"] is None
+
+
+def test_submarine_domain_builds_baseline_rerun_handoff_with_baseline_lineage():
+    handoff_module = importlib.import_module("deerflow.domain.submarine.handoff")
+
+    handoff = handoff_module.build_scientific_remediation_handoff(
+        snapshot={
+            "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+            "task_summary": "Rerun the current confirmed baseline and regenerate the missing solver evidence.",
+            "confirmation_status": "confirmed",
+            "execution_preference": "execute_now",
+            "task_type": "resistance",
+            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+            "contract_revision": 3,
+            "iteration_mode": "revise_baseline",
+            "revision_summary": "Retry the current baseline after remediation review.",
+            "variant_policy": {
+                "default_compare_target_run_id": "custom:reference-run",
+            },
+            "simulation_requirements": {
+                "inlet_velocity_mps": 5.0,
+                "fluid_density_kg_m3": 1000.0,
+                "kinematic_viscosity_m2ps": 1e-06,
+                "end_time_seconds": 200.0,
+                "delta_t_seconds": 1.0,
+                "write_interval_steps": 50,
+            },
+        },
+        scientific_remediation_summary={
+            "plan_status": "recommended",
+            "actions": [
+                {
+                    "action_id": "rerun-current-baseline",
+                    "title": "Rerun current baseline",
+                    "summary": "Regenerate the missing baseline solver metrics before extending the study family.",
+                    "owner_stage": "solver-dispatch",
+                    "execution_mode": "auto_executable",
+                    "evidence_gap": "Final residual threshold: residual summary is unavailable for this run.",
+                },
+                {
+                    "action_id": "execute-scientific-studies",
+                    "execution_mode": "auto_executable",
+                    "evidence_gap": "Mesh independence evidence is still incomplete.",
+                },
+            ],
+        },
+        experiment_summary={
+            "baseline_run_id": "baseline",
+            "recorded_variant_run_ids": ["time_step_sensitivity:fine"],
+        },
+        experiment_compare_summary={
+            "baseline_run_id": "baseline",
+            "comparisons": [
+                {
+                    "candidate_run_id": "time_step_sensitivity:fine",
+                }
+            ],
+        },
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"
+        ],
+    )
+
+    assert handoff["handoff_status"] == "ready_for_auto_followup"
+    assert handoff["recommended_action_id"] == "rerun-current-baseline"
+    assert handoff["tool_name"] == "submarine_solver_dispatch"
+    assert handoff["source_run_id"] == "baseline"
+    assert handoff["baseline_reference_run_id"] == "baseline"
+    assert handoff["compare_target_run_id"] == "custom:reference-run"
+    assert handoff["derived_run_ids"] == ["time_step_sensitivity:fine"]
+    assert handoff["tool_args"]["execute_scientific_studies"] is False
 
 
 def test_submarine_domain_exposes_figure_manifest_contract():

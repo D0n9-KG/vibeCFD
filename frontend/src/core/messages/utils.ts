@@ -1,5 +1,7 @@
 import type { AIMessage, Message } from "@langchain/langgraph-sdk";
 
+import { localizeWorkspaceDisplayText } from "../i18n/workspace-display.ts";
+
 interface GenericMessageGroup<T = string> {
   type: T;
   id: string | undefined;
@@ -331,6 +333,23 @@ function truncatePreviewText(content: string, maxLength = 220) {
     : content;
 }
 
+const HUMAN_WORKFLOW_COPY_RE =
+  /scientific(?:[- ]followup| follow-up|[- ]study variants?)|scientific remediation(?: handoff)?|remediation handoff|solver metrics|final residual threshold|claim level|clean STL|mesh\/domain\/time-step|result-reporting|solver-dispatch|scientific-verification|scientific-followup|blocked_by_setup|manual_followup_required|dispatch_refreshed_report|spawn_agent|submarine_(?:solver_dispatch|result_report|scientific_followup)|darpa_suboff_bare_hull_resistance|\/mnt\/(?:user-data|skills)\/|plan[-_]only|preflight_then_execute|preflight \/ execution|\bpreflight\b|stl file upload|execute scientific verification studies|domain_sensitivity|time_step_sensitivity|mesh_independence|study-manifest|solver-results|solver dispatch/i;
+
+const HUMAN_STANDALONE_LOCALIZATION_LABELS = new Set([
+  "draft-only",
+  "draft only",
+  "workflow",
+  "submarine result acceptance draft",
+  "submarine-result-acceptance-visible",
+  "submarine-result-acceptance",
+  "submarine result acceptance",
+  "scientific-verification",
+  "result-reporting",
+  "solver-dispatch",
+  "scientific-followup",
+]);
+
 /**
  * Strip <uploaded_files> tag from message content.
  * Returns the content with the tag removed.
@@ -339,6 +358,38 @@ export function stripUploadedFilesTag(content: string): string {
   return content
     .replace(/<uploaded_files>[\s\S]*?<\/uploaded_files>/g, "")
     .trim();
+}
+
+export function normalizeMessageDisplayText(
+  message: Pick<Message, "content" | "type">,
+) {
+  const rawContent =
+    typeof message.content === "string"
+      ? message.content
+      : Array.isArray(message.content)
+        ? message.content
+            .map((content) => (content.type === "text" ? content.text : ""))
+            .join("\n")
+        : "";
+
+  const visibleContent =
+    rawContent.includes("<uploaded_files>")
+      ? stripUploadedFilesTag(rawContent)
+      : rawContent.trim();
+
+  if (!visibleContent) {
+    return "";
+  }
+
+  if (message.type !== "human") {
+    return localizeWorkspaceDisplayText(visibleContent);
+  }
+
+  const normalizedLabel = visibleContent.trim().toLowerCase();
+  return HUMAN_WORKFLOW_COPY_RE.test(visibleContent) ||
+    HUMAN_STANDALONE_LOCALIZATION_LABELS.has(normalizedLabel)
+    ? localizeWorkspaceDisplayText(visibleContent)
+    : visibleContent;
 }
 
 export function parseUploadedFiles(content: string): FileInMessage[] {
@@ -392,9 +443,7 @@ export function buildProgressPreviewFromMessage(
             .map((content) => (content.type === "text" ? content.text : ""))
             .join("\n")
         : "";
-
-  const visibleContent =
-    message.type === "human" ? stripUploadedFilesTag(rawContent) : rawContent.trim();
+  const visibleContent = normalizeMessageDisplayText(message);
 
   if (visibleContent) {
     return truncatePreviewText(visibleContent, maxLength);

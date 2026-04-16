@@ -84,6 +84,12 @@ ExecutionPlanStatus = Literal[
     "completed",
     "blocked",
 ]
+SubmarineIterationMode = Literal[
+    "baseline",
+    "revise_baseline",
+    "derive_variant",
+    "followup",
+]
 SubmarineRuntimeStatus = Literal[
     "ready",
     "running",
@@ -329,6 +335,13 @@ class SubmarineRuntimeSnapshot(BaseModel):
     clarification_required: bool = False
     calculation_plan: list[CalculationPlanItem] = Field(default_factory=list)
     requires_immediate_confirmation: bool = False
+    contract_revision: int = 1
+    iteration_mode: SubmarineIterationMode = "baseline"
+    revision_summary: str | None = None
+    capability_gaps: list[dict[str, Any]] = Field(default_factory=list)
+    unresolved_decisions: list[dict[str, Any]] = Field(default_factory=list)
+    evidence_expectations: list[dict[str, Any]] = Field(default_factory=list)
+    variant_policy: dict[str, Any] = Field(default_factory=dict)
     selected_case_id: str | None = None
     simulation_requirements: dict[str, float | int] | None = None
     requested_outputs: list[SubmarineRequestedOutput] = Field(default_factory=list)
@@ -420,6 +433,13 @@ def build_runtime_snapshot(
     clarification_required: bool = False,
     calculation_plan: list[CalculationPlanItem | dict] | None = None,
     requires_immediate_confirmation: bool = False,
+    contract_revision: int = 1,
+    iteration_mode: SubmarineIterationMode = "baseline",
+    revision_summary: str | None = None,
+    capability_gaps: list[dict[str, Any]] | None = None,
+    unresolved_decisions: list[dict[str, Any]] | None = None,
+    evidence_expectations: list[dict[str, Any]] | None = None,
+    variant_policy: dict[str, Any] | None = None,
     next_recommended_stage: str,
     report_virtual_path: str,
     artifact_virtual_paths: list[str] | None = None,
@@ -494,6 +514,13 @@ def build_runtime_snapshot(
         clarification_required=clarification_required,
         calculation_plan=calculation_plan or [],
         requires_immediate_confirmation=requires_immediate_confirmation,
+        contract_revision=contract_revision,
+        iteration_mode=iteration_mode,
+        revision_summary=revision_summary,
+        capability_gaps=capability_gaps or [],
+        unresolved_decisions=unresolved_decisions or [],
+        evidence_expectations=evidence_expectations or [],
+        variant_policy=variant_policy or {},
         selected_case_id=selected_case_id,
         simulation_requirements=simulation_requirements,
         requested_outputs=requested_outputs or [],

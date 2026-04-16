@@ -11,7 +11,9 @@ import {
 import {
   buildSkillStudioPublishPanelModel,
   buildSkillStudioReadinessSummary,
+  formatSkillStudioStatus,
   groupSkillStudioArtifacts,
+  resolveSkillStudioEffectivePublishStatus,
   resolveSkillStudioAssistantIdentity,
   type SkillStudioArtifactGroup,
 } from "../skill-studio-workbench.utils.ts";
@@ -199,6 +201,11 @@ const SKILL_STUDIO_COPY_MAP: Record<string, string> = {
     "仅在专家确认试跑结果后再执行发布。",
 };
 
+SKILL_STUDIO_COPY_MAP[
+  "Claude Code should trigger the drafted skill and produce a reviewable output."
+] = "触发技能后，应输出一份可供审核的结果。";
+SKILL_STUDIO_COPY_MAP["Outcome not declared."] = "尚未声明预期结果。";
+
 function localizeSkillStudioCopy(value: string | null | undefined) {
   if (!value) {
     return value ?? "";
@@ -223,14 +230,19 @@ export function buildSkillStudioDetailModel(
     ...(input.skillPackage?.builtin_skills ?? []),
     ...(input.studioState?.builtin_skills ?? []),
   ].filter((skill, index, all): skill is string => Boolean(skill) && all.indexOf(skill) === index);
+  const effectivePublishStatus = resolveSkillStudioEffectivePublishStatus({
+    publishStatus:
+      input.publishReadiness?.status ?? input.studioState?.publish_status,
+    lifecycleSummary: input.lifecycleSummary,
+    lifecycleDetail: input.lifecycleDetail,
+  });
   const readiness = buildSkillStudioReadinessSummary({
     errorCount: input.validation?.error_count ?? input.studioState?.error_count ?? 0,
     warningCount:
       input.validation?.warning_count ?? input.studioState?.warning_count ?? 0,
     validationStatus: input.validation?.status ?? input.studioState?.validation_status,
     testStatus: input.testMatrix?.status ?? input.studioState?.test_status,
-    publishStatus:
-      input.publishReadiness?.status ?? input.studioState?.publish_status,
+    publishStatus: effectivePublishStatus,
   });
   const artifactGroups = groupSkillStudioArtifacts(input.studioArtifacts);
   const publishPanel = buildSkillStudioPublishPanelModel({
@@ -251,8 +263,10 @@ export function buildSkillStudioDetailModel(
     input.testMatrix?.scenario_tests?.map((scenario) => ({
       id: scenario?.id ?? "scenario",
       scenario: scenario?.scenario ?? "Scenario",
-      status: scenario?.status ?? "pending",
-      expectedOutcome: scenario?.expected_outcome ?? "Outcome not declared.",
+      status: formatSkillStudioStatus(scenario?.status ?? "pending"),
+      expectedOutcome: localizeSkillStudioCopy(
+        scenario?.expected_outcome ?? "Outcome not declared.",
+      ),
       blockingReasons: scenario?.blocking_reasons ?? [],
     })) ?? [];
   const dryRunStatus =
@@ -294,7 +308,9 @@ export function buildSkillStudioDetailModel(
       builtinSkills,
     },
     evaluate: {
-      status: input.validation?.status ?? input.studioState?.validation_status ?? "draft_only",
+      status: formatSkillStudioStatus(
+        input.validation?.status ?? input.studioState?.validation_status ?? "draft_only",
+      ),
       errorCount: input.validation?.error_count ?? input.studioState?.error_count ?? 0,
       warningCount:
         input.validation?.warning_count ?? input.studioState?.warning_count ?? 0,
@@ -318,7 +334,10 @@ export function buildSkillStudioDetailModel(
           (input.testMatrix?.blocking_count ?? 0) === 0 &&
           (input.publishReadiness?.blocking_count ?? 0) === 0 &&
           readiness.blockingCount === 0,
-        nextActions: input.publishReadiness?.next_actions ?? [],
+        nextActions:
+          input.publishReadiness?.next_actions?.map((item) =>
+            localizeSkillStudioCopy(item),
+          ) ?? [],
       },
     },
     publish: {

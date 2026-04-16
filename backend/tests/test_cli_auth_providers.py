@@ -1084,6 +1084,112 @@ def test_openai_cli_provider_recovers_geometry_tool_call_after_todo_only_turn_fo
     ]
 
 
+def test_openai_cli_provider_recovers_geometry_tool_call_after_alternate_model_generic_continue_ack(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "deerflow.models.openai_cli_provider.load_openai_api_credential",
+        lambda: OpenAIApiCredential(
+            api_key="sk-openai-test",
+            source="codex-auth-file",
+        ),
+    )
+
+    model = OpenAICliChatModel(model="gpt-5.4", use_responses_api=True, output_version="responses/v1")
+    model.__dict__["root_client"] = SimpleNamespace(
+        responses=SimpleNamespace(
+            create=lambda **_: {
+                "model": "gpt-5.4",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [],
+                    }
+                ],
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "total_tokens": 15,
+                },
+            }
+        )
+    )
+    monkeypatch.setattr(
+        OpenAICliChatModel,
+        "_retry_empty_response_with_alternate_model",
+        lambda self, messages, stop=None, run_manager=None, **kwargs: ChatResult(
+            generations=[
+                ChatGeneration(
+                    message=AIMessage(
+                        content="我先根据你刚才的输入继续推进；如果需要你补充信息，我会明确告诉你。"
+                    )
+                )
+            ]
+        ),
+    )
+
+    result = model._generate(
+        [
+            HumanMessage(
+                content=(
+                    "<uploaded_files>\n"
+                    "The following files were uploaded in this message:\n"
+                    "- suboff_solid.stl (1.6 MB)\n"
+                    "</uploaded_files>\n\n"
+                    "请先对这个 STL 做潜艇几何预检，并准备 DARPA SUBOFF 裸艇阻力基线 CFD 方案草案，暂时不要执行求解。"
+                ),
+                additional_kwargs={
+                    "files": [
+                        {
+                            "filename": "suboff_solid.stl",
+                            "path": "/mnt/user-data/uploads/suboff_solid.stl",
+                            "status": "uploaded",
+                        }
+                    ]
+                },
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "write_todos",
+                        "args": {
+                            "todos": [
+                                {
+                                    "content": "Read submarine geometry skill",
+                                    "status": "in_progress",
+                                }
+                            ]
+                        },
+                        "id": "call_write_todos",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(
+                content="Updated todo list.",
+                tool_call_id="call_write_todos",
+                name="write_todos",
+            ),
+        ]
+    )
+
+    assert result.generations[0].message.content == ""
+    assert result.generations[0].message.tool_calls == [
+        {
+            "name": "submarine_geometry_check",
+            "args": {
+                "geometry_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "task_description": "请先对这个 STL 做潜艇几何预检，并准备 DARPA SUBOFF 裸艇阻力基线 CFD 方案草案，暂时不要执行求解。",
+                "task_type": "resistance",
+                "geometry_family_hint": "DARPA SUBOFF",
+            },
+            "id": "fallback_submarine_geometry_check_0",
+            "type": "tool_call",
+        }
+    ]
+
+
 def test_openai_cli_provider_recovers_geometry_tool_call_after_later_non_stl_attachment(
     monkeypatch,
 ):

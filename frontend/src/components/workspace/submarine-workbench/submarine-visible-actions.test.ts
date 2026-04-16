@@ -92,8 +92,136 @@ void test("offers a visible remediation follow-up action when a blocked report e
 
   assert.equal(actions.length, 1);
   assert.equal(actions[0]?.id, "followup");
-  assert.match(actions[0]?.description ?? "", /Solver metrics|阻塞|补齐/i);
-  assert.match(actions[0]?.message ?? "", /修正|重跑|solver metrics/i);
+  assert.match(actions[0]?.description ?? "", /当前运行缺少求解指标|阻塞|补齐/i);
+  assert.match(actions[0]?.message ?? "", /修正|重跑|求解指标/i);
+  assert.doesNotMatch(
+    `${actions[0]?.description ?? ""}\n${actions[0]?.message ?? ""}`,
+    /solver metrics|scientific|remediation handoff/i,
+  );
+});
+
+void test("keeps the visible remediation follow-up action after a report-only refresh if the thread is still blocked", () => {
+  const actions = buildSubmarineVisibleActions({
+    runtime: {
+      current_stage: "result-reporting",
+      runtime_status: "blocked",
+      blocker_detail:
+        "Residual summary is still unavailable for the current baseline run.",
+      supervisor_handoff_virtual_path:
+        "/artifacts/submarine/scientific-remediation-handoff.json",
+    },
+    designBrief: {
+      confirmation_status: "confirmed",
+      task_description: "Refresh the blocked SUBOFF baseline thread.",
+      selected_case_id: "darpa_suboff_bare_hull_resistance",
+    },
+    finalReport: {
+      summary_zh:
+        "The report was refreshed, but the blocked baseline still needs a rerun.",
+      scientific_supervisor_gate: {
+        gate_status: "blocked",
+        blocking_reasons: [
+          "Residual summary is still unavailable for the current baseline run.",
+        ],
+      },
+      scientific_remediation_handoff: {
+        handoff_status: "ready_for_auto_followup",
+        recommended_action_id: "rerun-current-baseline",
+        tool_name: "submarine_solver_dispatch",
+        reason: "Residual summary is still unavailable for the current baseline run.",
+      },
+      scientific_followup_summary: {
+        latest_outcome_status: "result_report_refreshed",
+        latest_tool_name: "submarine_result_report",
+      },
+    },
+  });
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0]?.id, "followup");
+  assert.match(actions[0]?.description ?? "", /残差摘要|基线/i);
+  assert.doesNotMatch(actions[0]?.description ?? "", /Residual summary|baseline/i);
+});
+
+void test("localizes report-refresh follow-up copy so auto-generated user prompts stay frontend-friendly", () => {
+  const actions = buildSubmarineVisibleActions({
+    runtime: {
+      current_stage: "result-reporting",
+      runtime_status: "blocked",
+      blocker_detail: "Solver metrics are unavailable for this run.",
+      supervisor_handoff_virtual_path:
+        "/artifacts/submarine/scientific-remediation-handoff.json",
+    },
+    designBrief: {
+      confirmation_status: "confirmed",
+      task_description: "Refresh the blocked SUBOFF baseline thread.",
+      selected_case_id: "darpa_suboff_bare_hull_resistance",
+    },
+    finalReport: {
+      summary_zh: "The report was refreshed, but the blocked baseline still needs a rerun.",
+      scientific_supervisor_gate: {
+        gate_status: "blocked",
+        blocking_reasons: ["Solver metrics are unavailable for this run."],
+      },
+      scientific_remediation_handoff: {
+        handoff_status: "ready_for_auto_followup",
+        recommended_action_id: "regenerate-research-report-linkage",
+        tool_name: "submarine_result_report",
+        reason: "Solver metrics are unavailable for this run.",
+      },
+      scientific_followup_summary: {
+        latest_outcome_status: "result_report_refreshed",
+        latest_tool_name: "submarine_result_report",
+      },
+    },
+  });
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0]?.id, "followup");
+  assert.match(actions[0]?.message ?? "", /现有产物|修正交接说明|科学审查/);
+  assert.doesNotMatch(
+    actions[0]?.message ?? "",
+    /artifacts|remediation handoff|scientific/i,
+  );
+});
+
+void test("suppresses a repeated remediation button after the same follow-up already completed dispatch and refreshed the report", () => {
+  const actions = buildSubmarineVisibleActions({
+    runtime: {
+      current_stage: "result-reporting",
+      runtime_status: "blocked",
+      blocker_detail: "Solver still needs supervisor review.",
+      supervisor_handoff_virtual_path:
+        "/artifacts/submarine/scientific-remediation-handoff.json",
+    },
+    designBrief: {
+      confirmation_status: "confirmed",
+      task_description: "Keep the blocked SUBOFF thread aligned.",
+      selected_case_id: "darpa_suboff_bare_hull_resistance",
+    },
+    finalReport: {
+      summary_zh: "The report was refreshed after the rerun.",
+      scientific_supervisor_gate: {
+        gate_status: "blocked",
+        blocking_reasons: ["Solver still needs supervisor review."],
+      },
+      scientific_remediation_handoff: {
+        handoff_status: "ready_for_auto_followup",
+        recommended_action_id: "rerun-current-baseline",
+        tool_name: "submarine_solver_dispatch",
+        reason: "Solver still needs supervisor review.",
+        source_run_id: "baseline",
+      },
+      scientific_followup_summary: {
+        latest_outcome_status: "dispatch_refreshed_report",
+        latest_tool_name: "submarine_solver_dispatch",
+        latest_recommended_action_id: "rerun-current-baseline",
+        latest_source_run_id: "baseline",
+      },
+    },
+  });
+
+  assert.equal(actions.length, 0);
 });
 
 void test("suppresses visible execution actions while confirmation is still pending", () => {

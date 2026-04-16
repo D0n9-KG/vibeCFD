@@ -40,7 +40,7 @@ export function SkillStudioTestingEvidence({
           label="阻塞数"
           value={String(evaluate.scenarioMatrix.blockedCount)}
         />
-        <Metric label="Dry-run" value={dryRunStatusLabel} />
+        <Metric label="试跑" value={dryRunStatusLabel} />
         <Metric
           label="验证状态"
           value={evaluate.status || "draft_only"}

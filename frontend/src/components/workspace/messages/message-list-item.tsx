@@ -24,8 +24,8 @@ import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import {
   extractContentFromMessage,
   extractReasoningContentFromMessage,
+  normalizeMessageDisplayText,
   parseUploadedFiles,
-  stripUploadedFilesTag,
   type FileInMessage,
 } from "@/core/messages/utils";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
@@ -156,11 +156,8 @@ function MessageContent_({
   }, [message.additional_kwargs?.files, rawContent]);
 
   const contentToDisplay = useMemo(() => {
-    if (isHuman) {
-      return rawContent ? stripUploadedFilesTag(rawContent) : "";
-    }
-    return localizeWorkspaceDisplayText(rawContent ?? "");
-  }, [rawContent, isHuman]);
+    return normalizeMessageDisplayText(message);
+  }, [message]);
   const localizedReasoningContent = useMemo(
     () => localizeWorkspaceDisplayText(reasoningContent ?? ""),
     [reasoningContent],
@@ -180,7 +177,7 @@ function MessageContent_({
     return (
       <AIElementMessageContent className={className}>
         <Task defaultOpen={false}>
-          <TaskTrigger title={contentToDisplay || "Task status"}>
+          <TaskTrigger title={contentToDisplay || "任务状态"}>
             <div className="text-muted-foreground flex w-full cursor-default items-center gap-2 text-sm select-none">
               <Loader className="size-4" />
               <span>{contentToDisplay}</span>

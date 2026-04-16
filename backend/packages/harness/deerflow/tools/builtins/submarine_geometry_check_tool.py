@@ -256,12 +256,45 @@ def submarine_geometry_check_tool(
         clarification_required=result.clarification_required,
         calculation_plan=calculation_plan,
         requires_immediate_confirmation=requires_immediate_confirmation,
+        contract_revision=int(
+            (existing_runtime or {}).get("contract_revision")
+            or existing_brief.get("contract_revision")
+            or 1
+        ),
+        iteration_mode=str(
+            (existing_runtime or {}).get("iteration_mode")
+            or existing_brief.get("iteration_mode")
+            or "baseline"
+        ),
+        revision_summary=(
+            (existing_runtime or {}).get("revision_summary")
+            or existing_brief.get("revision_summary")
+        ),
+        capability_gaps=(
+            (existing_runtime or {}).get("capability_gaps")
+            or existing_brief.get("capability_gaps")
+        ),
+        unresolved_decisions=(
+            (existing_runtime or {}).get("unresolved_decisions")
+            or existing_brief.get("unresolved_decisions")
+        ),
+        evidence_expectations=(
+            (existing_runtime or {}).get("evidence_expectations")
+            or existing_brief.get("evidence_expectations")
+        ),
+        variant_policy=(
+            (existing_runtime or {}).get("variant_policy")
+            or existing_brief.get("variant_policy")
+        ),
         recommended_actions=result.recommended_actions,
         requested_outputs=(
             (existing_runtime or {}).get("requested_outputs")
             or existing_brief.get("requested_outputs")
         ),
-        output_delivery_plan=(existing_runtime or {}).get("output_delivery_plan"),
+        output_delivery_plan=(
+            (existing_runtime or {}).get("output_delivery_plan")
+            or existing_brief.get("output_delivery_plan")
+        ),
         runtime_summary=result.summary_zh,
         next_recommended_stage=result.next_recommended_stage,
         report_virtual_path=result.report_virtual_path,

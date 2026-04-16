@@ -14,17 +14,44 @@ export function SubmarineExperimentBoard({
       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">
         对比试验与后处理
       </div>
+
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="基线算例" value={experimentBoard.baselineRunId ?? "暂无"} />
         <Metric label="运行数量" value={String(experimentBoard.runCount)} />
         <Metric label="对比数量" value={String(experimentBoard.compareCount)} />
-        <Metric label="已完成对比" value={String(experimentBoard.compareCompletedCount)} />
+        <Metric
+          label="已完成对比"
+          value={String(experimentBoard.compareCompletedCount)}
+        />
       </div>
+
+      {experimentBoard.lineageModeLabel ||
+      experimentBoard.compareTargetRunIds.length > 0 ||
+      experimentBoard.followupSourceRunId ? (
+        <article className="mt-3 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-3 text-sm text-slate-700">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            试验谱系
+          </div>
+          {experimentBoard.lineageModeLabel ? (
+            <p className="mt-2">当前模式：{experimentBoard.lineageModeLabel}</p>
+          ) : null}
+          {experimentBoard.compareTargetRunIds.length > 0 ? (
+            <p className="mt-1">
+              对比目标：{experimentBoard.compareTargetRunIds.join(" / ")}
+            </p>
+          ) : null}
+          {experimentBoard.followupSourceRunId ? (
+            <p className="mt-1">后续来源：{experimentBoard.followupSourceRunId}</p>
+          ) : null}
+        </article>
+      ) : null}
+
       {experimentBoard.variantRunIds.length > 0 ? (
         <p className="mt-3 text-sm text-slate-700">
-          变体算例：{experimentBoard.variantRunIds.join("、")}
+          变体算例：{experimentBoard.variantRunIds.join(" / ")}
         </p>
       ) : null}
+
       {experimentBoard.comparisons.length > 0 ? (
         <ul className="mt-3 space-y-2">
           {experimentBoard.comparisons.slice(0, 3).map((comparison) => (
@@ -32,16 +59,19 @@ export function SubmarineExperimentBoard({
               key={`${comparison.candidateRunId}-${comparison.variantLabel}`}
               className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-sm text-slate-700"
             >
-              {comparison.variantLabel}（{comparison.candidateRunId}） · {comparison.status}
+              {comparison.variantLabel}（{comparison.candidateRunId}） -{" "}
+              {comparison.status}
             </li>
           ))}
         </ul>
       ) : null}
+
       {experimentBoard.lineageNotes.length > 0 ? (
         <p className="mt-3 text-xs text-slate-600">
           数据链路：{experimentBoard.lineageNotes[0]}
         </p>
       ) : null}
+
       {leadingStudy ? (
         <p className="mt-2 text-xs text-slate-600">
           当前研究批次：{leadingStudy.label}（{leadingStudy.workflowStatus}）

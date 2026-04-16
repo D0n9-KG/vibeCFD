@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import struct
 import shutil
 from collections.abc import Mapping
 from pathlib import Path
@@ -99,6 +100,97 @@ def _reference_area_m2(
             return round(max(beam * draft, 1e-4), 6)
     reference_length = _reference_length_m(geometry, reference_inputs)
     return round(max(reference_length * reference_length * 0.01, 0.1), 6)
+
+
+def _looks_like_binary_stl(raw: bytes) -> bool:
+    if len(raw) < 84:
+        return False
+    triangle_count = struct.unpack("<I", raw[80:84])[0]
+    expected_size = 84 + triangle_count * 50
+    if expected_size == len(raw):
+        return True
+    return not raw[:5].lower().startswith(b"solid")
+
+
+def _format_stl_float(value: float) -> str:
+    return f"{value:.9g}"
+
+
+def _scale_ascii_stl_content(content: str, scale_factor: float) -> str:
+    scaled_lines: list[str] = []
+    for raw_line in content.splitlines():
+        stripped_line = raw_line.lstrip()
+        if not stripped_line.lower().startswith("vertex "):
+            scaled_lines.append(raw_line)
+            continue
+
+        parts = stripped_line.split()
+        if len(parts) != 4:
+            scaled_lines.append(raw_line)
+            continue
+
+        try:
+            scaled_coordinates = [
+                _format_stl_float(float(parts[index]) * scale_factor)
+                for index in range(1, 4)
+            ]
+        except ValueError:
+            scaled_lines.append(raw_line)
+            continue
+
+        leading_whitespace = raw_line[: len(raw_line) - len(stripped_line)]
+        scaled_lines.append(
+            f"{leading_whitespace}vertex {' '.join(scaled_coordinates)}"
+        )
+
+    scaled_content = "\n".join(scaled_lines)
+    if content.endswith(("\n", "\r\n")):
+        return scaled_content + "\n"
+    return scaled_content
+
+
+def _scale_binary_stl_content(raw: bytes, scale_factor: float) -> bytes:
+    if len(raw) < 84:
+        return raw
+    triangle_count = struct.unpack("<I", raw[80:84])[0]
+    expected_size = 84 + triangle_count * 50
+    if expected_size > len(raw):
+        return raw
+
+    scaled = bytearray(raw[:84])
+    for index in range(triangle_count):
+        start = 84 + index * 50
+        scaled.extend(raw[start : start + 12])
+        vertices = struct.unpack("<fffffffff", raw[start + 12 : start + 48])
+        scaled.extend(
+            struct.pack(
+                "<fffffffff",
+                *[coordinate * scale_factor for coordinate in vertices],
+            )
+        )
+        scaled.extend(raw[start + 48 : start + 50])
+    return bytes(scaled)
+
+
+def _copy_scaled_stl(
+    *,
+    source_path: Path,
+    destination_path: Path,
+    scale_factor: float,
+) -> None:
+    source_fs_path = platform_fs_path(source_path)
+    destination_fs_path = platform_fs_path(destination_path)
+    raw = source_fs_path.read_bytes()
+    if _looks_like_binary_stl(raw):
+        destination_fs_path.write_bytes(_scale_binary_stl_content(raw, scale_factor))
+        return
+
+    content = raw.decode("utf-8", errors="ignore")
+    destination_fs_path.write_text(
+        _scale_ascii_stl_content(content, scale_factor),
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def resolve_simulation_requirements(
@@ -772,6 +864,7 @@ def write_openfoam_case_scaffold(
     mesh_scale_factor: float = 1.0,
     domain_extent_multiplier: float = 1.0,
     reference_inputs: Mapping[str, object] | None = None,
+    geometry_scale_factor: float | None = None,
 ) -> dict[str, str | bool]:
     case_root_dir = workspace_dir / "submarine" / "solver-dispatch" / run_dir_name
     if case_relative_dir:
@@ -784,7 +877,8 @@ def write_openfoam_case_scaffold(
     (case_dir_fs / "system").mkdir(parents=True, exist_ok=True)
 
     application = _resolve_solver_application(selected_case)
-    base_domain_length = max((geometry.estimated_length_m or 10.0) * 2.0, 20.0)
+    characteristic_length = geometry.estimated_length_m or 10.0
+    base_domain_length = max(characteristic_length * 2.0, 8.0)
     domain_length = max(base_domain_length * domain_extent_multiplier, 1.0)
     reference_length_m = _reference_length_m(geometry, reference_inputs)
     reference_area_m2 = _reference_area_m2(geometry, reference_inputs)
@@ -840,7 +934,18 @@ def write_openfoam_case_scaffold(
         )
     else:
         tri_surface_path = case_dir_fs / "constant" / "triSurface" / geometry_path.name
-        shutil.copy2(platform_fs_path(geometry_path), tri_surface_path)
+        if (
+            geometry_scale_factor is not None
+            and geometry_scale_factor > 0
+            and abs(geometry_scale_factor - 1.0) > 1e-9
+        ):
+            _copy_scaled_stl(
+                source_path=geometry_path,
+                destination_path=tri_surface_path,
+                scale_factor=geometry_scale_factor,
+            )
+        else:
+            shutil.copy2(platform_fs_path(geometry_path), tri_surface_path)
         write_unix_text(case_dir / "system" / "surfaceFeaturesDict", _surface_features_dict(geometry_path.name))
         write_unix_text(
             case_dir / "system" / "snappyHexMeshDict",

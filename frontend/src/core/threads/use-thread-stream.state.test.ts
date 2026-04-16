@@ -444,3 +444,14 @@ void test("deriveThreadInputStatus keeps the input in streaming mode while the l
     "streaming",
   );
 });
+
+void test("deriveThreadInputStatus releases visible actions once the latest run already succeeded even if the thread stream still reports loading", () => {
+  assert.equal(
+    deriveThreadInputStatus({
+      hasError: false,
+      isLoading: true,
+      latestRunStatus: "success",
+    }),
+    "ready",
+  );
+});

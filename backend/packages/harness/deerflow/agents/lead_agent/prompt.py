@@ -852,6 +852,11 @@ For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resi
 
 1. `submarine_design_brief` is the recommended structured planning-memory tool whenever the negotiated task understanding changes materially.
    Use it to checkpoint current objectives, assumptions, requested outputs, verification requirements, constraints, and open questions instead of leaving critical plan details only in chat.
+   When the user changes outputs, scope, benchmark targets, or variant strategy, treat that as a contract revision and update `submarine_design_brief` first.
+   When the user adds or changes deliverables, translate them into the structured `expected_outputs` list instead of leaving them only in `task_description`.
+   When the user confirms the current draft, answers the pending open questions, or explicitly accepts the proposed calculation plan, rerun `submarine_design_brief` immediately.
+   If all execution-blocking questions are resolved, set `confirmation_status="confirmed"` and keep `open_questions` limited to only the still-unresolved items.
+   If some execution-blocking questions remain, keep `confirmation_status="draft"`, shrink `open_questions` to only the still-unresolved items, summarize what still blocks execution, and stop before solver dispatch.
 2. Do NOT answer submarine CFD requests directly from general reasoning when a domain tool or structured artifact would materially improve reliability.
    Choose tools dynamically based on the user's goal rather than forcing every task through the same linear stage order.
 3. If operating conditions, deliverables, comparison targets, or verification requirements are still unresolved, call `ask_clarification` and stop.
@@ -859,11 +864,17 @@ For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resi
    Do not continue to risky execution while the plan still has open questions.
 4. `submarine_geometry_check` is recommended when geometry quality, scale, or runtime readiness is uncertain.
    Use it before solver execution whenever the geometry must be validated, but do not assume every task needs to proceed immediately from planning into geometry preflight.
+   When a bound STL already exists and the user asks for concrete submarine CFD progress, do not stop at `write_todos` or a generic acknowledgement in the same turn.
+   In that situation, use a real submarine tool in the same turn, usually `submarine_geometry_check` for first-touch geometry grounding and `submarine_design_brief` once the structured task contract can be materialized.
 5. `submarine_solver_dispatch` is the high-risk execution-preparation or execution tool.
    Only use it when the user has explicitly approved execution, the required inputs are present, and the resulting run can stay inside the DeerFlow sandbox and artifact boundary.
    Safe geometry-only preflight may proceed earlier, but solver dispatch still waits for explicit user confirmation.
+   After a user confirmation turn, do not call `submarine_solver_dispatch` until the refreshed design brief has been written and it reports `approval_state="approved"`.
+   If the refreshed brief still reports `approval_state="needs_confirmation"`, keep the thread in confirmation mode and tell the user exactly which unresolved items still need input.
+   In other words, rerun `submarine_design_brief` before calling `submarine_solver_dispatch` whenever the latest user message is the confirmation that unlocks execution.
 6. `submarine_result_report` is recommended only after geometry or solver artifacts exist and the report can be grounded in actual DeerFlow evidence.
    Keep scientific-claim language bounded by the available evidence and the structured runtime outputs.
+   Do not refresh `submarine_result_report` immediately after a contract-only revision unless you are either surfacing unchanged prior evidence with explicit boundaries or you have already run the downstream execution / post-processing work needed for the revised outputs.
 </submarine_workflow_protocol>"""
 
 

@@ -7,6 +7,17 @@ export function getSubmarineNegotiationAttentionKey(
     return null;
   }
 
+  const reportPath = runtime.report_virtual_path;
+  const hasFinalReportPath =
+    typeof reportPath === "string" && reportPath.includes("final-report.");
+  const stageLooksEarlierThanReporting =
+    runtime.current_stage === "task-intelligence" ||
+    runtime.current_stage === "geometry-preflight";
+
+  if (hasFinalReportPath && stageLooksEarlierThanReporting) {
+    return null;
+  }
+
   const needsUserConfirmation =
     runtime.review_status === "needs_user_confirmation" ||
     runtime.next_recommended_stage === "user-confirmation" ||

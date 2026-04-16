@@ -4,6 +4,8 @@ import type {
   SubmarineRuntimeSnapshotPayload,
 } from "@/components/workspace/submarine-runtime-panel.contract";
 
+import { localizeWorkspaceDisplayText } from "../../../core/i18n/workspace-display.ts";
+
 export type SubmarineVisibleAction = {
   id: "execute" | "report" | "followup";
   label: string;
@@ -42,8 +44,7 @@ function hasPlannedDispatchReadyForExecution(
   runtime: SubmarineRuntimeSnapshotPayload | null,
 ): boolean {
   return Boolean(
-    runtime &&
-      runtime.current_stage === "solver-dispatch" &&
+    runtime?.current_stage === "solver-dispatch" &&
       runtime.stage_status === "planned" &&
       runtime.runtime_status === "ready" &&
       runtime.review_status === "ready_for_supervisor" &&
@@ -94,21 +95,42 @@ function hasReadyScientificFollowup(
     return false;
   }
 
-  const latestOutcome = finalReport?.scientific_followup_summary?.latest_outcome_status;
-  if (
-    latestOutcome != null &&
-    ["dispatch_refreshed_report", "result_report_refreshed", "task_complete"].includes(
-      latestOutcome,
-    )
-  ) {
+  if (hasCompletedCurrentScientificFollowup(finalReport)) {
     return false;
   }
 
   return Boolean(
     runtime?.runtime_status === "blocked" ||
-      runtime?.blocker_detail ||
+      runtime?.blocker_detail != null ||
       finalReport?.scientific_supervisor_gate?.gate_status === "blocked",
   );
+}
+
+function hasCompletedCurrentScientificFollowup(
+  finalReport: SubmarineFinalReportPayload | null,
+): boolean {
+  const handoff = finalReport?.scientific_remediation_handoff;
+  const followup = finalReport?.scientific_followup_summary;
+  if (!handoff || !followup) {
+    return false;
+  }
+
+  if (followup.latest_outcome_status === "task_complete") {
+    return true;
+  }
+
+  if (followup.latest_outcome_status !== "dispatch_refreshed_report") {
+    return false;
+  }
+
+  if (
+    (followup.latest_recommended_action_id ?? null) !==
+    (handoff.recommended_action_id ?? null)
+  ) {
+    return false;
+  }
+
+  return (followup.latest_source_run_id ?? null) === (handoff.source_run_id ?? null);
 }
 
 function hasReportReady(finalReport: SubmarineFinalReportPayload | null): boolean {
@@ -118,10 +140,7 @@ function hasReportReady(finalReport: SubmarineFinalReportPayload | null): boolea
 function shouldOfferExecutionAction({
   runtime,
   designBrief,
-}: Pick<
-  BuildSubmarineVisibleActionsInput,
-  "runtime" | "designBrief"
->): boolean {
+}: Pick<BuildSubmarineVisibleActionsInput, "runtime" | "designBrief">): boolean {
   if (hasPendingConfirmation(runtime, designBrief)) {
     return false;
   }
@@ -137,6 +156,43 @@ function shouldOfferExecutionAction({
   return designBrief?.confirmation_status === "confirmed";
 }
 
+function resolveScientificFollowupCopy(
+  finalReport: SubmarineFinalReportPayload | null,
+): Pick<SubmarineVisibleAction, "label" | "message"> & { summary: string | null } {
+  const handoff = finalReport?.scientific_remediation_handoff;
+  const actionId = handoff?.recommended_action_id ?? null;
+  const summary =
+    finalReport?.scientific_remediation_summary?.actions?.find(
+      (item) => item?.action_id === actionId,
+    )?.summary ??
+    handoff?.reason ??
+    null;
+
+  switch (actionId) {
+    case "rerun-current-baseline":
+      return {
+        label: "重跑当前基线并刷新报告",
+        message:
+          "请按当前修正交接说明继续推进：复用现有几何、案例和已确认设置，优先重跑当前基线，补齐缺失的求解指标，然后刷新结果报告。整个过程请保持在当前线程中可追踪。",
+        summary,
+      };
+    case "regenerate-research-report-linkage":
+      return {
+        label: "刷新研究报告链路",
+        message:
+          "请不要重新求解。只基于当前已有产物刷新结果报告、科学审查和修正交接说明，并确保前端中的合同快照、阻塞项和交付状态与最新研究产物保持一致。",
+        summary,
+      };
+    default:
+      return {
+        label: "继续建议修正并重跑",
+        message:
+          "请继续建议的修正流程：基于当前科学审查给出的修正交接说明，复用现有几何、案例和已确认设置，立即重跑当前求解，补齐缺失的求解指标，然后刷新结果报告。整个过程请保持在当前线程中可追踪。",
+        summary,
+      };
+  }
+}
+
 function buildScientificFollowupAction({
   runtime,
   finalReport,
@@ -144,18 +200,22 @@ function buildScientificFollowupAction({
   runtime: SubmarineRuntimeSnapshotPayload | null;
   finalReport: SubmarineFinalReportPayload | null;
 }): SubmarineVisibleAction {
-  const blocker =
+  const blocker = localizeWorkspaceDisplayText(
     runtime?.blocker_detail ??
-    finalReport?.scientific_remediation_handoff?.reason ??
-    finalReport?.scientific_supervisor_gate?.blocking_reasons?.find(Boolean) ??
-    "当前科学审查仍要求补齐缺失证据。";
+      finalReport?.scientific_remediation_handoff?.reason ??
+      finalReport?.scientific_supervisor_gate?.blocking_reasons?.find(Boolean) ??
+      "当前科学审查仍要求补齐缺失证据。",
+  );
+  const actionCopy = resolveScientificFollowupCopy(finalReport);
+  const actionSummary = actionCopy.summary
+    ? `建议动作：${localizeWorkspaceDisplayText(actionCopy.summary)}。`
+    : "";
 
   return {
     id: "followup",
-    label: "继续建议修正并重跑",
-    description: `当前阻塞：${blocker}。这个按钮会把续跑和刷新报告的请求发送到协商线程，并在聊天历史中留下完整记录。`,
-    message:
-      "请继续建议的修正流程：基于当前科学审查给出的 remediation handoff，复用现有几何、案例和已确认设置，立即重跑当前求解并补齐缺失的 solver metrics，然后刷新结果报告。整个过程请保持在当前线程中可追踪。",
+    label: actionCopy.label,
+    description: `当前阻塞：${blocker}。${actionSummary}这个按钮会把清晰的下一步请求发送到协商线程，并在聊天历史里留下完整记录。`,
+    message: actionCopy.message,
   };
 }
 

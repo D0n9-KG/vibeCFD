@@ -6,7 +6,10 @@ import type {
   SubmarineRuntimeSnapshotPayload,
 } from "../submarine-runtime-panel.contract.ts";
 
-import { buildSubmarineResearchSnapshotSummary } from "./submarine-research-canvas.model.ts";
+import {
+  buildSubmarineResearchSnapshotSummary,
+  sanitizeSubmarineResearchCopy,
+} from "./submarine-research-canvas.model.ts";
 
 export const SUBMARINE_RESEARCH_SLICE_ORDER = [
   "task-establishment",
@@ -33,7 +36,11 @@ export type SubmarineNegotiationPendingItem = {
   id: string;
   label: string;
   detail: string | null;
-  kind: "plan-item" | "open-question" | "blocking-reason";
+  kind:
+    | "plan-item"
+    | "unresolved-decision"
+    | "open-question"
+    | "blocking-reason";
   urgency: "immediate" | "normal";
 };
 
@@ -145,26 +152,28 @@ function collectCalculationPlanItems(
 function countPendingApprovals({
   runtime,
   designBrief,
-}: Pick<BuildSubmarineSessionModelInput, "runtime" | "designBrief">): number {
+  finalReport,
+}: Pick<
+  BuildSubmarineSessionModelInput,
+  "runtime" | "designBrief" | "finalReport"
+>): number {
   const openQuestions =
     designBrief?.open_questions?.filter((question) => Boolean(question)).length ?? 0;
   const planItems = collectCalculationPlanItems(runtime, designBrief);
   const unconfirmedPlanItems = planItems.filter(
     (item) => item?.approval_state !== "researcher_confirmed",
   ).length;
-  const explicitConfirmationGate =
-    runtime?.review_status === "needs_user_confirmation" ||
-    runtime?.next_recommended_stage === "user-confirmation" ||
-    hasImmediateConfirmationRequirement(runtime, designBrief) ||
-    (designBrief?.confirmation_status === "draft" &&
-      (designBrief.open_questions?.length ?? 0) > 0);
-  const pendingApprovalCount = openQuestions + unconfirmedPlanItems;
+  const unresolvedDecisions =
+    finalReport?.unresolved_decisions ??
+    runtime?.unresolved_decisions ??
+    designBrief?.unresolved_decisions ??
+    [];
 
-  if (pendingApprovalCount > 0) {
-    return pendingApprovalCount;
-  }
-
-  return explicitConfirmationGate ? 1 : 0;
+  return (
+    openQuestions +
+    unconfirmedPlanItems +
+    unresolvedDecisions.filter((item) => item != null).length
+  );
 }
 function hasImmediateConfirmationRequirement(
   runtime: SubmarineRuntimeSnapshotPayload | null,
@@ -192,6 +201,19 @@ function normalizeNegotiationText(value?: string | null): string | null {
 
   const localized = localizeWorkspaceDisplayText(value).trim();
   return localized.length > 0 ? localized : null;
+}
+
+function looksLikeInternalNegotiationCode(value: string) {
+  return /^[a-z0-9]+(?:[_-][a-z0-9]+)+$/.test(value.trim());
+}
+
+function normalizeNegotiationLabel(value?: string | null): string | null {
+  const normalized = normalizeNegotiationText(value);
+  if (!normalized) {
+    return null;
+  }
+
+  return looksLikeInternalNegotiationCode(normalized) ? null : normalized;
 }
 
 function formatPlanScalarValue(value: unknown): string | null {
@@ -248,8 +270,12 @@ function formatPlanValue(
 function collectPendingNegotiationItems({
   runtime,
   designBrief,
+  finalReport,
   blockingReasons,
-}: Pick<BuildSubmarineSessionModelInput, "runtime" | "designBrief"> & {
+}: Pick<
+  BuildSubmarineSessionModelInput,
+  "runtime" | "designBrief" | "finalReport"
+> & {
   blockingReasons: readonly string[];
 }): SubmarineNegotiationPendingItem[] {
   const planItems = collectCalculationPlanItems(runtime, designBrief);
@@ -285,6 +311,51 @@ function collectPendingNegotiationItems({
       };
     });
 
+  const unresolvedDecisionSource =
+    finalReport?.unresolved_decisions ??
+    runtime?.unresolved_decisions ??
+    designBrief?.unresolved_decisions ??
+    [];
+  const unresolvedDecisions: SubmarineNegotiationPendingItem[] =
+    unresolvedDecisionSource.flatMap(
+      (item, index): SubmarineNegotiationPendingItem[] => {
+        if (!item || typeof item !== "object") {
+          return [];
+        }
+
+        const record = item;
+        const label = [
+          record.label_zh,
+          record.label,
+          record.question_zh,
+          record.requested_label,
+        ]
+          .map((candidate) =>
+            typeof candidate === "string" && candidate.trim().length > 0 ? candidate : null,
+          )
+          .find((candidate) => normalizeNegotiationLabel(candidate) != null);
+
+        const detail = [
+          record.summary_zh,
+          record.detail,
+          record.notes,
+        ].find((candidate) => typeof candidate === "string" && candidate.trim().length > 0);
+
+        return [
+          {
+            id:
+              (typeof record.decision_id === "string" && record.decision_id.trim().length > 0
+                ? record.decision_id.trim()
+                : `unresolved-decision-${index}`),
+            label: normalizeNegotiationLabel(label) ?? "未命名研究项",
+            detail: typeof detail === "string" ? detail.trim() : null,
+            kind: "unresolved-decision",
+            urgency: "normal",
+          },
+        ];
+      },
+    );
+
   const openQuestions: SubmarineNegotiationPendingItem[] = (designBrief?.open_questions ?? []).flatMap(
     (question, index): SubmarineNegotiationPendingItem[] => {
       const label = normalizeNegotiationText(question);
@@ -307,6 +378,7 @@ function collectPendingNegotiationItems({
   const items = [
     ...pendingPlanItems.filter((item) => item.urgency === "immediate"),
     ...pendingPlanItems.filter((item) => item.urgency !== "immediate"),
+    ...unresolvedDecisions,
     ...openQuestions,
   ];
 
@@ -348,22 +420,88 @@ function buildNegotiationSummary(
   return `当前有 ${items.length} 项待确认事项，请先逐项确认后再继续推进计算。`;
 }
 
+function shouldSurfaceRuntimeConfirmationGate({
+  runtime,
+  designBrief,
+  finalReport,
+  pendingApprovalCount,
+}: Pick<
+  BuildSubmarineSessionModelInput,
+  "runtime" | "designBrief" | "finalReport"
+> & {
+  pendingApprovalCount: number;
+}): boolean {
+  const hasRuntimeConfirmationGate =
+    runtime?.review_status === "needs_user_confirmation" ||
+    runtime?.next_recommended_stage === "user-confirmation" ||
+    hasImmediateConfirmationRequirement(runtime, designBrief) ||
+    (designBrief?.confirmation_status === "draft" &&
+      (designBrief.open_questions?.length ?? 0) > 0);
+
+  if (!hasRuntimeConfirmationGate) {
+    return false;
+  }
+
+  if (pendingApprovalCount > 0) {
+    return true;
+  }
+
+  if (hasImmediateConfirmationRequirement(runtime, designBrief)) {
+    return true;
+  }
+
+  const contractLooksSettled =
+    (finalReport != null &&
+      (finalReport.unresolved_decisions?.length ?? 0) === 0) ||
+    designBrief?.confirmation_status === "confirmed";
+
+  return !contractLooksSettled;
+}
+
 function resolveBlockingReasons({
   runtime,
   designBrief,
+  finalReport,
   pendingApprovalCount,
-}: Pick<BuildSubmarineSessionModelInput, "runtime" | "designBrief"> & {
+}: Pick<
+  BuildSubmarineSessionModelInput,
+  "runtime" | "designBrief" | "finalReport"
+> & {
   pendingApprovalCount: number;
 }): string[] {
   const reasons: string[] = [];
+  const showRuntimeConfirmationGate = shouldSurfaceRuntimeConfirmationGate({
+    runtime,
+    designBrief,
+    finalReport,
+    pendingApprovalCount,
+  });
+  const hasRuntimeConfirmationGate =
+    runtime?.review_status === "needs_user_confirmation" ||
+    runtime?.next_recommended_stage === "user-confirmation" ||
+    hasImmediateConfirmationRequirement(runtime, designBrief) ||
+    (designBrief?.confirmation_status === "draft" &&
+      (designBrief.open_questions?.length ?? 0) > 0);
 
-  if (runtime?.review_status === "needs_user_confirmation") {
+  if (
+    hasRuntimeConfirmationGate &&
+    showRuntimeConfirmationGate &&
+    runtime?.review_status === "needs_user_confirmation"
+  ) {
     reasons.push("当前存在待你确认的研究决策，主智能体会先停在协商区。");
   }
-  if (runtime?.next_recommended_stage === "user-confirmation") {
+  if (
+    hasRuntimeConfirmationGate &&
+    showRuntimeConfirmationGate &&
+    runtime?.next_recommended_stage === "user-confirmation"
+  ) {
     reasons.push("当前建议先完成研究者确认，再继续推进计算。");
   }
-  if (hasImmediateConfirmationRequirement(runtime, designBrief)) {
+  if (
+    hasRuntimeConfirmationGate &&
+    showRuntimeConfirmationGate &&
+    hasImmediateConfirmationRequirement(runtime, designBrief)
+  ) {
     reasons.push("存在需要立刻确认的参数或边界条件。");
   }
   if (pendingApprovalCount > 0) {
@@ -571,6 +709,11 @@ function buildResearchSlices({
     },
   ];
 
+  const sanitizedFinalReportSummary =
+    sanitizeSubmarineResearchCopy(input.finalReport?.summary_zh) ??
+    input.finalReport?.summary_zh ??
+    null;
+
   if (hasGeometrySignal(input) && !input.isNewThread) {
     slices.push({
       id: "geometry-preflight",
@@ -651,14 +794,14 @@ function buildResearchSlices({
       title: "结果与交付判断",
       statusLabel: resolveResultsAndDeliveryStatusLabel(input),
       summary:
-        input.finalReport?.summary_zh ??
+        sanitizedFinalReportSummary ??
         "当前切片围绕结果、证据边界和交付判断展开。",
       keyEvidenceSummary:
         input.finalReport?.report_overview?.recommended_next_step_zh ??
         input.runtime?.report_virtual_path ??
         "已出现结果或交付相关证据。",
       agentInterpretation:
-        input.finalReport?.summary_zh ??
+        sanitizedFinalReportSummary ??
         "主智能体正在把结果产物整理成可审阅的交付判断。",
       nextRecommendedAction: resolveResultsAndDeliveryNextAction(input),
     });
@@ -696,15 +839,27 @@ function resolveActiveSlice({
 export function buildSubmarineSessionModel(
   input: BuildSubmarineSessionModelInput,
 ): SubmarineSessionModel {
-  const basePendingApprovalCount = countPendingApprovals(input);
+  const explicitPendingApprovalCount = countPendingApprovals(input);
+  const basePendingApprovalCount =
+    explicitPendingApprovalCount > 0 ||
+    !shouldSurfaceRuntimeConfirmationGate({
+      runtime: input.runtime,
+      designBrief: input.designBrief,
+      finalReport: input.finalReport,
+      pendingApprovalCount: explicitPendingApprovalCount,
+    })
+      ? explicitPendingApprovalCount
+      : 1;
   const initialBlockingReasons = resolveBlockingReasons({
     runtime: input.runtime,
     designBrief: input.designBrief,
+    finalReport: input.finalReport,
     pendingApprovalCount: basePendingApprovalCount,
   });
   const initialPendingItems = collectPendingNegotiationItems({
     runtime: input.runtime,
     designBrief: input.designBrief,
+    finalReport: input.finalReport,
     blockingReasons: initialBlockingReasons,
   });
   const pendingApprovalCount = Math.max(
@@ -717,6 +872,7 @@ export function buildSubmarineSessionModel(
       : resolveBlockingReasons({
           runtime: input.runtime,
           designBrief: input.designBrief,
+          finalReport: input.finalReport,
           pendingApprovalCount,
         });
   const pendingItems =
@@ -725,6 +881,7 @@ export function buildSubmarineSessionModel(
       : collectPendingNegotiationItems({
           runtime: input.runtime,
           designBrief: input.designBrief,
+          finalReport: input.finalReport,
           blockingReasons,
         });
   const skillNames = collectSkillNames(input.runtime);

@@ -1,6 +1,7 @@
 import { getBackendBaseURL } from "@/core/config";
 import { env } from "@/env";
 
+import { isAlreadyInstalledSkillConflict } from "./install-utils";
 import { buildSkillGraphRequestURL } from "./request-url";
 import type { Skill } from "./type";
 
@@ -35,6 +36,7 @@ export interface InstallSkillResponse {
   success: boolean;
   skill_name: string;
   message: string;
+  already_installed?: boolean;
 }
 
 export interface PublishSkillRequest {
@@ -204,6 +206,21 @@ export async function installSkill(
     const errorData = await response.json().catch(() => ({}));
     const errorMessage =
       errorData.detail ?? `HTTP ${response.status}: ${response.statusText}`;
+    const alreadyInstalled = isAlreadyInstalledSkillConflict({
+      status: response.status,
+      detail: errorData.detail,
+      path: request.path,
+    });
+
+    if (alreadyInstalled) {
+      return {
+        success: true,
+        skill_name: alreadyInstalled.skillName,
+        message: errorMessage,
+        already_installed: true,
+      };
+    }
+
     return {
       success: false,
       skill_name: "",

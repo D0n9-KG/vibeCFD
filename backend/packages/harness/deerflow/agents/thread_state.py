@@ -22,6 +22,13 @@ class SubmarineRuntimeState(TypedDict):
     geometry_virtual_path: NotRequired[str]
     geometry_family: NotRequired[str | None]
     execution_readiness: NotRequired[str | None]
+    contract_revision: NotRequired[int]
+    iteration_mode: NotRequired[str]
+    revision_summary: NotRequired[str | None]
+    capability_gaps: NotRequired[list[dict] | None]
+    unresolved_decisions: NotRequired[list[dict] | None]
+    evidence_expectations: NotRequired[list[dict] | None]
+    variant_policy: NotRequired[dict[str, object] | None]
     selected_case_id: NotRequired[str | None]
     simulation_requirements: NotRequired[dict[str, float | int] | None]
     requested_outputs: NotRequired[list[dict] | None]
@@ -271,6 +278,19 @@ def merge_submarine_runtime(
         return dict(existing)
 
     merged: SubmarineRuntimeState = dict(existing)
+    existing_contract_revision = (
+        existing.get("contract_revision") if isinstance(existing.get("contract_revision"), int) else None
+    )
+    incoming_contract_revision = (
+        new.get("contract_revision") if isinstance(new.get("contract_revision"), int) else None
+    )
+    replace_contract_lists = (
+        isinstance(incoming_contract_revision, int)
+        and (
+            not isinstance(existing_contract_revision, int)
+            or incoming_contract_revision > existing_contract_revision
+        )
+    )
 
     for key, value in new.items():
         if key == "artifact_virtual_paths":
@@ -305,6 +325,41 @@ def merge_submarine_runtime(
                 status_key="delivery_status",
                 status_order=_OUTPUT_DELIVERY_STATUS_ORDER,
             )
+        elif key in {"capability_gaps", "unresolved_decisions", "evidence_expectations"}:
+            if replace_contract_lists and isinstance(value, list):
+                merged[key] = [dict(item) for item in value if isinstance(item, dict)]
+            else:
+                merged[key] = _merge_unique_dict_list(
+                    merged.get(key) if isinstance(merged.get(key), list) else None,
+                    value if isinstance(value, list) else None,
+                )
+        elif key == "contract_revision":
+            prior_value = merged.get(key)
+            merged[key] = (
+                max(prior_value, value)
+                if isinstance(prior_value, int) and isinstance(value, int)
+                else value
+            )
+        elif key == "iteration_mode":
+            prior_value = merged.get(key)
+            if (
+                isinstance(prior_value, str)
+                and prior_value != "baseline"
+                and value == "baseline"
+            ):
+                continue
+            merged[key] = value
+        elif key == "revision_summary":
+            prior_value = merged.get(key)
+            if prior_value not in (None, "") and value in (None, ""):
+                continue
+            merged[key] = value
+        elif key == "variant_policy" and isinstance(value, dict):
+            prior_value = merged.get(key)
+            merged[key] = {
+                **(prior_value if isinstance(prior_value, dict) else {}),
+                **value,
+            }
         elif key == "runtime_status":
             merged[key] = _prefer_ranked_status(
                 merged.get(key),

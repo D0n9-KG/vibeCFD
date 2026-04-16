@@ -152,6 +152,9 @@ class SubmarineExperimentRunRecord(BaseModel):
     parameter_overrides: dict[str, float | int | str] = Field(default_factory=dict)
     baseline_reference_run_id: str | None = None
     compare_target_run_id: str | None = None
+    contract_revision: int | None = None
+    lineage_reason: str | None = None
+    requested_output_ids: list[str] = Field(default_factory=list)
     solver_results_virtual_path: str
     run_record_virtual_path: str
     execution_status: Literal["planned", "in_progress", "completed", "blocked"]

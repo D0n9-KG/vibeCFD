@@ -21,6 +21,8 @@ Use this skill when the primary agent has enough evidence to justify execution p
 - Treat the dispatch JSON and summary artifacts as the canonical execution handoff.
 - Keep the real OpenFOAM case scaffold in DeerFlow `workspace`, and keep presentation/report artifacts in DeerFlow `outputs`.
 - Preserve the runtime review fields and `submarine_runtime` stage snapshot when the tool returns them.
+- Preserve `contract_revision`, `revision_summary`, `requested_output_ids`, and the active `output_delivery_plan` whenever the dispatch is derived from a revised contract.
+- Preserve lineage context for baseline / variant / follow-up execution, especially `baseline_reference_run_id` and `compare_target_run_id`, so downstream tools can reconstruct why this run exists.
 - Preserve `workspace_case_dir_virtual_path`, `run_script_virtual_path`, and `supervisor_handoff_virtual_path` when they are available.
 - If execution is not yet confirmed, stop at a planned dispatch and hand the run back for user-facing review.
 - If execution has already happened, hand off toward result reporting instead of answering from logs alone.

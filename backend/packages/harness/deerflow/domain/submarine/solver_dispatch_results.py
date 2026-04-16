@@ -201,9 +201,16 @@ def _latest_end_marker_position(command_output: str) -> int:
 
 
 def _has_solver_stage_evidence(command_output: str) -> bool:
-    return _parse_final_time_seconds(command_output) is not None or bool(
-        _parse_residual_history(command_output)
-    )
+    final_time_seconds = _parse_final_time_seconds(command_output)
+    if final_time_seconds is not None and final_time_seconds > 0:
+        return True
+
+    for entry in _parse_residual_history(command_output):
+        time_value = entry.get("Time")
+        if isinstance(time_value, float) and time_value > 0:
+            return True
+
+    return False
 
 
 def _latest_solver_evidence_position(command_output: str) -> int:
@@ -343,12 +350,17 @@ def _build_residual_summary(
         return None
 
     latest_by_field: dict[str, dict[str, float | int | str | None]] = {}
-    max_final_residual: float | None = None
     latest_time: float | None = None
     for entry in residual_history:
         field_name = entry.get("field")
         if isinstance(field_name, str):
             latest_by_field[field_name] = entry
+        time_value = entry.get("Time")
+        if isinstance(time_value, float):
+            latest_time = time_value
+
+    max_final_residual: float | None = None
+    for entry in latest_by_field.values():
         final_residual = entry.get("final_residual")
         if isinstance(final_residual, float):
             max_final_residual = (
@@ -356,9 +368,6 @@ def _build_residual_summary(
                 if max_final_residual is None
                 else max(max_final_residual, final_residual)
             )
-        time_value = entry.get("Time")
-        if isinstance(time_value, float):
-            latest_time = time_value
 
     return {
         "history": residual_history,

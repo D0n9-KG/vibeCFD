@@ -70,6 +70,7 @@ export function deriveThreadInputStatus({
   }
 
   if (
+    latestRunStatus === "success" ||
     latestRunStatus === "interrupted" ||
     latestRunStatus === "error" ||
     latestRunStatus === "timeout"

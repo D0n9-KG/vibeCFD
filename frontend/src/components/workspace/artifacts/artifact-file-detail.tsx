@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Code2Icon,
   CopyIcon,
@@ -33,8 +34,13 @@ import { useArtifactContent } from "@/core/artifacts/hooks";
 import { urlOfArtifact } from "@/core/artifacts/utils";
 import { useI18n } from "@/core/i18n/hooks";
 import { installSkill } from "@/core/skills/api";
+import { useSkills } from "@/core/skills/hooks";
+import {
+  getSkillNameFromArchivePath,
+  isInstalledSkillArchive,
+} from "@/core/skills/install-utils";
 import { streamdownPlugins } from "@/core/streamdown";
-import { checkCodeFile, getFileName } from "@/core/utils/files";
+import { checkCodeFile } from "@/core/utils/files";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +49,7 @@ import { useThread } from "../messages/context";
 import { Tooltip } from "../tooltip";
 
 import { useArtifacts } from "./context";
+import { getArtifactDisplayName } from "./display";
 
 export function ArtifactFileDetail({
   className,
@@ -93,7 +100,21 @@ export function ArtifactFileDetail({
 
   const [viewMode, setViewMode] = useState<"code" | "preview">("code");
   const [isInstalling, setIsInstalling] = useState(false);
+  const [installedFiles, setInstalledFiles] = useState<string[]>([]);
   const { isMock } = useThread();
+  const queryClient = useQueryClient();
+  const { skills } = useSkills({ enabled: isSkillFile });
+  const installedFileSet = useMemo(() => new Set(installedFiles), [installedFiles]);
+  const isSkillInstalled = useMemo(() => {
+    if (!isSkillFile) {
+      return false;
+    }
+
+    return installedFileSet.has(filepath) || isInstalledSkillArchive(filepath, skills);
+  }, [filepath, installedFileSet, isSkillFile, skills]);
+  const installTooltip = isSkillInstalled
+    ? t.toolCalls.skillAlreadyInstalledTooltip
+    : t.toolCalls.skillInstallTooltip;
   useEffect(() => {
     if (isSupportPreview) {
       setViewMode("preview");
@@ -103,7 +124,7 @@ export function ArtifactFileDetail({
   }, [isSupportPreview]);
 
   const handleInstallSkill = useCallback(async () => {
-    if (isInstalling) return;
+    if (isInstalling || isSkillInstalled) return;
 
     setIsInstalling(true);
     try {
@@ -112,7 +133,20 @@ export function ArtifactFileDetail({
         path: filepath,
       });
       if (result.success) {
-        toast.success(result.message);
+        setInstalledFiles((current) =>
+          current.includes(filepath) ? current : [...current, filepath],
+        );
+        void queryClient.invalidateQueries({ queryKey: ["skills"] });
+        const skillName =
+          (result.skill_name
+            ? result.skill_name
+            : getSkillNameFromArchivePath(filepath)) ??
+          t.common.installed;
+        toast.success(
+          result.already_installed
+            ? t.toolCalls.skillAlreadyInstalledMessage(skillName)
+            : t.toolCalls.skillInstallSuccessMessage(skillName),
+        );
       } else {
         toast.error(result.message ?? "Failed to install skill");
       }
@@ -122,14 +156,14 @@ export function ArtifactFileDetail({
     } finally {
       setIsInstalling(false);
     }
-  }, [threadId, filepath, isInstalling]);
+  }, [filepath, isInstalling, isSkillInstalled, queryClient, t, threadId]);
   return (
     <Artifact className={cn(className)}>
       <ArtifactHeader className="px-2">
         <div className="flex items-center gap-2">
           <ArtifactTitle>
             {isWriteFile ? (
-              <div className="px-2">{getFileName(filepath)}</div>
+              <div className="px-2">{getArtifactDisplayName(filepath)}</div>
             ) : (
               <Select value={filepath} onValueChange={select}>
                 <SelectTrigger className="border-none bg-transparent! shadow-none select-none focus:outline-0 active:outline-0">
@@ -139,7 +173,7 @@ export function ArtifactFileDetail({
                   <SelectGroup>
                     {(artifacts ?? []).map((filepath) => (
                       <SelectItem key={filepath} value={filepath}>
-                        {getFileName(filepath)}
+                        {getArtifactDisplayName(filepath)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -174,13 +208,14 @@ export function ArtifactFileDetail({
         <div className="flex items-center gap-2">
           <ArtifactActions>
             {!isWriteFile && filepath.endsWith(".skill") && (
-              <Tooltip content={t.toolCalls.skillInstallTooltip}>
+              <Tooltip content={installTooltip}>
                 <ArtifactAction
                   icon={isInstalling ? LoaderIcon : PackageIcon}
-                  label={t.common.install}
-                  tooltip={t.common.install}
+                  label={isSkillInstalled ? t.common.installed : t.common.install}
+                  tooltip={installTooltip}
                   disabled={
                     isInstalling ||
+                    isSkillInstalled ||
                     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true"
                   }
                   onClick={handleInstallSkill}

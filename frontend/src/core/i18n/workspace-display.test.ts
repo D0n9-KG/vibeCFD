@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { localizeWorkspaceDisplayText } = await import(
+const { localizeWorkspaceDisplayText, localizeWorkspaceToolName } = await import(
   new URL("./workspace-display.ts", import.meta.url).href,
 );
 
@@ -76,6 +76,14 @@ void test("localizeWorkspaceDisplayText rewrites submarine geometry skill loadin
   assert.equal(localized, "加载潜艇几何预检技能 / 潜艇几何预检技能");
 });
 
+void test("localizeWorkspaceDisplayText rewrites submarine orchestrator skill loading hints", () => {
+  const localized = localizeWorkspaceDisplayText(
+    "load submarine orchestrator skill / /mnt/skills/public/submarine-orchestrator/SKILL.md",
+  );
+
+  assert.equal(localized, "加载潜艇编排技能 / 潜艇编排技能");
+});
+
 void test("localizeWorkspaceDisplayText rewrites artifact wording in submarine workbench copy", () => {
   const localized = localizeWorkspaceDisplayText(
     "生成可审计的预检 artifact / geometry preflight / artifact-backed / 产物-backed",
@@ -113,4 +121,73 @@ void test("localizeWorkspaceDisplayText softens remaining DeerFlow-flavored nego
     localized,
     "提示：我已按你的要求先写入了 草稿简报，并保持不启动求解。但当前的几何预检仍要求先在对话中确认这次几何预检所绑定的演示性基线工况，然后才允许继续生成 有产物支撑的预检结果。",
   );
+});
+
+void test("localizeWorkspaceToolName rewrites submarine execution tool ids for user-facing workbench copy", () => {
+  assert.equal(localizeWorkspaceToolName("submarine_solver_dispatch"), "求解派发");
+  assert.equal(localizeWorkspaceToolName("submarine_result_report"), "结果整理");
+  assert.equal(localizeWorkspaceToolName("submarine_scientific_followup"), "科研跟进");
+  assert.equal(localizeWorkspaceToolName("spawn_agent"), "子代理协作");
+});
+
+void test("localizeWorkspaceDisplayText rewrites common remediation action titles", () => {
+  const localized = localizeWorkspaceDisplayText(
+    "Attach validation reference / Approve rerun / Refine mesh / Refine mesh near hull wake",
+  );
+
+  assert.equal(
+    localized,
+    "补充验证参考 / 确认重跑 / 细化网格 / 细化艇体尾流附近网格",
+  );
+});
+
+void test("localizeWorkspaceDisplayText rewrites recovered-thread runtime and report slugs that should not reach frontend-only users", () => {
+  const localized = localizeWorkspaceDisplayText(
+    "submarine-result-acceptance-visible / scientific-verification / result-reporting / darpa_suboff_bare_hull_resistance",
+  );
+
+  assert.equal(
+    localized,
+    "潜艇结果验收 / 科学验证 / 结果整理阶段 / DARPA SUBOFF 裸艇阻力基线",
+  );
+});
+
+void test("localizeWorkspaceDisplayText rewrites common recovered-thread follow-up and study-blocker phrases", () => {
+  const localized = localizeWorkspaceDisplayText(
+    "scientific follow-up / scientific-followup / solver-dispatch / Scientific-study variant execution is blocked for: fine. / Mesh Independence shows Cd spread above tolerance 0.0200. / Domain Sensitivity shows Cd spread above tolerance 0.0200.",
+  );
+
+  assert.equal(
+    localized,
+    "科研跟进 / 科研跟进 / 求解派发阶段 / 科学研究变体执行在以下分支受阻： fine. / 网格无关性研究显示 Cd 超出容差范围 0.0200. / 计算域敏感性研究显示 Cd 超出容差范围 0.0200.",
+  );
+});
+
+void test("localizeWorkspaceDisplayText rewrites remaining mixed workflow terms that still surfaced on the recovered page", () => {
+  const localized = localizeWorkspaceDisplayText(
+    "刚才那次 scientific follow-up 因服务重连中断，请忽略中断中的结果。请基于 scientific remediation handoff 补齐 solver metrics，并在 scientific study variants 真正完成后再刷新最终报告；final residual threshold、claim level、clean STL、artifacts 与 Supervisor 结论也要同步更新。本次 run 未导出尾流速度切片 产物，并把 mesh/domain/time-step 研究结论同步到主画布。",
+  );
+
+  assert.doesNotMatch(
+    localized,
+    /scientific follow-up|scientific remediation handoff|solver metrics|scientific study variants|final residual threshold|claim level|clean STL|artifacts|Supervisor|\brun\b|mesh\/domain\/time-step/i,
+  );
+  assert.match(localized, /科研跟进/);
+  assert.match(localized, /科研修正交接说明/);
+  assert.match(localized, /求解指标/);
+  assert.match(localized, /科学研究变体/);
+  assert.match(localized, /最终残差阈值/);
+  assert.match(localized, /结论口径/);
+  assert.match(localized, /清理后的 STL/);
+  assert.match(localized, /产物/);
+  assert.match(localized, /主管代理/);
+  assert.match(localized, /本次运行未导出/);
+  assert.match(localized, /网格\/计算域\/时间步长/);
+});
+
+void test("localizeWorkspaceDisplayText does not rewrite ordinary english prose that only happens to contain explicit or review", () => {
+  const sample =
+    "The explicit result still needs peer review before publication.";
+
+  assert.equal(localizeWorkspaceDisplayText(sample), sample);
 });

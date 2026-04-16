@@ -2,6 +2,7 @@
 import test from "node:test";
 
 const {
+  buildSubmarineResearchSnapshotSummary,
   buildSliceContextNotesModel,
   buildSliceEvidenceBadgesModel,
   buildSliceFactsModel,
@@ -119,6 +120,17 @@ void test("task-establishment context notes use the compressed research snapshot
   );
 });
 
+void test("research snapshot summaries localize mixed workflow jargon before they reach the workbench header and slice cards", () => {
+  const summary = buildSubmarineResearchSnapshotSummary(
+    "刚才那次 scientific follow-up 因服务重连中断，请忽略中断中的结果。当前允许的 claim level 为“仅限交付说明”，后续可直接交由 Supervisor 做质量复核。",
+    200,
+  );
+
+  assert.ok(summary);
+  assert.doesNotMatch(summary ?? "", /scientific follow-up|claim level|Supervisor/i);
+  assert.match(summary ?? "", /科研跟进/);
+});
+
 void test("task-establishment requested-output note stays count-first instead of dumping every long output label", () => {
   const notes = buildSliceContextNotesModel({
     sliceId: "task-establishment",
@@ -188,4 +200,260 @@ void test("evidence badges localize geometry-preflight instead of leaking the ra
 
   assert.ok(badges.includes("阶段: 几何预检"));
   assert.ok(badges.every((badge) => !badge.includes("geometry-preflight")));
+});
+
+void test("evidence badges surface iterative contract revision and delivery progress", () => {
+  const badges = buildSliceEvidenceBadgesModel({
+    runtime: {
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      current_stage: "result-reporting",
+      runtime_status: "completed",
+      contract_revision: 3,
+      iteration_mode: "derive_variant",
+      output_delivery_plan: [
+        { output_id: "drag_coefficient", delivery_status: "delivered" },
+        { output_id: "wake_velocity_slice", delivery_status: "planned" },
+        { output_id: "streamlines", delivery_status: "not_yet_supported" },
+      ],
+    },
+    designBrief: null,
+    finalReport: null,
+    artifactPaths: ["/mnt/user-data/outputs/submarine/reports/demo/final-report.json"],
+    requestedOutputs: ["阻力系数", "尾流速度切片"],
+  });
+
+  assert.ok(badges.includes("合同: r3"));
+  assert.ok(badges.includes("迭代: 派生变体"));
+  assert.ok(badges.includes("交付: 1/3 已交付"));
+});
+
+void test("evidence badges localize provenance wording instead of exposing english tracking jargon", () => {
+  const badges = buildSliceEvidenceBadgesModel({
+    runtime: {
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      current_stage: "result-reporting",
+      runtime_status: "completed",
+    },
+    designBrief: null,
+    finalReport: {
+      provenance_manifest_virtual_path:
+        "/mnt/user-data/outputs/submarine/reports/demo/provenance-manifest.json",
+    },
+    artifactPaths: ["/mnt/user-data/outputs/submarine/reports/demo/final-report.json"],
+    requestedOutputs: [],
+  });
+
+  assert.ok(badges.includes("含溯源记录"));
+  assert.ok(badges.every((badge) => !badge.includes("provenance")));
+});
+
+void test("evidence badges prefer the final report source stage when runtime stage metadata is stale", () => {
+  const badges = buildSliceEvidenceBadgesModel({
+    runtime: {
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      current_stage: "geometry-preflight",
+      runtime_status: "blocked",
+    },
+    designBrief: null,
+    finalReport: {
+      source_runtime_stage: "result-reporting",
+    },
+    artifactPaths: ["/mnt/user-data/outputs/submarine/reports/demo/final-report.json"],
+    requestedOutputs: [],
+  });
+
+  assert.ok(badges.includes("阶段: 结果整理中"));
+  assert.ok(badges.every((badge) => !badge.includes("阶段: 几何预检")));
+});
+
+void test("evidence badges localize raw runtime status ids before they reach the center card", () => {
+  const badges = buildSliceEvidenceBadgesModel({
+    runtime: {
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      current_stage: "result-reporting",
+      runtime_status: "blocked",
+    },
+    designBrief: null,
+    finalReport: null,
+    artifactPaths: ["/mnt/user-data/outputs/submarine/reports/demo/final-report.json"],
+    requestedOutputs: [],
+  });
+
+  assert.ok(badges.includes("运行: 已阻塞"));
+  assert.ok(badges.every((badge) => !badge.includes("运行: blocked")));
+});
+
+void test("evidence badges hide unmapped runtime enums behind generic user-facing fallbacks", () => {
+  const badges = buildSliceEvidenceBadgesModel({
+    runtime: {
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      current_stage: "custom-followup-stage",
+      runtime_status: "awaiting_external_sync",
+    },
+    designBrief: null,
+    finalReport: null,
+    artifactPaths: [],
+    requestedOutputs: [],
+  });
+
+  assert.ok(badges.includes("运行: 状态待同步"));
+  assert.ok(badges.includes("阶段: 阶段待同步"));
+  assert.ok(badges.every((badge) => !badge.includes("awaiting_external_sync")));
+  assert.ok(badges.every((badge) => !badge.includes("custom-followup-stage")));
+});
+
+void test("evidence badges hide unknown iteration-mode slugs behind a generic user-facing fallback", () => {
+  const badges = buildSliceEvidenceBadgesModel({
+    runtime: {
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      current_stage: "result-reporting",
+      runtime_status: "completed",
+      iteration_mode: "unexpected_followup_mode",
+    },
+    designBrief: null,
+    finalReport: null,
+    artifactPaths: [],
+    requestedOutputs: [],
+  });
+
+  assert.ok(badges.includes("迭代: 迭代模式待同步"));
+  assert.ok(badges.every((badge) => !badge.includes("unexpected_followup_mode")));
+});
+
+void test("results-and-delivery context notes localize raw stage ids from structured summaries", () => {
+  const notes = buildSliceContextNotesModel({
+    sliceId: "results-and-delivery",
+    runtime: null,
+    designBrief: null,
+    finalReport: {
+      summary_zh:
+        "已生成《潜艇 CFD 阶段报告》，来源阶段为 `result-reporting`。当前结果已经进入报告整理阶段。",
+    },
+    requestedOutputs: [],
+    verificationRequirements: [],
+    skillNames: [],
+    executionPlanCount: 0,
+    artifactPaths: [],
+  });
+
+  assert.ok(notes.some((note) => note.includes("结果整理")));
+  assert.ok(notes.every((note) => !note.includes("result-reporting")));
+});
+
+void test("results-and-delivery context notes localize remaining english workflow phrases from structured summaries", () => {
+  const notes = buildSliceContextNotesModel({
+    sliceId: "results-and-delivery",
+    runtime: null,
+    designBrief: null,
+    finalReport: {
+      summary_zh:
+        "已生成《潜艇 CFD 阶段报告》，当前允许的 claim level 为“仅限交付说明”；可直接交由 Supervisor 做质量复核；必要时继续 scientific follow-up。",
+    },
+    requestedOutputs: [],
+    verificationRequirements: [],
+    skillNames: [],
+    executionPlanCount: 0,
+    artifactPaths: [],
+  });
+
+  assert.ok(notes.some((note) => /结论口径/.test(note)));
+  assert.ok(notes.some((note) => /主管代理/.test(note)));
+  assert.ok(notes.some((note) => /科研跟进/.test(note)));
+  assert.ok(notes.every((note) => !/claim level|Supervisor|scientific follow-up/i.test(note)));
+});
+
+void test("results-and-delivery context notes hide unknown slug-like tokens from structured summaries", () => {
+  const notes = buildSliceContextNotesModel({
+    sliceId: "results-and-delivery",
+    runtime: null,
+    designBrief: null,
+    finalReport: {
+      summary_zh:
+        "当前 custom_stage_alpha 已完成，但 followup_status_beta 仍待处理。",
+    },
+    requestedOutputs: [],
+    verificationRequirements: [],
+    skillNames: [],
+    executionPlanCount: 0,
+    artifactPaths: [],
+  });
+
+  assert.ok(notes.some((note) => note.includes("相关研究项")));
+  assert.ok(notes.every((note) => !note.includes("custom_stage_alpha")));
+  assert.ok(notes.every((note) => !note.includes("followup_status_beta")));
+});
+
+void test("results-and-delivery context notes keep legitimate technical hyphenated terms readable", () => {
+  const notes = buildSliceContextNotesModel({
+    sliceId: "results-and-delivery",
+    runtime: null,
+    designBrief: null,
+    finalReport: {
+      summary_zh: "建议继续检查 k-epsilon 湍流模型与 y-plus 设定。",
+    },
+    requestedOutputs: [],
+    verificationRequirements: [],
+    skillNames: [],
+    executionPlanCount: 0,
+    artifactPaths: [],
+  });
+
+  assert.ok(notes.some((note) => note.includes("k-epsilon")));
+  assert.ok(notes.some((note) => note.includes("y-plus")));
+  assert.ok(notes.every((note) => !note.includes("相关研究项")));
+});
+
+void test("simulation-plan context notes localize English revision-summary copy before it reaches the canvas", () => {
+  const notes = buildSliceContextNotesModel({
+    sliceId: "simulation-plan",
+    runtime: {
+      revision_summary: "Updated the structured CFD design brief.",
+    },
+    designBrief: null,
+    finalReport: null,
+    requestedOutputs: [],
+    verificationRequirements: [],
+    skillNames: [],
+    executionPlanCount: 0,
+    artifactPaths: [],
+  });
+
+  assert.ok(notes.includes("已更新结构化 CFD 设计简报。"));
+  assert.ok(notes.every((note) => !note.includes("Updated the structured CFD design brief.")));
+});
+
+void test("simulation-plan context notes surface contract revision, pending decisions, and delivery progress", () => {
+  const notes = buildSliceContextNotesModel({
+    sliceId: "simulation-plan",
+    runtime: {
+      contract_revision: 4,
+      iteration_mode: "derive_variant",
+      revision_summary: "Add wake-focused follow-up to the baseline family.",
+      unresolved_decisions: [
+        { decision_id: "confirm-tail-window" },
+        { decision_id: "confirm-wake-origin" },
+      ],
+      output_delivery_plan: [
+        { output_id: "drag_coefficient", delivery_status: "delivered" },
+        { output_id: "wake_velocity_slice", delivery_status: "planned" },
+        { output_id: "streamlines", delivery_status: "not_yet_supported" },
+      ],
+    },
+    designBrief: null,
+    finalReport: null,
+    requestedOutputs: ["阻力系数", "尾流速度切片"],
+    verificationRequirements: [],
+    skillNames: ["submarine-solver-dispatch"],
+    executionPlanCount: 2,
+    artifactPaths: [],
+  });
+
+  assert.ok(notes.some((note) => /r4/.test(note)));
+  assert.ok(notes.some((note) => /派生变体/.test(note)));
+  assert.ok(notes.some((note) => /2 项未决/.test(note)));
+  assert.ok(notes.some((note) => /已交付 1 项/.test(note)));
+  assert.ok(notes.some((note) => /待完成 1 项/.test(note)));
+  assert.ok(notes.some((note) => /受阻 1 项/.test(note)));
+  assert.ok(notes.some((note) => /求解派发/.test(note)));
+  assert.ok(notes.every((note) => !note.includes("submarine-solver-dispatch")));
 });

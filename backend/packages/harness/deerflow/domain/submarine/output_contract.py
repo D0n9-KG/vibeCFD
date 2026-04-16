@@ -152,16 +152,71 @@ def _match_catalog_item(requested_label: str) -> dict | None:
     )
 
 
+def _normalize_expected_outputs(expected_outputs: list[str] | None) -> list[str]:
+    normalized: list[str] = []
+    for raw_item in expected_outputs or []:
+        requested_label = raw_item.strip()
+        if not requested_label or requested_label in normalized:
+            continue
+        normalized.append(requested_label)
+    return normalized
+
+
+def infer_expected_outputs_from_text(task_description: str | None) -> list[str]:
+    """Infer structured output labels from free-form user task descriptions."""
+
+    if not task_description or not task_description.strip():
+        return []
+
+    lowered = task_description.lower()
+    matches: list[tuple[int, str]] = []
+    seen_labels: set[str] = set()
+
+    for item in _OUTPUT_CATALOG:
+        positions = [
+            lowered.find(alias.lower())
+            for alias in item["aliases"]
+            if alias and lowered.find(alias.lower()) >= 0
+        ]
+        if not positions:
+            continue
+
+        label = item["label"]
+        if label in seen_labels:
+            continue
+
+        seen_labels.add(label)
+        matches.append((min(positions), label))
+
+    matches.sort(key=lambda pair: (pair[0], pair[1]))
+    return [label for _, label in matches]
+
+
+def resolve_effective_expected_outputs(
+    *,
+    existing_outputs: list[str] | None,
+    explicit_outputs: list[str] | None,
+    task_description: str | None,
+) -> list[str]:
+    """Resolve the effective expected-output list for a design-brief revision."""
+
+    if explicit_outputs is not None:
+        return _normalize_expected_outputs(explicit_outputs)
+
+    merged = _normalize_expected_outputs(existing_outputs)
+    for inferred in infer_expected_outputs_from_text(task_description):
+        if inferred not in merged:
+            merged.append(inferred)
+    return merged
+
+
 def resolve_requested_outputs(expected_outputs: list[str] | None) -> list[dict]:
     """Normalize free-form expected outputs into a structured requested-output list."""
 
     normalized: list[dict] = []
     seen_output_ids: set[str] = set()
 
-    for raw_item in expected_outputs or []:
-        requested_label = raw_item.strip()
-        if not requested_label:
-            continue
+    for requested_label in _normalize_expected_outputs(expected_outputs):
 
         matched = _match_catalog_item(requested_label)
         if matched is None:

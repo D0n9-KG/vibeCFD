@@ -130,6 +130,9 @@ def build_run_record(
     parameter_overrides: Mapping[str, float | int | str] | None = None,
     baseline_reference_run_id: str | None = None,
     compare_target_run_id: str | None = None,
+    contract_revision: int | None = None,
+    lineage_reason: str | None = None,
+    requested_output_ids: list[str] | None = None,
 ) -> SubmarineExperimentRunRecord:
     return SubmarineExperimentRunRecord(
         run_id=run_id,
@@ -142,6 +145,9 @@ def build_run_record(
         parameter_overrides=dict(parameter_overrides or {}),
         baseline_reference_run_id=baseline_reference_run_id,
         compare_target_run_id=compare_target_run_id,
+        contract_revision=contract_revision,
+        lineage_reason=lineage_reason,
+        requested_output_ids=list(requested_output_ids or []),
         solver_results_virtual_path=solver_results_virtual_path,
         run_record_virtual_path=run_record_virtual_path,
         execution_status=execution_status,

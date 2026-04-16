@@ -87,6 +87,13 @@ def test_skill_studio_workflow_prompt_section_is_only_included_for_skill_creator
     assert prompt_module.get_skill_studio_workflow_prompt_section("tester") == ""
 
 
+def test_submarine_workflow_prompt_section_mentions_output_expansion_contract_rules():
+    section = prompt_module.get_submarine_workflow_prompt_section()
+
+    assert "translate them into the structured `expected_outputs` list" in section
+    assert "Do not refresh `submarine_result_report` immediately after a contract-only revision" in section
+
+
 def test_apply_prompt_template_for_skill_creator_requires_structured_skill_studio_artifacts(
     monkeypatch,
 ):

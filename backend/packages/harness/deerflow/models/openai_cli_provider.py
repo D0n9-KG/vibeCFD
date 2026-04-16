@@ -154,6 +154,10 @@ _GENERIC_CONTINUE_ACK_TEXT_ZH = (
 _GENERIC_CONTINUE_ACK_TEXTS = frozenset(
     {_GENERIC_CONTINUE_ACK_TEXT_EN, _GENERIC_CONTINUE_ACK_TEXT_ZH}
 )
+_GENERIC_CONTINUE_ACK_PREFIXES = (
+    "I'll continue based on your latest request",
+    "我先根据你刚才的输入继续推进",
+)
 _SKILL_STUDIO_DRY_RUN_KEYWORDS = (
     "dry-run",
     "dry run",
@@ -726,7 +730,10 @@ class OpenAICliChatModel(ChatOpenAI):
 
     @classmethod
     def _looks_like_generic_continue_ack(cls, text: str) -> bool:
-        return text.strip() in _GENERIC_CONTINUE_ACK_TEXTS
+        normalized = text.strip()
+        return normalized in _GENERIC_CONTINUE_ACK_TEXTS or any(
+            normalized.startswith(prefix) for prefix in _GENERIC_CONTINUE_ACK_PREFIXES
+        )
 
     @classmethod
     def _looks_like_skill_studio_dry_run_request(
@@ -1035,9 +1042,6 @@ class OpenAICliChatModel(ChatOpenAI):
             return result_report_recovery
 
         visible_text = cls._latest_user_visible_text(messages)
-        if detect_execution_preference_signal(visible_text) != "plan_only":
-            return []
-
         normalized = visible_text.lower()
         if not any(
             keyword in normalized
@@ -1311,6 +1315,8 @@ class OpenAICliChatModel(ChatOpenAI):
         messages: list[BaseMessage],
         stop: list[str] | None = None,
         run_manager: CallbackManagerForLLMRun | None = None,
+        *,
+        _allow_alternate_retry: bool = True,
         **kwargs: Any,
     ) -> ChatResult:
         if not result.generations:
@@ -1354,13 +1360,21 @@ class OpenAICliChatModel(ChatOpenAI):
                 }
             )
         elif not normalized_content and not has_tool_output:
-            if alternate_result := self._retry_empty_response_with_alternate_model(
-                messages,
-                stop=stop,
-                run_manager=run_manager,
-                **kwargs,
-            ):
-                return alternate_result
+            if _allow_alternate_retry:
+                if alternate_result := self._retry_empty_response_with_alternate_model(
+                    messages,
+                    stop=stop,
+                    run_manager=run_manager,
+                    **kwargs,
+                ):
+                    return self._apply_empty_response_fallback(
+                        alternate_result,
+                        messages,
+                        stop=stop,
+                        run_manager=run_manager,
+                        _allow_alternate_retry=False,
+                        **kwargs,
+                    )
             result.generations[0].message = message.model_copy(
                 update={"content": self._build_empty_response_fallback(messages)}
             )
@@ -1450,7 +1464,14 @@ class OpenAICliChatModel(ChatOpenAI):
                 run_manager=run_manager,
                 **kwargs,
             ):
-                return alternate_result
+                return self._apply_empty_response_fallback(
+                    alternate_result,
+                    messages,
+                    stop=stop,
+                    run_manager=run_manager,
+                    _allow_alternate_retry=False,
+                    **kwargs,
+                )
             result.generations[0].message = message.model_copy(
                 update={"content": self._build_empty_response_fallback(messages)}
             )

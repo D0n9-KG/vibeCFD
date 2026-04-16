@@ -355,6 +355,33 @@ void test("lists each blocking reason when structured confirmation items are una
   );
 });
 
+void test("does not surface raw unresolved-decision ids when localized labels are missing", () => {
+  const model = buildModel({
+    runtime: {
+      review_status: "needs_user_confirmation",
+      current_stage: "geometry-preflight",
+    },
+    designBrief: {
+      summary_zh: "当前仍需确认一个研究决策。",
+      confirmation_status: "draft",
+      unresolved_decisions: [
+        {
+          decision_id: "confirm_tail_window",
+          output_id: "wake_velocity_slice",
+        },
+      ],
+      open_questions: [],
+    },
+  });
+
+  assert.equal(model.negotiation.pendingApprovalCount, 1);
+  assert.doesNotMatch(
+    model.negotiation.pendingItems[0]?.label ?? "",
+    /confirm_tail_window|wake_velocity_slice/,
+  );
+  assert.match(model.negotiation.pendingItems[0]?.label ?? "", /未命名研究项/);
+});
+
 void test("does not collapse same-label pending plan items coming from different snapshots", () => {
   const model = buildModel({
     runtime: {
@@ -687,4 +714,126 @@ void test("marks a blocked delivery slice as blocked instead of advertising it a
   assert.equal(model.currentSlice.statusLabel, "受阻");
   assert.match(model.currentSlice.summary, /solver metrics|补齐/i);
   assert.match(model.currentSlice.nextRecommendedAction, /补齐|修正|报告/);
+});
+
+void test("sanitizes results-and-delivery slice summaries instead of leaking raw stage ids and case ids", () => {
+  const model = buildModel({
+    runtime: {
+      runtime_status: "blocked",
+      current_stage: "result-reporting",
+      task_summary: "Refresh the blocked SUBOFF delivery thread.",
+    },
+    finalReport: {
+      summary_zh:
+        "已生成《潜艇 CFD 阶段报告》，来源阶段为 `result-reporting`。选定案例 `darpa_suboff_bare_hull_resistance`。当前结果已经进入报告整理阶段。",
+      scientific_supervisor_gate: {
+        gate_status: "blocked",
+      },
+    },
+  });
+
+  assert.equal(model.currentSlice.id, "results-and-delivery");
+  assert.doesNotMatch(
+    model.currentSlice.summary,
+    /result-reporting|darpa_suboff_bare_hull_resistance/,
+  );
+  assert.match(model.currentSlice.summary, /结果整理|DARPA SUBOFF 裸艇阻力基线/);
+  assert.doesNotMatch(
+    model.currentSlice.agentInterpretation,
+    /result-reporting|darpa_suboff_bare_hull_resistance/,
+  );
+});
+
+void test("ignores stale confirmation-gate runtime flags once the confirmed brief and final report show no unresolved decisions", () => {
+  const model = buildModel({
+    runtime: {
+      current_stage: "geometry-preflight",
+      review_status: "needs_user_confirmation",
+      next_recommended_stage: "user-confirmation",
+      runtime_status: "blocked",
+      contract_revision: 5,
+      iteration_mode: "revise_baseline",
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+      calculation_plan: [
+        {
+          item_id: "geometry.reference_length_m",
+          label: "参考长度",
+          approval_state: "researcher_confirmed",
+          requires_immediate_confirmation: true,
+        },
+      ],
+    },
+    designBrief: {
+      summary_zh: "当前合同已经确认，可继续以结果报告为准。",
+      confirmation_status: "confirmed",
+      contract_revision: 5,
+      iteration_mode: "revise_baseline",
+      open_questions: [],
+      calculation_plan: [
+        {
+          item_id: "geometry.reference_length_m",
+          label: "参考长度",
+          approval_state: "researcher_confirmed",
+          requires_immediate_confirmation: true,
+        },
+      ],
+      unresolved_decisions: [],
+    },
+    finalReport: {
+      summary_zh: "当前报告已生成，后续工作应围绕科学阻塞项展开。",
+      contract_revision: 5,
+      iteration_mode: "revise_baseline",
+      unresolved_decisions: [],
+      scientific_supervisor_gate: {
+        gate_status: "blocked",
+        blocking_reasons: ["Mesh independence study remains blocked."],
+      },
+      report_overview: {
+        recommended_next_step_zh: "先处理当前阻塞项并修正设置或证据链，再决定是否继续求解。",
+      },
+    },
+    messageCount: 18,
+    artifactCount: 48,
+  });
+
+  assert.equal(model.activeSliceId, "results-and-delivery");
+  assert.equal(model.currentSlice.statusLabel, "受阻");
+  assert.equal(model.negotiation.pendingApprovalCount, 0);
+  assert.deepEqual(model.negotiation.pendingItems, []);
+  assert.equal(model.negotiation.summary, null);
+  assert.equal(model.negotiation.question, null);
+});
+
+void test("keeps a live immediate-confirmation blocker visible even when a final report artifact already exists", () => {
+  const model = buildModel({
+    runtime: {
+      current_stage: "geometry-preflight",
+      review_status: "needs_user_confirmation",
+      next_recommended_stage: "user-confirmation",
+      requires_immediate_confirmation: true,
+      runtime_status: "blocked",
+      geometry_virtual_path: "/mnt/user-data/uploads/suboff_solid.stl",
+    },
+    designBrief: {
+      summary_zh: "当前仍需确认一个新的关键边界条件。",
+      confirmation_status: "confirmed",
+      open_questions: [],
+      unresolved_decisions: [],
+    },
+    finalReport: {
+      summary_zh: "已有上一轮结果报告，但这轮新增修改仍要求研究者即时确认。",
+      unresolved_decisions: [],
+    },
+  });
+
+  assert.equal(model.negotiation.pendingApprovalCount, 4);
+  assert.deepEqual(
+    model.negotiation.pendingItems.map((item) => item.label),
+    [
+      "当前存在待你确认的研究决策，主智能体会先停在协商区。",
+      "当前建议先完成研究者确认，再继续推进计算。",
+      "存在需要立刻确认的参数或边界条件。",
+      "还有 4 项待确认事项。",
+    ],
+  );
 });

@@ -43,6 +43,7 @@ export const zhCN: Translations = {
     cancel: "取消",
     save: "保存",
     install: "安装",
+    installed: "已安装",
     create: "创建",
     export: "导出",
     exportAsMarkdown: "导出为 Markdown",
@@ -337,6 +338,10 @@ export const zhCN: Translations = {
     clickToViewContent: "点击查看文件内容",
     writeTodos: "更新待办列表",
     skillInstallTooltip: "安装技能并使其可在 DeerFlow 中使用",
+    skillAlreadyInstalledTooltip: "该技能已安装，无需重复安装",
+    skillInstallSuccessMessage: (skillName: string) => `已安装 ${skillName}`,
+    skillAlreadyInstalledMessage: (skillName: string) =>
+      `技能 ${skillName} 已安装，无需重复安装`,
   },
 
   uploads: {

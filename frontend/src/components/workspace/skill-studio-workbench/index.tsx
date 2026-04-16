@@ -26,11 +26,13 @@ import type { SkillStudioAgentOption } from "@/components/workspace/skill-studio
 import {
   buildSkillStudioBindingTargets,
   findSkillLifecycleSummary,
+  resolveSkillStudioEffectivePublishStatus,
   shouldLoadSkillLifecycleDetail,
   type SkillStudioLifecycleBindingTarget,
 } from "@/components/workspace/skill-studio-workbench.utils";
 import { WorkspaceStatePanel } from "@/components/workspace/workspace-state-panel";
 import { useArtifactContent } from "@/core/artifacts/hooks";
+import { localizeWorkspaceDisplayText } from "@/core/i18n/workspace-display";
 import { buildProgressPreviewFromMessage } from "@/core/messages/utils";
 import type {
   SkillGraphResponse,
@@ -136,7 +138,7 @@ function localizeSkillStudioGoal(goal: string) {
     return "定义 Claude Code 与报告子代理如何判断一次潜艇 CFD 任务是否可信、是否需要复核，或者是否应当重新计算。";
   }
 
-  return goal;
+  return localizeWorkspaceDisplayText(goal);
 }
 
 function resolveSkillStudioHeaderStatusLabel(status: string) {
@@ -300,6 +302,13 @@ export function SkillStudioAgenticWorkbench({
     () => safeJsonParse<SkillPackagePayload>(skillPackageContent),
     [skillPackageContent],
   );
+  const isHydratingSkillStudioThread =
+    !isNewThread &&
+    !threadErrorMessage &&
+    !studioState &&
+    !draft &&
+    !skillPackage &&
+    studioArtifacts.length === 0;
 
   const skillName = draft?.skill_name ?? studioState?.skill_name ?? null;
   const {
@@ -369,16 +378,22 @@ export function SkillStudioAgenticWorkbench({
   );
 
   const session = useMemo(
-    () =>
-      buildSkillStudioSessionModel({
+    () => {
+      const effectivePublishStatus = resolveSkillStudioEffectivePublishStatus({
+        publishStatus:
+          publishReadiness?.status ?? studioState?.publish_status ?? "draft_only",
+        lifecycleSummary,
+        lifecycleDetail,
+      });
+
+      const sessionModel = buildSkillStudioSessionModel({
         isNewThread,
         persistedAssistantMode: studioState?.assistant_mode ?? null,
         hasDraftArtifact: Boolean(draftPath),
         validationStatus:
           validation?.status ?? studioState?.validation_status ?? "draft_only",
         testStatus: testMatrix?.status ?? studioState?.test_status ?? "draft_only",
-        publishStatus:
-          publishReadiness?.status ?? studioState?.publish_status ?? "draft_only",
+        publishStatus: effectivePublishStatus,
         errorCount: validation?.error_count ?? studioState?.error_count ?? 0,
         warningCount: validation?.warning_count ?? studioState?.warning_count ?? 0,
         blockingCount:
@@ -389,11 +404,30 @@ export function SkillStudioAgenticWorkbench({
         isLoading: thread.isLoading,
         errorMessage: threadErrorMessage,
         latestVisiblePreview,
-      }),
+      });
+
+      if (
+        effectivePublishStatus === "published" ||
+        effectivePublishStatus === "rollback_available"
+      ) {
+        return {
+          ...sessionModel,
+          modules: sessionModel.modules.map((module) =>
+            module.id === "release-prep"
+              ? { ...module, status: "已发布" }
+              : module,
+          ),
+        };
+      }
+
+      return sessionModel;
+    },
     [
       detail.graph.relationshipCount,
       draftPath,
       latestVisiblePreview,
+      lifecycleDetail,
+      lifecycleSummary,
       isNewThread,
       publishReadiness?.blocking_count,
       publishReadiness?.status,
@@ -454,7 +488,7 @@ export function SkillStudioAgenticWorkbench({
     null;
   const canSaveLifecycle = Boolean(
     skillName &&
-      (lifecyclePath || draftPath || lifecycleSummary || lifecycleDetail),
+      (lifecyclePath ?? draftPath ?? lifecycleSummary ?? lifecycleDetail),
   );
 
   const saveLifecycle = useCallback(async () => {
@@ -553,11 +587,13 @@ export function SkillStudioAgenticWorkbench({
     }
   }, [detail.publish.rollbackTargetId, rollbackSkillRevision, skillName]);
 
-  const threadTitle = resolveThreadDisplayTitle(
-    thread.values.title,
-    detail.define.skillTitle,
-    thread.values.messages,
-  );
+  const threadTitle = isHydratingSkillStudioThread
+    ? "正在恢复技能线程"
+    : resolveThreadDisplayTitle(
+        thread.values.title,
+        detail.define.skillTitle,
+        thread.values.messages,
+      );
   const showAssistantSelector = agentSelectorEnabled && !agentSelectionLocked;
   const recoveryHref = useMemo(() => {
     const params = new URLSearchParams();
@@ -577,8 +613,16 @@ export function SkillStudioAgenticWorkbench({
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
         title={threadTitle}
-        subtitle={localizeSkillStudioGoal(detail.define.skillGoal)}
-        statusLabel={resolveSkillStudioHeaderStatusLabel(session.summary.publishStatus)}
+        subtitle={
+          isHydratingSkillStudioThread
+            ? "正在回填技能草案、发布状态与历史消息，请稍候。"
+            : localizeSkillStudioGoal(detail.define.skillGoal)
+        }
+        statusLabel={
+          isHydratingSkillStudioThread
+            ? "恢复中"
+            : resolveSkillStudioHeaderStatusLabel(session.summary.publishStatus)
+        }
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -640,38 +684,52 @@ export function SkillStudioAgenticWorkbench({
           ]}
         />
       ) : null}
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        <SkillStudioLifecycleCanvas
-          session={session}
-          detail={detail}
-          isMock={Boolean(isMock)}
-          enabled={publishEnabled}
-          versionNote={versionNote}
-          explicitBindingRoleIds={explicitBindingRoleIds}
-          busy={busy}
-          canSaveLifecycle={canSaveLifecycle}
-          canPublish={
-            Boolean(packageArchivePath) &&
-            detail.evaluate.dryRun.status === "passed" &&
-            detail.publish.blockedGateCount === 0
-          }
-          canRollback={Boolean(detail.publish.rollbackTargetId)}
-          onEnabledChange={setPublishEnabled}
-          onVersionNoteChange={setVersionNote}
-          onToggleBindingRole={(roleId) =>
-            setExplicitBindingRoleIds((current) =>
-              current.includes(roleId)
-                ? current.filter((item) => item !== roleId)
-                : [...current, roleId],
-            )
-          }
-          onSaveLifecycle={saveLifecycle}
-          onRecordDryRunPassed={() => void recordDryRun("passed")}
-          onRecordDryRunFailed={() => void recordDryRun("failed")}
-          onPublish={publish}
-          onRollback={rollback}
-        />
-      </div>
+      {isHydratingSkillStudioThread ? (
+        <section className="rounded-[24px] border border-slate-200/80 bg-white/92 px-5 py-6 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            线程恢复
+          </div>
+          <h3 className="mt-2 text-lg font-semibold text-slate-950">
+            正在恢复技能线程
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            正在回填技能草案、发布状态与历史消息，避免把短暂的加载窗口误显示成空白草稿。
+          </p>
+        </section>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <SkillStudioLifecycleCanvas
+            session={session}
+            detail={detail}
+            isMock={Boolean(isMock)}
+            enabled={publishEnabled}
+            versionNote={versionNote}
+            explicitBindingRoleIds={explicitBindingRoleIds}
+            busy={busy}
+            canSaveLifecycle={canSaveLifecycle}
+            canPublish={
+              Boolean(packageArchivePath) &&
+              detail.evaluate.dryRun.status === "passed" &&
+              detail.publish.blockedGateCount === 0
+            }
+            canRollback={Boolean(detail.publish.rollbackTargetId)}
+            onEnabledChange={setPublishEnabled}
+            onVersionNoteChange={setVersionNote}
+            onToggleBindingRole={(roleId) =>
+              setExplicitBindingRoleIds((current) =>
+                current.includes(roleId)
+                  ? current.filter((item) => item !== roleId)
+                  : [...current, roleId],
+              )
+            }
+            onSaveLifecycle={saveLifecycle}
+            onRecordDryRunPassed={() => void recordDryRun("passed")}
+            onRecordDryRunFailed={() => void recordDryRun("failed")}
+            onPublish={publish}
+            onRollback={rollback}
+          />
+        </div>
+      )}
     </div>
   );
 

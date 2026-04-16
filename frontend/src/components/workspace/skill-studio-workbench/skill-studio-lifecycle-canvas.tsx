@@ -11,6 +11,8 @@ import {
 } from "@/components/workspace/agentic-workbench";
 import {
   SKILL_STUDIO_BINDING_ROLE_IDS,
+  describeSkillStudioBindingTargets,
+  formatSkillStudioBindingMode,
   labelOfSkillStudioBindingRoleId,
   type SkillStudioLifecycleBindingTarget,
 } from "@/components/workspace/skill-studio-workbench.utils";
@@ -567,8 +569,11 @@ function PublishDrawer({ detail }: { detail: SkillStudioDetailModel }) {
         items={detail.publish.bindingTargets.map(
           (target: SkillStudioLifecycleBindingTarget) => ({
             title: labelOfSkillStudioBindingRoleId(target.role_id),
-            meta: target.mode,
-            description: target.target_skills.join("、"),
+            meta: formatSkillStudioBindingMode(target.mode),
+            description: describeSkillStudioBindingTargets(
+              target.target_skills,
+              detail.define.skillName,
+            ),
           }),
         )}
         emptyLabel="当前没有显式绑定目标。"

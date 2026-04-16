@@ -18,6 +18,10 @@ const artifactRouteSource = await readFile(
   new URL("./[thread_id]/artifacts/[[...artifact_path]]/route.ts", import.meta.url),
   "utf8",
 );
+const recoveryRouteSource = await readFile(
+  new URL("./[thread_id]/recover/route.ts", import.meta.url),
+  "utf8",
+);
 const authHelperSource = await readFile(new URL("./_auth.ts", import.meta.url), "utf8");
 
 void test("thread-scoped file routes require a session before touching thread files", () => {
@@ -30,6 +34,7 @@ void test("thread-scoped file routes require a session before touching thread fi
     uploadListRouteSource,
     uploadDeleteRouteSource,
     artifactRouteSource,
+    recoveryRouteSource,
   ]) {
     assert.match(source, /requireThreadRouteSession/);
   }

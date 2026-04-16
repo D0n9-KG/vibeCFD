@@ -141,6 +141,14 @@ def append_scientific_followup_history(
             if entry.get("source_report_virtual_path")
             else None
         ),
+        "source_run_id": _optional_string(entry.get("source_run_id")),
+        "baseline_reference_run_id": _optional_string(
+            entry.get("baseline_reference_run_id")
+        ),
+        "compare_target_run_id": _optional_string(
+            entry.get("compare_target_run_id")
+        ),
+        "derived_run_ids": _as_string_list(entry.get("derived_run_ids")),
         "handoff_status": str(entry.get("handoff_status") or "unknown"),
         "recommended_action_id": (
             str(entry.get("recommended_action_id"))
@@ -220,6 +228,12 @@ def build_scientific_followup_summary(
         "latest_entry_id": latest_entry.get("entry_id"),
         "latest_outcome_status": latest_entry.get("outcome_status"),
         "latest_handoff_status": latest_entry.get("handoff_status"),
+        "latest_source_run_id": latest_entry.get("source_run_id"),
+        "latest_baseline_reference_run_id": latest_entry.get(
+            "baseline_reference_run_id"
+        ),
+        "latest_compare_target_run_id": latest_entry.get("compare_target_run_id"),
+        "latest_derived_run_ids": _as_string_list(latest_entry.get("derived_run_ids")),
         "latest_recommended_action_id": latest_entry.get("recommended_action_id"),
         "latest_tool_name": latest_entry.get("tool_name"),
         "latest_followup_kind": latest_entry.get("followup_kind"),

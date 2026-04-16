@@ -21,6 +21,7 @@ import {
   useState,
   type ComponentProps,
 } from "react";
+import { toast } from "sonner";
 
 import {
   PromptInput,
@@ -59,6 +60,7 @@ import { getBackendBaseURL } from "@/core/config";
 import { useI18n } from "@/core/i18n/hooks";
 import { useModels } from "@/core/models/hooks";
 import type { AgentThreadContext } from "@/core/threads";
+import { recoverThreadStreamingConflict } from "@/core/threads/recover";
 import { textOfMessage } from "@/core/threads/utils";
 import { cn } from "@/lib/utils";
 
@@ -84,11 +86,11 @@ import {
   getResolvedMode,
   type InputMode,
 } from "./input-box.chrome";
+import { recoverStreamingDraftIfPossible } from "./input-box.streaming-recovery";
 import { resolveInputBoxSubmitAction } from "./input-box.submit";
 import { useThread } from "./messages/context";
 import { ModeHoverGuide } from "./mode-hover-guide";
 import { Tooltip } from "./tooltip";
-import { toast } from "sonner";
 
 export function InputBox({
   className,
@@ -274,6 +276,26 @@ export function InputBox({
         return;
       }
       if (decision.kind === "preserve_draft_while_streaming") {
+        try {
+          const recoveryOutcome = await recoverStreamingDraftIfPossible({
+            message: decision.message,
+            recover: () => recoverThreadStreamingConflict(threadId),
+            stop: async () => {
+              await Promise.resolve(onStop?.());
+            },
+            submit: async (recoveredMessage) => {
+              await Promise.resolve(onSubmit?.(recoveredMessage));
+            },
+          });
+
+          if (recoveryOutcome.kind === "recovered_and_submitted") {
+            toast.message("上一轮中断中的运行已恢复，正在提交你的新指令。");
+            return;
+          }
+        } catch {
+          // Fall through to the existing draft-preservation toast when recovery fails.
+        }
+
         toast.message("当前智能体仍在处理中，请等待完成后再发送，草稿已保留。");
         throw new Error("input-box:preserve-draft-while-streaming");
       }
@@ -285,7 +307,7 @@ export function InputBox({
       setFollowupsLoading(false);
       await onSubmit?.(decision.message);
     },
-    [attachments.files, onSubmit, onStop, status],
+    [attachments.files, onSubmit, onStop, status, threadId],
   );
 
   const requestFormSubmit = useCallback(() => {

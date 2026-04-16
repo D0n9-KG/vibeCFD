@@ -512,3 +512,95 @@ def test_submarine_geometry_check_preserves_confirmed_brief_context(
     assert runtime_state["next_recommended_stage"] == "user-confirmation"
     assert runtime_state["execution_plan"][2]["status"] == "completed"
     assert runtime_state["execution_plan"][3]["status"] == "pending"
+
+
+def test_submarine_geometry_check_preserves_iterative_contract_context(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-geometry-iterative-context"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "iterative-context.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["submarine_runtime"] = {
+        "current_stage": "task-intelligence",
+        "task_summary": "Revise the baseline geometry-preflight package.",
+        "confirmation_status": "confirmed",
+        "approval_state": "approved",
+        "goal_status": "ready_for_execution",
+        "execution_preference": "preflight_then_execute",
+        "task_type": "resistance",
+        "geometry_virtual_path": "/mnt/user-data/uploads/iterative-context.stl",
+        "contract_revision": 4,
+        "iteration_mode": "derive_variant",
+        "revision_summary": "Add a wake-focused geometry-preflight pass.",
+        "capability_gaps": [
+            {
+                "output_id": "streamlines",
+                "support_level": "not_yet_supported",
+            }
+        ],
+        "unresolved_decisions": [
+            {
+                "decision_id": "confirm-wake-origin",
+                "label": "Confirm wake origin",
+            }
+        ],
+        "evidence_expectations": [
+            {
+                "expectation_id": "tail-stability",
+                "kind": "stability",
+            }
+        ],
+        "variant_policy": {
+            "default_compare_target_run_id": "baseline",
+        },
+        "requested_outputs": [
+            {
+                "output_id": "wake_velocity_slice",
+                "label": "尾流速度切片",
+                "requested_label": "尾流速度切片",
+                "status": "requested",
+                "support_level": "supported",
+            }
+        ],
+        "output_delivery_plan": [
+            {
+                "output_id": "wake_velocity_slice",
+                "label": "尾流速度切片",
+                "delivery_status": "planned",
+                "detail": "已纳入本次 run 的交付计划。",
+                "artifact_virtual_paths": [],
+            }
+        ],
+        "review_status": "ready_for_supervisor",
+        "next_recommended_stage": "geometry-preflight",
+        "report_virtual_path": "/mnt/user-data/outputs/submarine/design-brief/iterative-context/cfd-design-brief.md",
+        "artifact_virtual_paths": [],
+        "execution_plan": [],
+    }
+
+    result = tool_module.submarine_geometry_check_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/iterative-context.stl",
+        task_description="先完成 variant 几何预检，再继续后续求解。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        tool_call_id="tc-geometry-iterative-context",
+    )
+
+    runtime_state = result.update["submarine_runtime"]
+
+    assert runtime_state["contract_revision"] == 4
+    assert runtime_state["iteration_mode"] == "derive_variant"
+    assert runtime_state["revision_summary"] == (
+        "Add a wake-focused geometry-preflight pass."
+    )

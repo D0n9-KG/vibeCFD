@@ -25,6 +25,15 @@ void test("skill studio source no longer hardcodes english stage-first chrome", 
   assert.doesNotMatch(source, /Show rail|Hide rail/);
 });
 
+void test("skill studio routes header goal copy through workspace text localization", () => {
+  assert.match(source, /localizeWorkspaceDisplayText\(goal\)/);
+});
+
+void test("skill studio shows a hydration placeholder instead of rendering an empty default draft during reload", () => {
+  assert.match(source, /isHydratingSkillStudioThread/);
+  assert.match(source, /正在恢复技能线程/);
+});
+
 void test("skill studio keeps the rail focused on chat instead of selector chrome", () => {
   assert.doesNotMatch(source, /negotiationQuestion/);
   assert.match(source, /px-1 text-sm font-semibold text-slate-900/);

@@ -3,12 +3,15 @@ import test from "node:test";
 
 const {
   buildSkillStudioBindingTargets,
+  describeSkillStudioBindingTargets,
   buildSkillStudioPublishPanelModel,
   findSkillLifecycleSummary,
+  formatSkillStudioBindingMode,
   shouldLoadSkillLifecycleDetail,
   buildSkillStudioReadinessSummary,
   formatSkillStudioStatus,
   groupSkillStudioArtifacts,
+  resolveSkillStudioEffectivePublishStatus,
   resolveSkillStudioAssistantIdentity,
 } = await import(
   new URL("./skill-studio-workbench.utils.ts", import.meta.url).href,
@@ -287,4 +290,53 @@ void test("builds canonical explicit binding targets from selected role ids", ()
       target_skills: ["submarine-result-acceptance"],
     },
   ]);
+});
+
+void test("formats binding modes and self-targets into user-facing labels", () => {
+  assert.equal(formatSkillStudioBindingMode("explicit"), "显式挂载");
+  assert.equal(
+    describeSkillStudioBindingTargets(
+      ["submarine-delivery-guard-20260415a"],
+      "submarine-delivery-guard-20260415a",
+    ),
+    "当前技能",
+  );
+});
+
+void test("treats lifecycle-published skills as published even when archive status is still review-ready", () => {
+  assert.equal(
+    resolveSkillStudioEffectivePublishStatus({
+      publishStatus: "ready_for_review",
+      lifecycleSummary: null,
+      lifecycleDetail: {
+        draft_status: "draft_ready",
+        active_revision_id: "rev-001",
+        published_revision_id: "rev-001",
+        published_path: "skills/custom/submarine-delivery-guard-20260415a",
+      },
+    }),
+    "published",
+  );
+
+  assert.equal(
+    resolveSkillStudioEffectivePublishStatus({
+      publishStatus: "ready_for_review",
+      lifecycleSummary: {
+        skill_name: "submarine-delivery-guard-20260415a",
+        enabled: true,
+        binding_targets: [],
+        revision_count: 1,
+        binding_count: 0,
+        active_revision_id: "rev-001",
+        published_revision_id: "rev-001",
+        rollback_target_id: null,
+        draft_status: "published",
+        published_path: "skills/custom/submarine-delivery-guard-20260415a",
+        last_published_at: "2026-04-15T00:00:00Z",
+        version_note: "First publish",
+      },
+      lifecycleDetail: null,
+    }),
+    "published",
+  );
 });

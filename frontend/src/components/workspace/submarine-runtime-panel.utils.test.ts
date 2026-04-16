@@ -138,8 +138,8 @@ void test("returns skill-studio labels for authored skill artifacts", () => {
     "/mnt/user-data/outputs/submarine/skill-studio/result-acceptance/validation-report.md",
   );
 
-  assert.equal(meta.label, "Skill 校验报告");
-  assert.equal(meta.externalLinkLabel, "在新窗口打开 Skill 校验报告");
+  assert.equal(meta.label, "技能校验报告");
+  assert.equal(meta.externalLinkLabel, "在新窗口打开技能校验报告");
 });
 
 void test("builds a design brief summary from the structured brief payload", () => {
@@ -705,6 +705,23 @@ void test("returns stable labels for scientific remediation handoff artifacts", 
   );
   assert.equal(groups[0]?.id, "report");
   assert.equal(groups[0]?.count, 2);
+});
+
+void test("returns stable labels for remediation plans and provenance manifests", () => {
+  const remediationPlan = getSubmarineArtifactMeta(
+    "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-plan.json",
+  );
+  const provenance = getSubmarineArtifactMeta(
+    "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+  );
+
+  assert.equal(remediationPlan.label, "科研补救计划 JSON");
+  assert.equal(
+    remediationPlan.externalLinkLabel,
+    "在新窗口打开科研补救计划 JSON",
+  );
+  assert.equal(provenance.label, "溯源清单 JSON");
+  assert.equal(provenance.externalLinkLabel, "在新窗口打开溯源清单 JSON");
 });
 
 void test("classifies scientific followup history artifacts as report outputs", () => {

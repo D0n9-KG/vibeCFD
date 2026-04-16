@@ -66,7 +66,7 @@ void test("focus helper sorts related skills by strongest score and preserves go
 
   assert.equal(related.length, 2);
   assert.equal(related[0]?.skillAssetId, "submarine-report");
-  assert.equal(related[0]?.skillName, "submarine-report");
+  assert.equal(related[0]?.skillName, "结果整理技能");
   assert.deepEqual(related[0]?.relationshipLabels, ["能力相似", "依赖于"]);
   assert.equal(related[1]?.relationshipLabels[0], "组合使用");
   assert.equal(related[1]?.bindingCount, 1);
@@ -110,7 +110,7 @@ void test("workbench model keeps raw ids while rendering localized labels", () =
   assert.equal(model.focusSkillName, "submarine-result-acceptance");
   assert.equal(model.nodes[0]?.skillName, "潜艇结果验收");
   assert.equal(model.nodes.length, 2);
-  assert.equal(model.nodes[1]?.skillName, "submarine-report");
+  assert.equal(model.nodes[1]?.skillName, "结果整理技能");
   assert.equal(model.nodes[1]?.id, "submarine-report");
   assert.equal(model.edges.length, 1);
   assert.equal(model.edges[0]?.target, "submarine-report");

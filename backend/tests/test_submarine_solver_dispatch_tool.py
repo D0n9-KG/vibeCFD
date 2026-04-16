@@ -1,6 +1,8 @@
 import importlib
+import inspect
 import json
 import os
+import struct
 import threading
 import time
 from pathlib import Path
@@ -58,6 +60,41 @@ def _write_ascii_stl(path: Path) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _write_binary_stl(
+    path: Path,
+    triangles: list[tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]]],
+) -> None:
+    header = b"binary-stl".ljust(80, b" ")
+    payload = bytearray(header)
+    payload.extend(struct.pack("<I", len(triangles)))
+    for triangle in triangles:
+        payload.extend(struct.pack("<3f", 0.0, 0.0, 0.0))
+        for vertex in triangle:
+            payload.extend(struct.pack("<3f", *vertex))
+        payload.extend(struct.pack("<H", 0))
+    path.write_bytes(bytes(payload))
+
+
+def _binary_stl_bounds(path: Path) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    raw = path.read_bytes()
+    triangle_count = struct.unpack("<I", raw[80:84])[0]
+    mins = [float("inf"), float("inf"), float("inf")]
+    maxs = [float("-inf"), float("-inf"), float("-inf")]
+    for index in range(triangle_count):
+        start = 84 + index * 50
+        values = struct.unpack("<12fH", raw[start : start + 50])
+        points = values[3:12]
+        for point_index in range(0, 9, 3):
+            x, y, z = points[point_index : point_index + 3]
+            mins[0] = min(mins[0], x)
+            mins[1] = min(mins[1], y)
+            mins[2] = min(mins[2], z)
+            maxs[0] = max(maxs[0], x)
+            maxs[1] = max(maxs[1], y)
+            maxs[2] = max(maxs[2], z)
+    return (tuple(mins), tuple(maxs))
 
 
 def _write_xt(path: Path) -> None:
@@ -294,6 +331,99 @@ class _FakeAsyncCompletionSandbox(_FakeSandbox):
                 encoding="utf-8",
             )
             status_path.write_text("0", encoding="utf-8")
+
+        threading.Thread(target=_finish_run, daemon=True).start()
+        return super().execute_command(command)
+
+
+class _FakeExitStatusAheadOfLogCompletionSandbox(_FakeSandbox):
+    def __init__(self, case_dir: Path, delay_seconds: float = 0.05) -> None:
+        super().__init__(
+            output="\n".join(
+                [
+                    "[submarine-cfd] Running snappyHexMesh",
+                    "[... Observation truncated due to length ...]",
+                ]
+            )
+        )
+        self.case_dir = case_dir
+        self.delay_seconds = delay_seconds
+
+    def execute_command(self, command: str) -> str:
+        case_dir = _platform_fs_path(self.case_dir)
+        case_dir.mkdir(parents=True, exist_ok=True)
+        raw_log_path = case_dir / ".deerflow-raw-command.log"
+        status_path = case_dir / ".deerflow-command-exit-status"
+        status_path.write_text("0", encoding="utf-8")
+        raw_log_path.write_text(
+            "\n".join(
+                [
+                    "[submarine-cfd] Preparing background mesh",
+                    "Mesh Information",
+                    "  nPoints: 10234",
+                    "  nCells: 9342",
+                    "  nFaces: 28764",
+                    "  nInternalFaces: 27654",
+                    "[submarine-cfd] Solving with simpleFoam",
+                    "Time = 150s",
+                    "smoothSolver:  Solving for Ux, Initial residual = 8e-09, Final residual = 8e-09, No Iterations 0",
+                    "GAMG:  Solving for p, Initial residual = 5e-07, Final residual = 2e-08, No Iterations 1",
+                    "ExecutionTime = 66.9 s  ClockTime = 171 s",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        def _finish_run() -> None:
+            time.sleep(self.delay_seconds)
+
+            coeffs_dir = case_dir / "postProcessing" / "forceCoeffsHull" / "0"
+            coeffs_dir.mkdir(parents=True, exist_ok=True)
+            (coeffs_dir / "forceCoeffs.dat").write_text(
+                "\n".join(
+                    [
+                        "# Time Cd Cs Cl CmRoll CmPitch CmYaw",
+                        "0 0.18 0.00 0.00 0.00 0.01 0.00",
+                        "200 0.12 0.00 0.00 0.00 0.01 0.00",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            forces_dir = case_dir / "postProcessing" / "forcesHull" / "0"
+            forces_dir.mkdir(parents=True, exist_ok=True)
+            (forces_dir / "forces.dat").write_text(
+                "\n".join(
+                    [
+                        "# Time forces(pressure viscous) moments(pressure viscous)",
+                        "0 ((0 0 0) (12 0 0)) ((0 0 0) (0 1 0))",
+                        "200 ((0 0 0) (8 0 0)) ((0 0 0) (0 0.5 0))",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            raw_log_path.write_text(
+                "\n".join(
+                    [
+                        "[submarine-cfd] Preparing background mesh",
+                        "Mesh Information",
+                        "  nPoints: 10234",
+                        "  nCells: 9342",
+                        "  nFaces: 28764",
+                        "  nInternalFaces: 27654",
+                        "[submarine-cfd] Solving with simpleFoam",
+                        "Time = 150s",
+                        "smoothSolver:  Solving for Ux, Initial residual = 8e-09, Final residual = 8e-09, No Iterations 0",
+                        "GAMG:  Solving for p, Initial residual = 5e-07, Final residual = 2e-08, No Iterations 1",
+                        "ExecutionTime = 66.9 s  ClockTime = 171 s",
+                        "Time = 200s",
+                        "smoothSolver:  Solving for Ux, Initial residual = 2e-09, Final residual = 2e-09, No Iterations 0",
+                        "GAMG:  Solving for p, Initial residual = 1.5e-07, Final residual = 8e-09, No Iterations 1",
+                        "ExecutionTime = 86.2 s  ClockTime = 92 s",
+                        "End",
+                    ]
+                ),
+                encoding="utf-8",
+            )
 
         threading.Thread(target=_finish_run, daemon=True).start()
         return super().execute_command(command)
@@ -548,6 +678,138 @@ class _FakeScientificStudySandbox(_FakeSandbox):
             ]
         )
         return super().execute_command(command)
+
+
+class _FakeProgressiveScientificStudySandbox(_FakeScientificStudySandbox):
+    def __init__(
+        self,
+        workspace_dir: Path,
+        *,
+        delayed_fragment: str = "/studies/mesh-independence/fine/openfoam-case/Allrun",
+    ) -> None:
+        super().__init__(workspace_dir=workspace_dir)
+        self.delayed_fragment = delayed_fragment
+
+    def _write_completed_case_outputs(self, case_dir: Path, cd_value: float) -> None:
+        coeffs_dir = case_dir / "postProcessing" / "forceCoeffs" / "0"
+        coeffs_dir.mkdir(parents=True, exist_ok=True)
+        (coeffs_dir / "forceCoeffs.dat").write_text(
+            "\n".join(
+                [
+                    "# Time Cd Cs Cl CmRoll CmPitch CmYaw",
+                    f"0 {cd_value + 0.0040:.4f} 0.00 0.00 0.00 0.01 0.00",
+                    f"200 {cd_value:.4f} 0.00 0.00 0.00 0.01 0.00",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        forces_dir = case_dir / "postProcessing" / "forces" / "0"
+        forces_dir.mkdir(parents=True, exist_ok=True)
+        drag_force = round(cd_value * 100.0, 4)
+        (forces_dir / "forces.dat").write_text(
+            "\n".join(
+                [
+                    "# Time forces(pressure viscous) moments(pressure viscous)",
+                    f"0 ((0 0 0) ({drag_force + 1.0} 0 0)) ((0 0 0) (0 1 0))",
+                    f"200 ((0 0 0) ({drag_force} 0 0)) ((0 0 0) (0 0.5 0))",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    def execute_command(self, command: str) -> str:
+        if self.delayed_fragment not in command:
+            return super().execute_command(command)
+
+        case_dir, cd_value = self._resolve_case_dir(command)
+        case_dir = _platform_fs_path(case_dir)
+        case_dir.mkdir(parents=True, exist_ok=True)
+        raw_log_path = case_dir / ".deerflow-raw-command.log"
+        status_path = case_dir / ".deerflow-command-exit-status"
+        status_path.unlink(missing_ok=True)
+        raw_log_path.write_text(
+            "\n".join(
+                [
+                    "[submarine-cfd] Preparing background mesh",
+                    "Check mesh...",
+                    "    points:           10234",
+                    "    faces:            28764",
+                    "    internal faces:   27654",
+                    "    cells:            9342",
+                    "Mesh OK.",
+                    "Time = 0",
+                    "smoothSolver:  Solving for Ux, Initial residual = 0.02, Final residual = 1e-05, No Iterations 2",
+                    "GAMG:  Solving for p, Initial residual = 0.3, Final residual = 0.002, No Iterations 6",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        def _write_progressive_log() -> None:
+            progress_frames = [
+                (
+                    0.04,
+                    [
+                        "Time = 50",
+                        "smoothSolver:  Solving for Ux, Initial residual = 0.004, Final residual = 4e-06, No Iterations 2",
+                        "GAMG:  Solving for p, Initial residual = 0.04, Final residual = 0.0005, No Iterations 5",
+                    ],
+                ),
+                (
+                    0.08,
+                    [
+                        "Time = 100",
+                        "smoothSolver:  Solving for Ux, Initial residual = 0.0008, Final residual = 8e-07, No Iterations 2",
+                        "GAMG:  Solving for p, Initial residual = 0.02, Final residual = 0.0002, No Iterations 5",
+                    ],
+                ),
+                (
+                    0.12,
+                    [
+                        "Time = 150",
+                        "smoothSolver:  Solving for Ux, Initial residual = 0.0004, Final residual = 4e-08, No Iterations 2",
+                        "GAMG:  Solving for p, Initial residual = 0.015, Final residual = 0.00014, No Iterations 5",
+                    ],
+                ),
+            ]
+            started_at = time.monotonic()
+            base_lines = raw_log_path.read_text(encoding="utf-8").splitlines()
+            for delay_seconds, frame_lines in progress_frames:
+                remaining = delay_seconds - (time.monotonic() - started_at)
+                if remaining > 0:
+                    time.sleep(remaining)
+                raw_log_path.write_text(
+                    "\n".join([*base_lines, *frame_lines]),
+                    encoding="utf-8",
+                )
+                base_lines.extend(frame_lines)
+
+            remaining = 0.16 - (time.monotonic() - started_at)
+            if remaining > 0:
+                time.sleep(remaining)
+            self._write_completed_case_outputs(case_dir, cd_value)
+            base_lines.extend(
+                [
+                    "Time = 200",
+                    "smoothSolver:  Solving for Ux, Initial residual = 0.00031, Final residual = 3e-08, No Iterations 2",
+                    "smoothSolver:  Solving for k, Initial residual = 0.004, Final residual = 8e-07, No Iterations 2",
+                    "smoothSolver:  Solving for omega, Initial residual = 0.008, Final residual = 9e-07, No Iterations 2",
+                    "GAMG:  Solving for p, Initial residual = 0.012, Final residual = 0.00014, No Iterations 5",
+                    "ExecutionTime = 18.1 s  ClockTime = 19 s",
+                    "End",
+                ]
+            )
+            raw_log_path.write_text("\n".join(base_lines), encoding="utf-8")
+            status_path.write_text("0", encoding="utf-8")
+
+        threading.Thread(target=_write_progressive_log, daemon=True).start()
+        self.commands.append(command)
+        return "\n".join(
+            [
+                "[submarine-cfd] Running snappyHexMesh",
+                "[... Observation truncated due to length ...]",
+            ]
+        )
 
 
 def test_submarine_solver_dispatch_tool_generates_artifacts(tmp_path, monkeypatch):
@@ -1270,6 +1532,197 @@ def test_submarine_solver_dispatch_writes_openfoam_case_scaffold(tmp_path, monke
     assert 'file "case-scaffold.stl";' in snappy_dict
 
 
+def test_submarine_solver_dispatch_uses_geometry_scaled_domain_for_small_hulls(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-small-hull-domain"
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "small-hull-domain.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/small-hull-domain.stl",
+        task_description="Prepare a meter-scale SUBOFF baseline case without inflating the domain floor beyond the hull scale.",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=False,
+        tool_call_id="tc-dispatch-small-hull-domain",
+    )
+
+    block_mesh_dict = (
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "small-hull-domain"
+        / "openfoam-case"
+        / "system"
+        / "blockMeshDict"
+    ).read_text(encoding="utf-8")
+
+    assert "(-16" in block_mesh_dict
+    assert "(32.0 " in block_mesh_dict
+    assert "(-40" not in block_mesh_dict
+
+
+def test_submarine_solver_dispatch_applies_geometry_scale_factor_to_case_geometry(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-scaled-case"
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "scaled-case.stl"
+    geometry_path.write_text(
+        "\n".join(
+            [
+                "solid scaled-case",
+                "facet normal 0 0 0",
+                "  outer loop",
+                "    vertex 0 0 0",
+                "    vertex 4356 0 0",
+                "    vertex 0 508 0",
+                "  endloop",
+                "endfacet",
+                "facet normal 0 0 0",
+                "  outer loop",
+                "    vertex 4356 0 0",
+                "    vertex 4356 508 0",
+                "    vertex 0 508 0",
+                "  endloop",
+                "endfacet",
+                "endsolid scaled-case",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["submarine_runtime"] = {
+        "current_stage": "geometry-preflight",
+        "task_summary": "Scale the uploaded SUBOFF STL before generating the solver case.",
+        "task_type": "resistance",
+        "geometry_virtual_path": "/mnt/user-data/uploads/scaled-case.stl",
+        "geometry_family": "DARPA SUBOFF",
+        "scale_assessment": {
+            "raw_length_value": 4356.0,
+            "normalized_length_m": 4.356,
+            "applied_scale_factor": 0.001,
+            "heuristic": "divide_by_1000_mm_to_m",
+            "severity": "severe",
+            "summary_zh": "Geometry scale requires confirmation.",
+        },
+    }
+
+    tool_module.submarine_solver_dispatch_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/scaled-case.stl",
+        task_description="Prepare the solver case using the confirmed meter-scale geometry.",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=False,
+        tool_call_id="tc-dispatch-scaled-case",
+    )
+
+    scaled_geometry = (
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "scaled-case"
+        / "openfoam-case"
+        / "constant"
+        / "triSurface"
+        / "scaled-case.stl"
+    ).read_text(encoding="utf-8")
+
+    assert "vertex 4.356" in scaled_geometry
+    assert "0.508" in scaled_geometry
+    assert "vertex 4356 " not in scaled_geometry
+
+
+def test_submarine_solver_dispatch_applies_geometry_scale_factor_to_binary_case_geometry(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-scaled-binary-case"
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "scaled-binary-case.stl"
+    _write_binary_stl(
+        geometry_path,
+        [
+            ((0.0, 0.0, 0.0), (4356.0, 0.0, 0.0), (0.0, 508.0, 0.0)),
+            ((4356.0, 0.0, 0.0), (4356.0, 508.0, 0.0), (0.0, 508.0, 0.0)),
+        ],
+    )
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["submarine_runtime"] = {
+        "current_stage": "geometry-preflight",
+        "task_summary": "Scale the uploaded binary SUBOFF STL before generating the solver case.",
+        "task_type": "resistance",
+        "geometry_virtual_path": "/mnt/user-data/uploads/scaled-binary-case.stl",
+        "geometry_family": "DARPA SUBOFF",
+        "scale_assessment": {
+            "raw_length_value": 4356.0,
+            "normalized_length_m": 4.356,
+            "applied_scale_factor": 0.001,
+            "heuristic": "divide_by_1000_mm_to_m",
+            "severity": "severe",
+            "summary_zh": "Geometry scale requires confirmation.",
+        },
+    }
+
+    tool_module.submarine_solver_dispatch_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/scaled-binary-case.stl",
+        task_description="Prepare the solver case using the confirmed meter-scale binary geometry.",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=False,
+        tool_call_id="tc-dispatch-scaled-binary-case",
+    )
+
+    scaled_geometry_path = (
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "scaled-binary-case"
+        / "openfoam-case"
+        / "constant"
+        / "triSurface"
+        / "scaled-binary-case.stl"
+    )
+    mins, maxs = _binary_stl_bounds(scaled_geometry_path)
+
+    assert round(maxs[0] - mins[0], 6) == 4.356
+    assert round(maxs[1] - mins[1], 6) == 0.508
+    assert round(maxs[2] - mins[2], 6) == 0.0
+
+
 def test_submarine_solver_dispatch_preserves_requested_outputs(tmp_path, monkeypatch):
     paths = Paths(tmp_path)
     thread_id = "thread-requested-dispatch"
@@ -1655,14 +2108,14 @@ def test_submarine_solver_dispatch_writes_solver_results_artifact(tmp_path, monk
     assert payload["solver_results_markdown_virtual_path"].endswith("/solver-results.md")
     assert payload["stability_evidence_virtual_path"].endswith("/stability-evidence.json")
     assert payload["solver_results"]["solver_completed"] is True
-    assert payload["stability_evidence"]["status"] == "blocked"
-    assert payload["scientific_verification_assessment"]["status"] == "blocked"
+    assert payload["stability_evidence"]["status"] == "missing_evidence"
+    assert payload["scientific_verification_assessment"]["status"] == "needs_more_verification"
     assert payload["solver_results"]["latest_force_coefficients"]["Cd"] == 0.12
     assert payload["solver_results"]["latest_forces"]["total_force"][0] == 8.0
     assert stability_evidence["source_solver_results_virtual_path"].endswith("/solver-results.json")
     assert stability_evidence["artifact_virtual_path"].endswith("/stability-evidence.json")
     assert stability_evidence["requirements"][0]["requirement_id"] == "final_residual_threshold"
-    assert stability_evidence["requirements"][0]["status"] == "blocked"
+    assert stability_evidence["requirements"][0]["status"] == "passed"
     assert stability_evidence["requirements"][1]["requirement_id"] == "force_coefficient_tail_stability"
     assert stability_evidence["requirements"][1]["status"] == "missing_evidence"
     assert solver_results["latest_force_coefficients"]["Cd"] == 0.12
@@ -1686,14 +2139,14 @@ def test_submarine_solver_dispatch_writes_solver_results_artifact(tmp_path, monk
     assert result.update["submarine_runtime"]["stability_evidence_virtual_path"] == (
         payload["stability_evidence_virtual_path"]
     )
-    assert result.update["submarine_runtime"]["stability_evidence"]["status"] == "blocked"
+    assert result.update["submarine_runtime"]["stability_evidence"]["status"] == "missing_evidence"
     assert (
         result.update["submarine_runtime"]["scientific_verification_assessment"]["status"]
-        == "blocked"
+        == "needs_more_verification"
     )
     assert (
         _execution_plan_status(result.update["submarine_runtime"], "scientific-verification")
-        == "blocked"
+        == "completed"
     )
 
 
@@ -1750,6 +2203,107 @@ def test_submarine_solver_dispatch_waits_for_workspace_completion_before_collect
         / "async-completion"
         / "openfoam-run.log"
     ).read_text(encoding="utf-8")
+    assert result.update["submarine_runtime"]["stage_status"] == "executed"
+
+
+def test_submarine_solver_dispatch_waits_for_progressing_scientific_study_variants(
+    tmp_path, monkeypatch
+):
+    dispatch_module = importlib.import_module("deerflow.domain.submarine.solver_dispatch")
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-progressive-study-execution"
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "progressive-study-execution.stl"
+    _write_ascii_stl(geometry_path)
+
+    fake_sandbox = _FakeProgressiveScientificStudySandbox(workspace_dir=workspace_dir)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(tool_module, "get_sandbox_provider", lambda: _FakeProvider(fake_sandbox))
+
+    original_wait_command = dispatch_module._wait_for_workspace_command_completion
+    original_wait_log = dispatch_module._wait_for_workspace_log_completion
+
+    def _short_wait_command_completion(**kwargs):
+        signature = inspect.signature(original_wait_command)
+        if "timeout_seconds" in signature.parameters:
+            kwargs["timeout_seconds"] = 0.05
+        if "poll_interval_seconds" in signature.parameters:
+            kwargs["poll_interval_seconds"] = 0.005
+        return original_wait_command(**kwargs)
+
+    def _short_wait_log_completion(**kwargs):
+        signature = inspect.signature(original_wait_log)
+        if "stall_timeout_seconds" in signature.parameters:
+            kwargs["stall_timeout_seconds"] = 0.05
+        elif "timeout_seconds" in signature.parameters:
+            kwargs["timeout_seconds"] = 0.05
+        if "max_wait_seconds" in signature.parameters:
+            kwargs["max_wait_seconds"] = 0.3
+        if "poll_interval_seconds" in signature.parameters:
+            kwargs["poll_interval_seconds"] = 0.005
+        if "stability_window_seconds" in signature.parameters:
+            kwargs["stability_window_seconds"] = 0.01
+        return original_wait_log(**kwargs)
+
+    monkeypatch.setattr(
+        dispatch_module,
+        "_wait_for_workspace_command_completion",
+        _short_wait_command_completion,
+    )
+    monkeypatch.setattr(
+        dispatch_module,
+        "_wait_for_workspace_log_completion",
+        _short_wait_log_completion,
+    )
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/progressive-study-execution.stl",
+        task_description="Execute the baseline and wait for every progressing scientific study variant to really finish.",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=True,
+        execute_scientific_studies=True,
+        solver_command=(
+            "bash /mnt/user-data/workspace/submarine/solver-dispatch/"
+            "progressive-study-execution/openfoam-case/Allrun"
+        ),
+        tool_call_id="tc-dispatch-progressive-study-execution",
+    )
+
+    request_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "progressive-study-execution"
+        / "openfoam-request.json"
+    )
+    mesh_verification_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "progressive-study-execution"
+        / "verification-mesh-independence.json"
+    )
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    mesh_verification = json.loads(mesh_verification_path.read_text(encoding="utf-8"))
+    study_manifest = payload["scientific_study_manifest"]
+    mesh_variants = study_manifest["study_definitions"][0]["variants"]
+    fine_variant = next(item for item in mesh_variants if item["variant_id"] == "fine")
+
+    assert payload["dispatch_status"] == "executed"
+    assert study_manifest["study_execution_status"] == "completed"
+    assert fine_variant["execution_status"] == "completed"
+    assert fine_variant["compare_status"] == "completed"
+    assert mesh_verification["status"] == "passed"
     assert result.update["submarine_runtime"]["stage_status"] == "executed"
 
 
@@ -1816,6 +2370,72 @@ def test_submarine_solver_dispatch_waits_past_preprocess_end_markers_before_coll
         / "preprocess-end-async-completion"
         / "openfoam-run.log"
     ).read_text(encoding="utf-8")
+    assert result.update["submarine_runtime"]["stage_status"] == "executed"
+
+
+def test_submarine_solver_dispatch_refreshes_workspace_log_even_if_exit_status_arrives_first(
+    tmp_path, monkeypatch
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-status-first"
+    workspace_dir = paths.sandbox_work_dir(thread_id)
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "status-first.stl"
+    _write_ascii_stl(geometry_path)
+
+    case_dir = (
+        workspace_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "status-first"
+        / "openfoam-case"
+    )
+    fake_sandbox = _FakeExitStatusAheadOfLogCompletionSandbox(case_dir=case_dir)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+    monkeypatch.setattr(tool_module, "get_sandbox_provider", lambda: _FakeProvider(fake_sandbox))
+
+    result = tool_module.submarine_solver_dispatch_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/status-first.stl",
+        task_description="Do not freeze the captured solver log at the earlier timeout-shaped snapshot.",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        execute_now=True,
+        solver_command=(
+            "bash /mnt/user-data/workspace/submarine/solver-dispatch/status-first/openfoam-case/Allrun"
+        ),
+        tool_call_id="tc-dispatch-status-first",
+    )
+
+    request_path = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "status-first"
+        / "openfoam-request.json"
+    )
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    solver_results = payload["solver_results"]
+    captured_log = (
+        outputs_dir
+        / "submarine"
+        / "solver-dispatch"
+        / "status-first"
+        / "openfoam-run.log"
+    ).read_text(encoding="utf-8")
+
+    assert payload["dispatch_status"] == "executed"
+    assert solver_results["solver_completed"] is True
+    assert solver_results["final_time_seconds"] == 200.0
+    assert solver_results["latest_force_coefficients"]["Cd"] == 0.12
+    assert "Time = 200s" in captured_log
+    assert captured_log.rstrip().endswith("End")
     assert result.update["submarine_runtime"]["stage_status"] == "executed"
 
 
@@ -2977,6 +3597,50 @@ def test_solver_dispatch_decomposition_results_module_prefers_later_plain_mesh_c
     assert results["mesh_summary"]["faces"] == 465265
 
 
+def test_solver_dispatch_decomposition_results_module_uses_latest_field_residuals_for_max_final_residual():
+    results_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch_results"
+    )
+
+    command_output = "\n".join(
+        [
+            "Time = 1",
+            "smoothSolver:  Solving for Ux, Initial residual = 1.0, Final residual = 0.010195413, No Iterations 1",
+            "smoothSolver:  Solving for k, Initial residual = 1.0, Final residual = 0.072007947, No Iterations 1",
+            "GAMG:  Solving for p, Initial residual = 1.0, Final residual = 0.0099002667, No Iterations 6",
+            "Time = 200",
+            "smoothSolver:  Solving for Ux, Initial residual = 1.9085343e-09, Final residual = 1.9085343e-09, No Iterations 0",
+            "smoothSolver:  Solving for k, Initial residual = 9.9566546e-09, Final residual = 9.9566546e-09, No Iterations 0",
+            "GAMG:  Solving for p, Initial residual = 5.4971957e-08, Final residual = 5.4971957e-08, No Iterations 0",
+            "End",
+        ]
+    )
+
+    results = results_module.collect_solver_results(
+        case_dir=Path("."),
+        run_dir_name="latest-residuals-only",
+        command_output=command_output,
+        reference_values={
+            "reference_length_m": 4.0,
+            "reference_area_m2": 1.0,
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1000.0,
+        },
+        simulation_requirements={
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1000.0,
+            "kinematic_viscosity_m2ps": 1e-06,
+            "end_time_seconds": 200.0,
+            "delta_t_seconds": 1.0,
+            "write_interval_steps": 50,
+        },
+    )
+
+    assert results["residual_summary"]["latest_by_field"]["k"]["final_residual"] == 9.9566546e-09
+    assert results["residual_summary"]["latest_by_field"]["p"]["final_residual"] == 5.4971957e-08
+    assert results["residual_summary"]["max_final_residual"] == 5.4971957e-08
+
+
 def test_solver_dispatch_decomposition_results_module_does_not_treat_preprocess_end_markers_as_solver_completion():
     results_module = importlib.import_module(
         "deerflow.domain.submarine.solver_dispatch_results"
@@ -3065,6 +3729,51 @@ def test_solver_dispatch_decomposition_results_module_requires_terminal_end_afte
     assert results["solver_completed"] is False
     assert results["final_time_seconds"] == 0.0
     assert results["residual_summary"]["field_count"] == 1
+    assert results["latest_force_coefficients"] is None
+    assert results["latest_forces"] is None
+
+
+def test_solver_dispatch_decomposition_results_module_treats_time_zero_end_without_residuals_as_incomplete():
+    results_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch_results"
+    )
+
+    command_output = "\n".join(
+        [
+            "[submarine-cfd] Checking mesh",
+            "Mesh OK.",
+            "End",
+            "[submarine-cfd] Solving with simpleFoam",
+            "Time = 0s",
+            "End",
+        ]
+    )
+
+    assert results_module.solver_output_looks_complete(command_output) is False
+
+    results = results_module.collect_solver_results(
+        case_dir=Path("."),
+        run_dir_name="time-zero-end-without-residuals",
+        command_output=command_output,
+        reference_values={
+            "reference_length_m": 4.0,
+            "reference_area_m2": 1.0,
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1000.0,
+        },
+        simulation_requirements={
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1000.0,
+            "kinematic_viscosity_m2ps": 1e-06,
+            "end_time_seconds": 200.0,
+            "delta_t_seconds": 1.0,
+            "write_interval_steps": 50,
+        },
+    )
+
+    assert results["solver_completed"] is False
+    assert results["final_time_seconds"] == 0.0
+    assert results["residual_summary"] is None
     assert results["latest_force_coefficients"] is None
     assert results["latest_forces"] is None
 

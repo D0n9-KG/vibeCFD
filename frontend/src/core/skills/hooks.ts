@@ -13,10 +13,11 @@ import {
 
 import { loadSkills } from ".";
 
-export function useSkills() {
+export function useSkills({ enabled = true }: { enabled?: boolean } = {}) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["skills"],
     queryFn: () => loadSkills(),
+    enabled,
   });
   return { skills: data ?? [], isLoading, error };
 }

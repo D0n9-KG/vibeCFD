@@ -127,6 +127,12 @@ export function textOfMessage(message: Message) {
   return null;
 }
 
+const GENERIC_THREAD_TITLES = new Set(["stl file upload", "file upload"]);
+
+function looksLikeGenericThreadTitle(title: string) {
+  return GENERIC_THREAD_TITLES.has(title.trim().toLowerCase());
+}
+
 function resolveThreadTitlePreviewFromMessages(
   messages: readonly Message[] | null | undefined,
 ) {
@@ -162,15 +168,64 @@ function sanitizeThreadDisplayTitle(title: string) {
   return title.replace(/[；;]+\.$/, "").trim();
 }
 
+function resolveArtifactDerivedThreadTitle(thread: AgentThread) {
+  const artifacts = Array.isArray(thread.values?.artifacts)
+    ? thread.values.artifacts
+    : [];
+
+  for (const artifact of artifacts) {
+    if (typeof artifact !== "string") {
+      continue;
+    }
+
+    const match =
+      /\/submarine\/(?:design-brief|geometry-check|solver-dispatch|reports)\/([^/]+)\//i.exec(
+        artifact,
+      );
+    if (!match?.[1]) {
+      continue;
+    }
+
+    const runDirName = match[1].trim();
+    if (!runDirName) {
+      continue;
+    }
+
+    return `${runDirName} CFD 会话`;
+  }
+
+  return null;
+}
+
+function resolveContextualThreadTitleFallback(
+  contextualFallbackTitle: string | null | undefined,
+) {
+  const normalized = contextualFallbackTitle?.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const preview = buildProgressPreviewFromMessage({
+    type: "human",
+    content: normalized,
+  });
+
+  return sanitizeThreadDisplayTitle(
+    localizeThreadDisplayTitle(preview ?? normalized),
+  );
+}
+
 export function resolveThreadDisplayTitle(
   rawTitle: string | null | undefined,
   untitledLabel = "Untitled",
   messages?: readonly Message[] | null,
+  contextualFallbackTitle?: string | null,
 ) {
   const normalizedTitle = rawTitle?.trim();
   const needsFallback =
     !normalizedTitle ||
     normalizedTitle === "Untitled" ||
+    (normalizedTitle != null && looksLikeGenericThreadTitle(normalizedTitle)) ||
     normalizedTitle.startsWith("<uploaded_files>") &&
       !normalizedTitle.includes("</uploaded_files>");
 
@@ -179,6 +234,16 @@ export function resolveThreadDisplayTitle(
     if (previewFromMessages) {
       return sanitizeThreadDisplayTitle(
         localizeThreadDisplayTitle(previewFromMessages),
+      );
+    }
+    const contextualFallback =
+      resolveContextualThreadTitleFallback(contextualFallbackTitle);
+    if (contextualFallback) {
+      return contextualFallback;
+    }
+    if (normalizedTitle && looksLikeGenericThreadTitle(normalizedTitle)) {
+      return sanitizeThreadDisplayTitle(
+        localizeThreadDisplayTitle(normalizedTitle),
       );
     }
     return untitledLabel;
@@ -197,9 +262,18 @@ export function titleOfThread(
   thread: AgentThread,
   untitledLabel = "Untitled",
 ) {
+  const runtime = thread.values?.submarine_runtime;
+  const contextualFallbackTitle =
+    runtime != null &&
+    typeof runtime === "object" &&
+    typeof runtime.task_description === "string"
+      ? runtime.task_description
+      : resolveArtifactDerivedThreadTitle(thread);
+
   return resolveThreadDisplayTitle(
     thread.values?.title,
     untitledLabel,
     thread.values?.messages,
+    contextualFallbackTitle,
   );
 }

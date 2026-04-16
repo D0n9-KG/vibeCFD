@@ -11,9 +11,19 @@ void test("submarine operator board uses research-language labels instead of wor
   assert.doesNotMatch(source, /流程事件/);
   assert.doesNotMatch(source, /人工动作/);
   assert.doesNotMatch(source, /修正动作/);
+  assert.doesNotMatch(source, /当前 lineage：/);
   assert.match(source, /研究判断与后续安排/);
   assert.match(source, /当前判断/);
+  assert.match(source, /当前数据链：/);
   assert.match(source, /修正事项/);
   assert.match(source, /研究记录/);
   assert.match(source, /待人工确认/);
+});
+
+void test("submarine operator board lists concrete capability gaps and delivery-plan items instead of counts alone", () => {
+  assert.match(source, /capabilityGapLabels/);
+  assert.match(source, /unresolvedDecisionLabels/);
+  assert.match(source, /deliveryItems/);
+  assert.match(source, /operatorBoard\.remediation\.actions/);
+  assert.match(source, /operatorBoard\.remediation\.manualActions/);
 });

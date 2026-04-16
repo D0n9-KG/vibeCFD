@@ -699,3 +699,128 @@ def test_submarine_design_brief_run_dir_budget_respects_near_limit_output_root()
     assert len(run_dir_name) <= design_brief_module._resolve_run_dir_name_budget(outputs_dir)
     assert len(run_dir_name.rsplit("-", 1)[-1]) == design_brief_module._RUN_DIR_HASH_CHARS
     assert len(str(artifact_path)) <= design_brief_module._MAX_ARTIFACT_PATH_CHARS
+
+
+def test_submarine_design_brief_builds_initial_output_delivery_plan(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-initial-output-delivery"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "initial-output-delivery.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/initial-output-delivery.stl",
+        task_description="先确认 baseline 阻力计算，并把尾流速度切片和流线图交付边界写清楚。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        confirmation_status="draft",
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        expected_outputs=["阻力系数 Cd", "尾流速度切片", "流线图"],
+        tool_call_id="tc-design-brief-initial-output-delivery",
+    )
+
+    json_path = (
+        outputs_dir
+        / "submarine"
+        / "design-brief"
+        / "initial-output-delivery"
+        / "cfd-design-brief.json"
+    )
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    runtime_state = result.update["submarine_runtime"]
+    delivery_by_id = {
+        item["output_id"]: item for item in payload["output_delivery_plan"]
+    }
+
+    assert delivery_by_id["drag_coefficient"]["delivery_status"] == "planned"
+    assert delivery_by_id["wake_velocity_slice"]["delivery_status"] == "planned"
+    assert delivery_by_id["streamlines"]["delivery_status"] == "not_yet_supported"
+    assert runtime_state["output_delivery_plan"] == payload["output_delivery_plan"]
+
+
+def test_submarine_design_brief_merges_inferred_added_outputs_when_tool_args_omit_expected_outputs(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-infer-added-outputs"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "infer-added-outputs.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    initial = tool_module.submarine_design_brief_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/infer-added-outputs.stl",
+        task_description="先确认当前基线阻力计算，并交付阻力系数 Cd 与中文结果报告。",
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        confirmation_status="confirmed",
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        expected_outputs=["阻力系数 Cd", "中文结果报告"],
+        open_questions=[],
+        tool_call_id="tc-design-brief-infer-added-initial",
+    )
+    runtime.state["submarine_runtime"] = initial.update["submarine_runtime"]
+    runtime.state["artifacts"] = initial.update["artifacts"]
+
+    updated = tool_module.submarine_design_brief_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/infer-added-outputs.stl",
+        task_description=(
+            "在当前已确认基线的基础上，追加两个交付输出：尾流速度切片和流线图。"
+            "请更新当前设计简报与交付计划，并明确支持边界。"
+        ),
+        task_type="resistance",
+        geometry_family_hint="DARPA SUBOFF",
+        confirmation_status="confirmed",
+        selected_case_id="darpa_suboff_bare_hull_resistance",
+        tool_call_id="tc-design-brief-infer-added-update",
+    )
+
+    json_path = (
+        outputs_dir
+        / "submarine"
+        / "design-brief"
+        / "infer-added-outputs"
+        / "cfd-design-brief.json"
+    )
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    runtime_state = updated.update["submarine_runtime"]
+    requested_outputs = payload["requested_outputs"]
+    delivery_by_id = {
+        item["output_id"]: item for item in payload["output_delivery_plan"]
+    }
+
+    assert payload["expected_outputs"] == [
+        "阻力系数 Cd",
+        "中文结果报告",
+        "尾流速度切片",
+        "流线图",
+    ]
+    assert [item["output_id"] for item in requested_outputs] == [
+        "drag_coefficient",
+        "chinese_report",
+        "wake_velocity_slice",
+        "streamlines",
+    ]
+    assert delivery_by_id["wake_velocity_slice"]["delivery_status"] == "planned"
+    assert delivery_by_id["streamlines"]["delivery_status"] == "not_yet_supported"
+    assert runtime_state["requested_outputs"] == requested_outputs
+    assert runtime_state["output_delivery_plan"] == payload["output_delivery_plan"]

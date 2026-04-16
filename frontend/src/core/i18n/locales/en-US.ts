@@ -43,6 +43,7 @@ export const enUS: Translations = {
     cancel: "Cancel",
     save: "Save",
     install: "Install",
+    installed: "Installed",
     create: "Create",
     export: "Export",
     exportAsMarkdown: "Export as Markdown",
@@ -354,6 +355,12 @@ export const enUS: Translations = {
     clickToViewContent: "Click to view file content",
     writeTodos: "Update to-do list",
     skillInstallTooltip: "Install skill and make it available to DeerFlow",
+    skillAlreadyInstalledTooltip:
+      "This skill is already installed and available to DeerFlow",
+    skillInstallSuccessMessage: (skillName: string) =>
+      `Installed skill "${skillName}"`,
+    skillAlreadyInstalledMessage: (skillName: string) =>
+      `Skill "${skillName}" is already installed`,
   },
 
   // Subtasks

@@ -24,3 +24,14 @@ void test("returns null when the submarine runtime is not asking for user confir
 
   assert.equal(key, null);
 });
+
+void test("returns null when stale confirmation flags point at an earlier stage but the report path is already final-reporting output", () => {
+  const key = getSubmarineNegotiationAttentionKey({
+    current_stage: "geometry-preflight",
+    review_status: "needs_user_confirmation",
+    next_recommended_stage: "user-confirmation",
+    report_virtual_path: "/mnt/user-data/outputs/submarine/reports/suboff_solid/final-report.md",
+  });
+
+  assert.equal(key, null);
+});

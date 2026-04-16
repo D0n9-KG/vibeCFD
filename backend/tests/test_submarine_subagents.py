@@ -59,6 +59,42 @@ def test_submarine_workflow_prompt_section_is_guidance_first_not_stage_mandatory
     assert "always capture or refresh the structured plan" not in section.lower()
 
 
+def test_submarine_workflow_prompt_section_refreshes_design_brief_on_material_contract_changes():
+    section = prompt_module.get_submarine_workflow_prompt_section()
+
+    assert "contract revision" in section.lower()
+    assert "changes outputs" in section.lower()
+    assert "variant strategy" in section.lower()
+    assert "update `submarine_design_brief` first" in section.lower()
+
+
+def test_submarine_workflow_prompt_section_requires_confirmed_brief_before_solver_dispatch():
+    section = prompt_module.get_submarine_workflow_prompt_section()
+
+    assert "confirmation_status=\"confirmed\"" in section
+    assert "rerun `submarine_design_brief`" in section.lower()
+    assert "before calling `submarine_solver_dispatch`" in section.lower()
+    assert "approval_state=\"approved\"" in section
+
+
+def test_submarine_workflow_prompt_section_forbids_todo_only_replies_when_bound_stl_and_concrete_request_exist():
+    section = prompt_module.get_submarine_workflow_prompt_section()
+
+    assert "write_todos" in section
+    assert "same turn" in section.lower()
+    assert "bound STL" in section
+    assert "generic acknowledgement" in section.lower()
+    assert "submarine_geometry_check" in section
+
+
+def test_submarine_workflow_prompt_section_keeps_draft_when_confirmation_is_partial():
+    section = prompt_module.get_submarine_workflow_prompt_section()
+
+    assert "confirmation_status=\"draft\"" in section
+    assert "still-unresolved items" in section
+    assert "stop before solver dispatch" in section.lower()
+
+
 def test_apply_prompt_template_includes_submarine_workflow_protocol(monkeypatch):
     monkeypatch.setattr(
         prompt_module,
@@ -113,3 +149,18 @@ def test_submarine_orchestrator_skill_guides_judgment_without_fixed_tool_order()
     assert "when the primary agent should" in content.lower()
     assert "use the built-in tools in this order" not in content.lower()
     assert "required orchestration path" not in content.lower()
+
+
+def test_submarine_orchestrator_skill_mentions_confirmation_refresh_before_execution():
+    skill_path = (
+        Path(__file__).resolve().parents[2]
+        / "skills"
+        / "public"
+        / "submarine-orchestrator"
+        / "SKILL.md"
+    )
+    content = skill_path.read_text(encoding="utf-8")
+
+    assert 'confirmation_status="confirmed"' in content
+    assert "submarine_design_brief" in content
+    assert "before `submarine_solver_dispatch`" in content

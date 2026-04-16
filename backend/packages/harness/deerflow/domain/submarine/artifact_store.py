@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 _OUTPUTS_PREFIX = "/mnt/user-data/outputs/"
+_WORKSPACE_PREFIX = "/mnt/user-data/workspace/"
 _SOLVER_DISPATCH_PREFIX = "/mnt/user-data/outputs/submarine/solver-dispatch/"
 _REQUEST_FILENAME = "openfoam-request.json"
 _DISPATCH_SUMMARY_MARKDOWN_FILENAME = "dispatch-summary.md"
@@ -29,6 +30,21 @@ def resolve_outputs_artifact(outputs_dir: Path, virtual_path: str) -> Path | Non
         part for part in virtual_path.removeprefix(_OUTPUTS_PREFIX).split("/") if part
     ]
     return outputs_dir.joinpath(*relative_parts)
+
+
+def resolve_workspace_artifact(outputs_dir: Path, virtual_path: str) -> Path | None:
+    if not virtual_path.startswith(_WORKSPACE_PREFIX):
+        return None
+    relative_parts = [
+        part for part in virtual_path.removeprefix(_WORKSPACE_PREFIX).split("/") if part
+    ]
+    return outputs_dir.parent.joinpath("workspace", *relative_parts)
+
+
+def resolve_user_data_artifact(outputs_dir: Path, virtual_path: str) -> Path | None:
+    return resolve_outputs_artifact(outputs_dir, virtual_path) or resolve_workspace_artifact(
+        outputs_dir, virtual_path
+    )
 
 
 def read_json_mapping(path: Path) -> dict | None:
@@ -260,4 +276,6 @@ __all__ = [
     "read_json_mapping",
     "resolve_canonical_solver_dispatch_artifact",
     "resolve_outputs_artifact",
+    "resolve_user_data_artifact",
+    "resolve_workspace_artifact",
 ]

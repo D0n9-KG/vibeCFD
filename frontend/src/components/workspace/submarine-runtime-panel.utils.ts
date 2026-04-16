@@ -991,6 +991,27 @@ function formatVerificationRequirementDetail(
 
 const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
   [
+    "/skill-lifecycle.json",
+    {
+      label: "技能生命周期 JSON",
+      externalLinkLabel: "在新窗口打开技能生命周期 JSON",
+    },
+  ],
+  [
+    "/dry-run-evidence.json",
+    {
+      label: "试跑证据 JSON",
+      externalLinkLabel: "在新窗口打开试跑证据 JSON",
+    },
+  ],
+  [
+    "/skill-package.json",
+    {
+      label: "技能打包清单 JSON",
+      externalLinkLabel: "在新窗口打开技能打包清单 JSON",
+    },
+  ],
+  [
     "/skill-draft.json",
     {
       label: "技能草稿 JSON",
@@ -1005,24 +1026,38 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     },
   ],
   [
+    "/test-matrix.json",
+    {
+      label: "测试矩阵 JSON",
+      externalLinkLabel: "在新窗口打开测试矩阵 JSON",
+    },
+  ],
+  [
+    "/test-matrix.md",
+    {
+      label: "测试矩阵说明",
+      externalLinkLabel: "在新窗口打开测试矩阵说明",
+    },
+  ],
+  [
     "/validation-report.md",
     {
-      label: "Skill 校验报告",
-      externalLinkLabel: "在新窗口打开 Skill 校验报告",
+      label: "技能校验报告",
+      externalLinkLabel: "在新窗口打开技能校验报告",
     },
   ],
   [
     "/validation-report.html",
     {
-      label: "Skill 校验报告 HTML",
-      externalLinkLabel: "在新窗口打开 Skill 校验报告 HTML",
+      label: "技能校验报告 HTML",
+      externalLinkLabel: "在新窗口打开技能校验报告 HTML",
     },
   ],
   [
     "/validation-report.json",
     {
-      label: "Skill 校验报告 JSON",
-      externalLinkLabel: "在新窗口打开 Skill 校验报告 JSON",
+      label: "技能校验报告 JSON",
+      externalLinkLabel: "在新窗口打开技能校验报告 JSON",
     },
   ],
   [
@@ -1030,6 +1065,34 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     {
       label: "领域规则参考",
       externalLinkLabel: "在新窗口打开领域规则参考",
+    },
+  ],
+  [
+    "/publish-readiness.json",
+    {
+      label: "发布准备 JSON",
+      externalLinkLabel: "在新窗口打开发布准备 JSON",
+    },
+  ],
+  [
+    "/publish-readiness.md",
+    {
+      label: "发布准备说明",
+      externalLinkLabel: "在新窗口打开发布准备说明",
+    },
+  ],
+  [
+    "/agents/openai.yaml",
+    {
+      label: "界面元数据 YAML",
+      externalLinkLabel: "在新窗口打开界面元数据 YAML",
+    },
+  ],
+  [
+    ".skill",
+    {
+      label: "技能安装包",
+      externalLinkLabel: "在新窗口打开技能安装包",
     },
   ],
   [
@@ -1121,6 +1184,20 @@ const ARTIFACT_COPY: Array<[pattern: string, meta: SubmarineArtifactMeta]> = [
     {
       label: "科研主管闸门 JSON",
       externalLinkLabel: "在新窗口打开科研主管闸门 JSON",
+    },
+  ],
+  [
+    "/scientific-remediation-plan.json",
+    {
+      label: "科研补救计划 JSON",
+      externalLinkLabel: "在新窗口打开科研补救计划 JSON",
+    },
+  ],
+  [
+    "/provenance-manifest.json",
+    {
+      label: "溯源清单 JSON",
+      externalLinkLabel: "在新窗口打开溯源清单 JSON",
     },
   ],
   [

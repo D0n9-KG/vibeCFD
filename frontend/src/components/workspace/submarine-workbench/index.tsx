@@ -220,9 +220,10 @@ export function SubmarineAgenticWorkbench({
     () =>
       buildSubmarineDetailModel({
         runtime,
+        designBrief,
         finalReport,
       }),
-    [finalReport, runtime],
+    [designBrief, finalReport, runtime],
   );
   const railPanel = useMemo(
     () => buildSubmarineNegotiationPanelModel(session.negotiation),
@@ -232,7 +233,12 @@ export function SubmarineAgenticWorkbench({
   const main = (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ThreadHeader
-        title={resolveThreadDisplayTitle(thread.values.title, "潜艇 CFD 会话", thread.values.messages)}
+        title={resolveThreadDisplayTitle(
+          thread.values.title,
+          "?? CFD ??",
+          thread.values.messages,
+          session.summary.currentObjective,
+        )}
         subtitle={session.summary.currentObjective}
         statusLabel={session.currentSlice.statusLabel}
         actions={headerActions}

@@ -151,6 +151,9 @@ def submarine_solver_dispatch_tool(
     end_time_seconds: float | None = None,
     delta_t_seconds: float | None = None,
     write_interval_steps: int | None = None,
+    contract_revision: int | None = None,
+    iteration_mode: str | None = None,
+    revision_summary: str | None = None,
     execute_now: bool | None = None,
     execute_scientific_studies: bool = False,
     custom_variants: list[dict] | None = None,
@@ -347,6 +350,42 @@ def submarine_solver_dispatch_tool(
                 existing_runtime.get("requires_immediate_confirmation")
                 or existing_brief.get("requires_immediate_confirmation")
             ),
+            contract_revision=int(
+                contract_revision
+                if contract_revision is not None
+                else existing_runtime.get("contract_revision")
+                or existing_brief.get("contract_revision")
+                or 1
+            ),
+            revision_summary=(
+                revision_summary
+                if revision_summary is not None
+                else existing_runtime.get("revision_summary")
+                or existing_brief.get("revision_summary")
+            ),
+            iteration_mode=(
+                iteration_mode
+                if iteration_mode is not None
+                else existing_runtime.get("iteration_mode")
+                or existing_brief.get("iteration_mode")
+                or "baseline"
+            ),
+            capability_gaps=(
+                existing_runtime.get("capability_gaps")
+                or existing_brief.get("capability_gaps")
+            ),
+            unresolved_decisions=(
+                existing_runtime.get("unresolved_decisions")
+                or existing_brief.get("unresolved_decisions")
+            ),
+            evidence_expectations=(
+                existing_runtime.get("evidence_expectations")
+                or existing_brief.get("evidence_expectations")
+            ),
+            variant_policy=(
+                existing_runtime.get("variant_policy")
+                or existing_brief.get("variant_policy")
+            ),
             solver_command=solver_command,
             execute_now=resolved_execute_now,
             execute_scientific_studies=execute_scientific_studies,
@@ -408,6 +447,13 @@ def submarine_solver_dispatch_tool(
         requires_immediate_confirmation=bool(
             payload.get("requires_immediate_confirmation")
         ),
+        contract_revision=int(payload.get("contract_revision") or 1),
+        iteration_mode=str(payload.get("iteration_mode") or "baseline"),
+        revision_summary=payload.get("revision_summary"),
+        capability_gaps=payload.get("capability_gaps"),
+        unresolved_decisions=payload.get("unresolved_decisions"),
+        evidence_expectations=payload.get("evidence_expectations"),
+        variant_policy=payload.get("variant_policy"),
         selected_case_id=selected_case.get("case_id"),
         simulation_requirements=payload.get("simulation_requirements"),
         requested_outputs=payload.get("requested_outputs"),

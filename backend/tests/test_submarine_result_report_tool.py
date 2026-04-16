@@ -135,6 +135,70 @@ def test_scientific_remediation_summary_prefers_actionable_study_followup_before
     assert handoff["recommended_action_id"] == "execute-scientific-studies"
 
 
+def test_scientific_remediation_handoff_includes_iterative_lineage_context():
+    handoff_module = importlib.import_module("deerflow.domain.submarine.handoff")
+
+    handoff = handoff_module.build_scientific_remediation_handoff(
+        snapshot={
+            "geometry_virtual_path": "/mnt/user-data/uploads/demo.stl",
+            "task_summary": "Extend the baseline study with a wake-focused follow-up.",
+            "task_type": "resistance",
+            "selected_case_id": "darpa_suboff_bare_hull_resistance",
+            "confirmation_status": "confirmed",
+            "execution_preference": "preflight_then_execute",
+            "contract_revision": 3,
+            "iteration_mode": "derive_variant",
+            "revision_summary": "Add wake-focused follow-up to the current baseline family.",
+            "variant_policy": {
+                "default_compare_target_run_id": "baseline",
+            },
+            "simulation_requirements": {
+                "inlet_velocity_mps": 5.0,
+                "fluid_density_kg_m3": 1000.0,
+                "kinematic_viscosity_m2ps": 1e-06,
+                "end_time_seconds": 200.0,
+                "delta_t_seconds": 1.0,
+                "write_interval_steps": 50,
+            },
+        },
+        scientific_remediation_summary={
+            "plan_status": "needs_more_verification",
+            "actions": [
+                {
+                    "action_id": "execute-scientific-studies",
+                    "execution_mode": "auto_executable",
+                    "evidence_gap": "Wake evidence is still incomplete for the latest variant.",
+                }
+            ],
+        },
+        experiment_summary={
+            "baseline_run_id": "baseline",
+            "recorded_variant_run_ids": ["mesh_independence:coarse"],
+        },
+        experiment_compare_summary={
+            "baseline_run_id": "baseline",
+            "comparisons": [
+                {
+                    "candidate_run_id": "mesh_independence:coarse",
+                }
+            ],
+        },
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/scientific-remediation-handoff.json"
+        ],
+    )
+
+    assert handoff["source_run_id"] == "mesh_independence:coarse"
+    assert handoff["baseline_reference_run_id"] == "baseline"
+    assert handoff["compare_target_run_id"] == "baseline"
+    assert handoff["derived_run_ids"] == ["mesh_independence:coarse"]
+    assert handoff["tool_args"]["contract_revision"] == 3
+    assert handoff["tool_args"]["iteration_mode"] == "derive_variant"
+    assert handoff["tool_args"]["revision_summary"] == (
+        "Add wake-focused follow-up to the current baseline family."
+    )
+
+
 def test_submarine_result_report_tool_generates_final_report(tmp_path, monkeypatch):
     report_tool_module = importlib.import_module("deerflow.tools.builtins.submarine_result_report_tool")
 
@@ -424,17 +488,19 @@ def test_submarine_result_report_tool_includes_solver_metrics(tmp_path):
     assert payload["conclusion_sections"][0]["claim_level"] == "delivery_only"
     assert payload["evidence_index"]
     markdown_headings = [
-        "## 结论摘要",
-        "## 关键指标与代表图表",
-        "## 结论与证据",
-        "## 证据索引",
+        "## 计算目标与工况",
+        "## 几何、网格与计算设置",
+        "## 结果、验证与结论边界",
+        "## 可复现性与追溯",
+        "## 文件清单与路径索引",
         "## 建议下一步",
     ]
     html_headings = [
-        "<h2>结论摘要</h2>",
-        "<h2>关键指标与代表图表</h2>",
-        "<h2>结论与证据</h2>",
-        "<h2>证据索引</h2>",
+        "<h2>计算目标与工况</h2>",
+        "<h2>几何、网格与计算设置</h2>",
+        "<h2>结果、验证与结论边界</h2>",
+        "<h2>可复现性与追溯</h2>",
+        "<h2>文件清单与路径索引</h2>",
         "<h2>建议下一步</h2>",
     ]
     assert [markdown.index(item) for item in markdown_headings] == sorted(
@@ -1798,10 +1864,10 @@ def test_submarine_result_report_marks_postprocess_exports_delivered(tmp_path):
         path.endswith("/figure-manifest.json")
         for path in final_payload["artifact_virtual_paths"]
     )
-    assert "## 关键指标与代表图表" in final_markdown
+    assert "### 关键指标与代表图表" in final_markdown
     assert "Surface Pressure Result" in final_markdown
     assert "Wake Velocity Slice" in final_markdown
-    assert "<h2>关键指标与代表图表</h2>" in final_html
+    assert "<h3>关键指标与代表图表</h3>" in final_html
     assert "Surface Pressure Result" in final_html
     assert "Wake Velocity Slice" in final_html
 
@@ -2022,7 +2088,7 @@ def test_submarine_result_report_adds_scientific_verification_assessment(tmp_pat
         "mesh independence" in item.lower()
         for item in assessment["missing_evidence"]
     )
-    assert "## 结论与证据" in markdown
+    assert "### 结论与证据" in markdown
 
 
 def test_scientific_verification_marks_study_artifact_as_passed(tmp_path):
@@ -2557,6 +2623,674 @@ def test_scientific_verification_keeps_unreadable_study_artifact_as_missing_evid
     assert "missing" in mesh_requirement["detail"].lower() or "unsupported" in mesh_requirement["detail"].lower()
 
 
+def test_scientific_verification_recovers_completed_study_results_from_stale_verification_artifact(
+    tmp_path,
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-stale-study"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "stale-study"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {"Time": 200.0, "Cd": 0.12},
+                "force_coefficients_history": [
+                    {"Time": 160.0, "Cd": 0.1204},
+                    {"Time": 170.0, "Cd": 0.1202},
+                    {"Time": 180.0, "Cd": 0.1201},
+                    {"Time": 190.0, "Cd": 0.1201},
+                    {"Time": 200.0, "Cd": 0.12},
+                ],
+                "mesh_summary": {"mesh_ok": True},
+                "residual_summary": {"max_final_residual": 5e-4},
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "end_time_seconds": 200.0,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "verification-mesh-independence.json").write_text(
+        json.dumps(
+            {
+                "study_type": "mesh_independence",
+                "monitored_quantity": "Cd",
+                "baseline_value": 0.12,
+                "compared_values": [],
+                "relative_spread": None,
+                "status": "missing_evidence",
+                "summary_zh": "Stale verification artifact still claims only baseline evidence exists.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "study-manifest.json").write_text(
+        json.dumps(
+            {
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "baseline_configuration_snapshot": {"task_type": "resistance"},
+                "study_definitions": [
+                    {
+                        "study_type": "mesh_independence",
+                        "summary_label": "Mesh Independence",
+                        "monitored_quantity": "Cd",
+                        "pass_fail_tolerance": 0.02,
+                        "variants": [
+                            {
+                                "study_type": "mesh_independence",
+                                "variant_id": "coarse",
+                                "variant_label": "Coarse",
+                                "rationale": "Coarse mesh check",
+                                "parameter_overrides": {"mesh_scale_factor": 0.75},
+                                "expected_run_id": "mesh_independence:coarse",
+                                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/coarse/solver-results.json",
+                                "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/coarse/run-record.json",
+                                "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/solver-results.json",
+                                "execution_status": "planned",
+                                "compare_status": "planned",
+                            },
+                            {
+                                "study_type": "mesh_independence",
+                                "variant_id": "baseline",
+                                "variant_label": "Baseline",
+                                "rationale": "Baseline anchor",
+                                "parameter_overrides": {"mesh_scale_factor": 1.0},
+                                "expected_run_id": "mesh_independence:baseline",
+                                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/baseline/solver-results.json",
+                                "run_record_virtual_path": None,
+                                "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/solver-results.json",
+                                "execution_status": "completed",
+                                "compare_status": None,
+                            },
+                            {
+                                "study_type": "mesh_independence",
+                                "variant_id": "fine",
+                                "variant_label": "Fine",
+                                "rationale": "Fine mesh check",
+                                "parameter_overrides": {"mesh_scale_factor": 1.25},
+                                "expected_run_id": "mesh_independence:fine",
+                                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/fine/solver-results.json",
+                                "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/fine/run-record.json",
+                                "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/solver-results.json",
+                                "execution_status": "planned",
+                                "compare_status": "planned",
+                            },
+                        ],
+                        "study_execution_status": "planned",
+                        "workflow_status": "partial",
+                        "variant_status_counts": {"planned": 2, "completed": 1},
+                        "compare_status_counts": {"planned": 2},
+                        "expected_variant_run_ids": [
+                            "mesh_independence:coarse",
+                            "mesh_independence:fine",
+                        ],
+                    }
+                ],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/study-manifest.json"
+                ],
+                "study_execution_status": "planned",
+                "workflow_status": "partial",
+                "study_status_counts": {"partial": 1},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    for variant_id, cd_value in (("baseline", 0.12), ("coarse", 0.1212), ("fine", 0.1188)):
+        variant_dir = (
+            solver_results_dir
+            / "studies"
+            / "mesh-independence"
+            / variant_id
+        )
+        variant_dir.mkdir(parents=True, exist_ok=True)
+        (variant_dir / "solver-results.json").write_text(
+            json.dumps(
+                {
+                    "study_type": "mesh_independence",
+                    "variant_id": variant_id,
+                    "variant_label": variant_id.title(),
+                    "execution_status": "completed",
+                    "solver_completed": True,
+                    "final_time_seconds": 200.0,
+                    "latest_force_coefficients": {"Time": 200.0, "Cd": cd_value},
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        if variant_id != "baseline":
+            (variant_dir / "run-record.json").write_text(
+                json.dumps(
+                    {
+                        "run_id": f"mesh_independence:{variant_id}",
+                        "run_role": "scientific_study_variant",
+                        "study_type": "mesh_independence",
+                        "variant_id": variant_id,
+                        "execution_status": "completed",
+                        "solver_results_virtual_path": f"/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/{variant_id}/solver-results.json",
+                        "run_record_virtual_path": f"/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/{variant_id}/run-record.json",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Refresh report from completed study variants instead of stale missing-evidence payloads.",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/study-manifest.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/verification-mesh-independence.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/baseline/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/coarse/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/coarse/run-record.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/fine/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-study/studies/mesh-independence/fine/run-record.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Scientific verification stale artifact recovery report",
+        tool_call_id="tc-result-report-scientific-stale-study",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    requirements = final_payload["scientific_verification_assessment"]["requirements"]
+    mesh_requirement = next(
+        item for item in requirements if item["requirement_id"] == "mesh_independence_study"
+    )
+
+    assert mesh_requirement["status"] == "passed"
+    assert mesh_requirement["relative_spread"] is not None
+    assert "missing" not in mesh_requirement["detail"].lower()
+    assert len(final_payload["scientific_verification_assessment"]["missing_evidence"]) < len(
+        requirements
+    )
+
+
+def test_scientific_verification_does_not_promote_in_progress_study_variants_from_stale_verification_artifact(
+    tmp_path,
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-stale-study-progress"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_results_dir = outputs_dir / "submarine" / "solver-dispatch" / "stale-progress"
+    solver_results_dir.mkdir(parents=True, exist_ok=True)
+    (solver_results_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {"Time": 200.0, "Cd": 0.12},
+                "force_coefficients_history": [
+                    {"Time": 160.0, "Cd": 0.1204},
+                    {"Time": 170.0, "Cd": 0.1202},
+                    {"Time": 180.0, "Cd": 0.1201},
+                    {"Time": 190.0, "Cd": 0.1201},
+                    {"Time": 200.0, "Cd": 0.12},
+                ],
+                "mesh_summary": {"mesh_ok": True},
+                "residual_summary": {"max_final_residual": 5e-4},
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "end_time_seconds": 200.0,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "verification-mesh-independence.json").write_text(
+        json.dumps(
+            {
+                "study_type": "mesh_independence",
+                "monitored_quantity": "Cd",
+                "baseline_value": 0.12,
+                "compared_values": [],
+                "relative_spread": None,
+                "status": "missing_evidence",
+                "summary_zh": "Stale verification artifact still claims only baseline evidence exists.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (solver_results_dir / "study-manifest.json").write_text(
+        json.dumps(
+            {
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "baseline_configuration_snapshot": {"task_type": "resistance"},
+                "study_definitions": [
+                    {
+                        "study_type": "mesh_independence",
+                        "summary_label": "Mesh Independence",
+                        "monitored_quantity": "Cd",
+                        "pass_fail_tolerance": 0.02,
+                        "variants": [
+                            {
+                                "study_type": "mesh_independence",
+                                "variant_id": "coarse",
+                                "variant_label": "Coarse",
+                                "rationale": "Coarse mesh check",
+                                "parameter_overrides": {"mesh_scale_factor": 0.75},
+                                "expected_run_id": "mesh_independence:coarse",
+                                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/coarse/solver-results.json",
+                                "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/coarse/run-record.json",
+                                "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/solver-results.json",
+                                "execution_status": "planned",
+                                "compare_status": "planned",
+                            },
+                            {
+                                "study_type": "mesh_independence",
+                                "variant_id": "baseline",
+                                "variant_label": "Baseline",
+                                "rationale": "Baseline anchor",
+                                "parameter_overrides": {"mesh_scale_factor": 1.0},
+                                "expected_run_id": "mesh_independence:baseline",
+                                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/baseline/solver-results.json",
+                                "run_record_virtual_path": None,
+                                "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/solver-results.json",
+                                "execution_status": "completed",
+                                "compare_status": None,
+                            },
+                            {
+                                "study_type": "mesh_independence",
+                                "variant_id": "fine",
+                                "variant_label": "Fine",
+                                "rationale": "Fine mesh check",
+                                "parameter_overrides": {"mesh_scale_factor": 1.25},
+                                "expected_run_id": "mesh_independence:fine",
+                                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/fine/solver-results.json",
+                                "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/fine/run-record.json",
+                                "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/solver-results.json",
+                                "execution_status": "planned",
+                                "compare_status": "planned",
+                            },
+                        ],
+                    }
+                ],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/study-manifest.json"
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    for variant_id, cd_value in (("baseline", 0.12), ("coarse", 0.1212), ("fine", 0.1188)):
+        variant_dir = solver_results_dir / "studies" / "mesh-independence" / variant_id
+        variant_dir.mkdir(parents=True, exist_ok=True)
+        (variant_dir / "solver-results.json").write_text(
+            json.dumps(
+                {
+                    "study_type": "mesh_independence",
+                    "variant_id": variant_id,
+                    "variant_label": variant_id.title(),
+                    "execution_status": "in_progress" if variant_id != "baseline" else "completed",
+                    "solver_completed": True,
+                    "final_time_seconds": 200.0,
+                    "latest_force_coefficients": {"Time": 200.0, "Cd": cd_value},
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        if variant_id != "baseline":
+            (variant_dir / "run-record.json").write_text(
+                json.dumps(
+                    {
+                        "run_id": f"mesh_independence:{variant_id}",
+                        "run_role": "scientific_study_variant",
+                        "study_type": "mesh_independence",
+                        "variant_id": variant_id,
+                        "execution_status": "in_progress",
+                        "solver_results_virtual_path": f"/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/{variant_id}/solver-results.json",
+                        "run_record_virtual_path": f"/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/{variant_id}/run-record.json",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Do not promote in-progress study variants into a passed verification result.",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/study-manifest.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/verification-mesh-independence.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/baseline/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/coarse/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/coarse/run-record.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/fine/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/stale-progress/studies/mesh-independence/fine/run-record.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Scientific verification in-progress variant recovery guard report",
+        tool_call_id="tc-result-report-scientific-stale-progress",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    requirements = final_payload["scientific_verification_assessment"]["requirements"]
+    mesh_requirement = next(
+        item for item in requirements if item["requirement_id"] == "mesh_independence_study"
+    )
+
+    assert mesh_requirement["status"] == "missing_evidence"
+
+
+def test_scientific_verification_recovery_ignores_foreign_study_manifest(
+    tmp_path,
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-foreign-study"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    current_dir = outputs_dir / "submarine" / "solver-dispatch" / "current-run"
+    current_dir.mkdir(parents=True, exist_ok=True)
+    (current_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {"Time": 200.0, "Cd": 0.12},
+                "force_coefficients_history": [
+                    {"Time": 160.0, "Cd": 0.1204},
+                    {"Time": 170.0, "Cd": 0.1202},
+                    {"Time": 180.0, "Cd": 0.1201},
+                    {"Time": 190.0, "Cd": 0.1201},
+                    {"Time": 200.0, "Cd": 0.12},
+                ],
+                "mesh_summary": {"mesh_ok": True},
+                "residual_summary": {"max_final_residual": 5e-4},
+                "simulation_requirements": {
+                    "inlet_velocity_mps": 3.05,
+                    "end_time_seconds": 200.0,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (current_dir / "verification-mesh-independence.json").write_text(
+        json.dumps(
+            {
+                "study_type": "mesh_independence",
+                "monitored_quantity": "Cd",
+                "baseline_value": 0.12,
+                "compared_values": [],
+                "relative_spread": None,
+                "status": "missing_evidence",
+                "summary_zh": "Current run has not refreshed its own verification artifact yet.",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    foreign_dir = outputs_dir / "submarine" / "solver-dispatch" / "foreign-run"
+    foreign_dir.mkdir(parents=True, exist_ok=True)
+    (foreign_dir / "study-manifest.json").write_text(
+        json.dumps(
+            {
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "baseline_configuration_snapshot": {"task_type": "resistance"},
+                "study_definitions": [
+                    {
+                        "study_type": "mesh_independence",
+                        "summary_label": "Mesh Independence",
+                        "monitored_quantity": "Cd",
+                        "pass_fail_tolerance": 0.02,
+                        "variants": [
+                            {
+                                "study_type": "mesh_independence",
+                                "variant_id": "coarse",
+                                "variant_label": "Coarse",
+                                "rationale": "Coarse mesh check",
+                                "parameter_overrides": {"mesh_scale_factor": 0.75},
+                                "expected_run_id": "mesh_independence:coarse",
+                                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/coarse/solver-results.json",
+                                "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/coarse/run-record.json",
+                                "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/solver-results.json",
+                                "execution_status": "planned",
+                                "compare_status": "planned",
+                            },
+                            {
+                                "study_type": "mesh_independence",
+                                "variant_id": "baseline",
+                                "variant_label": "Baseline",
+                                "rationale": "Baseline anchor",
+                                "parameter_overrides": {"mesh_scale_factor": 1.0},
+                                "expected_run_id": "mesh_independence:baseline",
+                                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/baseline/solver-results.json",
+                                "run_record_virtual_path": None,
+                                "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/solver-results.json",
+                                "execution_status": "completed",
+                                "compare_status": None,
+                            },
+                            {
+                                "study_type": "mesh_independence",
+                                "variant_id": "fine",
+                                "variant_label": "Fine",
+                                "rationale": "Fine mesh check",
+                                "parameter_overrides": {"mesh_scale_factor": 1.25},
+                                "expected_run_id": "mesh_independence:fine",
+                                "solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/fine/solver-results.json",
+                                "run_record_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/fine/run-record.json",
+                                "baseline_solver_results_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/solver-results.json",
+                                "execution_status": "planned",
+                                "compare_status": "planned",
+                            },
+                        ],
+                    }
+                ],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/study-manifest.json"
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    for variant_id, cd_value in (("baseline", 0.12), ("coarse", 0.1212), ("fine", 0.1188)):
+        variant_dir = foreign_dir / "studies" / "mesh-independence" / variant_id
+        variant_dir.mkdir(parents=True, exist_ok=True)
+        (variant_dir / "solver-results.json").write_text(
+            json.dumps(
+                {
+                    "study_type": "mesh_independence",
+                    "variant_id": variant_id,
+                    "variant_label": variant_id.title(),
+                    "execution_status": "completed",
+                    "solver_completed": True,
+                    "final_time_seconds": 200.0,
+                    "latest_force_coefficients": {"Time": 200.0, "Cd": cd_value},
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        if variant_id != "baseline":
+            (variant_dir / "run-record.json").write_text(
+                json.dumps(
+                    {
+                        "run_id": f"mesh_independence:{variant_id}",
+                        "run_role": "scientific_study_variant",
+                        "study_type": "mesh_independence",
+                        "variant_id": variant_id,
+                        "execution_status": "completed",
+                        "solver_results_virtual_path": f"/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/{variant_id}/solver-results.json",
+                        "run_record_virtual_path": f"/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/{variant_id}/run-record.json",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Ignore foreign study manifests when recovering current scientific verification.",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "stage_status": "executed",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/current-run/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/current-run/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/current-run/verification-mesh-independence.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/study-manifest.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/baseline/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/coarse/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/coarse/run-record.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/fine/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/foreign-run/studies/mesh-independence/fine/run-record.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Scientific verification foreign manifest isolation report",
+        tool_call_id="tc-result-report-scientific-foreign-study",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    requirements = final_payload["scientific_verification_assessment"]["requirements"]
+    mesh_requirement = next(
+        item for item in requirements if item["requirement_id"] == "mesh_independence_study"
+    )
+
+    assert mesh_requirement["status"] == "missing_evidence"
+
+
 def test_submarine_result_report_adds_experiment_summary(tmp_path):
     report_tool_module = importlib.import_module(
         "deerflow.tools.builtins.submarine_result_report_tool"
@@ -2798,8 +3532,8 @@ def test_submarine_result_report_adds_experiment_summary(tmp_path):
         "/studies/mesh-independence/coarse/run-record.json"
     )
     assert comparison["metric_deltas"]["Cd"]["relative_delta"] == 0.01
-    assert "## 证据索引" in final_markdown
-    assert "<h2>证据索引</h2>" in final_html
+    assert "### 证据索引" in final_markdown
+    assert "<h3>证据索引</h3>" in final_html
 
 
 def test_submarine_result_report_marks_verified_but_not_validated_without_benchmark_reference(
@@ -4249,6 +4983,104 @@ def test_reporting_decomposition_module_render_uses_conclusion_first_sections():
                 "/mnt/user-data/outputs/submarine/reports/suboff/scientific-followup-history.json",
             ],
         },
+        "artifact_manifest": [
+            {
+                "label": "最终报告 JSON",
+                "description": "最终结构化 CFD 报告",
+                "filename": "final-report.json",
+                "file_type": "json",
+                "location_kind": "report_output",
+                "stage": "result-reporting",
+                "virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/final-report.json",
+                "absolute_path": "C:\\demo\\thread\\user-data\\outputs\\submarine\\reports\\suboff\\final-report.json",
+                "is_final_deliverable": True,
+            },
+            {
+                "label": "求解结果 JSON",
+                "description": "OpenFOAM 主要数值结果与关键指标",
+                "filename": "solver-results.json",
+                "file_type": "json",
+                "location_kind": "solver_output",
+                "stage": "solver-dispatch",
+                "virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/solver-results.json",
+                "absolute_path": "C:\\demo\\thread\\user-data\\outputs\\submarine\\solver-dispatch\\suboff\\solver-results.json",
+                "is_final_deliverable": True,
+            },
+        ],
+            "artifact_group_summary": [
+                {
+                    "group_id": "report_outputs",
+                    "title_zh": "报告交付文件",
+                    "summary_zh": "最终报告与交付门禁文件。",
+                    "items": [
+                        {
+                            "filename": "final-report.json",
+                            "label": "最终报告 JSON",
+                            "description": "最终结构化 CFD 报告",
+                            "file_type": "json",
+                            "location_kind": "report_output",
+                            "stage": "result-reporting",
+                            "virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/final-report.json",
+                            "absolute_path": "C:\\demo\\thread\\user-data\\outputs\\submarine\\reports\\suboff\\final-report.json",
+                            "is_final_deliverable": True,
+                        }
+                    ],
+                },
+                {
+                    "group_id": "solver_outputs",
+                    "title_zh": "求解与验证输出",
+                    "summary_zh": "求解主结果与验证摘要。",
+                    "items": [
+                        {
+                            "filename": "solver-results.json",
+                            "label": "求解结果 JSON",
+                            "description": "OpenFOAM 主要数值结果与关键指标",
+                            "file_type": "json",
+                            "location_kind": "solver_output",
+                            "stage": "solver-dispatch",
+                            "virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/solver-results.json",
+                            "absolute_path": "C:\\demo\\thread\\user-data\\outputs\\submarine\\solver-dispatch\\suboff\\solver-results.json",
+                            "is_final_deliverable": True,
+                        }
+                    ],
+                },
+                {
+                    "group_id": "workspace_intermediate",
+                    "title_zh": "工作区与中间文件",
+                    "summary_zh": "OpenFOAM case 与 postProcessing 工作目录。",
+                    "items": [
+                        {
+                            "filename": "openfoam-case",
+                            "label": "主 OpenFOAM case",
+                            "description": "主基线 case 目录，包含 system、constant、0 以及时间步中间文件。",
+                            "file_type": "directory",
+                            "location_kind": "workspace_intermediate",
+                            "stage": "solver-dispatch",
+                            "virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case",
+                            "absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case",
+                            "is_final_deliverable": False,
+                        }
+                    ],
+                    "notes": ["Main OpenFOAM case intermediates live under the case directory."],
+                },
+            ],
+        "workspace_storage_summary": {
+            "workspace_run_root_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff",
+            "workspace_run_root_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff",
+            "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case",
+            "workspace_case_dir_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case",
+            "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case/Allrun",
+            "run_script_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case\\Allrun",
+            "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case/postProcessing",
+            "workspace_postprocess_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case\\postProcessing",
+            "study_workspace_root_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/studies",
+            "study_workspace_root_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\studies",
+            "directory_notes": [
+                "Main OpenFOAM case intermediates live under the case directory.",
+                "Post-processing artifacts live under postProcessing.",
+                "Study variants live under studies.",
+            ],
+        },
         "next_recommended_stage": "supervisor-review",
         "source_report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/dispatch-summary.md",
         "supervisor_handoff_virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/scientific-remediation-handoff.json",
@@ -4256,19 +5088,42 @@ def test_reporting_decomposition_module_render_uses_conclusion_first_sections():
 
     markdown = render_module.render_markdown(payload)
     html = render_module.render_html(payload)
+    assert "## 计算目标与工况" in markdown
+    assert "## 几何、网格与计算设置" in markdown
+    assert "## 结果、验证与结论边界" in markdown
+    assert "## 文件清单与路径索引" in markdown
+    assert "绝对路径" in markdown
+    assert "<h2>计算目标与工况</h2>" in html
+    assert "<h2>几何、网格与计算设置</h2>" in html
+    assert "<h2>结果、验证与结论边界</h2>" in html
+    assert "<h2>文件清单与路径索引</h2>" in html
+    assert "### 报告交付文件" in markdown
+    assert "### 求解与验证输出" in markdown
+    assert "### 工作区与中间文件" in markdown
+    assert "Main OpenFOAM case intermediates live under the case directory." in markdown
+    assert "<h3>报告交付文件</h3>" in html
+    assert "<h3>求解与验证输出</h3>" in html
+    assert "<h3>工作区与中间文件</h3>" in html
+    assert "Main OpenFOAM case intermediates live under the case directory." in html
+    assert "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case" in html
+    assert "controlDict" not in markdown
+    assert "controlDict" not in html
+    return
 
     markdown_headings = [
-        "## 结论摘要",
-        "## 关键指标与代表图表",
-        "## 结论与证据",
-        "## 证据索引",
+        "## 计算目标与工况",
+        "## 几何、网格与计算设置",
+        "## 结果、验证与结论边界",
+        "## 可复现性与追溯",
+        "## 文件清单与路径索引",
         "## 建议下一步",
     ]
     html_headings = [
-        "<h2>结论摘要</h2>",
-        "<h2>关键指标与代表图表</h2>",
-        "<h2>结论与证据</h2>",
-        "<h2>证据索引</h2>",
+        "<h2>计算目标与工况</h2>",
+        "<h2>几何、网格与计算设置</h2>",
+        "<h2>结果、验证与结论边界</h2>",
+        "<h2>可复现性与追溯</h2>",
+        "<h2>文件清单与路径索引</h2>",
         "<h2>建议下一步</h2>",
     ]
 
@@ -4289,6 +5144,355 @@ def test_reporting_decomposition_module_render_uses_conclusion_first_sections():
     assert "<strong>置信度：</strong>" in html
     assert "<strong>证据缺口：</strong>" in html
     assert "<strong>provenance_manifest_virtual_path：</strong>" in html
+
+
+def test_reporting_render_uses_formal_cfd_sections_and_artifact_appendix():
+    render_module = importlib.import_module("deerflow.domain.submarine.reporting_render")
+
+    payload = {
+        "report_title": "Formal CFD Report Fixture",
+        "summary_zh": "这是正式 CFD 报告渲染夹具。",
+        "task_summary": "DARPA SUBOFF 裸艇 5 m/s 阻力基线 CFD",
+        "geometry_family": "DARPA SUBOFF",
+        "selected_case_id": "darpa_suboff_bare_hull_resistance",
+        "simulation_requirements": {
+            "inlet_velocity_mps": 5.0,
+            "fluid_density_kg_m3": 1025.0,
+            "kinematic_viscosity_m2ps": 1.05e-6,
+            "end_time_seconds": 200.0,
+            "delta_t_seconds": 1.0,
+            "write_interval_steps": 50,
+        },
+        "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case",
+        "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case/Allrun",
+        "solver_metrics": {
+            "final_time_seconds": 200.0,
+            "mesh_summary": {
+                "cells": 139722,
+                "faces": 450986,
+                "points": 175045,
+                "mesh_ok": True,
+            },
+            "residual_summary": {
+                "max_final_residual": 1.4e-4,
+            },
+            "latest_force_coefficients": {
+                "Cd": 0.113,
+            },
+        },
+        "report_overview": {
+            "current_conclusion_zh": "当前结果可用于阶段性交付，但仍需进一步复核。",
+            "allowed_claim_level": "delivery_only",
+            "review_status": "blocked",
+            "reproducibility_status": "matched",
+            "recommended_next_step_zh": "补齐验证证据后再决定是否结束任务。",
+        },
+        "delivery_highlights": {
+            "metric_lines": ["阻力系数 Cd：0.113000", "最终时间步：200 s"],
+            "figure_titles": ["残差收敛曲线"],
+            "highlight_artifact_virtual_paths": [
+                "/mnt/user-data/outputs/submarine/reports/suboff/final-report.md",
+            ],
+        },
+        "conclusion_sections": [
+            {
+                "conclusion_id": "current_conclusion",
+                "title_zh": "当前研究结论",
+                "summary_zh": "当前结果可用于阶段性交付，但仍需进一步复核。",
+                "claim_level": "delivery_only",
+                "confidence_label": "中",
+                "inline_source_refs": [
+                    "/mnt/user-data/outputs/submarine/reports/suboff/final-report.md",
+                ],
+                "evidence_gap_notes": ["仍缺少外部验证对比。"],
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/reports/suboff/final-report.json",
+                ],
+            }
+        ],
+        "evidence_index": [
+            {
+                "group_id": "runtime_and_lineage",
+                "group_title_zh": "运行产物与追溯锚点",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/solver-results.json",
+                ],
+                "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/provenance-manifest.json",
+            }
+        ],
+        "artifact_manifest": [
+            {
+                "label": "最终报告 JSON",
+                "description": "最终结构化 CFD 报告",
+                "filename": "final-report.json",
+                "file_type": "json",
+                "location_kind": "report_output",
+                "stage": "result-reporting",
+                "virtual_path": "/mnt/user-data/outputs/submarine/reports/suboff/final-report.json",
+                "absolute_path": "C:\\demo\\thread\\user-data\\outputs\\submarine\\reports\\suboff\\final-report.json",
+                "is_final_deliverable": True,
+            },
+            {
+                "label": "OpenFOAM 基线 case",
+                "description": "主基线求解 case 工作目录",
+                "filename": "solver-results.json",
+                "file_type": "json",
+                "location_kind": "solver_output",
+                "stage": "solver-dispatch",
+                "virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/suboff/solver-results.json",
+                "absolute_path": "C:\\demo\\thread\\user-data\\outputs\\submarine\\solver-dispatch\\suboff\\solver-results.json",
+                "is_final_deliverable": True,
+            },
+        ],
+        "workspace_storage_summary": {
+            "workspace_run_root_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff",
+            "workspace_run_root_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff",
+            "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case",
+            "workspace_case_dir_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case",
+            "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case/Allrun",
+            "run_script_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case\\Allrun",
+            "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/openfoam-case/postProcessing",
+            "workspace_postprocess_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case\\postProcessing",
+            "study_workspace_root_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/suboff/studies",
+            "study_workspace_root_absolute_path": "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\studies",
+            "directory_notes": [
+                "Main OpenFOAM case intermediates live under the case directory.",
+                "Post-processing artifacts live under postProcessing.",
+                "Study variants live under studies.",
+            ],
+        },
+        "next_recommended_stage": "solver-dispatch",
+    }
+
+    markdown = render_module.render_markdown(payload)
+    html = render_module.render_html(payload)
+
+    assert "## 计算目标与工况" in markdown
+    assert "## 几何、网格与计算设置" in markdown
+    assert "## 结果、验证与结论边界" in markdown
+    assert "## 文件清单与路径索引" in markdown
+    assert "绝对路径" in markdown
+    assert "<h2>计算目标与工况</h2>" in html
+    assert "<h2>几何、网格与计算设置</h2>" in html
+    assert "<h2>结果、验证与结论边界</h2>" in html
+    assert "<h2>文件清单与路径索引</h2>" in html
+    assert "### 报告交付文件" in markdown
+    assert "<h3>报告交付文件</h3>" in html
+    assert "C:\\demo\\thread\\user-data\\workspace\\submarine\\solver-dispatch\\suboff\\openfoam-case" in html
+    assert "controlDict" not in markdown
+
+
+def test_submarine_result_report_payload_includes_artifact_manifest_with_absolute_paths(
+    tmp_path,
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-report-artifact-manifest"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    workspace_root = outputs_dir.parent / "workspace"
+    case_dir = (
+        workspace_root
+        / "submarine"
+        / "solver-dispatch"
+        / "artifact-manifest"
+        / "openfoam-case"
+    )
+    (case_dir / "system").mkdir(parents=True, exist_ok=True)
+    (case_dir / "system" / "controlDict").write_text(
+        "application simpleFoam;\n", encoding="utf-8"
+    )
+    (case_dir / "Allrun").write_text("#!/bin/bash\n", encoding="utf-8")
+
+    solver_dir = outputs_dir / "submarine" / "solver-dispatch" / "artifact-manifest"
+    solver_dir.mkdir(parents=True, exist_ok=True)
+    (solver_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/artifact-manifest/openfoam-case/postProcessing",
+                "latest_force_coefficients": {"Cd": 0.12},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "confirmation_status": "confirmed",
+                "execution_preference": "execute_now",
+                "task_summary": "为正式 CFD 报告生成完整文件清单。",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/artifact-manifest.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "execution_plan": [],
+                "stage_status": "executed",
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/artifact-manifest/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/artifact-manifest/openfoam-case/Allrun",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/artifact-manifest/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/artifact-manifest/solver-results.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Artifact manifest report",
+        tool_call_id="tc-result-report-artifact-manifest",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+
+    assert payload["artifact_manifest"]
+    assert any(
+        item["virtual_path"].endswith("/final-report.json")
+        and item["absolute_path"].endswith("final-report.json")
+        for item in payload["artifact_manifest"]
+    )
+    assert any(
+        item["location_kind"] == "solver_output"
+        and item["absolute_path"].endswith("solver-results.json")
+        for item in payload["artifact_manifest"]
+    )
+    assert not any(
+        item["location_kind"] == "workspace_case_file"
+        for item in payload["artifact_manifest"]
+    )
+    summary = payload["workspace_storage_summary"]
+    assert summary["workspace_case_dir_absolute_path"].endswith("openfoam-case")
+    assert summary["run_script_absolute_path"].endswith("Allrun")
+    assert summary["workspace_postprocess_absolute_path"].endswith("postProcessing")
+
+
+def test_submarine_result_report_payload_includes_grouped_artifact_summary(
+    tmp_path,
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-report-artifact-groups"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    workspace_root = outputs_dir.parent / "workspace"
+    case_dir = (
+        workspace_root
+        / "submarine"
+        / "solver-dispatch"
+        / "artifact-groups"
+        / "openfoam-case"
+    )
+    (case_dir / "system").mkdir(parents=True, exist_ok=True)
+    (case_dir / "system" / "controlDict").write_text(
+        "application simpleFoam;\n", encoding="utf-8"
+    )
+    (case_dir / "Allrun").write_text("#!/bin/bash\n", encoding="utf-8")
+
+    solver_dir = outputs_dir / "submarine" / "solver-dispatch" / "artifact-groups"
+    solver_dir.mkdir(parents=True, exist_ok=True)
+    (solver_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "workspace_postprocess_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/artifact-groups/openfoam-case/postProcessing",
+                "latest_force_coefficients": {"Cd": 0.12},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "confirmation_status": "confirmed",
+                "execution_preference": "execute_now",
+                "task_summary": "按分组整理正式 CFD 报告中的文件说明。",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/artifact-groups.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "execution_plan": [],
+                "stage_status": "executed",
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/artifact-groups/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/submarine/solver-dispatch/artifact-groups/openfoam-case/Allrun",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/artifact-groups/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/artifact-groups/solver-results.json",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Artifact group report",
+        tool_call_id="tc-result-report-artifact-groups",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+
+    assert [group["group_id"] for group in payload["artifact_group_summary"]] == [
+        "report_outputs",
+        "solver_outputs",
+        "workspace_intermediate",
+    ]
+    assert payload["artifact_group_summary"][0]["items"]
+    assert payload["artifact_group_summary"][1]["items"]
+    assert payload["artifact_group_summary"][2]["summary_zh"]
 
 
 def test_result_reporting_includes_selected_case_provenance_summary(tmp_path):
@@ -4335,3 +5539,394 @@ def test_result_reporting_includes_selected_case_provenance_summary(tmp_path):
     assert "engineering review" in provenance["evidence_gap_note"]
     assert "<h2>建议下一步</h2>" in html
     assert payload["report_overview"]["recommended_next_step_zh"] in html
+
+
+def test_submarine_result_report_preserves_iterative_contract_context(tmp_path):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-iterative-contract-report"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "geometry-preflight",
+                "task_summary": "Revise the baseline package to add wake outputs.",
+                "confirmation_status": "confirmed",
+                "approval_state": "approved",
+                "goal_status": "ready_for_execution",
+                "execution_preference": "preflight_then_execute",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/suboff_solid.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "requested_outputs": [
+                    {
+                        "output_id": "drag_coefficient",
+                        "label": "阻力系数 Cd",
+                        "requested_label": "阻力系数 Cd",
+                        "status": "requested",
+                        "support_level": "supported",
+                    },
+                    {
+                        "output_id": "wake_velocity_slice",
+                        "label": "尾流速度切片",
+                        "requested_label": "尾流速度切片",
+                        "status": "requested",
+                        "support_level": "supported",
+                        "postprocess_spec": {
+                            "field": "U",
+                            "time_mode": "latest",
+                            "selector": {
+                                "type": "plane",
+                                "origin_mode": "x_by_lref",
+                                "origin_value": 1.25,
+                                "normal": [1.0, 0.0, 0.0],
+                            },
+                        },
+                    },
+                ],
+                "output_delivery_plan": [
+                    {
+                        "output_id": "drag_coefficient",
+                        "label": "阻力系数 Cd",
+                        "delivery_status": "planned",
+                        "detail": "已纳入本次 run 的交付计划。",
+                        "artifact_virtual_paths": [],
+                    },
+                    {
+                        "output_id": "wake_velocity_slice",
+                        "label": "尾流速度切片",
+                        "delivery_status": "planned",
+                        "detail": "已纳入本次 run 的交付计划。",
+                        "artifact_virtual_paths": [],
+                    },
+                ],
+                "contract_revision": 2,
+                "iteration_mode": "derive_variant",
+                "revision_summary": "Added wake velocity slice after the first baseline draft.",
+                "capability_gaps": [
+                    {
+                        "output_id": "streamlines",
+                        "support_level": "not_yet_supported",
+                        "requested_label": "流线图",
+                    }
+                ],
+                "unresolved_decisions": [
+                    {
+                        "decision_id": "confirm-wake-plane",
+                        "label": "Confirm wake plane placement",
+                    }
+                ],
+                "evidence_expectations": [
+                    {
+                        "expectation_id": "tail-stability",
+                        "kind": "stability",
+                        "label": "Cd tail stability",
+                    }
+                ],
+                "variant_policy": {
+                    "default_compare_target_run_id": "baseline",
+                    "allow_custom_variants": True,
+                },
+                "stage_status": "drafted",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "solver-dispatch",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/geometry-check/iterative-contract/geometry-check.md",
+                "artifact_virtual_paths": [],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Iterative contract report",
+        tool_call_id="tc-result-report-iterative-contract",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+
+    assert final_payload["contract_revision"] == 2
+    assert final_payload["iteration_mode"] == "derive_variant"
+    assert final_payload["revision_summary"] == (
+        "Added wake velocity slice after the first baseline draft."
+    )
+    assert final_payload["capability_gaps"][0]["output_id"] == "streamlines"
+    assert final_payload["unresolved_decisions"][0]["decision_id"] == (
+        "confirm-wake-plane"
+    )
+    assert final_payload["evidence_expectations"][0]["expectation_id"] == (
+        "tail-stability"
+    )
+    assert final_payload["variant_policy"]["default_compare_target_run_id"] == (
+        "baseline"
+    )
+    assert any(
+        item["output_id"] == "wake_velocity_slice"
+        for item in final_payload["output_delivery_plan"]
+    )
+    assert result.update["submarine_runtime"]["contract_revision"] == 2
+    assert result.update["submarine_runtime"]["iteration_mode"] == "derive_variant"
+
+
+def test_submarine_result_report_keeps_last_evidence_stage_after_contract_only_revision(
+    tmp_path,
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-report-stage-refresh"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_dir = outputs_dir / "submarine" / "solver-dispatch" / "report-stage-refresh"
+    solver_dir.mkdir(parents=True, exist_ok=True)
+    (solver_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {
+                    "Cd": 0.12,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    report_dir = outputs_dir / "submarine" / "reports" / "report-stage-refresh"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "final-report.json").write_text(
+        json.dumps(
+            {
+                "source_runtime_stage": "result-reporting",
+                "summary_zh": "已生成上一版阶段报告。",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (report_dir / "final-report.md").write_text(
+        "# Existing final report\n",
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "task-intelligence",
+                "task_summary": "Revise the baseline brief to add wake-oriented outputs.",
+                "confirmation_status": "confirmed",
+                "approval_state": "approved",
+                "goal_status": "ready_for_execution",
+                "execution_preference": "execute_now",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/report-stage-refresh.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "requested_outputs": [
+                    {
+                        "output_id": "drag_coefficient",
+                        "label": "阻力系数 Cd",
+                        "requested_label": "阻力系数 Cd",
+                        "status": "requested",
+                        "support_level": "supported",
+                    },
+                    {
+                        "output_id": "wake_velocity_slice",
+                        "label": "尾流速度切片",
+                        "requested_label": "尾流速度切片",
+                        "status": "requested",
+                        "support_level": "supported",
+                    },
+                ],
+                "output_delivery_plan": [
+                    {
+                        "output_id": "drag_coefficient",
+                        "label": "阻力系数 Cd",
+                        "delivery_status": "delivered",
+                        "detail": "已有上一轮求解交付的阻力系数结果。",
+                        "artifact_virtual_paths": [
+                            "/mnt/user-data/outputs/submarine/solver-dispatch/report-stage-refresh/solver-results.json"
+                        ],
+                    },
+                    {
+                        "output_id": "wake_velocity_slice",
+                        "label": "尾流速度切片",
+                        "delivery_status": "planned",
+                        "detail": "本轮合同修订新增的后处理交付项。",
+                        "artifact_virtual_paths": [],
+                    },
+                ],
+                "review_status": "ready_for_supervisor",
+                "stage_status": "confirmed",
+                "next_recommended_stage": "solver-dispatch",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/report-stage-refresh/final-report.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/report-stage-refresh/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/reports/report-stage-refresh/final-report.md",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Contract refresh report",
+        tool_call_id="tc-result-report-stage-refresh",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+
+    assert final_payload["source_runtime_stage"] == "result-reporting"
+    assert "result-reporting" in final_payload["summary_zh"]
+    assert any(
+        item["output_id"] == "wake_velocity_slice"
+        for item in final_payload["output_delivery_plan"]
+    )
+
+
+def test_submarine_result_report_recovers_to_result_reporting_when_previous_report_stage_is_already_dirty(
+    tmp_path,
+):
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-report-stage-dirty"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_dir = outputs_dir / "submarine" / "solver-dispatch" / "report-stage-dirty"
+    solver_dir.mkdir(parents=True, exist_ok=True)
+    (solver_dir / "solver-results.json").write_text(
+        json.dumps(
+            {
+                "solver_completed": True,
+                "final_time_seconds": 200.0,
+                "latest_force_coefficients": {
+                    "Cd": 0.13,
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    report_dir = outputs_dir / "submarine" / "reports" / "report-stage-dirty"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "final-report.json").write_text(
+        json.dumps(
+            {
+                "source_runtime_stage": "task-intelligence",
+                "summary_zh": "被错误刷新的旧报告。",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (report_dir / "final-report.md").write_text(
+        "# Dirty previous final report\n",
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "task-intelligence",
+                "task_summary": "Refresh the report after a contract-only revision.",
+                "confirmation_status": "confirmed",
+                "approval_state": "approved",
+                "goal_status": "ready_for_execution",
+                "execution_preference": "execute_now",
+                "task_type": "resistance",
+                "geometry_virtual_path": "/mnt/user-data/uploads/report-stage-dirty.stl",
+                "geometry_family": "DARPA SUBOFF",
+                "execution_readiness": "stl_ready",
+                "selected_case_id": "darpa_suboff_bare_hull_resistance",
+                "requested_outputs": [],
+                "output_delivery_plan": [],
+                "review_status": "ready_for_supervisor",
+                "stage_status": "confirmed",
+                "next_recommended_stage": "solver-dispatch",
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/reports/report-stage-dirty/final-report.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/report-stage-dirty/solver-results.json",
+                    "/mnt/user-data/outputs/submarine/reports/report-stage-dirty/final-report.json",
+                    "/mnt/user-data/outputs/submarine/reports/report-stage-dirty/final-report.md",
+                ],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Recovered report stage",
+        tool_call_id="tc-result-report-stage-dirty",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix("/mnt/user-data/outputs/").split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+
+    assert final_payload["source_runtime_stage"] == "result-reporting"

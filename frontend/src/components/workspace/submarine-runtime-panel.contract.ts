@@ -119,6 +119,9 @@ export type SubmarineDesignBriefPayload = {
   confirmation_status?: "draft" | "confirmed" | string;
   approval_state?: string | null;
   goal_status?: string | null;
+  contract_revision?: number | null;
+  iteration_mode?: string | null;
+  revision_summary?: string | null;
   geometry_virtual_path?: string | null;
   geometry_family_hint?: string | null;
   selected_case_id?: string | null;
@@ -128,6 +131,11 @@ export type SubmarineDesignBriefPayload = {
     | SubmarineScientificVerificationRequirementPayload[]
     | null;
   requested_outputs?: SubmarineRequestedOutputPayload[] | null;
+  output_delivery_plan?: SubmarineOutputDeliveryPlanItem[] | null;
+  capability_gaps?: Array<Record<string, unknown>> | null;
+  unresolved_decisions?: Array<Record<string, unknown>> | null;
+  evidence_expectations?: Array<Record<string, unknown>> | null;
+  variant_policy?: Record<string, unknown> | null;
   user_constraints?: string[] | null;
   open_questions?: string[] | null;
   execution_outline?: SubmarineExecutionOutlineItem[] | null;
@@ -389,6 +397,9 @@ export type SubmarineRuntimeSnapshotPayload = {
   goal_status?: string | null;
   execution_preference?: string | null;
   task_type?: string | null;
+  contract_revision?: number | null;
+  iteration_mode?: string | null;
+  revision_summary?: string | null;
   geometry_virtual_path?: string | null;
   geometry_family?: string | null;
   execution_readiness?: string | null;
@@ -400,6 +411,10 @@ export type SubmarineRuntimeSnapshotPayload = {
   clarification_required?: boolean | null;
   calculation_plan?: SubmarineCalculationPlanItem[] | null;
   requires_immediate_confirmation?: boolean | null;
+  capability_gaps?: Array<Record<string, unknown>> | null;
+  unresolved_decisions?: Array<Record<string, unknown>> | null;
+  evidence_expectations?: Array<Record<string, unknown>> | null;
+  variant_policy?: Record<string, unknown> | null;
   selected_case_id?: string | null;
   simulation_requirements?: SubmarineSimulationRequirements | null;
   requested_outputs?: SubmarineRequestedOutputPayload[] | null;
@@ -502,6 +517,10 @@ export type SubmarineScientificRemediationHandoffPayload = {
   recommended_action_id?: string | null;
   tool_name?: string | null;
   tool_args?: Record<string, unknown> | null;
+  source_run_id?: string | null;
+  baseline_reference_run_id?: string | null;
+  compare_target_run_id?: string | null;
+  derived_run_ids?: string[] | null;
   reason?: string | null;
   artifact_virtual_paths?: string[] | null;
   manual_actions?: SubmarineScientificRemediationManualActionPayload[] | null;
@@ -530,6 +549,10 @@ export type SubmarineScientificFollowupSummaryPayload = {
   entry_count?: number | null;
   latest_outcome_status?: string | null;
   latest_handoff_status?: string | null;
+  latest_source_run_id?: string | null;
+  latest_baseline_reference_run_id?: string | null;
+  latest_compare_target_run_id?: string | null;
+  latest_derived_run_ids?: string[] | null;
   latest_recommended_action_id?: string | null;
   latest_tool_name?: string | null;
   latest_followup_kind?: string | null;
@@ -703,6 +726,10 @@ export type SubmarineEvidenceIndexGroupPayload = {
 
 export type SubmarineFinalReportPayload = {
   summary_zh?: string;
+  source_runtime_stage?: string | null;
+  contract_revision?: number | null;
+  iteration_mode?: string | null;
+  revision_summary?: string | null;
   solver_metrics?: SubmarineSolverMetrics | null;
   selected_case_acceptance_profile?: Record<string, unknown> | null;
   selected_case_provenance_summary?:
@@ -743,6 +770,10 @@ export type SubmarineFinalReportPayload = {
   scientific_verification_assessment?:
     | SubmarineScientificVerificationAssessment
     | null;
+  capability_gaps?: Array<Record<string, unknown>> | null;
+  unresolved_decisions?: Array<Record<string, unknown>> | null;
+  evidence_expectations?: Array<Record<string, unknown>> | null;
+  variant_policy?: Record<string, unknown> | null;
   output_delivery_plan?: SubmarineOutputDeliveryPlanItem[] | null;
   requested_outputs?: SubmarineRequestedOutputPayload[] | null;
 };

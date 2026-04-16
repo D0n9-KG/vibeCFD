@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+import re
 from types import SimpleNamespace
 from typing import Annotated
 
 from langchain.tools import InjectedToolCallId, ToolRuntime, tool
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.types import Command
 from langgraph.typing import ContextT
 
@@ -19,7 +20,14 @@ from deerflow.domain.submarine.followup import (
     resolve_scientific_followup_history_virtual_path,
 )
 from deerflow.domain.submarine.handoff import load_scientific_remediation_handoff
+from deerflow.domain.submarine.output_contract import (
+    infer_expected_outputs_from_text,
+    resolve_requested_outputs,
+)
 from deerflow.sandbox.tools import replace_virtual_path
+from deerflow.tools.builtins.submarine_design_brief_tool import (
+    submarine_design_brief_tool,
+)
 from deerflow.tools.builtins.submarine_result_report_tool import (
     submarine_result_report_tool,
 )
@@ -32,6 +40,67 @@ from deerflow.tools.builtins.submarine_solver_dispatch_tool import (
 )
 
 _SCIENTIFIC_HANDOFF_FILENAME = "scientific-remediation-handoff.json"
+_UPLOAD_BLOCK_RE = re.compile(
+    r"<uploaded_files>[\s\S]*?</uploaded_files>\n*",
+    re.IGNORECASE,
+)
+_GENERIC_CONTINUE_TEXTS = frozenset(
+    {
+        "continue",
+        "continue.",
+        "keep going",
+        "keep going.",
+        "please continue",
+        "please continue.",
+        "继续",
+        "继续。",
+        "请继续",
+        "请继续。",
+        "继续当前线程",
+        "继续当前线程。",
+    }
+)
+_NON_SUBSTANTIVE_FOLLOWUP_TEXTS = frozenset(
+    {
+        *_GENERIC_CONTINUE_TEXTS,
+        "ok",
+        "ok.",
+        "okay",
+        "okay.",
+        "yes",
+        "yes.",
+        "yep",
+        "sure",
+        "sure.",
+        "got it",
+        "roger",
+        "received",
+        "收到",
+        "好的",
+        "好",
+        "可以",
+        "行",
+        "明白",
+        "确认",
+    }
+)
+_NO_RERUN_ENGLISH_PHRASES = (
+    "without rerun",
+    "without rerunning",
+    "no rerun",
+    "rerun is unnecessary",
+    "if no rerun is needed",
+    "do not rerun",
+    "do not re-run",
+    "don't rerun",
+    "don't re-run",
+    "please do not rerun",
+    "please do not re-run",
+    "please don't rerun",
+    "please don't re-run",
+    "no need to rerun",
+    "no need to re-run",
+)
 
 
 def _build_chained_runtime(
@@ -123,6 +192,9 @@ _SOLVER_DISPATCH_ALLOWED_TOOL_ARGS = {
     "write_interval_steps",
     "execute_now",
     "execute_scientific_studies",
+    "contract_revision",
+    "iteration_mode",
+    "revision_summary",
     "custom_variants",
     "solver_command",
 }
@@ -134,6 +206,231 @@ def _sanitize_solver_dispatch_tool_args(tool_args: Mapping[str, object]) -> dict
         for key, value in dict(tool_args).items()
         if key in _SOLVER_DISPATCH_ALLOWED_TOOL_ARGS
     }
+
+
+def _requested_output_ids(items: object) -> set[str]:
+    output_ids: set[str] = set()
+    if not isinstance(items, list):
+        return output_ids
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        output_id = item.get("output_id")
+        if isinstance(output_id, str) and output_id.strip():
+            output_ids.add(output_id.strip())
+    return output_ids
+
+
+def _extract_visible_text_content(content: object) -> str:
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        return "".join(
+            part
+            for part in (_extract_visible_text_content(item) for item in content)
+            if part
+        )
+
+    if isinstance(content, Mapping):
+        item_type = content.get("type")
+        if item_type in {"text", "output_text"}:
+            text = content.get("text")
+            return text if isinstance(text, str) else ""
+        nested_content = content.get("content")
+        if nested_content is not None:
+            return _extract_visible_text_content(nested_content)
+        text = content.get("text")
+        return text if isinstance(text, str) else ""
+
+    return ""
+
+
+def _latest_user_visible_text(
+    runtime: ToolRuntime[ContextT, ThreadState],
+) -> str:
+    messages = (runtime.state or {}).get("messages")
+    if not isinstance(messages, list):
+        return ""
+
+    for message in reversed(messages):
+        if not isinstance(message, HumanMessage):
+            continue
+        visible_text = _extract_visible_text_content(message.content).strip()
+        if visible_text:
+            stripped = _UPLOAD_BLOCK_RE.sub("", visible_text).strip()
+            if stripped:
+                return stripped
+            if visible_text != stripped:
+                continue
+            return visible_text
+    return ""
+
+
+def _normalize_followup_text(text: str) -> str:
+    return text.strip().lower().rstrip(".!?。！？")
+
+
+def _should_prefer_latest_user_task_description(
+    latest_user_text: str,
+    fallback_task_description: str,
+) -> bool:
+    normalized_latest = _normalize_followup_text(latest_user_text)
+    if not normalized_latest:
+        return False
+    if normalized_latest in _NON_SUBSTANTIVE_FOLLOWUP_TEXTS:
+        return False
+
+    normalized_fallback = _normalize_followup_text(fallback_task_description)
+    if normalized_latest == normalized_fallback:
+        return False
+
+    return True
+
+
+def _resolve_followup_task_description(
+    runtime: ToolRuntime[ContextT, ThreadState],
+    tool_args: Mapping[str, object],
+) -> str:
+    fallback_task_description = (
+        str(tool_args.get("task_description")).strip()
+        if isinstance(tool_args.get("task_description"), str)
+        else ""
+    )
+    latest_user_text = _latest_user_visible_text(runtime)
+    if _should_prefer_latest_user_task_description(
+        latest_user_text,
+        fallback_task_description,
+    ):
+        return latest_user_text
+    return fallback_task_description
+
+
+def _should_sync_design_brief_before_dispatch(
+    snapshot,
+    tool_args: Mapping[str, object],
+) -> bool:
+    task_description = tool_args.get("task_description")
+    if not isinstance(task_description, str):
+        return False
+
+    inferred_expected_outputs = infer_expected_outputs_from_text(task_description)
+    if not inferred_expected_outputs:
+        return False
+
+    inferred_output_ids = _requested_output_ids(
+        resolve_requested_outputs(inferred_expected_outputs)
+    )
+    if not inferred_output_ids:
+        return False
+
+    existing_output_ids = _requested_output_ids(getattr(snapshot, "requested_outputs", None))
+    if not inferred_output_ids.issubset(existing_output_ids):
+        return True
+
+    planned_output_ids = _requested_output_ids(
+        getattr(snapshot, "output_delivery_plan", None)
+    )
+    return not inferred_output_ids.issubset(planned_output_ids)
+
+
+def _should_refresh_report_without_rerun_for_output_sync(
+    tool_args: Mapping[str, object],
+) -> bool:
+    task_description = tool_args.get("task_description")
+    if not isinstance(task_description, str):
+        return False
+
+    normalized = task_description.lower()
+    return any(
+        phrase in task_description
+        for phrase in (
+            "不要重新求解",
+            "不要重跑",
+            "不重跑",
+            "无需重新求解",
+            "无须重新求解",
+            "不需要重新求解",
+            "无需重跑",
+            "无须重跑",
+            "不需要重跑",
+        )
+    ) or any(
+        phrase in normalized
+        for phrase in _NO_RERUN_ENGLISH_PHRASES
+    )
+
+
+def _sync_design_brief_before_dispatch(
+    runtime: ToolRuntime[ContextT, ThreadState],
+    *,
+    snapshot,
+    tool_args: Mapping[str, object],
+    tool_call_id: str,
+) -> tuple[SimpleNamespace, Mapping[str, object] | None, Mapping[str, object] | None]:
+    confirmation_status = tool_args.get("confirmation_status")
+    if confirmation_status not in {"draft", "confirmed"}:
+        confirmation_status = getattr(snapshot, "confirmation_status", None) or "draft"
+
+    execution_preference = tool_args.get("execution_preference")
+    if execution_preference not in {
+        "plan_only",
+        "execute_now",
+        "preflight_then_execute",
+    }:
+        execution_preference = getattr(snapshot, "execution_preference", None)
+
+    design_brief_result = submarine_design_brief_tool.func(
+        runtime=runtime,
+        task_description=(
+            tool_args.get("task_description")
+            if isinstance(tool_args.get("task_description"), str)
+            else None
+        ),
+        geometry_path=(
+            tool_args.get("geometry_path")
+            if isinstance(tool_args.get("geometry_path"), str)
+            else None
+        ),
+        task_type=tool_args.get("task_type") if isinstance(tool_args.get("task_type"), str) else None,
+        confirmation_status=confirmation_status,
+        execution_preference=execution_preference,
+        geometry_family_hint=(
+            tool_args.get("geometry_family_hint")
+            if isinstance(tool_args.get("geometry_family_hint"), str)
+            else None
+        ),
+        selected_case_id=(
+            tool_args.get("selected_case_id")
+            if isinstance(tool_args.get("selected_case_id"), str)
+            else None
+        ),
+        inlet_velocity_mps=tool_args.get("inlet_velocity_mps"),
+        fluid_density_kg_m3=tool_args.get("fluid_density_kg_m3"),
+        kinematic_viscosity_m2ps=tool_args.get("kinematic_viscosity_m2ps"),
+        end_time_seconds=tool_args.get("end_time_seconds"),
+        delta_t_seconds=tool_args.get("delta_t_seconds"),
+        write_interval_steps=tool_args.get("write_interval_steps"),
+        tool_call_id=tool_call_id,
+    )
+    design_brief_update = (
+        design_brief_result.update
+        if isinstance(design_brief_result.update, Mapping)
+        else None
+    )
+    design_brief_runtime = (
+        design_brief_update.get("submarine_runtime")
+        if isinstance(design_brief_update, Mapping)
+        and isinstance(design_brief_update.get("submarine_runtime"), Mapping)
+        else None
+    )
+    if design_brief_runtime is None:
+        return runtime, design_brief_update, None
+    return (
+        _build_chained_runtime(runtime, submarine_runtime=design_brief_runtime),
+        design_brief_update,
+        design_brief_runtime,
+    )
 
 
 def _augment_command_update(
@@ -267,6 +564,10 @@ def _record_followup_history(
     decision_summary_zh: str | None = None,
     source_conclusion_ids: list[str] | None = None,
     source_evidence_gap_ids: list[str] | None = None,
+    source_run_id: str | None = None,
+    baseline_reference_run_id: str | None = None,
+    compare_target_run_id: str | None = None,
+    derived_run_ids: list[str] | None = None,
     outcome_status: str,
     dispatch_stage_status: str | None = None,
     report_refreshed: bool = False,
@@ -293,6 +594,10 @@ def _record_followup_history(
         entry={
             "source_handoff_virtual_path": source_handoff_virtual_path,
             "source_report_virtual_path": snapshot.report_virtual_path,
+            "source_run_id": source_run_id,
+            "baseline_reference_run_id": baseline_reference_run_id,
+            "compare_target_run_id": compare_target_run_id,
+            "derived_run_ids": derived_run_ids or [],
             "handoff_status": handoff_status,
             "recommended_action_id": recommended_action_id,
             "tool_name": tool_name,
@@ -403,6 +708,26 @@ def submarine_scientific_followup_tool(
         "decision_summary_zh": decision_summary_zh,
         "source_conclusion_ids": source_conclusion_ids,
         "source_evidence_gap_ids": source_evidence_gap_ids,
+        "source_run_id": (
+            str(handoff.get("source_run_id"))
+            if handoff.get("source_run_id") is not None
+            else None
+        ),
+        "baseline_reference_run_id": (
+            str(handoff.get("baseline_reference_run_id"))
+            if handoff.get("baseline_reference_run_id") is not None
+            else None
+        ),
+        "compare_target_run_id": (
+            str(handoff.get("compare_target_run_id"))
+            if handoff.get("compare_target_run_id") is not None
+            else None
+        ),
+        "derived_run_ids": [
+            item
+            for item in (handoff.get("derived_run_ids") or [])
+            if isinstance(item, str) and item
+        ],
         "task_completion_status": _task_completion_status_for_followup_kind(
             followup_kind
         ),
@@ -529,11 +854,127 @@ def submarine_scientific_followup_tool(
             )
         )
 
+    resolved_task_description = _resolve_followup_task_description(runtime, tool_args)
+    effective_tool_args = dict(tool_args)
+    if resolved_task_description:
+        effective_tool_args["task_description"] = resolved_task_description
+
     if tool_name == "submarine_solver_dispatch":
-        dispatch_args = _sanitize_solver_dispatch_tool_args(tool_args)
+        dispatch_runtime_context = runtime
+        design_brief_update: Mapping[str, object] | None = None
+        design_brief_runtime: Mapping[str, object] | None = None
+        augment_snapshot: Mapping[str, object] | object = snapshot
+        should_refresh_without_rerun = _should_refresh_report_without_rerun_for_output_sync(
+            effective_tool_args
+        )
+        if _should_sync_design_brief_before_dispatch(snapshot, effective_tool_args):
+            (
+                dispatch_runtime_context,
+                design_brief_update,
+                design_brief_runtime,
+            ) = _sync_design_brief_before_dispatch(
+                runtime,
+                snapshot=snapshot,
+                tool_args=effective_tool_args,
+                tool_call_id=tool_call_id,
+            )
+            if design_brief_runtime is not None:
+                augment_snapshot = design_brief_runtime
+
+        if should_refresh_without_rerun:
+            report_result = submarine_result_report_tool.func(
+                runtime=dispatch_runtime_context,
+                tool_call_id=tool_call_id,
+            )
+            report_update = (
+                report_result.update
+                if isinstance(report_result.update, Mapping)
+                else {}
+            )
+            report_runtime = (
+                report_update.get("submarine_runtime")
+                if isinstance(report_update.get("submarine_runtime"), Mapping)
+                else None
+            )
+            history_virtual_path = _record_followup_history(
+                runtime=runtime,
+                snapshot=snapshot,
+                source_handoff_virtual_path=resolved_handoff_virtual_path,
+                handoff_status=handoff_status,
+                recommended_action_id=recommended_action_id,
+                tool_name=tool_name,
+                outcome_status="result_report_refreshed",
+                report_refreshed=True,
+                result_report_virtual_path=(
+                    str(report_runtime.get("report_virtual_path"))
+                    if report_runtime and report_runtime.get("report_virtual_path")
+                    else None
+                ),
+                result_provenance_manifest_virtual_path=(
+                    str(report_runtime.get("provenance_manifest_virtual_path"))
+                    if report_runtime and report_runtime.get("provenance_manifest_virtual_path")
+                    else snapshot.provenance_manifest_virtual_path
+                ),
+                result_supervisor_handoff_virtual_path=(
+                    str(report_runtime.get("supervisor_handoff_virtual_path"))
+                    if report_runtime
+                    and report_runtime.get("supervisor_handoff_virtual_path")
+                    else None
+                ),
+                artifact_virtual_paths=_with_unique_paths(
+                    design_brief_update.get("artifacts")
+                    if isinstance(design_brief_update, Mapping)
+                    and isinstance(design_brief_update.get("artifacts"), list)
+                    else [],
+                    report_update.get("artifacts")
+                    if isinstance(report_update.get("artifacts"), list)
+                    else [],
+                ),
+                notes=[
+                    reason,
+                    "Skipped solver rerun because the output-only contract revision requested a report refresh without rerun.",
+                ],
+                **followup_history_kwargs,
+            )
+            if not history_virtual_path:
+                return report_result
+            report_command = report_result
+            if isinstance(report_result.update, Mapping):
+                report_command = Command(
+                    update={
+                        **report_update,
+                        "artifacts": _with_unique_paths(
+                            report_update.get("artifacts")
+                            if isinstance(report_update.get("artifacts"), list)
+                            else [],
+                            design_brief_update.get("artifacts")
+                            if isinstance(design_brief_update, Mapping)
+                            and isinstance(design_brief_update.get("artifacts"), list)
+                            else [],
+                        ),
+                    }
+                )
+            return Command(
+                update=_augment_command_update(
+                    report_command,
+                    snapshot=augment_snapshot,
+                    history_virtual_path=history_virtual_path,
+                )
+            )
+
+        dispatch_args = _sanitize_solver_dispatch_tool_args(effective_tool_args)
+        if design_brief_runtime is not None:
+            for field_name in (
+                "contract_revision",
+                "iteration_mode",
+                "revision_summary",
+            ):
+                field_value = design_brief_runtime.get(field_name)
+                if field_value is not None:
+                    dispatch_args[field_name] = field_value
         dispatch_args["execute_now"] = True
         dispatch_result = submarine_solver_dispatch_tool.func(
-            runtime=runtime,
+            runtime=dispatch_runtime_context,
             tool_call_id=tool_call_id,
             **dispatch_args,
         )
@@ -573,24 +1014,46 @@ def submarine_scientific_followup_tool(
                     else None
                 ),
                 artifact_virtual_paths=(
-                    dispatch_update.get("artifacts")
-                    if isinstance(dispatch_update.get("artifacts"), list)
-                    else None
+                    _with_unique_paths(
+                        design_brief_update.get("artifacts")
+                        if isinstance(design_brief_update, Mapping)
+                        and isinstance(design_brief_update.get("artifacts"), list)
+                        else None,
+                        dispatch_update.get("artifacts")
+                        if isinstance(dispatch_update.get("artifacts"), list)
+                        else None,
+                    )
                 ),
                 notes=[reason],
                 **followup_history_kwargs,
             )
             if not history_virtual_path:
                 return dispatch_result
+            dispatch_command = dispatch_result
+            if isinstance(dispatch_result.update, Mapping):
+                dispatch_command = Command(
+                    update={
+                        **dispatch_update,
+                        "artifacts": merge_artifacts(
+                            dispatch_update.get("artifacts")
+                            if isinstance(dispatch_update.get("artifacts"), list)
+                            else [],
+                            design_brief_update.get("artifacts")
+                            if isinstance(design_brief_update, Mapping)
+                            and isinstance(design_brief_update.get("artifacts"), list)
+                            else [],
+                        ),
+                    }
+                )
             return Command(
                 update=_augment_command_update(
-                    dispatch_result,
-                    snapshot=snapshot,
+                    dispatch_command,
+                    snapshot=augment_snapshot,
                     history_virtual_path=history_virtual_path,
                 )
             )
         chained_runtime = _build_chained_runtime(
-            runtime,
+            dispatch_runtime_context,
             submarine_runtime=dispatch_runtime,
         )
         report_result = submarine_result_report_tool.func(
@@ -630,6 +1093,10 @@ def submarine_scientific_followup_tool(
                 else None
             ),
             artifact_virtual_paths=_with_unique_paths(
+                design_brief_update.get("artifacts")
+                if isinstance(design_brief_update, Mapping)
+                and isinstance(design_brief_update.get("artifacts"), list)
+                else [],
                 dispatch_update.get("artifacts")
                 if isinstance(dispatch_update.get("artifacts"), list)
                 else [],
@@ -642,10 +1109,29 @@ def submarine_scientific_followup_tool(
         )
         if not history_virtual_path:
             return report_result
+        report_command = report_result
+        if isinstance(report_result.update, Mapping):
+            report_command = Command(
+                update={
+                    **report_update,
+                    "artifacts": _with_unique_paths(
+                        report_update.get("artifacts")
+                        if isinstance(report_update.get("artifacts"), list)
+                        else [],
+                        design_brief_update.get("artifacts")
+                        if isinstance(design_brief_update, Mapping)
+                        and isinstance(design_brief_update.get("artifacts"), list)
+                        else [],
+                        dispatch_update.get("artifacts")
+                        if isinstance(dispatch_update.get("artifacts"), list)
+                        else [],
+                    ),
+                }
+            )
         return Command(
             update=_augment_command_update(
-                report_result,
-                snapshot=snapshot,
+                report_command,
+                snapshot=augment_snapshot,
                 history_virtual_path=history_virtual_path,
             )
         )

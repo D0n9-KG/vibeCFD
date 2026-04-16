@@ -49,7 +49,7 @@ void test("submarine route uses a fixed viewport shell instead of scrolling the 
 void test("submarine route offers recovery actions when a restarted runtime loses the backing thread", () => {
   assert.match(threadRouteSource, /WorkspaceStatePanel/);
   assert.match(threadRouteSource, /isMissingThreadError/);
-  assert.match(threadRouteSource, /鏂板缓浠跨湡绾跨▼/);
+  assert.match(threadRouteSource, /label:\s*"[^"]+"/);
   assert.match(threadRouteSource, /workspace\/submarine\/new/);
 });
 

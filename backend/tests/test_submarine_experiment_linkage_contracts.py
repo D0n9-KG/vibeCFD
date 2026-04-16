@@ -346,6 +346,171 @@ def test_solver_dispatch_registers_declared_custom_variants_before_execution(
     )
 
 
+def test_solver_dispatch_persists_iterative_contract_metadata_in_experiment_records(
+    tmp_path,
+    monkeypatch,
+):
+    solver_dispatch_module = importlib.import_module(
+        "deerflow.domain.submarine.solver_dispatch"
+    )
+    models_module = importlib.import_module("deerflow.domain.submarine.models")
+
+    outputs_dir = tmp_path / "outputs"
+    workspace_dir = tmp_path / "workspace"
+    uploads_dir = tmp_path / "uploads"
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    geometry_path = uploads_dir / "iterative-lineage-demo.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "inspect_geometry_file",
+        lambda path, hint: models_module.GeometryInspection(
+            file_name=path.name,
+            file_size_bytes=path.stat().st_size,
+            input_format="stl",
+            geometry_family=hint or "DARPA SUBOFF",
+        ),
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "rank_cases",
+        lambda **kwargs: [],
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "_write_openfoam_case_scaffold",
+        lambda **kwargs: {
+            "workspace_case_dir_virtual_path": (
+                "/mnt/user-data/workspace/submarine/solver-dispatch/"
+                "iterative-lineage-demo/openfoam-case"
+            ),
+            "run_script_virtual_path": (
+                "/mnt/user-data/workspace/submarine/solver-dispatch/"
+                "iterative-lineage-demo/openfoam-case/Allrun"
+            ),
+            "solver_application": "simpleFoam",
+            "requires_geometry_conversion": False,
+            "execution_readiness": "stl_ready",
+        },
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "collect_requested_postprocess_artifacts",
+        lambda **kwargs: [],
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "_collect_solver_results",
+        lambda **kwargs: {
+            "solver_completed": True,
+            "final_time_seconds": 200.0,
+            "mesh_summary": {"mesh_ok": True, "cells": 9342},
+            "latest_force_coefficients": {"Time": 200.0, "Cd": 0.00312},
+            "latest_forces": {"total_force": [8.0, 0.0, 0.0]},
+        },
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "_render_solver_results_markdown_enriched",
+        lambda results: "# solver results\n",
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "build_stability_evidence",
+        lambda **kwargs: {"status": "passed"},
+    )
+    monkeypatch.setattr(
+        solver_dispatch_module,
+        "build_scientific_verification_assessment",
+        lambda **kwargs: {"status": "ready", "requirements": []},
+    )
+
+    payload, _ = solver_dispatch_module.run_solver_dispatch(
+        geometry_path=geometry_path,
+        outputs_dir=outputs_dir,
+        workspace_dir=workspace_dir,
+        task_description="Revise the baseline run, add wake outputs, and register a pressure sweep variant.",
+        task_type="resistance",
+        confirmation_status="confirmed",
+        execution_preference="execute_now",
+        geometry_family_hint="DARPA SUBOFF",
+        geometry_virtual_path="/mnt/user-data/uploads/iterative-lineage-demo.stl",
+        requested_outputs=[
+            {
+                "output_id": "drag_coefficient",
+                "label": "阻力系数 Cd",
+                "requested_label": "阻力系数 Cd",
+                "status": "requested",
+                "support_level": "supported",
+            },
+            {
+                "output_id": "wake_velocity_slice",
+                "label": "尾流速度切片",
+                "requested_label": "尾流速度切片",
+                "status": "requested",
+                "support_level": "supported",
+            },
+        ],
+        custom_variants=[
+            {
+                "variant_id": "pressure-sweep",
+                "variant_label": "Pressure Sweep",
+                "parameter_overrides": {"outlet_pressure_pa": 250},
+                "rationale": "Probe outlet pressure sensitivity.",
+            }
+        ],
+        contract_revision=3,
+        revision_summary="Add wake velocity slice delivery and pressure sweep lineage.",
+        execute_now=True,
+        execute_command=lambda command: "simpleFoam finished cleanly",
+    )
+
+    run_dir = outputs_dir / "submarine" / "solver-dispatch" / "iterative-lineage-demo"
+    experiment_manifest = json.loads(
+        (run_dir / "experiment-manifest.json").read_text(encoding="utf-8")
+    )
+    baseline_run_record = json.loads(
+        (run_dir / "run-record.json").read_text(encoding="utf-8")
+    )
+    custom_run_record = json.loads(
+        (
+            run_dir
+            / "custom-variants"
+            / "pressure-sweep"
+            / "run-record.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    custom_manifest_record = next(
+        item
+        for item in experiment_manifest["run_records"]
+        if item["run_id"] == "custom:pressure-sweep"
+    )
+
+    assert payload["contract_revision"] == 3
+    assert baseline_run_record["contract_revision"] == 3
+    assert baseline_run_record["requested_output_ids"] == [
+        "drag_coefficient",
+        "wake_velocity_slice",
+    ]
+    assert custom_manifest_record["contract_revision"] == 3
+    assert custom_manifest_record["lineage_reason"] == (
+        "Add wake velocity slice delivery and pressure sweep lineage."
+    )
+    assert custom_manifest_record["requested_output_ids"] == [
+        "drag_coefficient",
+        "wake_velocity_slice",
+    ]
+    assert custom_run_record["contract_revision"] == 3
+    assert custom_run_record["lineage_reason"] == (
+        "Add wake velocity slice delivery and pressure sweep lineage."
+    )
+
+
 def test_result_report_marks_validated_run_with_incomplete_experiment_linkage_as_gap(
     tmp_path, monkeypatch
 ):
@@ -553,5 +718,6 @@ def test_result_report_marks_validated_run_with_incomplete_experiment_linkage_as
     assert any(group["group_id"] == "research_evidence" for group in evidence_index)
     assert "## 结论与证据" in final_markdown
     assert "## 证据索引" in final_markdown
-    assert "<h2>结论与证据</h2>" in final_html
-    assert "<h2>证据索引</h2>" in final_html
+    assert "<h2>结果、验证与结论边界</h2>" in final_html
+    assert "<h3>结论与证据</h3>" in final_html
+    assert "<h3>证据索引</h3>" in final_html
