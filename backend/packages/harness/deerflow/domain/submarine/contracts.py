@@ -14,6 +14,7 @@ from .models import (
     GeometryScaleAssessment,
     SubmarineCustomExperimentVariant,
 )
+from .official_case_seed_models import OfficialCaseInputSource, OfficialCaseProfile
 
 
 class SubmarineRuntimeRequest(BaseModel):
@@ -26,7 +27,14 @@ class SubmarineRuntimeRequest(BaseModel):
         "execute_now",
         "preflight_then_execute",
     ] = "plan_only"
-    uploaded_geometry_path: str
+    input_source_type: OfficialCaseInputSource = "geometry_seed"
+    uploaded_geometry_path: str | None = None
+    official_case_id: str | None = None
+    official_case_seed_virtual_paths: list[str] = Field(default_factory=list)
+    assembled_case_virtual_paths: list[str] = Field(default_factory=list)
+    official_case_profile: OfficialCaseProfile | None = None
+    official_case_validation_virtual_path: str | None = None
+    official_case_validation_assessment: dict[str, Any] | None = None
     task_type: str = "resistance"
     geometry_family_hint: str | None = None
     selected_case_id: str | None = None
@@ -326,8 +334,15 @@ class SubmarineRuntimeSnapshot(BaseModel):
         "preflight_then_execute",
     ] = "plan_only"
     task_type: str
+    input_source_type: OfficialCaseInputSource = "geometry_seed"
     geometry_virtual_path: str
     geometry_family: str | None = None
+    official_case_id: str | None = None
+    official_case_seed_virtual_paths: list[str] = Field(default_factory=list)
+    assembled_case_virtual_paths: list[str] = Field(default_factory=list)
+    official_case_profile: OfficialCaseProfile | None = None
+    official_case_validation_virtual_path: str | None = None
+    official_case_validation_assessment: dict[str, Any] | None = None
     execution_readiness: Literal["stl_ready", "geometry_conversion_required"] | None = None
     geometry_findings: list[GeometryFinding] = Field(default_factory=list)
     scale_assessment: GeometryScaleAssessment | None = None
@@ -424,8 +439,15 @@ def build_runtime_snapshot(
         "preflight_then_execute",
     ] = "plan_only",
     task_type: str,
+    input_source_type: OfficialCaseInputSource = "geometry_seed",
     geometry_virtual_path: str,
     geometry_family: str | None,
+    official_case_id: str | None = None,
+    official_case_seed_virtual_paths: list[str] | None = None,
+    assembled_case_virtual_paths: list[str] | None = None,
+    official_case_profile: OfficialCaseProfile | dict[str, Any] | None = None,
+    official_case_validation_virtual_path: str | None = None,
+    official_case_validation_assessment: dict[str, Any] | None = None,
     execution_readiness: Literal["stl_ready", "geometry_conversion_required"] | None = None,
     geometry_findings: list[GeometryFinding | dict] | None = None,
     scale_assessment: GeometryScaleAssessment | dict | None = None,
@@ -505,8 +527,15 @@ def build_runtime_snapshot(
         goal_status=goal_status,
         execution_preference=execution_preference,
         task_type=task_type,
+        input_source_type=input_source_type,
         geometry_virtual_path=geometry_virtual_path,
         geometry_family=geometry_family,
+        official_case_id=official_case_id,
+        official_case_seed_virtual_paths=official_case_seed_virtual_paths or [],
+        assembled_case_virtual_paths=assembled_case_virtual_paths or [],
+        official_case_profile=official_case_profile,
+        official_case_validation_virtual_path=official_case_validation_virtual_path,
+        official_case_validation_assessment=official_case_validation_assessment,
         execution_readiness=execution_readiness,
         geometry_findings=geometry_findings or [],
         scale_assessment=scale_assessment,

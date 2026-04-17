@@ -1,4 +1,9 @@
-import type { Agent, CreateAgentRequest, UpdateAgentRequest } from "./types";
+import type {
+  Agent,
+  AgentInventoryResponse,
+  CreateAgentRequest,
+  UpdateAgentRequest,
+} from "./types";
 
 const AGENTS_API_BASE = "/api/agents";
 
@@ -37,7 +42,7 @@ function normalizeAgent(agent: Agent): Agent {
 export async function listAgents(): Promise<Agent[]> {
   const res = await fetch(AGENTS_API_BASE);
   if (!res.ok) throw new Error(`Failed to load agents: ${res.statusText}`);
-  const data = (await res.json()) as { agents: Agent[] };
+  const data = (await res.json()) as AgentInventoryResponse;
   return data.agents.map(normalizeAgent);
 }
 

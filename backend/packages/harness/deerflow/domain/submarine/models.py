@@ -229,16 +229,39 @@ class SubmarineEnvironmentParityAssessment(SubmarineEnvironmentFingerprint):
 
 SubmarineRunProvenanceManifestCompletenessStatus = Literal["complete", "partial"]
 
+SubmarineRunProvenanceSourceKind = Literal[
+    "imported_seed",
+    "pinned_official_source",
+    "synthesized_from_official_default",
+    "user_override",
+    "project_compatibility_adaptation",
+]
+
+
+class SubmarineRunProvenanceFileSource(BaseModel):
+    source_commit: str | None = None
+    source_path: str | None = None
+    source_kind: SubmarineRunProvenanceSourceKind
+    imported_virtual_path: str | None = None
+
+    def __getitem__(self, key: str) -> object:
+        return getattr(self, key)
+
 
 class SubmarineRunProvenanceManifest(BaseModel):
     manifest_version: str = "v1"
     experiment_id: str
     run_id: str
     task_type: str
+    input_source_type: Literal["geometry_seed", "openfoam_case_seed"] = "geometry_seed"
     geometry_virtual_path: str
     geometry_family: str | None = None
+    official_case_id: str | None = None
+    official_case_seed_virtual_paths: list[str] = Field(default_factory=list)
+    assembled_case_virtual_paths: list[str] = Field(default_factory=list)
     selected_case_id: str | None = None
     requested_output_ids: list[str] = Field(default_factory=list)
+    file_sources: dict[str, SubmarineRunProvenanceFileSource] = Field(default_factory=dict)
     simulation_requirements_snapshot: dict[str, object] = Field(default_factory=dict)
     approval_snapshot: dict[str, object] = Field(default_factory=dict)
     artifact_entrypoints: dict[str, str] = Field(default_factory=dict)

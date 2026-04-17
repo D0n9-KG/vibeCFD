@@ -1,22 +1,32 @@
 import type { UpdateAgentRequest } from "@/core/agents/types";
 
+import { proxyAgentsRequest } from "../_backend";
+import { markLegacyAgent } from "../migration";
 import {
-  deleteStoredAgent,
-  getStoredAgent,
-  updateStoredAgent,
+  deleteLegacyCustomAgent,
+  getLegacyCustomAgent,
+  updateLegacyCustomAgent,
 } from "../store";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ name: string }> },
 ) {
   const { name } = await context.params;
-  const agent = await getStoredAgent(name);
-  if (!agent) {
+  const backendResponse = await proxyAgentsRequest(
+    `/api/agents/${encodeURIComponent(name)}`,
+    request,
+  );
+  if (backendResponse.status !== 404) {
+    return backendResponse;
+  }
+
+  const agent = await getLegacyCustomAgent(name);
+  if (agent === null) {
     return Response.json({ detail: `Agent '${name}' not found.` }, { status: 404 });
   }
 
-  return Response.json(agent);
+  return Response.json(markLegacyAgent(agent));
 }
 
 export async function PUT(
@@ -24,10 +34,18 @@ export async function PUT(
   context: { params: Promise<{ name: string }> },
 ) {
   const { name } = await context.params;
+  const backendResponse = await proxyAgentsRequest(
+    `/api/agents/${encodeURIComponent(name)}`,
+    request,
+  );
+  if (backendResponse.status !== 404) {
+    return backendResponse;
+  }
+
   try {
     const payload = (await request.json()) as UpdateAgentRequest;
-    const agent = await updateStoredAgent(name, payload);
-    return Response.json(agent);
+    const agent = await updateLegacyCustomAgent(name, payload);
+    return Response.json(markLegacyAgent(agent));
   } catch (error) {
     const detail =
       error instanceof Error ? error.message : "Failed to update agent.";
@@ -41,8 +59,16 @@ export async function DELETE(
   context: { params: Promise<{ name: string }> },
 ) {
   const { name } = await context.params;
+  const backendResponse = await proxyAgentsRequest(
+    `/api/agents/${encodeURIComponent(name)}`,
+    _request,
+  );
+  if (backendResponse.status !== 404) {
+    return backendResponse;
+  }
+
   try {
-    await deleteStoredAgent(name);
+    await deleteLegacyCustomAgent(name);
     return new Response(null, { status: 204 });
   } catch (error) {
     const detail =

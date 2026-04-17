@@ -2,6 +2,16 @@ from .app_config import get_app_config
 from .extensions_config import ExtensionsConfig, get_extensions_config
 from .memory_config import MemoryConfig, get_memory_config
 from .paths import Paths, get_paths
+from .runtime_models import (
+    RuntimeModelDefinition,
+    RuntimeModelRegistry,
+    RuntimeModelSecrets,
+    build_runtime_model_config,
+    get_runtime_model_config,
+    get_runtime_model_registry,
+    get_runtime_model_secrets,
+    list_runtime_model_configs,
+)
 from .skills_config import SkillsConfig
 from .tracing_config import get_tracing_config, is_tracing_enabled
 
@@ -9,6 +19,14 @@ __all__ = [
     "get_app_config",
     "Paths",
     "get_paths",
+    "RuntimeModelDefinition",
+    "RuntimeModelRegistry",
+    "RuntimeModelSecrets",
+    "build_runtime_model_config",
+    "get_runtime_model_config",
+    "get_runtime_model_registry",
+    "get_runtime_model_secrets",
+    "list_runtime_model_configs",
     "SkillsConfig",
     "ExtensionsConfig",
     "get_extensions_config",

@@ -61,6 +61,39 @@ def test_resolve_model_name_uses_default_when_none(monkeypatch):
     assert resolved == "default-model"
 
 
+def test_resolve_model_name_prefers_runtime_override_default(monkeypatch):
+    app_config = _make_app_config(
+        [
+            _make_model("default-model", supports_thinking=False),
+            _make_model("other-model", supports_thinking=True),
+        ]
+    )
+
+    runtime_overrides = type(
+        "RuntimeOverrides",
+        (),
+        {
+            "lead_agent": type(
+                "LeadOverride",
+                (),
+                {"default_model": "other-model"},
+            )(),
+        },
+    )()
+
+    monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
+    monkeypatch.setattr(
+        lead_agent_module,
+        "get_runtime_config_overrides",
+        lambda: runtime_overrides,
+        raising=False,
+    )
+
+    resolved = lead_agent_module._resolve_model_name(None)
+
+    assert resolved == "other-model"
+
+
 def test_resolve_model_name_raises_when_no_models_configured(monkeypatch):
     app_config = _make_app_config([])
 

@@ -8,6 +8,9 @@ from deerflow.agents.lead_agent.prompt import apply_prompt_template
 from deerflow.agents.middlewares.clarification_middleware import ClarificationMiddleware
 from deerflow.agents.middlewares.loop_detection_middleware import LoopDetectionMiddleware
 from deerflow.agents.middlewares.memory_middleware import MemoryMiddleware
+from deerflow.agents.middlewares.openfoam_seed_workflow_middleware import (
+    OpenfoamSeedWorkflowMiddleware,
+)
 from deerflow.agents.middlewares.skill_runtime_snapshot_middleware import (
     SkillRuntimeSnapshotMiddleware,
 )
@@ -20,16 +23,35 @@ from deerflow.agents.middlewares.view_image_middleware import ViewImageMiddlewar
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.agents_config import load_agent_config
 from deerflow.config.app_config import get_app_config
+from deerflow.config.runtime_config_overrides import get_runtime_config_overrides
 from deerflow.config.summarization_config import get_summarization_config
 from deerflow.models import create_chat_model
 
 logger = logging.getLogger(__name__)
 
 
+def _resolve_default_model_name() -> str | None:
+    app_config = get_app_config()
+    configured_default_model = app_config.models[0].name if app_config.models else None
+    runtime_default_model = get_runtime_config_overrides().lead_agent.default_model
+
+    if runtime_default_model and app_config.get_model_config(runtime_default_model):
+        return runtime_default_model
+
+    if runtime_default_model and runtime_default_model != configured_default_model:
+        logger.warning(
+            "Runtime override model '%s' is not configured; fallback to configured default model '%s'.",
+            runtime_default_model,
+            configured_default_model,
+        )
+
+    return configured_default_model
+
+
 def _resolve_model_name(requested_model_name: str | None = None) -> str:
     """Resolve a runtime model name safely, falling back to default if invalid. Returns None if no models are configured."""
     app_config = get_app_config()
-    default_model_name = app_config.models[0].name if app_config.models else None
+    default_model_name = _resolve_default_model_name()
     if default_model_name is None:
         raise ValueError("No chat models are configured. Please configure at least one model in config.yaml.")
 
@@ -243,6 +265,10 @@ def _build_middlewares(config: RunnableConfig, model_name: str | None, agent_nam
 
     # Pin each thread to the first captured skill runtime snapshot.
     middlewares.append(SkillRuntimeSnapshotMiddleware())
+
+    # When a supported OpenFOAM seed upload is already present, make the
+    # structured CFD handoff explicit before the first model response.
+    middlewares.append(OpenfoamSeedWorkflowMiddleware())
 
     # Add ViewImageMiddleware only if the current model supports vision.
     # Use the resolved runtime model_name from make_lead_agent to avoid stale config values.

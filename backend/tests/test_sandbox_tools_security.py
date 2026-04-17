@@ -1,8 +1,10 @@
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
+import deerflow.sandbox.tools as sandbox_tools
 from deerflow.sandbox.tools import (
     VIRTUAL_PATH_PREFIX,
     _is_skills_path,
@@ -319,3 +321,65 @@ def test_validate_local_tool_path_skills_custom_container_path() -> None:
                 _THREAD_DATA,
                 read_only=True,
             )
+
+
+def test_bash_tool_stages_multiline_commands_for_non_local_sandbox(monkeypatch) -> None:
+    class _FakeSandbox:
+        def __init__(self) -> None:
+            self.commands: list[str] = []
+            self.writes: list[tuple[str, str]] = []
+
+        def execute_command(self, command: str) -> str:
+            self.commands.append(command)
+            return "ok"
+
+        def write_file(self, path: str, content: str, append: bool = False) -> None:
+            assert append is False
+            self.writes.append((path, content))
+
+    class _FakeProvider:
+        def __init__(self, sandbox: _FakeSandbox) -> None:
+            self.sandbox = sandbox
+
+        def acquire(self, thread_id: str | None = None) -> str:
+            return "sandbox-1"
+
+        def get(self, sandbox_id: str):
+            return self.sandbox if sandbox_id == "sandbox-1" else None
+
+        def release(self, sandbox_id: str) -> None:
+            return None
+
+    fake_sandbox = _FakeSandbox()
+    runtime = SimpleNamespace(
+        state={
+            "sandbox": {"sandbox_id": "sandbox-1"},
+            "thread_data": _THREAD_DATA,
+        },
+        context={"thread_id": "thread-1"},
+    )
+
+    monkeypatch.setattr(sandbox_tools, "get_sandbox_provider", lambda: _FakeProvider(fake_sandbox))
+    monkeypatch.setattr(
+        sandbox_tools,
+        "uuid4",
+        lambda: SimpleNamespace(hex="fixed-script"),
+        raising=False,
+    )
+
+    result = sandbox_tools.bash_tool.func(
+        runtime,
+        description="run multiline shell check",
+        command="echo one\necho two",
+    )
+
+    assert result == "ok"
+    assert fake_sandbox.writes == [
+        (
+            "/mnt/user-data/workspace/.deerflow-bash-fixed-script.sh",
+            "echo one\necho two\n",
+        )
+    ]
+    assert fake_sandbox.commands == [
+        "bash /mnt/user-data/workspace/.deerflow-bash-fixed-script.sh"
+    ]

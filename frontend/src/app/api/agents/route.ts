@@ -1,20 +1,27 @@
-import type { CreateAgentRequest } from "@/core/agents/types";
+import type { AgentInventoryResponse } from "@/core/agents/types";
 
-import { createStoredAgent, listStoredAgents } from "./store";
+import { proxyAgentsRequest } from "./_backend";
+import { mergeCanonicalAgentsWithLegacyAgents } from "./migration";
+import { listLegacyCustomAgents } from "./store";
 
-export async function GET() {
-  const agents = await listStoredAgents();
-  return Response.json({ agents });
+export async function GET(request: Request) {
+  const backendResponse = await proxyAgentsRequest("/api/agents", request);
+  if (!backendResponse.ok) {
+    return backendResponse;
+  }
+
+  const backendPayload =
+    (await backendResponse.json()) as AgentInventoryResponse;
+  const legacyCustomAgents = await listLegacyCustomAgents();
+  return Response.json({
+    ...backendPayload,
+    agents: mergeCanonicalAgentsWithLegacyAgents(
+      backendPayload.agents ?? [],
+      legacyCustomAgents,
+    ),
+  });
 }
 
 export async function POST(request: Request) {
-  try {
-    const payload = (await request.json()) as CreateAgentRequest;
-    const agent = await createStoredAgent(payload);
-    return Response.json(agent, { status: 201 });
-  } catch (error) {
-    const detail =
-      error instanceof Error ? error.message : "Failed to create agent.";
-    return Response.json({ detail }, { status: 400 });
-  }
+  return proxyAgentsRequest("/api/agents", request);
 }

@@ -87,12 +87,29 @@ def test_submarine_workflow_prompt_section_forbids_todo_only_replies_when_bound_
     assert "submarine_geometry_check" in section
 
 
+def test_submarine_workflow_prompt_section_forbids_generic_ack_only_replies_for_openfoam_seed_tasks():
+    section = prompt_module.get_submarine_workflow_prompt_section()
+
+    assert "uploaded OpenFOAM seed / case scaffold" in section
+    assert "do not stop at a generic acknowledgement in the same turn either" in section
+    assert "`submarine_design_brief` first" in section
+
+
 def test_submarine_workflow_prompt_section_keeps_draft_when_confirmation_is_partial():
     section = prompt_module.get_submarine_workflow_prompt_section()
 
     assert 'confirmation_status="draft"' in section
     assert "still-unresolved items" in section
     assert "stop before solver dispatch" in section.lower()
+
+
+def test_submarine_workflow_prompt_section_requires_design_brief_first_for_supported_openfoam_seed_inputs():
+    section = prompt_module.get_submarine_workflow_prompt_section()
+
+    assert "supported OpenFOAM seed / case scaffold" in section
+    assert "call `submarine_design_brief` in the same turn" in section
+    assert "normal user CFD request" in section
+    assert "Do not stop at `write_todos`, generic `read_file`, or generic `bash` runtime probing" in section
 
 
 def test_apply_prompt_template_includes_submarine_workflow_protocol(monkeypatch):

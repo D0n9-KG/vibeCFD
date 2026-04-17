@@ -103,6 +103,8 @@ def _format_benchmark_comparison_narrative(item: Mapping[str, Any]) -> str:
 
 def build_verification_status(
     scientific_verification_assessment: object | None,
+    *,
+    verification_required: bool = True,
 ) -> tuple[str, list[str], list[str], list[str]]:
     assessment = _as_mapping(scientific_verification_assessment)
     blocking_issues = _as_string_list(assessment.get("blocking_issues"))
@@ -121,6 +123,13 @@ def build_verification_status(
             missing_evidence,
             passed_requirements,
         )
+    if not assessment and not verification_required:
+        return (
+            "passed",
+            [],
+            [],
+            ["No explicit scientific verification requirements applied to this run."],
+        )
 
     return (
         "needs_more_verification",
@@ -134,9 +143,31 @@ def build_validation_status(
     *,
     acceptance_profile: SubmarineCaseAcceptanceProfile | Mapping[str, Any] | None,
     acceptance_assessment: object | None,
+    official_case_validation_assessment: object | None = None,
 ) -> tuple[str, list[str], list[str], list[str]]:
     profile = _as_mapping(acceptance_profile)
     assessment = _as_mapping(acceptance_assessment)
+    official_case_assessment = _as_mapping(official_case_validation_assessment)
+    if official_case_assessment:
+        case_id = str(official_case_assessment.get("case_id") or "official_case").strip()
+        parity_status = str(official_case_assessment.get("parity_status") or "unknown").strip()
+        passed_checks = _as_string_list(official_case_assessment.get("passed_checks"))
+        drift_reasons = _as_string_list(official_case_assessment.get("drift_reasons"))
+        highlights = [f"Official case `{case_id}` matched the pinned baseline."] if parity_status == "matched" else []
+        highlights.extend(passed_checks)
+
+        if parity_status == "matched":
+            return "validated", [], [], _dedupe_strings(highlights)
+
+        evidence_gaps = drift_reasons[:]
+        if not evidence_gaps:
+            evidence_gaps.append(
+                f"Official case `{case_id}` did not match the pinned baseline."
+            )
+        if parity_status == "drifted":
+            return "validation_failed", [], _dedupe_strings(evidence_gaps), []
+        return "missing_validation_reference", [], _dedupe_strings(evidence_gaps), []
+
     benchmark_targets = profile.get("benchmark_targets")
     benchmark_target_items = [item for item in benchmark_targets if isinstance(item, Mapping)] if isinstance(benchmark_targets, list) else []
     target_count = len(benchmark_target_items)
@@ -291,6 +322,7 @@ def build_research_evidence_summary(
     *,
     acceptance_profile: SubmarineCaseAcceptanceProfile | Mapping[str, Any] | None,
     acceptance_assessment: object | None,
+    official_case_validation_assessment: object | None = None,
     scientific_verification_assessment: object | None,
     provenance_summary: object | None,
     scientific_study_summary: object | None,
@@ -303,7 +335,10 @@ def build_research_evidence_summary(
         verification_blockers,
         verification_gaps,
         passed_evidence,
-    ) = build_verification_status(scientific_verification_assessment)
+    ) = build_verification_status(
+        scientific_verification_assessment,
+        verification_required=acceptance_profile is not None,
+    )
     (
         validation_status,
         validation_blockers,
@@ -312,6 +347,7 @@ def build_research_evidence_summary(
     ) = build_validation_status(
         acceptance_profile=acceptance_profile,
         acceptance_assessment=acceptance_assessment,
+        official_case_validation_assessment=official_case_validation_assessment,
     )
     (
         provenance_status,

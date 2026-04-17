@@ -112,8 +112,14 @@ export async function proxyBackendRequest(
     responseHeaders.set("cache-control", "no-store");
     responseHeaders.delete("content-length");
 
-    const responseBody =
-      request.method === "HEAD" ? undefined : await response.arrayBuffer();
+    const hasNoResponseBody =
+      request.method === "HEAD" ||
+      response.status === 204 ||
+      response.status === 205 ||
+      response.status === 304;
+    const responseBody = hasNoResponseBody
+      ? undefined
+      : await response.arrayBuffer();
 
     return new Response(responseBody, {
       status: response.status,

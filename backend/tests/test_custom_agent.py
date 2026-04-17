@@ -449,7 +449,9 @@ class TestAgentsAPI:
         response = agent_client.get("/api/agents")
         assert response.status_code == 200
         data = response.json()
-        assert data["agents"] == []
+        names = [agent["name"] for agent in data["agents"]]
+        assert "codex-skill-creator" in names
+        assert "claude-code-skill-creator" in names
 
     def test_create_agent(self, agent_client):
         payload = {
@@ -486,6 +488,8 @@ class TestAgentsAPI:
         response = agent_client.get("/api/agents")
         assert response.status_code == 200
         names = [a["name"] for a in response.json()["agents"]]
+        assert "codex-skill-creator" in names
+        assert "claude-code-skill-creator" in names
         assert "agent-one" in names
         assert "agent-two" in names
 

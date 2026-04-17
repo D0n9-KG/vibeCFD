@@ -1,20 +1,34 @@
 """CRUD API for custom agents."""
 
+import json
 import logging
 import re
 import shutil
+from pathlib import Path
 
 import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from deerflow.config.agents_config import AgentConfig, list_custom_agents, load_agent_config, load_agent_soul
+from deerflow.config.agents_config import (
+    BUILTIN_AGENT_CONFIGS,
+    AgentConfig,
+    list_custom_agents,
+    load_agent_config,
+    load_agent_soul,
+)
 from deerflow.config.paths import get_paths
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["agents"])
 
 AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
+
+
+class AgentLegacyStoreResponse(BaseModel):
+    exists: bool = False
+    path: str | None = None
+    agent_count: int = 0
 
 
 class AgentResponse(BaseModel):
@@ -26,12 +40,18 @@ class AgentResponse(BaseModel):
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     soul: str | None = Field(default=None, description="SOUL.md content (included on GET /{name})")
+    kind: str = Field(default="custom", description="Whether the agent is builtin or custom")
+    is_builtin: bool = Field(default=False, description="Whether this agent is shipped as a built-in")
+    is_editable: bool = Field(default=True, description="Whether this agent can be edited through the API")
+    is_deletable: bool = Field(default=True, description="Whether this agent can be deleted through the API")
+    source_path: str | None = Field(default=None, description="Filesystem source path for custom agents")
 
 
 class AgentsListResponse(BaseModel):
     """Response model for listing all custom agents."""
 
     agents: list[AgentResponse]
+    legacy_store: AgentLegacyStoreResponse = Field(default_factory=AgentLegacyStoreResponse)
 
 
 class AgentCreateRequest(BaseModel):
@@ -76,11 +96,46 @@ def _normalize_agent_name(name: str) -> str:
     return name.lower()
 
 
+def _is_builtin_agent_name(name: str) -> bool:
+    return name in BUILTIN_AGENT_CONFIGS
+
+
+def _resolve_legacy_agent_store_path() -> Path:
+    process_start_dir = Path.cwd()
+    for search_dir in (process_start_dir, process_start_dir.parent):
+        candidate = search_dir / ".deerflow-ui" / "agents.json"
+        if candidate.exists():
+            return candidate
+    return process_start_dir / ".deerflow-ui" / "agents.json"
+
+
+def _read_legacy_agent_store_summary() -> AgentLegacyStoreResponse:
+    store_path = _resolve_legacy_agent_store_path()
+    if not store_path.exists():
+        return AgentLegacyStoreResponse(exists=False, path=None, agent_count=0)
+
+    try:
+        payload = json.loads(store_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        logger.warning("Legacy agent store at %s could not be parsed", store_path, exc_info=True)
+        return AgentLegacyStoreResponse(exists=True, path=str(store_path), agent_count=0)
+
+    agent_count = len(payload) if isinstance(payload, list) else 0
+    return AgentLegacyStoreResponse(
+        exists=True,
+        path=str(store_path),
+        agent_count=agent_count,
+    )
+
+
 def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False) -> AgentResponse:
     """Convert AgentConfig to AgentResponse."""
     soul: str | None = None
     if include_soul:
         soul = load_agent_soul(agent_cfg.name) or ""
+
+    is_builtin = _is_builtin_agent_name(agent_cfg.name)
+    source_path = None if is_builtin else str(get_paths().agent_dir(agent_cfg.name))
 
     return AgentResponse(
         name=agent_cfg.name,
@@ -89,6 +144,11 @@ def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
         soul=soul,
+        kind="builtin" if is_builtin else "custom",
+        is_builtin=is_builtin,
+        is_editable=not is_builtin,
+        is_deletable=not is_builtin,
+        source_path=source_path,
     )
 
 
@@ -105,8 +165,23 @@ async def list_agents() -> AgentsListResponse:
         List of all custom agents with their metadata (without soul content).
     """
     try:
-        agents = list_custom_agents()
-        return AgentsListResponse(agents=[_agent_config_to_response(a) for a in agents])
+        agents_by_name: dict[str, AgentResponse] = {}
+
+        for builtin_name in sorted(BUILTIN_AGENT_CONFIGS):
+            builtin_cfg = load_agent_config(builtin_name)
+            if builtin_cfg is None:
+                continue
+            agents_by_name[builtin_name] = _agent_config_to_response(builtin_cfg)
+
+        for custom_agent in list_custom_agents():
+            if custom_agent is None:
+                continue
+            agents_by_name[custom_agent.name] = _agent_config_to_response(custom_agent)
+
+        return AgentsListResponse(
+            agents=sorted(agents_by_name.values(), key=lambda item: item.name),
+            legacy_store=_read_legacy_agent_store_summary(),
+        )
     except Exception as e:
         logger.error(f"Failed to list agents: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list agents: {str(e)}")
@@ -131,7 +206,7 @@ async def check_agent_name(name: str) -> dict:
     """
     _validate_agent_name(name)
     normalized = _normalize_agent_name(name)
-    available = not get_paths().agent_dir(normalized).exists()
+    available = not _is_builtin_agent_name(normalized) and not get_paths().agent_dir(normalized).exists()
     return {"available": available, "name": normalized}
 
 
@@ -187,6 +262,12 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
     """
     _validate_agent_name(request.name)
     normalized_name = _normalize_agent_name(request.name)
+
+    if _is_builtin_agent_name(normalized_name):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Agent name '{normalized_name}' is reserved for a built-in agent.",
+        )
 
     agent_dir = get_paths().agent_dir(normalized_name)
 
@@ -251,6 +332,12 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
     """
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
+
+    if _is_builtin_agent_name(name):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Built-in agent '{name}' cannot be edited through this API.",
+        )
 
     try:
         agent_cfg = load_agent_config(name)
@@ -386,6 +473,12 @@ async def delete_agent(name: str) -> None:
     """
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
+
+    if _is_builtin_agent_name(name):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Built-in agent '{name}' cannot be deleted through this API.",
+        )
 
     agent_dir = get_paths().agent_dir(name)
 

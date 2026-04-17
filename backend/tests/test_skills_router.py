@@ -3,7 +3,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
 from app.gateway.routers import skills
@@ -372,3 +372,157 @@ def test_skill_lifecycle_routes_support_prepublish_draft_updates(
     persisted_payload = json.loads(lifecycle_path.read_text(encoding="utf-8"))
     assert persisted_payload["version_note"] == "Draft lifecycle note before publish"
     assert persisted_payload["bindings"][0]["role_id"] == "scientific-verification"
+
+
+def test_skill_file_tree_and_text_preview_routes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    skills_root = tmp_path / "skills"
+    skill_dir = skills_root / "custom" / "demo-skill"
+    _write_skill(
+        skill_dir,
+        """---
+name: demo-skill
+description: Demo skill
+---
+
+# Demo Skill
+""",
+    )
+    references_dir = skill_dir / "references"
+    references_dir.mkdir(parents=True, exist_ok=True)
+    (references_dir / "guide.md").write_text("# Guide\n", encoding="utf-8")
+
+    monkeypatch.setattr(skills, "get_skills_root_path", lambda: skills_root)
+    monkeypatch.setattr(
+        skills,
+        "load_skills",
+        lambda *args, **kwargs: load_skills_from_path(
+            skills_path=skills_root,
+            use_config=False,
+            enabled_only=kwargs.get("enabled_only", False),
+        ),
+    )
+
+    app = FastAPI()
+    app.include_router(skills.router)
+
+    with TestClient(app) as client:
+        tree_response = client.get("/api/skills/demo-skill/files")
+        preview_response = client.get(
+            "/api/skills/demo-skill/files/content",
+            params={"path": "references/guide.md"},
+        )
+
+    assert tree_response.status_code == status.HTTP_200_OK
+    tree_payload = tree_response.json()
+    assert tree_payload["skill_name"] == "demo-skill"
+
+    entries = {entry["name"]: entry for entry in tree_payload["entries"]}
+    assert entries["SKILL.md"]["node_type"] == "file"
+    assert entries["references"]["node_type"] == "directory"
+    assert entries["references"]["children"][0]["path"] == "references/guide.md"
+
+    assert preview_response.status_code == status.HTTP_200_OK
+    preview_payload = preview_response.json()
+    assert preview_payload["path"] == "references/guide.md"
+    assert preview_payload["preview_type"] == "text"
+    assert preview_payload["content"] == "# Guide\n"
+    assert preview_payload["truncated"] is False
+
+
+def test_skill_file_preview_rejects_path_traversal(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    skills_root = tmp_path / "skills"
+    skill_dir = skills_root / "custom" / "demo-skill"
+    _write_skill(
+        skill_dir,
+        """---
+name: demo-skill
+description: Demo skill
+---
+
+# Demo Skill
+""",
+    )
+
+    monkeypatch.setattr(skills, "get_skills_root_path", lambda: skills_root)
+    monkeypatch.setattr(
+        skills,
+        "load_skills",
+        lambda *args, **kwargs: load_skills_from_path(
+            skills_path=skills_root,
+            use_config=False,
+            enabled_only=kwargs.get("enabled_only", False),
+        ),
+    )
+
+    app = FastAPI()
+    app.include_router(skills.router)
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/skills/demo-skill/files/content",
+            params={"path": "../outside.txt"},
+        )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert "traversal" in response.json()["detail"].lower()
+
+
+def test_skill_file_tree_skips_symlinked_entries(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    skills_root = tmp_path / "skills"
+    skill_dir = skills_root / "custom" / "demo-skill"
+    _write_skill(
+        skill_dir,
+        """---
+name: demo-skill
+description: Demo skill
+---
+
+# Demo Skill
+""",
+    )
+    real_dir = skill_dir / "references"
+    real_dir.mkdir(parents=True, exist_ok=True)
+    (real_dir / "guide.md").write_text("# Guide\n", encoding="utf-8")
+    fake_link = skill_dir / "linked-assets"
+    fake_link.mkdir(parents=True, exist_ok=True)
+    (fake_link / "secret.txt").write_text("secret", encoding="utf-8")
+
+    original_is_symlink = Path.is_symlink
+
+    def patched_is_symlink(self: Path) -> bool:
+        if self.name == "linked-assets":
+            return True
+        return original_is_symlink(self)
+
+    monkeypatch.setattr(Path, "is_symlink", patched_is_symlink)
+    monkeypatch.setattr(skills, "get_skills_root_path", lambda: skills_root)
+    monkeypatch.setattr(
+        skills,
+        "load_skills",
+        lambda *args, **kwargs: load_skills_from_path(
+            skills_path=skills_root,
+            use_config=False,
+            enabled_only=kwargs.get("enabled_only", False),
+        ),
+    )
+
+    app = FastAPI()
+    app.include_router(skills.router)
+
+    with TestClient(app) as client:
+        response = client.get("/api/skills/demo-skill/files")
+
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.json()
+    names = [entry["name"] for entry in payload["entries"]]
+    assert "references" in names
+    assert "linked-assets" not in names

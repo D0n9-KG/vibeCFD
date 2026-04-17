@@ -1,5 +1,6 @@
 import re
 from pathlib import Path, PurePosixPath
+from uuid import uuid4
 
 from langchain.tools import ToolRuntime, tool
 from langgraph.typing import ContextT
@@ -547,6 +548,43 @@ def ensure_thread_directories_exist(runtime: ToolRuntime[ContextT, ThreadState] 
     runtime.state["thread_directories_created"] = True
 
 
+def _prepare_bash_command_for_execution(
+    runtime: ToolRuntime[ContextT, ThreadState],
+    sandbox: Sandbox,
+    command: str,
+) -> str:
+    """Normalize bash commands before dispatching them to the sandbox.
+
+    The AIO sandbox shell API currently breaks on raw multi-line command
+    payloads, so stage those commands through a thread-local script and execute
+    the script via a single-line `bash <script>` call instead.
+    """
+
+    thread_data = get_thread_data(runtime)
+    normalized_command = command.replace("\r\n", "\n").rstrip("\n")
+
+    if "\n" not in normalized_command:
+        if is_local_sandbox(runtime):
+            validate_local_bash_command_paths(normalized_command, thread_data)
+            return replace_virtual_paths_in_command(normalized_command, thread_data)
+        return normalized_command
+
+    script_virtual_path = f"{VIRTUAL_PATH_PREFIX}/workspace/.deerflow-bash-{uuid4().hex}.sh"
+    script_content = f"{normalized_command}\n"
+
+    if is_local_sandbox(runtime):
+        validate_local_bash_command_paths(normalized_command, thread_data)
+        actual_script_path = replace_virtual_path(script_virtual_path, thread_data)
+        sandbox.write_file(
+            actual_script_path,
+            replace_virtual_paths_in_command(script_content, thread_data),
+        )
+        return f"bash {actual_script_path}"
+
+    sandbox.write_file(script_virtual_path, script_content)
+    return f"bash {script_virtual_path}"
+
+
 @tool("bash", parse_docstring=True)
 def bash_tool(runtime: ToolRuntime[ContextT, ThreadState], description: str, command: str) -> str:
     """Execute a bash command in a Linux environment.
@@ -564,12 +602,15 @@ def bash_tool(runtime: ToolRuntime[ContextT, ThreadState], description: str, com
         sandbox = ensure_sandbox_initialized(runtime)
         ensure_thread_directories_exist(runtime)
         thread_data = get_thread_data(runtime)
+        execution_command = _prepare_bash_command_for_execution(
+            runtime,
+            sandbox,
+            command,
+        )
+        output = sandbox.execute_command(execution_command)
         if is_local_sandbox(runtime):
-            validate_local_bash_command_paths(command, thread_data)
-            command = replace_virtual_paths_in_command(command, thread_data)
-            output = sandbox.execute_command(command)
             return mask_local_paths_in_output(output, thread_data)
-        return sandbox.execute_command(command)
+        return output
     except SandboxError as e:
         return f"Error: {e}"
     except PermissionError as e:

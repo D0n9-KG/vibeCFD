@@ -53,3 +53,31 @@ void test("collectThreadArtifacts ignores invalid artifact entries and missing c
     "/mnt/user-data/outputs/submarine/solver-dispatch/solver-results.json",
   ]);
 });
+
+void test("collectThreadArtifacts includes official case seeds and assembled files before generated outputs", () => {
+  const artifacts = collectThreadArtifacts({
+    artifacts: [],
+    submarine_runtime: {
+      official_case_seed_virtual_paths: [
+        "/mnt/user-data/uploads/cavity/system/blockMeshDict",
+      ],
+      assembled_case_virtual_paths: [
+        "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case/system/blockMeshDict",
+        "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case/Allrun",
+      ],
+      artifact_virtual_paths: [
+        "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/openfoam-request.json",
+        "/mnt/user-data/outputs/submarine/reports/cavity/final-report.md",
+      ],
+    },
+    submarine_skill_studio: null,
+  });
+
+  assert.deepEqual(artifacts, [
+    "/mnt/user-data/uploads/cavity/system/blockMeshDict",
+    "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case/system/blockMeshDict",
+    "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case/Allrun",
+    "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/openfoam-request.json",
+    "/mnt/user-data/outputs/submarine/reports/cavity/final-report.md",
+  ]);
+});

@@ -1,5 +1,7 @@
 type ArtifactCarrier = {
   artifact_virtual_paths?: unknown;
+  official_case_seed_virtual_paths?: unknown;
+  assembled_case_virtual_paths?: unknown;
 } | null;
 
 type ThreadValuesLike = {
@@ -19,6 +21,8 @@ function asArtifactList(value: unknown): string[] {
 export function collectThreadArtifacts(values: ThreadValuesLike): string[] {
   const merged = [
     ...asArtifactList(values.artifacts),
+    ...asArtifactList(values.submarine_runtime?.official_case_seed_virtual_paths),
+    ...asArtifactList(values.submarine_runtime?.assembled_case_virtual_paths),
     ...asArtifactList(values.submarine_runtime?.artifact_virtual_paths),
     ...asArtifactList(values.submarine_skill_studio?.artifact_virtual_paths),
   ];

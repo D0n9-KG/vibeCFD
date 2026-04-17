@@ -608,17 +608,6 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean;
 }) {
-  const skeletonId = React.useId();
-  const width = React.useMemo(() => {
-    const presets = ["54%", "61%", "68%", "74%", "81%", "87%"];
-    const index =
-      Array.from(skeletonId).reduce(
-        (total, character) => total + character.charCodeAt(0),
-        0,
-      ) % presets.length;
-    return presets[index]!;
-  }, [skeletonId]);
-
   return (
     <div
       data-slot="sidebar-menu-skeleton"
@@ -637,7 +626,7 @@ function SidebarMenuSkeleton({
         data-sidebar="menu-skeleton-text"
         style={
           {
-            "--skeleton-width": width,
+            "--skeleton-width": "68%",
           } as React.CSSProperties
         }
       />

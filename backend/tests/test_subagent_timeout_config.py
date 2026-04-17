@@ -271,6 +271,38 @@ class TestRegistryGetSubagentConfig:
         assert overridden.tools == original.tools
         assert overridden.disallowed_tools == original.disallowed_tools
 
+    def test_runtime_model_override_applies_to_matching_submarine_stage(self, monkeypatch):
+        from deerflow.subagents import registry as registry_module
+
+        runtime_overrides = type(
+            "RuntimeOverrides",
+            (),
+            {
+                "stage_roles": {
+                    "task-intelligence": type(
+                        "StageOverride",
+                        (),
+                        {
+                            "model_mode": "explicit",
+                            "model_name": "claude-sonnet-4-6",
+                        },
+                    )()
+                }
+            },
+        )()
+
+        monkeypatch.setattr(
+            registry_module,
+            "get_runtime_config_overrides",
+            lambda: runtime_overrides,
+            raising=False,
+        )
+
+        config = registry_module.get_subagent_config("submarine-task-intelligence")
+
+        assert config is not None
+        assert config.model == "claude-sonnet-4-6"
+
 
 # ---------------------------------------------------------------------------
 # registry.list_subagents – all agents get overrides

@@ -18,6 +18,38 @@ def _slugify(value: str) -> str:
 
 _OUTPUT_CATALOG: tuple[dict, ...] = (
     {
+        "output_id": "design_brief",
+        "label": "设计简报",
+        "aliases": ("设计简报", "cfd 设计简报", "cfd design brief", "design brief"),
+        "inference_aliases": (
+            "整理设计简报",
+            "生成设计简报",
+            "输出设计简报",
+            "交付设计简报",
+            "cfd design brief",
+        ),
+        "support_level": "supported",
+        "notes": "当前运行时可交付结构化 CFD 设计简报。",
+    },
+    {
+        "output_id": "assembled_openfoam_case",
+        "label": "按默认设置组装的最小 OpenFOAM 案例",
+        "aliases": (
+            "按默认设置组装的最小 openfoam 案例",
+            "默认组装后的 openfoam 最小案例",
+            "默认组装后的 openfoam 最小 cavity 案例",
+            "组装的最小 openfoam 案例",
+            "最小 openfoam 案例",
+            "案例组装摘要",
+            "案例组装",
+            "组装摘要",
+            "assembled openfoam case",
+            "assembled case",
+        ),
+        "support_level": "supported",
+        "notes": "当前运行时可交付可直接查看和复跑的最小 OpenFOAM 案例骨架。",
+    },
+    {
         "output_id": "drag_coefficient",
         "label": "阻力系数 Cd",
         "aliases": ("阻力系数", "阻力系数 cd", "cd", "drag coefficient"),
@@ -55,9 +87,26 @@ _OUTPUT_CATALOG: tuple[dict, ...] = (
     {
         "output_id": "chinese_report",
         "label": "中文结果报告",
-        "aliases": ("中文报告", "中文结果报告", "中文最终报告", "chinese report"),
+        "aliases": ("中文报告", "中文结果报告", "中文最终报告", "结果报告", "chinese report"),
         "support_level": "supported",
         "notes": "当前运行时可交付中文结构化最终报告。",
+    },
+    {
+        "output_id": "solver_execution_summary",
+        "label": "结果摘要",
+        "aliases": (
+            "结果摘要",
+            "执行结果",
+            "求解结果摘要",
+            "求解执行结果摘要",
+            "求解日志与关键收敛信息",
+            "求解运行日志",
+            "solver-results.json",
+            "solver summary",
+            "execution summary",
+        ),
+        "support_level": "supported",
+        "notes": "当前运行时可交付求解执行摘要、关键收敛信息以及运行日志索引。",
     },
     {
         "output_id": "surface_pressure_contour",
@@ -120,6 +169,23 @@ _OUTPUT_CATALOG: tuple[dict, ...] = (
 
 
 _OUTPUT_ARTIFACT_SUFFIXES: dict[str, tuple[str, ...]] = {
+    "design_brief": (
+        "/cfd-design-brief.md",
+        "/cfd-design-brief.html",
+        "/cfd-design-brief.json",
+    ),
+    "assembled_openfoam_case": (
+        "/openfoam-case/Allrun",
+        "/openfoam-case/system/blockMeshDict",
+        "/openfoam-case/system/controlDict",
+    ),
+    "solver_execution_summary": (
+        "/dispatch-summary.md",
+        "/dispatch-summary.html",
+        "/solver-results.md",
+        "/solver-results.json",
+        "/openfoam-run.log",
+    ),
     "surface_pressure_contour": (
         "/surface-pressure.csv",
         "/surface-pressure.png",
@@ -168,7 +234,8 @@ def infer_expected_outputs_from_text(task_description: str | None) -> list[str]:
     seen_labels: set[str] = set()
 
     for item in _OUTPUT_CATALOG:
-        positions = [lowered.find(alias.lower()) for alias in item["aliases"] if alias and lowered.find(alias.lower()) >= 0]
+        aliases = item.get("inference_aliases", item["aliases"])
+        positions = [lowered.find(alias.lower()) for alias in aliases if alias and lowered.find(alias.lower()) >= 0]
         if not positions:
             continue
 
@@ -278,7 +345,23 @@ def build_output_delivery_plan(
         detail = "该输出已纳入本次 run 的交付计划。"
         linked_artifacts: list[str] = []
 
-        if item.output_id == "drag_coefficient":
+        if item.output_id == "design_brief":
+            linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["design_brief"])
+            if linked_artifacts:
+                delivery_status = "delivered"
+                detail = "已生成结构化 CFD 设计简报。"
+            elif stage in {"solver-dispatch", "result-reporting"}:
+                delivery_status = "pending"
+                detail = "设计简报应已生成，但当前 artifact 视图里还没有找到对应文件。"
+        elif item.output_id == "assembled_openfoam_case":
+            linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["assembled_openfoam_case"])
+            if linked_artifacts:
+                delivery_status = "delivered"
+                detail = "已组装可复跑的最小 OpenFOAM 案例骨架。"
+            elif stage == "result-reporting":
+                delivery_status = "pending"
+                detail = "结果报告阶段尚未在 artifact 视图中找到组装后的 OpenFOAM 案例入口。"
+        elif item.output_id == "drag_coefficient":
             cd = ((solver_metrics or {}).get("latest_force_coefficients") or {}).get("Cd")
             if isinstance(cd, (int, float)):
                 delivery_status = "delivered"
@@ -338,6 +421,14 @@ def build_output_delivery_plan(
             elif stage == "result-reporting":
                 delivery_status = "pending"
                 detail = "结果报告生成尚未完成。"
+        elif item.output_id == "solver_execution_summary":
+            linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["solver_execution_summary"])
+            if linked_artifacts:
+                delivery_status = "delivered"
+                detail = "已生成求解执行摘要、关键收敛信息或运行日志索引。"
+            elif stage in {"solver-dispatch", "result-reporting"}:
+                delivery_status = "pending"
+                detail = "求解阶段已启动，但当前 artifact 视图中还没有找到结果摘要或运行日志。"
         elif item.output_id == "surface_pressure_contour":
             linked_artifacts = _matching_artifacts(artifacts, *_OUTPUT_ARTIFACT_SUFFIXES["surface_pressure_contour"])
             if linked_artifacts:

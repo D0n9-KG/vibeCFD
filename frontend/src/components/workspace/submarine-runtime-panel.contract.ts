@@ -122,7 +122,11 @@ export type SubmarineDesignBriefPayload = {
   contract_revision?: number | null;
   iteration_mode?: string | null;
   revision_summary?: string | null;
+  input_source_type?: "geometry_seed" | "openfoam_case_seed" | string | null;
   geometry_virtual_path?: string | null;
+  official_case_id?: string | null;
+  official_case_seed_virtual_paths?: string[] | null;
+  official_case_profile?: Record<string, unknown> | null;
   geometry_family_hint?: string | null;
   selected_case_id?: string | null;
   simulation_requirements?: SubmarineSimulationRequirements | null;
@@ -400,8 +404,13 @@ export type SubmarineRuntimeSnapshotPayload = {
   contract_revision?: number | null;
   iteration_mode?: string | null;
   revision_summary?: string | null;
+  input_source_type?: "geometry_seed" | "openfoam_case_seed" | string | null;
   geometry_virtual_path?: string | null;
   geometry_family?: string | null;
+  official_case_id?: string | null;
+  official_case_seed_virtual_paths?: string[] | null;
+  assembled_case_virtual_paths?: string[] | null;
+  official_case_profile?: Record<string, unknown> | null;
   execution_readiness?: string | null;
   geometry_findings?: SubmarineGeometryFinding[] | null;
   scale_assessment?: SubmarineGeometryScaleAssessment | null;
@@ -730,6 +739,11 @@ export type SubmarineFinalReportPayload = {
   contract_revision?: number | null;
   iteration_mode?: string | null;
   revision_summary?: string | null;
+  input_source_type?: "geometry_seed" | "openfoam_case_seed" | string | null;
+  official_case_id?: string | null;
+  official_case_seed_virtual_paths?: string[] | null;
+  assembled_case_virtual_paths?: string[] | null;
+  official_case_profile?: Record<string, unknown> | null;
   solver_metrics?: SubmarineSolverMetrics | null;
   selected_case_acceptance_profile?: Record<string, unknown> | null;
   selected_case_provenance_summary?:

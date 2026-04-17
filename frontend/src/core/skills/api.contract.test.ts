@@ -8,3 +8,8 @@ void test("recordDryRunEvidence does not hardcode empty message_ids defaults", (
   assert.match(source, /recordDryRunEvidence/);
   assert.doesNotMatch(source, /message_ids:\s*\[\]/);
 });
+
+void test("skills api exposes installed skill file tree and content preview endpoints", () => {
+  assert.match(source, /\/api\/skills\/\$\{skillName\}\/files/);
+  assert.match(source, /\/api\/skills\/\$\{skillName\}\/files\/content/);
+});

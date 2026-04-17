@@ -15,6 +15,9 @@ from deerflow.domain.submarine.calculation_plan import (
     calculation_plan_requires_immediate_confirmation,
 )
 from deerflow.domain.submarine.geometry_check import SUPPORTED_GEOMETRY_SUFFIXES
+from deerflow.domain.submarine.official_case_seed_resolver import (
+    resolve_official_case_seed,
+)
 
 SubmarineExecutionPreference = Literal[
     "plan_only",
@@ -29,6 +32,9 @@ _DIRECT_EXECUTION_KEYWORDS = (
     "立即执行",
     "立即计算",
     "真实求解",
+    "执行案例",
+    "运行案例",
+    "组装并执行",
     "actual openfoam",
     "real openfoam",
     "execute_now",
@@ -88,6 +94,22 @@ _CONTINUE_EXECUTION_KEYWORDS = (
     "proceed with execution",
 )
 
+_OFFICIAL_CASE_INTENT_KEYWORDS = (
+    "不要走 stl",
+    "不走 stl",
+    "not stl",
+    "do not use stl",
+    "official case reconstruction",
+    "official openfoam",
+    "official cavity",
+    "official pitzdaily",
+    "按官方 openfoam",
+    "按官方案例",
+    "官方 openfoam",
+    "官方 cavity",
+    "官方 pitzdaily",
+)
+
 
 def _contains_any(description: str, keywords: tuple[str, ...]) -> bool:
     return any(keyword in description for keyword in keywords)
@@ -114,6 +136,17 @@ def detect_execution_preference_signal(
     if _contains_any(description, _DIRECT_EXECUTION_KEYWORDS):
         return "execute_now"
     return None
+
+
+def detect_official_case_seed_intent(task_description: str | None) -> bool:
+    description = (task_description or "").strip().lower()
+    if not description:
+        return False
+    return _contains_any(description, _OFFICIAL_CASE_INTENT_KEYWORDS)
+
+
+def has_structured_official_case_intent(task_type: str | None) -> bool:
+    return str(task_type or "").strip().lower() == "official_openfoam_case"
 
 
 def infer_execution_preference(
@@ -347,6 +380,12 @@ def _to_virtual_thread_path(uploads_dir: Path, actual_path: Path) -> str:
     return f"{VIRTUAL_PATH_PREFIX}/{relative.as_posix()}"
 
 
+def _is_supported_geometry_virtual_path(candidate: object) -> bool:
+    if not isinstance(candidate, str):
+        return False
+    return Path(candidate).suffix.lower() in SUPPORTED_GEOMETRY_SUFFIXES
+
+
 def resolve_bound_geometry_virtual_path(
     *,
     thread_id: str,
@@ -424,6 +463,76 @@ def resolve_bound_geometry_virtual_path(
     if not candidates:
         return None
     return _to_virtual_thread_path(uploads_dir, candidates[0])
+
+
+def resolve_runtime_input_source(
+    *,
+    thread_id: str,
+    uploads_dir: Path,
+    explicit_geometry_path: str | None,
+    existing_runtime: Mapping[str, Any] | None,
+    existing_brief: Mapping[str, Any] | None,
+    uploaded_files: list[dict] | None,
+    task_description: str | None,
+    task_type: str | None = None,
+) -> dict[str, Any]:
+    official_case_seed = resolve_official_case_seed(uploads_dir=uploads_dir)
+    geometry_virtual_path = resolve_bound_geometry_virtual_path(
+        thread_id=thread_id,
+        uploads_dir=uploads_dir,
+        explicit_geometry_path=explicit_geometry_path,
+        existing_runtime=existing_runtime,
+        existing_brief=existing_brief,
+        uploaded_files=uploaded_files,
+    )
+    explicit_official_case_intent = detect_official_case_seed_intent(
+        task_description
+    ) or has_structured_official_case_intent(task_type)
+    has_supported_geometry_candidate = _is_supported_geometry_virtual_path(
+        geometry_virtual_path
+    )
+
+    if official_case_seed and official_case_seed.status == "partial":
+        return {
+            "kind": "partial_case_seed",
+            "official_case_id": official_case_seed.case_id,
+            "seed_virtual_paths": official_case_seed.seed_virtual_paths,
+            "user_message": official_case_seed.user_message,
+        }
+
+    if official_case_seed and has_supported_geometry_candidate:
+        if explicit_official_case_intent:
+            return {
+                "kind": "openfoam_case_seed",
+                "official_case_id": official_case_seed.case_id,
+                "seed_virtual_paths": official_case_seed.seed_virtual_paths,
+            }
+        return {
+            "kind": "ambiguous",
+            "user_message": (
+                "Both a valid STL input and an official OpenFOAM case seed were found. "
+                "Please confirm whether this thread should use the official OpenFOAM case reconstruction path "
+                "or the STL-based submarine workflow."
+            ),
+        }
+
+    if official_case_seed:
+        return {
+            "kind": "openfoam_case_seed",
+            "official_case_id": official_case_seed.case_id,
+            "seed_virtual_paths": official_case_seed.seed_virtual_paths,
+        }
+
+    if geometry_virtual_path:
+        return {
+            "kind": "geometry_seed",
+            "geometry_virtual_path": geometry_virtual_path,
+        }
+
+    return {
+        "kind": "missing",
+        "user_message": "No valid STL geometry or supported official OpenFOAM case seed was found in the current thread uploads.",
+    }
 
 
 def load_existing_design_brief_payload(

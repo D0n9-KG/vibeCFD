@@ -31,6 +31,7 @@ type Step = "name" | "chat";
 
 const NAME_RE = /^[A-Za-z0-9-]+$/;
 const NEW_AGENT_SURFACE_LABEL = "新建智能体";
+const AGENTS_MANAGEMENT_HREF = "/workspace/control-center?tab=agents";
 
 export default function NewAgentPage() {
   const { t } = useI18n();
@@ -139,7 +140,10 @@ export default function NewAgentPage() {
               </p>
             </div>
 
-            <Button variant="outline" onClick={() => router.push("/workspace/agents")}>
+            <Button
+              variant="outline"
+              onClick={() => router.push(AGENTS_MANAGEMENT_HREF)}
+            >
               <ArrowLeftIcon className="size-4" />
               {t.agents.backToGallery}
             </Button>
@@ -268,7 +272,7 @@ export default function NewAgentPage() {
                           </Button>
                           <Button
                             variant="outline"
-                            onClick={() => router.push("/workspace/agents")}
+                            onClick={() => router.push(AGENTS_MANAGEMENT_HREF)}
                           >
                             {t.agents.backToGallery}
                           </Button>

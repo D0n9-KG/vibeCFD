@@ -65,7 +65,7 @@ function SkillSettingsList({
   );
   const handleCreateSkill = () => {
     onClose?.();
-    router.push("/workspace/chats/new?mode=skill");
+    router.push("/workspace/skill-studio/new");
   };
   return (
     <div className="flex w-full flex-col gap-4">

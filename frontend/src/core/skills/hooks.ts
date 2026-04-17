@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   enableSkill,
+  loadSkillFileContent,
+  loadSkillFiles,
   loadSkillGraph,
   loadSkillLifecycle,
   loadSkillLifecycleSummaries,
@@ -202,5 +204,35 @@ export function useSkillGraph({
     queryKey: ["skills", "graph", skillName ?? "__all__", isMock],
     queryFn: () => loadSkillGraph({ skillName, isMock }),
     enabled,
+  });
+}
+
+export function useSkillFiles({
+  skillName,
+  enabled = true,
+}: {
+  skillName?: string;
+  enabled?: boolean;
+}) {
+  return useQuery({
+    queryKey: ["skills", "files", skillName ?? "__missing__"],
+    queryFn: () => loadSkillFiles(skillName!),
+    enabled: enabled && Boolean(skillName),
+  });
+}
+
+export function useSkillFileContent({
+  skillName,
+  path,
+  enabled = true,
+}: {
+  skillName?: string;
+  path?: string | null;
+  enabled?: boolean;
+}) {
+  return useQuery({
+    queryKey: ["skills", "files", "content", skillName ?? "__missing__", path ?? "__missing__"],
+    queryFn: () => loadSkillFileContent(skillName!, path!),
+    enabled: enabled && Boolean(skillName) && Boolean(path),
   });
 }

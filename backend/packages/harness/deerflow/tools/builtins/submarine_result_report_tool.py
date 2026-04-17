@@ -84,8 +84,21 @@ def submarine_result_report_tool(
         confirmation_status=snapshot.confirmation_status,
         execution_preference=snapshot.execution_preference,
         task_type=snapshot.task_type,
+        input_source_type=snapshot.input_source_type,
         geometry_virtual_path=snapshot.geometry_virtual_path,
         geometry_family=snapshot.geometry_family,
+        official_case_id=snapshot.official_case_id,
+        official_case_seed_virtual_paths=snapshot.official_case_seed_virtual_paths,
+        assembled_case_virtual_paths=snapshot.assembled_case_virtual_paths,
+        official_case_profile=snapshot.official_case_profile,
+        official_case_validation_virtual_path=(
+            payload.get("official_case_validation_virtual_path")
+            or snapshot.official_case_validation_virtual_path
+        ),
+        official_case_validation_assessment=(
+            payload.get("official_case_validation_assessment")
+            or snapshot.official_case_validation_assessment
+        ),
         execution_readiness=snapshot.execution_readiness,
         selected_case_id=snapshot.selected_case_id,
         simulation_requirements=snapshot.simulation_requirements,

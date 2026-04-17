@@ -59,6 +59,7 @@ import {
 import { getBackendBaseURL } from "@/core/config";
 import { useI18n } from "@/core/i18n/hooks";
 import { useModels } from "@/core/models/hooks";
+import { useRuntimeConfig } from "@/core/runtime-config/hooks";
 import type { AgentThreadContext } from "@/core/threads";
 import { recoverThreadStreamingConflict } from "@/core/threads/recover";
 import { textOfMessage } from "@/core/threads/utils";
@@ -141,6 +142,7 @@ export function InputBox({
   const searchParams = useSearchParams();
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const { models } = useModels();
+  const { runtimeConfig } = useRuntimeConfig({ enabled: models.length > 0 });
   const { thread, isMock } = useThread();
   const { attachments, textInput } = usePromptInputController();
   const promptRootRef = useRef<HTMLDivElement | null>(null);
@@ -165,9 +167,16 @@ export function InputBox({
     if (models.length === 0) {
       return;
     }
+
     const currentModel = models.find((m) => m.name === context.model_name);
+    const canonicalRuntimeDefaultModelName =
+      runtimeConfig?.lead_agent.default_model;
+    const canonicalRuntimeDefaultModel = canonicalRuntimeDefaultModelName
+      ? models.find((m) => m.name === canonicalRuntimeDefaultModelName)
+      : undefined;
     const fallbackModel =
       currentModel ??
+      canonicalRuntimeDefaultModel ??
       models.find((m) => m.is_available !== false) ??
       models[0]!;
     const supportsThinking = fallbackModel.supports_thinking ?? false;
@@ -183,14 +192,20 @@ export function InputBox({
       model_name: nextModelName,
       mode: nextMode,
     });
-  }, [context, models, onContextChange]);
+  }, [context, models, onContextChange, runtimeConfig?.lead_agent.default_model]);
 
   const selectedModel = useMemo(() => {
     if (models.length === 0) {
       return undefined;
     }
-    return models.find((m) => m.name === context.model_name) ?? models[0];
-  }, [context.model_name, models]);
+    const currentModel = models.find((m) => m.name === context.model_name);
+    const canonicalRuntimeDefaultModelName =
+      runtimeConfig?.lead_agent.default_model;
+    const canonicalRuntimeDefaultModel = canonicalRuntimeDefaultModelName
+      ? models.find((m) => m.name === canonicalRuntimeDefaultModelName)
+      : undefined;
+    return currentModel ?? canonicalRuntimeDefaultModel ?? models[0];
+  }, [context.model_name, models, runtimeConfig?.lead_agent.default_model]);
 
   const supportThinking = useMemo(
     () => selectedModel?.supports_thinking ?? false,

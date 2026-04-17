@@ -2,7 +2,7 @@
 
 import {
   BotIcon,
-  MessageSquareIcon,
+  PanelsTopLeftIcon,
   SparklesIcon,
   WavesIcon,
 } from "lucide-react";
@@ -19,8 +19,8 @@ import { getWorkspaceSidebarChrome } from "./workspace-sidebar-shell";
 import {
   getWorkspaceSurfaceHref,
   isWorkspaceSurfaceActive,
+  PRIMARY_WORKSPACE_SURFACES,
   type WorkspaceSurface,
-  WORKSPACE_SURFACES,
 } from "./workspace-surface-config";
 
 const SURFACE_ICONS: Record<
@@ -29,8 +29,8 @@ const SURFACE_ICONS: Record<
 > = {
   submarine: WavesIcon,
   "skill-studio": SparklesIcon,
-  chats: MessageSquareIcon,
   agents: BotIcon,
+  "control-center": PanelsTopLeftIcon,
 };
 
 export function WorkspaceActivityBar({
@@ -74,7 +74,7 @@ export function WorkspaceActivityBar({
               : "min-w-0 flex-1 items-center gap-2",
           )}
         >
-          {WORKSPACE_SURFACES.map((surface) => {
+          {PRIMARY_WORKSPACE_SURFACES.map((surface) => {
             const Icon = SURFACE_ICONS[surface.id];
             const isActive = isWorkspaceSurfaceActive(surface, pathname);
             return (

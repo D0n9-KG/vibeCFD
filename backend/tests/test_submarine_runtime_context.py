@@ -1,10 +1,12 @@
 from pathlib import Path
 
 from deerflow.tools.builtins.submarine_runtime_context import (
+    detect_execution_preference_signal,
     infer_execution_preference,
     requires_user_confirmation,
     resolve_bound_geometry_virtual_path,
     resolve_execution_preference,
+    resolve_runtime_input_source,
     resolve_task_summary,
 )
 
@@ -13,6 +15,16 @@ def test_infer_execution_preference_treats_confirm_then_execute_as_preflight():
     assert infer_execution_preference("确认方案，开始执行。") == "preflight_then_execute"
     assert infer_execution_preference("确认后按当前方案继续执行") == "preflight_then_execute"
     assert infer_execution_preference("确认方案后先预检再执行") == "preflight_then_execute"
+
+
+def test_detect_execution_preference_signal_supports_real_chinese_execute_now_request():
+    assert (
+        detect_execution_preference_signal(
+            "继续推进，不需要再等我补充。请直接把这个 blockMeshDict 当作 OpenFOAM 官方 cavity seed 输入，"
+            "先生成结构化设计简报，再按默认设置组装并执行案例，最后输出最终结果报告。"
+        )
+        == "execute_now"
+    )
 
 
 def test_resolve_execution_preference_falls_back_to_confirm_then_execute_intent():
@@ -153,3 +165,184 @@ def test_resolve_bound_geometry_virtual_path_falls_back_to_latest_upload_when_bo
     )
 
     assert resolved == "/mnt/user-data/uploads/newer.stl"
+
+
+def test_resolve_runtime_input_source_requires_user_choice_when_stl_and_case_seed_coexist(
+    tmp_path,
+):
+    uploads_dir = tmp_path / "threads" / "thread-1" / "user-data" / "uploads"
+    (uploads_dir / "system").mkdir(parents=True, exist_ok=True)
+    (uploads_dir / "system" / "blockMeshDict").write_text(
+        "FoamFile{}",
+        encoding="utf-8",
+    )
+    (uploads_dir / "submarine.stl").write_text(
+        "solid demo\nendsolid demo\n",
+        encoding="utf-8",
+    )
+
+    resolved = resolve_runtime_input_source(
+        thread_id="thread-1",
+        uploads_dir=uploads_dir,
+        explicit_geometry_path=None,
+        existing_runtime=None,
+        existing_brief=None,
+        uploaded_files=[
+            {
+                "filename": "blockMeshDict",
+                "path": "/mnt/user-data/uploads/system/blockMeshDict",
+            },
+            {
+                "filename": "submarine.stl",
+                "path": "/mnt/user-data/uploads/submarine.stl",
+            },
+        ],
+        task_description="运行这个 OpenFOAM 官方案例，但附件里也有一个 STL。",
+    )
+
+    assert resolved["kind"] == "ambiguous"
+    assert "official OpenFOAM case reconstruction" in resolved["user_message"]
+
+
+def test_resolve_runtime_input_source_prefers_case_seed_when_chat_is_explicit(
+    tmp_path,
+):
+    uploads_dir = tmp_path / "threads" / "thread-1" / "user-data" / "uploads"
+    (uploads_dir / "system").mkdir(parents=True, exist_ok=True)
+    (uploads_dir / "system" / "blockMeshDict").write_text(
+        "FoamFile{}",
+        encoding="utf-8",
+    )
+    (uploads_dir / "submarine.stl").write_text(
+        "solid demo\nendsolid demo\n",
+        encoding="utf-8",
+    )
+
+    resolved = resolve_runtime_input_source(
+        thread_id="thread-1",
+        uploads_dir=uploads_dir,
+        explicit_geometry_path=None,
+        existing_runtime=None,
+        existing_brief=None,
+        uploaded_files=[
+            {
+                "filename": "blockMeshDict",
+                "path": "/mnt/user-data/uploads/system/blockMeshDict",
+            },
+            {
+                "filename": "submarine.stl",
+                "path": "/mnt/user-data/uploads/submarine.stl",
+            },
+        ],
+        task_description="请按官方 OpenFOAM cavity 案例来运行，不要走 STL 潜艇链路。",
+    )
+
+    assert resolved["kind"] == "openfoam_case_seed"
+    assert resolved["official_case_id"] == "cavity"
+
+
+def test_resolve_runtime_input_source_treats_normal_official_case_request_as_explicit_case_seed_intent(
+    tmp_path,
+):
+    uploads_dir = tmp_path / "threads" / "thread-1" / "user-data" / "uploads"
+    (uploads_dir / "system").mkdir(parents=True, exist_ok=True)
+    (uploads_dir / "system" / "blockMeshDict").write_text(
+        "FoamFile{}",
+        encoding="utf-8",
+    )
+    (uploads_dir / "submarine.stl").write_text(
+        "solid demo\nendsolid demo\n",
+        encoding="utf-8",
+    )
+
+    resolved = resolve_runtime_input_source(
+        thread_id="thread-1",
+        uploads_dir=uploads_dir,
+        explicit_geometry_path=None,
+        existing_runtime=None,
+        existing_brief=None,
+        uploaded_files=[
+            {
+                "filename": "blockMeshDict",
+                "path": "/mnt/user-data/uploads/system/blockMeshDict",
+            },
+            {
+                "filename": "submarine.stl",
+                "path": "/mnt/user-data/uploads/submarine.stl",
+            },
+        ],
+        task_description="Use the official OpenFOAM cavity case and run it with the tutorial defaults.",
+    )
+
+    assert resolved["kind"] == "openfoam_case_seed"
+    assert resolved["official_case_id"] == "cavity"
+
+
+def test_resolve_runtime_input_source_does_not_treat_pitzdaily_seed_path_as_geometry(
+    tmp_path,
+):
+    uploads_dir = tmp_path / "threads" / "thread-1" / "user-data" / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    (uploads_dir / "pitzDaily.blockMeshDict").write_text(
+        "FoamFile{}",
+        encoding="utf-8",
+    )
+
+    resolved = resolve_runtime_input_source(
+        thread_id="thread-1",
+        uploads_dir=uploads_dir,
+        explicit_geometry_path="/mnt/user-data/uploads/pitzDaily.blockMeshDict",
+        existing_runtime=None,
+        existing_brief=None,
+        uploaded_files=[
+            {
+                "filename": "pitzDaily.blockMeshDict",
+                "path": "/mnt/user-data/uploads/pitzDaily.blockMeshDict",
+            }
+        ],
+        task_description=(
+            "把这个文件当作普通用户上传的 OpenFOAM 算例输入处理，"
+            "直接识别案例、生成设计简报并立即组装执行，最后给出对比结论和中文报告。"
+        ),
+    )
+
+    assert resolved["kind"] == "openfoam_case_seed"
+    assert resolved["official_case_id"] == "pitzDaily"
+
+
+def test_resolve_runtime_input_source_prefers_structured_official_case_task_type_over_neutral_text(
+    tmp_path,
+):
+    uploads_dir = tmp_path / "threads" / "thread-1" / "user-data" / "uploads"
+    (uploads_dir / "system").mkdir(parents=True, exist_ok=True)
+    (uploads_dir / "system" / "blockMeshDict").write_text(
+        "FoamFile{}",
+        encoding="utf-8",
+    )
+    (uploads_dir / "submarine.stl").write_text(
+        "solid demo\nendsolid demo\n",
+        encoding="utf-8",
+    )
+
+    resolved = resolve_runtime_input_source(
+        thread_id="thread-1",
+        uploads_dir=uploads_dir,
+        explicit_geometry_path=None,
+        existing_runtime=None,
+        existing_brief=None,
+        uploaded_files=[
+            {
+                "filename": "blockMeshDict",
+                "path": "/mnt/user-data/uploads/system/blockMeshDict",
+            },
+            {
+                "filename": "submarine.stl",
+                "path": "/mnt/user-data/uploads/submarine.stl",
+            },
+        ],
+        task_description="Prepare the uploaded case and continue the validated CFD workflow.",
+        task_type="official_openfoam_case",
+    )
+
+    assert resolved["kind"] == "openfoam_case_seed"
+    assert resolved["official_case_id"] == "cavity"

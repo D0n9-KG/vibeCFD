@@ -89,6 +89,21 @@ class Paths:
         return self.base_dir / "USER.md"
 
     @property
+    def runtime_config_overrides_file(self) -> Path:
+        """Path to persisted runtime overrides: `{base_dir}/runtime-config.json`."""
+        return self.base_dir / "runtime-config.json"
+
+    @property
+    def runtime_models_file(self) -> Path:
+        """Path to persisted runtime model registry: `{base_dir}/runtime-models.json`."""
+        return self.base_dir / "runtime-models.json"
+
+    @property
+    def runtime_model_secrets_file(self) -> Path:
+        """Path to persisted runtime model secrets: `{base_dir}/runtime-model-secrets.json`."""
+        return self.base_dir / "runtime-model-secrets.json"
+
+    @property
     def agents_dir(self) -> Path:
         """Root directory for all custom agents: `{base_dir}/agents/`."""
         return self.base_dir / "agents"

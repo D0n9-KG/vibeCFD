@@ -44,6 +44,25 @@ def _dedupe_requested_output_ids(requested_outputs: Sequence[Mapping[str, Any] |
     return requested_output_ids
 
 
+def _normalize_file_sources(
+    file_sources: object | None,
+) -> dict[str, dict[str, Any]]:
+    if not isinstance(file_sources, Mapping):
+        return {}
+    normalized: dict[str, dict[str, Any]] = {}
+    for relative_path, source in file_sources.items():
+        if not isinstance(relative_path, str):
+            continue
+        dumped = _as_mapping(source)
+        normalized[relative_path] = {
+            "source_commit": dumped.get("source_commit"),
+            "source_path": dumped.get("source_path"),
+            "source_kind": dumped.get("source_kind"),
+            "imported_virtual_path": dumped.get("imported_virtual_path"),
+        }
+    return normalized
+
+
 def build_provenance_approval_snapshot(
     *,
     confirmation_status: str,
@@ -70,9 +89,14 @@ def build_run_provenance_manifest(
     experiment_id: str,
     run_id: str,
     task_type: str,
+    input_source_type: str = "geometry_seed",
     geometry_virtual_path: str,
     geometry_family: str | None,
+    official_case_id: str | None = None,
+    official_case_seed_virtual_paths: Sequence[str] | None = None,
+    assembled_case_virtual_paths: Sequence[str] | None = None,
     selected_case_id: str | None,
+    file_sources: Mapping[str, Any] | None = None,
     requested_outputs: Sequence[Mapping[str, Any] | dict] | None,
     simulation_requirements: Mapping[str, Any] | None,
     approval_snapshot: Mapping[str, Any] | None,
@@ -84,10 +108,15 @@ def build_run_provenance_manifest(
         experiment_id=experiment_id,
         run_id=run_id,
         task_type=task_type,
+        input_source_type=input_source_type,
         geometry_virtual_path=geometry_virtual_path,
         geometry_family=geometry_family,
+        official_case_id=official_case_id,
+        official_case_seed_virtual_paths=list(official_case_seed_virtual_paths or []),
+        assembled_case_virtual_paths=list(assembled_case_virtual_paths or []),
         selected_case_id=selected_case_id,
         requested_output_ids=_dedupe_requested_output_ids(requested_outputs),
+        file_sources=dict(file_sources or {}),
         simulation_requirements_snapshot=dict(simulation_requirements or {}),
         approval_snapshot=dict(approval_snapshot or {}),
         artifact_entrypoints=dict(artifact_entrypoints or {}),
@@ -101,9 +130,28 @@ def determine_provenance_manifest_completeness(
 ) -> SubmarineRunProvenanceManifestCompletenessStatus:
     manifest = _as_mapping(manifest_payload)
     has_required_fields = all(field in manifest for field in _REQUIRED_MANIFEST_FIELDS)
+    input_source_type = str(manifest.get("input_source_type") or "").strip()
+    has_effective_input_source = bool(
+        input_source_type
+        or not manifest.get("official_case_id")
+    )
+    file_sources = _normalize_file_sources(manifest.get("file_sources"))
+    has_official_case_requirements = True
+    if input_source_type == "openfoam_case_seed":
+        has_official_case_requirements = bool(
+            isinstance(manifest.get("official_case_id"), str)
+            and str(manifest.get("official_case_id")).strip()
+            and list(manifest.get("official_case_seed_virtual_paths") or [])
+            and file_sources
+        )
     artifact_entrypoints = _as_mapping(manifest.get("artifact_entrypoints"))
     has_primary_entrypoints = all(isinstance(artifact_entrypoints.get(key), str) and artifact_entrypoints.get(key) for key in ("request", "dispatch_summary_markdown", "dispatch_summary_html"))
-    if has_required_fields and has_primary_entrypoints:
+    if (
+        has_required_fields
+        and has_effective_input_source
+        and has_official_case_requirements
+        and has_primary_entrypoints
+    ):
         return "complete"
     return "partial"
 
@@ -119,7 +167,12 @@ def build_provenance_summary(
         "manifest_virtual_path": manifest_virtual_path,
         "run_id": manifest.get("run_id"),
         "experiment_id": manifest.get("experiment_id"),
+        "input_source_type": manifest.get("input_source_type") or "geometry_seed",
         "geometry_virtual_path": manifest.get("geometry_virtual_path"),
+        "official_case_id": manifest.get("official_case_id"),
+        "official_case_seed_virtual_paths": list(manifest.get("official_case_seed_virtual_paths") or []),
+        "assembled_case_virtual_paths": list(manifest.get("assembled_case_virtual_paths") or []),
+        "file_sources": _normalize_file_sources(manifest.get("file_sources")),
         "selected_case_id": manifest.get("selected_case_id"),
         "requested_output_ids": list(manifest.get("requested_output_ids") or []),
         "artifact_entrypoints": artifact_entrypoints,

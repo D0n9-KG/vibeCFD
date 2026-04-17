@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { getChatPageLayout } from "../../../../chats/chat-layout";
 
 const AGENTS_SURFACE_LABEL = "智能体";
+const AGENTS_MANAGEMENT_HREF = "/workspace/control-center?tab=agents";
 
 export default function AgentChatPage() {
   const { t } = useI18n();
@@ -343,7 +344,7 @@ export default function AgentChatPage() {
                           </Button>
                           <Button
                             variant="outline"
-                            onClick={() => router.push("/workspace/agents")}
+                            onClick={() => router.push(AGENTS_MANAGEMENT_HREF)}
                           >
                             {t.workspace.backToOverview}
                           </Button>

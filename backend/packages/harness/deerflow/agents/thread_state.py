@@ -19,8 +19,15 @@ class SubmarineRuntimeState(TypedDict):
     current_stage: NotRequired[str]
     task_summary: NotRequired[str]
     task_type: NotRequired[str]
+    input_source_type: NotRequired[str]
     geometry_virtual_path: NotRequired[str]
     geometry_family: NotRequired[str | None]
+    official_case_id: NotRequired[str | None]
+    official_case_seed_virtual_paths: NotRequired[list[str] | None]
+    assembled_case_virtual_paths: NotRequired[list[str] | None]
+    official_case_profile: NotRequired[dict[str, object] | None]
+    official_case_validation_virtual_path: NotRequired[str | None]
+    official_case_validation_assessment: NotRequired[dict[str, object] | None]
     execution_readiness: NotRequired[str | None]
     contract_revision: NotRequired[int]
     iteration_mode: NotRequired[str]
@@ -284,6 +291,11 @@ def merge_submarine_runtime(
                 merged.get(key) if isinstance(merged.get(key), list) else None,
                 value if isinstance(value, list) else None,
             )
+        elif key in {"official_case_seed_virtual_paths", "assembled_case_virtual_paths"}:
+            merged[key] = _merge_string_list(
+                merged.get(key) if isinstance(merged.get(key), list) else None,
+                value if isinstance(value, list) else None,
+            )
         elif key == "activity_timeline":
             merged[key] = _merge_unique_dict_list(
                 merged.get(key) if isinstance(merged.get(key), list) else None,
@@ -333,6 +345,18 @@ def merge_submarine_runtime(
                 continue
             merged[key] = value
         elif key == "variant_policy" and isinstance(value, dict):
+            prior_value = merged.get(key)
+            merged[key] = {
+                **(prior_value if isinstance(prior_value, dict) else {}),
+                **value,
+            }
+        elif key == "official_case_profile" and isinstance(value, dict):
+            prior_value = merged.get(key)
+            merged[key] = {
+                **(prior_value if isinstance(prior_value, dict) else {}),
+                **value,
+            }
+        elif key == "official_case_validation_assessment" and isinstance(value, dict):
             prior_value = merged.get(key)
             merged[key] = {
                 **(prior_value if isinstance(prior_value, dict) else {}),

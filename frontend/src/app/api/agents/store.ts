@@ -26,8 +26,7 @@ const BUILTIN_AGENTS: Agent[] = [
   },
 ];
 
-const STORE_DIR = path.join(process.cwd(), ".deerflow-ui");
-const STORE_PATH = path.join(STORE_DIR, "agents.json");
+const STORE_DIR_ENV = "DEERFLOW_UI_AGENT_STORE_DIR";
 
 function normalizeAgentName(name: string) {
   return name.trim().toLowerCase();
@@ -38,12 +37,24 @@ function validateAgentName(name: string) {
 }
 
 async function ensureStoreDir() {
-  await fs.mkdir(STORE_DIR, { recursive: true });
+  await fs.mkdir(resolveStoreDir(), { recursive: true });
+}
+
+function resolveStoreDir() {
+  const override = process.env[STORE_DIR_ENV]?.trim();
+  if (override && override.length > 0) {
+    return override;
+  }
+  return path.join(process.cwd(), ".deerflow-ui");
+}
+
+function resolveStorePath() {
+  return path.join(resolveStoreDir(), "agents.json");
 }
 
 async function readCustomAgents(): Promise<Agent[]> {
   try {
-    const content = await fs.readFile(STORE_PATH, "utf8");
+    const content = await fs.readFile(resolveStorePath(), "utf8");
     const parsed = JSON.parse(content) as Agent[];
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
@@ -56,7 +67,7 @@ async function readCustomAgents(): Promise<Agent[]> {
 
 async function writeCustomAgents(agents: Agent[]) {
   await ensureStoreDir();
-  await fs.writeFile(STORE_PATH, JSON.stringify(agents, null, 2), "utf8");
+  await fs.writeFile(resolveStorePath(), JSON.stringify(agents, null, 2), "utf8");
 }
 
 function sortAgents(agents: Agent[]) {
@@ -68,6 +79,10 @@ export async function listStoredAgents(): Promise<Agent[]> {
   return sortAgents([...BUILTIN_AGENTS, ...customAgents]);
 }
 
+export async function listLegacyCustomAgents(): Promise<Agent[]> {
+  return sortAgents(await readCustomAgents());
+}
+
 export async function getStoredAgent(name: string): Promise<Agent | null> {
   const normalizedName = normalizeAgentName(name);
   const agents = await listStoredAgents();
@@ -75,6 +90,20 @@ export async function getStoredAgent(name: string): Promise<Agent | null> {
     agents.find((agent) => normalizeAgentName(agent.name) === normalizedName) ??
     null
   );
+}
+
+export async function getLegacyCustomAgent(name: string): Promise<Agent | null> {
+  const normalizedName = normalizeAgentName(name);
+  const customAgents = await readCustomAgents();
+  return (
+    customAgents.find(
+      (agent) => normalizeAgentName(agent.name) === normalizedName,
+    ) ?? null
+  );
+}
+
+export async function hasLegacyCustomAgent(name: string) {
+  return (await getLegacyCustomAgent(name)) !== null;
 }
 
 export async function isAgentNameAvailable(name: string) {
@@ -150,6 +179,13 @@ export async function updateStoredAgent(
   return updated;
 }
 
+export async function updateLegacyCustomAgent(
+  name: string,
+  request: UpdateAgentRequest,
+): Promise<Agent> {
+  return updateStoredAgent(name, request);
+}
+
 export async function deleteStoredAgent(name: string) {
   const normalizedName = normalizeAgentName(name);
   if (BUILTIN_AGENTS.some((agent) => agent.name === normalizedName)) {
@@ -165,4 +201,8 @@ export async function deleteStoredAgent(name: string) {
   }
 
   await writeCustomAgents(sortAgents(nextAgents));
+}
+
+export async function deleteLegacyCustomAgent(name: string) {
+  await deleteStoredAgent(name);
 }

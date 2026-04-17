@@ -190,6 +190,30 @@ export interface SkillGraphResponse {
   focus?: SkillGraphFocus | null;
 }
 
+export interface SkillFileNode {
+  name: string;
+  path: string;
+  node_type: "file" | "directory";
+  size?: number | null;
+  media_type?: string | null;
+  children?: SkillFileNode[];
+}
+
+export interface SkillFileTreeResponse {
+  skill_name: string;
+  root_path: string;
+  entries: SkillFileNode[];
+}
+
+export interface SkillFileContentResponse {
+  skill_name: string;
+  path: string;
+  media_type?: string | null;
+  preview_type: "text" | "binary";
+  content?: string | null;
+  truncated: boolean;
+}
+
 export async function installSkill(
   request: InstallSkillRequest,
 ): Promise<InstallSkillResponse> {
@@ -357,6 +381,41 @@ export async function rollbackSkillRevision(
       },
       body: JSON.stringify(request),
     },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage =
+      errorData.detail ?? `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+export async function loadSkillFiles(
+  skillName: string,
+): Promise<SkillFileTreeResponse> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/skills/${skillName}/files`,
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage =
+      errorData.detail ?? `HTTP ${response.status}: ${response.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+export async function loadSkillFileContent(
+  skillName: string,
+  path: string,
+): Promise<SkillFileContentResponse> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/skills/${skillName}/files/content?path=${encodeURIComponent(path)}`,
   );
 
   if (!response.ok) {

@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from langchain_core.messages import HumanMessage
+
 from deerflow.config.paths import Paths
 
 tool_module = importlib.import_module("deerflow.tools.builtins.submarine_design_brief_tool")
@@ -712,3 +714,252 @@ def test_submarine_design_brief_merges_inferred_added_outputs_when_tool_args_omi
     assert delivery_by_id["streamlines"]["delivery_status"] == "not_yet_supported"
     assert runtime_state["requested_outputs"] == requested_outputs
     assert runtime_state["output_delivery_plan"] == payload["output_delivery_plan"]
+
+
+def test_submarine_design_brief_detects_official_case_seed_without_geometry(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-official-case-brief"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    seed_path = uploads_dir / "cavity" / "system" / "blockMeshDict"
+    seed_path.parent.mkdir(parents=True, exist_ok=True)
+    seed_path.write_text("FoamFile{}", encoding="utf-8")
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path=None,
+        task_description="Use the official OpenFOAM cavity defaults and prepare the run brief.",
+        task_type="official_openfoam_case",
+        confirmation_status="confirmed",
+        tool_call_id="tc-design-brief-official-case",
+    )
+
+    json_path = outputs_dir / "submarine" / "design-brief" / "cavity" / "cfd-design-brief.json"
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    runtime_state = result.update["submarine_runtime"]
+
+    assert payload["input_source_type"] == "openfoam_case_seed"
+    assert payload["official_case_id"] == "cavity"
+    assert payload["official_case_seed_virtual_paths"] == [
+        "/mnt/user-data/uploads/cavity/system/blockMeshDict"
+    ]
+    assert payload["geometry_virtual_path"] in {None, ""}
+    assert runtime_state["input_source_type"] == "openfoam_case_seed"
+    assert runtime_state["official_case_id"] == "cavity"
+
+
+def test_submarine_design_brief_pins_official_case_defaults_when_model_supplies_generic_task_type(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-official-pitzdaily-defaults"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    seed_path = uploads_dir / "pitzDaily.blockMeshDict"
+    seed_path.write_text("FoamFile{}", encoding="utf-8")
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/pitzDaily.blockMeshDict",
+        task_description="Use the uploaded OpenFOAM pitzDaily seed with default settings and continue the run.",
+        task_type="pressure_distribution",
+        confirmation_status="confirmed",
+        end_time_seconds=200.0,
+        tool_call_id="tc-design-brief-pitzdaily-defaults",
+    )
+
+    json_path = (
+        outputs_dir
+        / "submarine"
+        / "design-brief"
+        / "pitzdaily"
+        / "cfd-design-brief.json"
+    )
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    runtime_state = result.update["submarine_runtime"]
+    requirements = payload["simulation_requirements"]
+
+    assert payload["input_source_type"] == "openfoam_case_seed"
+    assert payload["official_case_id"] == "pitzDaily"
+    assert payload["task_type"] == "official_openfoam_case"
+    assert requirements["inlet_velocity_mps"] == 10.0
+    assert requirements["end_time_seconds"] == 2000.0
+    assert requirements["delta_t_seconds"] == 1.0
+    assert requirements["write_interval_steps"] == 100
+    assert runtime_state["task_type"] == "official_openfoam_case"
+    assert runtime_state["official_case_seed_virtual_paths"] == [
+        "/mnt/user-data/uploads/pitzDaily.blockMeshDict"
+    ]
+    assert runtime_state["geometry_virtual_path"] == ""
+    assert runtime_state["next_recommended_stage"] == "solver-dispatch"
+
+
+def test_submarine_design_brief_recovers_execute_now_from_latest_user_message(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-official-cavity-execute-now"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    seed_path = uploads_dir / "blockMeshDict"
+    seed_path.write_text("FoamFile{}", encoding="utf-8")
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["messages"] = [
+        HumanMessage(
+            content=(
+                "继续推进，不需要再等我补充。请直接把我上传的 OpenFOAM case seed 当作输入，"
+                "先生成结构化设计简报，再按默认设置组装并执行案例，最后输出关键结果摘要和最终报告，不要停下来再向我确认。"
+            )
+        )
+    ]
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=runtime,
+        geometry_path="/mnt/user-data/uploads/blockMeshDict",
+        task_description="对当前 OpenFOAM cavity seed 执行链路做真实验证并保留可追踪证据链。",
+        task_type="official_openfoam_case",
+        confirmation_status="confirmed",
+        tool_call_id="tc-design-brief-cavity-execute-now",
+    )
+
+    json_path = (
+        outputs_dir
+        / "submarine"
+        / "design-brief"
+        / "cavity"
+        / "cfd-design-brief.json"
+    )
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    runtime_state = result.update["submarine_runtime"]
+
+    assert payload["execution_preference"] == "execute_now"
+    assert runtime_state["execution_preference"] == "execute_now"
+    assert payload["task_type"] == "official_openfoam_case"
+
+
+def test_submarine_design_brief_accepts_explicit_pitzdaily_seed_path_without_geometry(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-official-pitzdaily-brief"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    seed_path = uploads_dir / "pitzDaily.blockMeshDict"
+    seed_path.write_text("FoamFile{}", encoding="utf-8")
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=_make_runtime(paths, thread_id),
+        geometry_path="/mnt/user-data/uploads/pitzDaily.blockMeshDict",
+        task_description="Treat the uploaded pitzDaily seed as a normal user input and prepare the run brief.",
+        task_type="official_openfoam_case",
+        confirmation_status="confirmed",
+        tool_call_id="tc-design-brief-official-pitzdaily",
+    )
+
+    json_path = (
+        outputs_dir
+        / "submarine"
+        / "design-brief"
+        / "pitzdaily"
+        / "cfd-design-brief.json"
+    )
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    runtime_state = result.update["submarine_runtime"]
+
+    assert payload["input_source_type"] == "openfoam_case_seed"
+    assert payload["official_case_id"] == "pitzDaily"
+    assert payload["official_case_seed_virtual_paths"] == [
+        "/mnt/user-data/uploads/pitzDaily.blockMeshDict"
+    ]
+    assert payload["geometry_virtual_path"] in {None, ""}
+    assert runtime_state["input_source_type"] == "openfoam_case_seed"
+    assert runtime_state["official_case_id"] == "pitzDaily"
+    assert runtime_state["geometry_virtual_path"] == ""
+
+
+def test_submarine_design_brief_prefers_structured_official_task_type_when_seed_and_stl_coexist(
+    tmp_path,
+    monkeypatch,
+):
+    paths = Paths(tmp_path)
+    thread_id = "thread-official-case-over-stl"
+    uploads_dir = paths.sandbox_uploads_dir(thread_id)
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    (uploads_dir / "system").mkdir(parents=True, exist_ok=True)
+    (uploads_dir / "system" / "blockMeshDict").write_text(
+        "FoamFile{}",
+        encoding="utf-8",
+    )
+    geometry_path = uploads_dir / "coexisting-geometry.stl"
+    _write_ascii_stl(geometry_path)
+
+    monkeypatch.setattr(tool_module, "get_paths", lambda: paths)
+
+    runtime = _make_runtime(paths, thread_id)
+    runtime.state["uploaded_files"] = [
+        {
+            "filename": "blockMeshDict",
+            "path": "/mnt/user-data/uploads/system/blockMeshDict",
+        },
+        {
+            "filename": "coexisting-geometry.stl",
+            "path": "/mnt/user-data/uploads/coexisting-geometry.stl",
+        },
+    ]
+
+    result = tool_module.submarine_design_brief_tool.func(
+        runtime=runtime,
+        geometry_path=None,
+        task_description="Prepare the uploaded case and continue the validated CFD workflow.",
+        task_type="official_openfoam_case",
+        confirmation_status="confirmed",
+        tool_call_id="tc-design-brief-official-over-stl",
+    )
+
+    json_path = (
+        outputs_dir
+        / "submarine"
+        / "design-brief"
+        / "cavity"
+        / "cfd-design-brief.json"
+    )
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    runtime_state = result.update["submarine_runtime"]
+
+    assert payload["input_source_type"] == "openfoam_case_seed"
+    assert payload["official_case_id"] == "cavity"
+    assert payload["geometry_virtual_path"] in {None, ""}
+    assert runtime_state["input_source_type"] == "openfoam_case_seed"
+    assert runtime_state["official_case_id"] == "cavity"
+    assert runtime_state["geometry_virtual_path"] == ""
+    assert runtime_state["next_recommended_stage"] == "solver-dispatch"

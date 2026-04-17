@@ -189,5 +189,6 @@ function nameOfSegment(
   if (!segment) return t.common.home;
   if (segment === "workspace") return t.breadcrumb.workspace;
   if (segment === "chats") return t.breadcrumb.chats;
+  if (segment === "control-center") return "管理中心";
   return segment[0]?.toUpperCase() + segment.slice(1);
 }

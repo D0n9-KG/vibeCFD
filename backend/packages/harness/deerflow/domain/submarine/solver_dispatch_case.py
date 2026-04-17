@@ -48,14 +48,25 @@ def platform_fs_path(path: Path) -> Path:
 
 
 def _resolve_solver_application(selected_case: SubmarineCaseMatch | None) -> str:
-    recommended = (selected_case.recommended_solver if selected_case else None) or "OpenFOAM simpleFoam"
+    recommended = (selected_case.recommended_solver if selected_case else None) or "OpenFOAM foamRun / incompressibleFluid"
+    normalized = recommended.lower()
+    if "foamrun" in normalized or "incompressiblefluid" in normalized or "simplefoam" in normalized:
+        return "foamRun"
     tokens = [token.strip() for token in recommended.replace("/", " ").split() if token.strip()]
     if not tokens:
-        return "simpleFoam"
+        return "foamRun"
     for token in reversed(tokens):
         if token.endswith("Foam"):
             return token
     return tokens[-1]
+
+
+def _resolve_solver_module(selected_case: SubmarineCaseMatch | None) -> str | None:
+    recommended = (selected_case.recommended_solver if selected_case else None) or "OpenFOAM foamRun / incompressibleFluid"
+    normalized = recommended.lower()
+    if "simplefoam" in normalized or "foamrun" in normalized or "incompressiblefluid" in normalized:
+        return "incompressibleFluid"
+    return None
 
 
 def _reference_length_m(
@@ -222,6 +233,7 @@ def resolve_simulation_requirements(
 def _control_dict(
     application: str,
     *,
+    solver_module: str | None = None,
     reference_length_m: float,
     reference_area_m2: float,
     inlet_velocity_mps: float = DEFAULT_INLET_VELOCITY_MPS,
@@ -244,6 +256,7 @@ def _control_dict(
 }}
 
 application     {application};
+{f"solver          {solver_module};" if solver_module else ""}
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
@@ -425,6 +438,23 @@ errorReduction 0.75;
 """
 
 
+def _physical_properties(
+    *,
+    kinematic_viscosity_m2ps: float = DEFAULT_KINEMATIC_VISCOSITY_M2PS,
+) -> str:
+    return f"""FoamFile
+{{
+    version 2.0;
+    format ascii;
+    class dictionary;
+    object physicalProperties;
+}}
+
+viscosityModel  constant;
+nu              {kinematic_viscosity_m2ps} [m^2/s];
+"""
+
+
 def _transport_properties(
     *,
     fluid_density_kg_m3: float = DEFAULT_FLUID_DENSITY_KG_M3,
@@ -441,6 +471,26 @@ def _transport_properties(
 transportModel  Newtonian;
 nu              [0 2 -1 0 0 0 0] {kinematic_viscosity_m2ps};
 rho             [1 -3 0 0 0 0 0] {fluid_density_kg_m3};
+"""
+
+
+def _momentum_transport() -> str:
+    return """FoamFile
+{
+    version 2.0;
+    format ascii;
+    class dictionary;
+    object momentumTransport;
+}
+
+simulationType  RAS;
+
+RAS
+{
+    model           kOmegaSST;
+    turbulence      on;
+    printCoeffs     on;
+}
 """
 
 
@@ -815,7 +865,13 @@ mergeTolerance 1e-6;
 """
 
 
-def _allrun_script(application: str, geometry_file_name: str, requires_conversion: bool) -> str:
+def _allrun_script(
+    application: str,
+    geometry_file_name: str,
+    requires_conversion: bool,
+    *,
+    solver_module: str | None = None,
+) -> str:
     if requires_conversion:
         return f"""#!/bin/sh
 set -eu
@@ -834,8 +890,8 @@ echo "[submarine-cfd] Running snappyHexMesh"
 snappyHexMesh
 echo "[submarine-cfd] Checking mesh"
 checkMesh
-echo "[submarine-cfd] Solving with {application}"
-    {application}
+echo "[submarine-cfd] Solving with {application}{f' (solver {solver_module})' if solver_module else ''}"
+    {application}{f' -solver {solver_module}' if solver_module else ''}
 """
 
 
@@ -865,6 +921,7 @@ def write_openfoam_case_scaffold(
     (case_dir_fs / "system").mkdir(parents=True, exist_ok=True)
 
     application = _resolve_solver_application(selected_case)
+    solver_module = _resolve_solver_module(selected_case)
     characteristic_length = geometry.estimated_length_m or 10.0
     base_domain_length = max(characteristic_length * 2.0, 8.0)
     domain_length = max(base_domain_length * domain_extent_multiplier, 1.0)
@@ -882,6 +939,13 @@ def write_openfoam_case_scaffold(
     write_unix_text(case_dir / "0" / "omega", _initial_omega())
     write_unix_text(case_dir / "0" / "nut", _initial_nut())
     write_unix_text(
+        case_dir / "constant" / "physicalProperties",
+        _physical_properties(
+            kinematic_viscosity_m2ps=float(simulation_requirements["kinematic_viscosity_m2ps"]),
+        ),
+    )
+    write_unix_text(case_dir / "constant" / "momentumTransport", _momentum_transport())
+    write_unix_text(
         case_dir / "constant" / "transportProperties",
         _transport_properties(
             fluid_density_kg_m3=float(simulation_requirements["fluid_density_kg_m3"]),
@@ -893,6 +957,7 @@ def write_openfoam_case_scaffold(
         case_dir / "system" / "controlDict",
         _control_dict(
             application,
+            solver_module=solver_module,
             reference_length_m=reference_length_m,
             reference_area_m2=reference_area_m2,
             inlet_velocity_mps=float(simulation_requirements["inlet_velocity_mps"]),
@@ -939,7 +1004,15 @@ def write_openfoam_case_scaffold(
         )
 
     allrun_path = case_dir_fs / "Allrun"
-    write_unix_text(allrun_path, _allrun_script(application, geometry_path.name, requires_conversion))
+    write_unix_text(
+        allrun_path,
+        _allrun_script(
+            application,
+            geometry_path.name,
+            requires_conversion,
+            solver_module=solver_module,
+        ),
+    )
     allrun_path.chmod(0o755)
 
     return {
@@ -955,6 +1028,7 @@ def write_openfoam_case_scaffold(
         "requires_geometry_conversion": requires_conversion,
         "execution_readiness": execution_readiness,
         "solver_application": application,
+        "solver_module": solver_module,
         "reference_length_m": reference_length_m,
         "reference_area_m2": reference_area_m2,
         "reference_value_approval_state": (str(reference_inputs.get("approval_state")) if reference_inputs and reference_inputs.get("approval_state") is not None else None),

@@ -2,8 +2,9 @@
 
 import {
   KeyboardIcon,
-  MessageSquarePlusIcon,
+  PanelsTopLeftIcon,
   SettingsIcon,
+  WavesIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
@@ -29,6 +30,9 @@ import { useGlobalShortcuts } from "@/hooks/use-global-shortcuts";
 
 import { SettingsDialog } from "./settings";
 
+const START_SIMULATION_LABEL = "新建仿真任务";
+const OPEN_THREADS_LABEL = "打开线程与历史";
+
 export function CommandPalette() {
   const { t } = useI18n();
   const router = useRouter();
@@ -36,8 +40,8 @@ export function CommandPalette() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const handleNewChat = useCallback(() => {
-    router.push("/workspace/chats/new");
+  const handleStartSimulation = useCallback(() => {
+    router.push("/workspace/submarine/new");
     setOpen(false);
   }, [router]);
 
@@ -45,6 +49,11 @@ export function CommandPalette() {
     setOpen(false);
     setSettingsOpen(true);
   }, []);
+
+  const handleOpenThreadManagement = useCallback(() => {
+    router.push("/workspace/control-center?tab=threads");
+    setOpen(false);
+  }, [router]);
 
   const handleShowShortcuts = useCallback(() => {
     setOpen(false);
@@ -54,15 +63,14 @@ export function CommandPalette() {
   const shortcuts = useMemo(
     () => [
       { key: "k", meta: true, action: () => setOpen((o) => !o) },
-      { key: "n", meta: true, shift: true, action: handleNewChat },
+      { key: "n", meta: true, shift: true, action: handleStartSimulation },
       { key: ",", meta: true, action: handleOpenSettings },
       { key: "/", meta: true, action: handleShowShortcuts },
     ],
-    [handleNewChat, handleOpenSettings, handleShowShortcuts],
+    [handleStartSimulation, handleOpenSettings, handleShowShortcuts],
   );
 
   useGlobalShortcuts(shortcuts);
-
 
   const isMac =
     typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
@@ -77,10 +85,14 @@ export function CommandPalette() {
         <CommandList>
           <CommandEmpty>{t.shortcuts.noResults}</CommandEmpty>
           <CommandGroup heading={t.shortcuts.actions}>
-            <CommandItem onSelect={handleNewChat}>
-              <MessageSquarePlusIcon className="mr-2 h-4 w-4" />
-              {t.sidebar.newChat}
+            <CommandItem onSelect={handleStartSimulation}>
+              <WavesIcon className="mr-2 h-4 w-4" />
+              {START_SIMULATION_LABEL}
               <CommandShortcut>{metaKey}{shiftKey}N</CommandShortcut>
+            </CommandItem>
+            <CommandItem onSelect={handleOpenThreadManagement}>
+              <PanelsTopLeftIcon className="mr-2 h-4 w-4" />
+              {OPEN_THREADS_LABEL}
             </CommandItem>
             <CommandItem onSelect={handleOpenSettings}>
               <SettingsIcon className="mr-2 h-4 w-4" />
@@ -107,7 +119,7 @@ export function CommandPalette() {
           <div className="space-y-3 text-sm">
             {[
               { keys: `${metaKey}K`, label: t.shortcuts.openCommandPalette },
-              { keys: `${metaKey}${shiftKey}N`, label: t.sidebar.newChat },
+              { keys: `${metaKey}${shiftKey}N`, label: START_SIMULATION_LABEL },
               { keys: `${metaKey}B`, label: t.shortcuts.toggleSidebar },
               { keys: `${metaKey},`, label: t.common.settings },
               {

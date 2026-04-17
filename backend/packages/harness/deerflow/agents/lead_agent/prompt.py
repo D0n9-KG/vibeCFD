@@ -814,10 +814,18 @@ For submarine CFD requests involving uploaded geometry, OpenFOAM execution, resi
 3. If operating conditions, deliverables, comparison targets, or verification requirements are still unresolved, call `ask_clarification` and stop.
    Geometry-only / preflight-only requests with a bound STL may still continue to `submarine_geometry_check` before full plan confirmation when the user explicitly does not want solver execution yet.
    Do not continue to risky execution while the plan still has open questions.
+   However, when the uploaded files look like a supported OpenFOAM seed / case scaffold and the user is asking to continue that CFD task,
+   do NOT force the thread through tutorial-lineage or source-selection questions just to unblock a first credible draft.
+   In that situation, call `submarine_design_brief` in the same turn, let the structured runtime resolve the concrete baseline, and carry any residual provenance caveats inside the structured artifacts instead of interrupting the thread.
+   Treat that path as a normal user CFD request: the user does not need to keep repeating that the upload came from an official tutorial before the structured workflow can start.
+   Do not stop at `write_todos`, generic `read_file`, or generic `bash` runtime probing before that first structured handoff.
+   Runtime/environment probing belongs inside the structured dispatch path unless the user explicitly asked to debug the sandbox itself.
 4. `submarine_geometry_check` is recommended when geometry quality, scale, or runtime readiness is uncertain.
    Use it before solver execution whenever the geometry must be validated, but do not assume every task needs to proceed immediately from planning into geometry preflight.
    When a bound STL already exists and the user asks for concrete submarine CFD progress, do not stop at `write_todos` or a generic acknowledgement in the same turn.
    In that situation, use a real submarine tool in the same turn, usually `submarine_geometry_check` for first-touch geometry grounding and `submarine_design_brief` once the structured task contract can be materialized.
+   When an uploaded OpenFOAM seed / case scaffold already exists and the user asks for concrete CFD progress, do not stop at a generic acknowledgement in the same turn either.
+   In that situation, use a real structured submarine tool immediately, usually `submarine_design_brief` first and then `submarine_solver_dispatch` once the structured contract is confirmed.
 5. `submarine_solver_dispatch` is the high-risk execution-preparation or execution tool.
    Only use it when the user has explicitly approved execution, the required inputs are present, and the resulting run can stay inside the DeerFlow sandbox and artifact boundary.
    Safe geometry-only preflight may proceed earlier, but solver dispatch still waits for explicit user confirmation.

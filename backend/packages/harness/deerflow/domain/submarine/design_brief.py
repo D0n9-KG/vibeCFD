@@ -99,20 +99,46 @@ def _maybe_resolve_simulation_requirements(
 def _compose_summary(
     *,
     task_description: str,
+    input_source_type: str,
     geometry_virtual_path: str | None,
+    official_case_id: str | None,
     geometry_family_hint: str | None,
     confirmation_status: str,
     selected_case_id: str | None,
     expected_outputs: list[str],
     open_questions: list[str],
 ) -> str:
-    geometry_text = f"几何文件 `{geometry_virtual_path}`" if geometry_virtual_path else "当前尚未绑定具体几何文件"
+    if input_source_type == "openfoam_case_seed":
+        geometry_text = (
+            f"官方 OpenFOAM case `{official_case_id}`"
+            if official_case_id
+            else "当前已检测到官方 OpenFOAM case seed"
+        )
+    else:
+        geometry_text = (
+            f"几何文件 `{geometry_virtual_path}`"
+            if geometry_virtual_path
+            else "当前尚未绑定具体几何文件"
+        )
     family_text = f"，潜艇家族线索为 `{geometry_family_hint}`" if geometry_family_hint else ""
     case_text = f"，建议基线案例为 `{selected_case_id}`" if selected_case_id else ""
     outputs_text = f"目标交付物包含 {len(expected_outputs)} 项" if expected_outputs else "交付物仍待进一步细化"
     confirmation_text = "方案已基本确认，可进入几何预检" if confirmation_status == "confirmed" else "方案仍在澄清中"
     open_questions_text = f"，还有 {len(open_questions)} 项待确认" if open_questions else ""
     return f"已整理 CFD 设计简报：{task_description}。{geometry_text}{family_text}{case_text}。{outputs_text}，{confirmation_text}{open_questions_text}。"
+
+
+def _resolve_run_basis(
+    *,
+    geometry_virtual_path: str | None,
+    official_case_id: str | None,
+    task_description: str,
+) -> str:
+    if geometry_virtual_path:
+        return geometry_virtual_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    if official_case_id:
+        return official_case_id
+    return task_description
 
 
 def _infer_iteration_mode(
@@ -157,7 +183,9 @@ def _render_markdown(payload: dict) -> str:
         f"- 任务目标：`{payload['task_description']}`",
         f"- 任务类型：`{payload['task_type']}`",
         f"- 确认状态：`{payload['confirmation_status']}`",
+        f"- 输入来源：`{payload.get('input_source_type') or 'geometry_seed'}`",
         f"- 几何路径：`{payload.get('geometry_virtual_path') or '待上传 / 待绑定'}`",
+        f"- 官方案例：`{payload.get('official_case_id') or '未提供'}`",
         f"- 几何家族线索：`{payload.get('geometry_family_hint') or '待确认'}`",
         f"- 选定案例：`{payload.get('selected_case_id') or '待确认'}`",
     ]
@@ -283,7 +311,9 @@ def _render_html(payload: dict) -> str:
         <p><strong>任务目标:</strong> {escape(payload["task_description"])}</p>
         <p><strong>任务类型:</strong> {escape(payload["task_type"])}</p>
         <p><strong>确认状态:</strong> {escape(payload["confirmation_status"])}</p>
+        <p><strong>输入来源:</strong> {escape(str(payload.get("input_source_type") or "geometry_seed"))}</p>
         <p><strong>几何路径:</strong> {escape(str(payload.get("geometry_virtual_path") or "待上传 / 待绑定"))}</p>
+        <p><strong>官方案例:</strong> {escape(str(payload.get("official_case_id") or "未提供"))}</p>
         <p><strong>几何家族线索:</strong> {escape(str(payload.get("geometry_family_hint") or "待确认"))}</p>
         <p><strong>选定案例:</strong> {escape(str(payload.get("selected_case_id") or "待确认"))}</p>
       </section>
@@ -332,7 +362,9 @@ def _render_markdown_v2(payload: dict) -> str:
         f"- task_description: `{payload['task_description']}`",
         f"- task_type: `{payload['task_type']}`",
         f"- confirmation_status: `{payload['confirmation_status']}`",
+        f"- input_source_type: `{payload.get('input_source_type') or 'geometry_seed'}`",
         f"- geometry_virtual_path: `{payload.get('geometry_virtual_path') or '待上传 / 待绑定'}`",
+        f"- official_case_id: `{payload.get('official_case_id') or '未提供'}`",
         f"- geometry_family_hint: `{payload.get('geometry_family_hint') or '待确认'}`",
         f"- selected_case_id: `{payload.get('selected_case_id') or '待确认'}`",
     ]
@@ -461,7 +493,9 @@ def _render_html_v2(payload: dict) -> str:
         <p><strong>task_description:</strong> {escape(payload["task_description"])}</p>
         <p><strong>task_type:</strong> {escape(payload["task_type"])}</p>
         <p><strong>confirmation_status:</strong> {escape(payload["confirmation_status"])}</p>
+        <p><strong>input_source_type:</strong> {escape(str(payload.get("input_source_type") or "geometry_seed"))}</p>
         <p><strong>geometry_virtual_path:</strong> {escape(str(payload.get("geometry_virtual_path") or "待上传 / 待绑定"))}</p>
+        <p><strong>official_case_id:</strong> {escape(str(payload.get("official_case_id") or "未提供"))}</p>
         <p><strong>geometry_family_hint:</strong> {escape(str(payload.get("geometry_family_hint") or "待确认"))}</p>
         <p><strong>selected_case_id:</strong> {escape(str(payload.get("selected_case_id") or "待确认"))}</p>
       </section>
@@ -503,7 +537,11 @@ def run_design_brief(
     task_type: str,
     confirmation_status: str,
     execution_preference: str,
+    input_source_type: str = "geometry_seed",
     geometry_virtual_path: str | None,
+    official_case_id: str | None = None,
+    official_case_seed_virtual_paths: list[str] | None = None,
+    official_case_profile: dict[str, object] | None = None,
     geometry_family_hint: str | None,
     selected_case_id: str | None,
     inlet_velocity_mps: float | None,
@@ -541,7 +579,11 @@ def run_design_brief(
         write_interval_steps=write_interval_steps,
     )
 
-    run_basis = geometry_virtual_path.rsplit("/", 1)[-1].rsplit(".", 1)[0] if geometry_virtual_path else task_description
+    run_basis = _resolve_run_basis(
+        geometry_virtual_path=geometry_virtual_path,
+        official_case_id=official_case_id,
+        task_description=task_description,
+    )
     run_dir_name = _build_run_dir_name(outputs_dir=outputs_dir, run_basis=run_basis)
     report_title = "潜艇 CFD 设计简报"
     report_virtual_path = _artifact_virtual_path(run_dir_name, "cfd-design-brief.md")
@@ -612,7 +654,9 @@ def run_design_brief(
     )
     summary_zh = _compose_summary(
         task_description=task_description,
+        input_source_type=input_source_type,
         geometry_virtual_path=geometry_virtual_path,
+        official_case_id=official_case_id,
         geometry_family_hint=geometry_family_hint,
         confirmation_status=confirmation_status,
         selected_case_id=selected_case_id,
@@ -631,7 +675,11 @@ def run_design_brief(
         "contract_revision": contract_revision,
         "iteration_mode": iteration_mode,
         "revision_summary": revision_summary,
+        "input_source_type": input_source_type,
         "geometry_virtual_path": geometry_virtual_path,
+        "official_case_id": official_case_id,
+        "official_case_seed_virtual_paths": list(official_case_seed_virtual_paths or []),
+        "official_case_profile": official_case_profile,
         "geometry_family_hint": geometry_family_hint,
         "selected_case_id": selected_case_id,
         "simulation_requirements": simulation_requirements,

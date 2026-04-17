@@ -448,6 +448,223 @@ def test_submarine_domain_builds_research_evidence_summary_semantics():
     assert validated_with_gaps["provenance_status"] == "partial"
     assert validated_with_gaps["readiness_status"] == "validated_with_gaps"
 
+    seed_only_delivery = evidence_module.build_research_evidence_summary(
+        acceptance_profile=None,
+        acceptance_assessment={
+            "status": "ready_for_review",
+            "confidence": "medium",
+            "benchmark_comparisons": [],
+            "blocking_issues": [],
+        },
+        scientific_verification_assessment=None,
+        scientific_study_summary={
+            "study_execution_status": "completed",
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json",
+            "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/solver-dispatch/demo/study-manifest.json"],
+            "workflow_status": "completed",
+        },
+        provenance_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/provenance-manifest.json",
+            "manifest_completeness_status": "complete",
+            "parity_status": "matched",
+        },
+        experiment_summary={
+            "experiment_status": "completed",
+            "workflow_status": "completed",
+            "linkage_status": "consistent",
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/experiment-manifest.json",
+            "compare_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/demo/run-compare-summary.json",
+            "run_count": 1,
+        },
+        output_delivery_plan=[
+            {
+                "output_id": "design_brief",
+                "delivery_status": "delivered",
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/design-brief/demo/cfd-design-brief.md"],
+            },
+            {
+                "output_id": "assembled_openfoam_case",
+                "delivery_status": "delivered",
+                "artifact_virtual_paths": ["/mnt/user-data/workspace/official-openfoam/demo/openfoam-case/Allrun"],
+            },
+            {
+                "output_id": "chinese_report",
+                "delivery_status": "delivered",
+                "artifact_virtual_paths": ["/mnt/user-data/outputs/submarine/reports/demo/final-report.md"],
+            },
+        ],
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/reports/demo/final-report.json",
+            "/mnt/user-data/outputs/submarine/reports/demo/delivery-readiness.json",
+        ],
+    )
+    assert seed_only_delivery["verification_status"] == "passed"
+    assert seed_only_delivery["readiness_status"] == "verified_but_not_validated"
+
+    official_case_validated = evidence_module.build_research_evidence_summary(
+        acceptance_profile=None,
+        acceptance_assessment={
+            "status": "ready_for_review",
+            "confidence": "medium",
+            "benchmark_comparisons": [],
+            "blocking_issues": [],
+        },
+        official_case_validation_assessment={
+            "case_id": "cavity",
+            "parity_status": "matched",
+            "passed_checks": [
+                "Assembly matched `system/controlDict`.",
+                "Solver final time matched the pinned baseline (`0.5`).",
+            ],
+            "drift_reasons": [],
+            "expected_metrics": {
+                "final_time_seconds": 0.5,
+                "mesh_cells": 400,
+            },
+            "observed_metrics": {
+                "solver_completed": True,
+                "final_time_seconds": 0.5,
+                "mesh_cells": 400,
+            },
+        },
+        scientific_verification_assessment=None,
+        scientific_study_summary=None,
+        provenance_summary={
+            "manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/provenance-manifest.json",
+            "manifest_completeness_status": "complete",
+            "parity_status": "matched",
+            "official_case_id": "cavity",
+        },
+        experiment_summary=None,
+        output_delivery_plan=[
+            {
+                "output_id": "design_brief",
+                "delivery_status": "delivered",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/design-brief/cavity/cfd-design-brief.md"
+                ],
+            },
+            {
+                "output_id": "chinese_report",
+                "delivery_status": "delivered",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/reports/cavity/final-report.md"
+                ],
+            },
+        ],
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/official-case-parity.json",
+            "/mnt/user-data/outputs/submarine/reports/cavity/final-report.json",
+            "/mnt/user-data/outputs/submarine/reports/cavity/delivery-readiness.json",
+        ],
+    )
+    assert official_case_validated["verification_status"] == "passed"
+    assert official_case_validated["validation_status"] == "validated"
+    assert official_case_validated["provenance_status"] == "partial"
+    assert official_case_validated["readiness_status"] == "validated_with_gaps"
+    assert any(
+        "Official case `cavity` matched the pinned baseline." in item
+        for item in official_case_validated["benchmark_highlights"]
+    )
+    assert all(
+        "No applicable benchmark target was available" not in item
+        for item in official_case_validated["evidence_gaps"]
+    )
+
+
+def test_submarine_domain_recognizes_design_brief_and_openfoam_case_outputs():
+    output_contract_module = importlib.import_module(
+        "deerflow.domain.submarine.output_contract"
+    )
+
+    requested_outputs = output_contract_module.resolve_requested_outputs(
+        ["设计简报", "按默认设置组装的最小 OpenFOAM 案例", "中文结果报告"]
+    )
+    output_ids = [item["output_id"] for item in requested_outputs]
+
+    assert output_ids == [
+        "design_brief",
+        "assembled_openfoam_case",
+        "chinese_report",
+    ]
+
+    delivery_plan = output_contract_module.build_output_delivery_plan(
+        requested_outputs,
+        stage="result-reporting",
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/design-brief/demo/cfd-design-brief.md",
+            "/mnt/user-data/outputs/submarine/design-brief/demo/cfd-design-brief.json",
+            "/mnt/user-data/workspace/official-openfoam/demo/openfoam-case/Allrun",
+            "/mnt/user-data/outputs/submarine/reports/demo/final-report.md",
+        ],
+    )
+    status_by_output = {
+        item["output_id"]: item["delivery_status"] for item in delivery_plan
+    }
+
+    assert status_by_output["design_brief"] == "delivered"
+    assert status_by_output["assembled_openfoam_case"] == "delivered"
+    assert status_by_output["chinese_report"] == "delivered"
+
+
+def test_submarine_domain_recognizes_solver_execution_summary_output():
+    output_contract_module = importlib.import_module(
+        "deerflow.domain.submarine.output_contract"
+    )
+
+    requested_outputs = output_contract_module.resolve_requested_outputs(
+        ["求解执行结果摘要", "求解运行日志", "solver-results.json"]
+    )
+
+    assert [item["output_id"] for item in requested_outputs] == [
+        "solver_execution_summary"
+    ]
+    assert requested_outputs[0]["support_level"] == "supported"
+
+    delivery_plan = output_contract_module.build_output_delivery_plan(
+        requested_outputs,
+        stage="result-reporting",
+        artifact_virtual_paths=[
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/dispatch-summary.md",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.md",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/solver-results.json",
+            "/mnt/user-data/outputs/submarine/solver-dispatch/demo/openfoam-run.log",
+        ],
+    )
+
+    assert delivery_plan[0]["delivery_status"] == "delivered"
+
+
+def test_submarine_domain_recognizes_seed_flow_natural_language_aliases():
+    output_contract_module = importlib.import_module(
+        "deerflow.domain.submarine.output_contract"
+    )
+
+    requested_outputs = output_contract_module.resolve_requested_outputs(
+        ["案例组装摘要", "结果报告"]
+    )
+
+    assert [item["output_id"] for item in requested_outputs] == [
+        "assembled_openfoam_case",
+        "chinese_report",
+    ]
+
+
+def test_submarine_domain_recognizes_live_official_case_output_aliases():
+    output_contract_module = importlib.import_module(
+        "deerflow.domain.submarine.output_contract"
+    )
+
+    requested_outputs = output_contract_module.resolve_requested_outputs(
+        ["默认组装后的 OpenFOAM 最小 cavity 案例", "执行结果"]
+    )
+
+    assert [item["output_id"] for item in requested_outputs] == [
+        "assembled_openfoam_case",
+        "solver_execution_summary",
+    ]
+    assert all(item["support_level"] == "supported" for item in requested_outputs)
+
 
 def test_submarine_domain_exposes_scientific_supervisor_gate_model():
     contracts_module = importlib.import_module("deerflow.domain.submarine.contracts")

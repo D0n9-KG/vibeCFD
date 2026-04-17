@@ -8,15 +8,16 @@ import { toast } from "sonner";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
 import { getAPIClient } from "../api";
-import { getBackendBaseURL } from "../config";
 import { useI18n } from "../i18n/hooks";
 import type { FileInMessage } from "../messages/utils";
 import type { LocalSettings } from "../settings";
 import { useUpdateSubtask } from "../tasks/context";
+import { deleteManagedThread } from "../thread-management/api";
 import type { UploadedFileInfo } from "../uploads";
 import { uploadFiles } from "../uploads";
 
 import { getThreadErrorMessage } from "./error";
+import { composeThreadSubmitContext } from "./submit-runtime-context";
 import { prepareThreadUploadFiles } from "./thread-upload-files";
 import type { AgentThread, AgentThreadState } from "./types";
 import {
@@ -501,23 +502,16 @@ export function useThreadStream({
             config: {
               recursion_limit: 1000,
             },
-            context: {
-              ...extraContext,
-              ...context,
-              thinking_enabled: context.mode !== "flash",
-              is_plan_mode: context.mode === "pro" || context.mode === "ultra",
-              subagent_enabled: context.mode === "ultra",
-              reasoning_effort:
-                context.reasoning_effort ??
-                (context.mode === "ultra"
-                  ? "high"
-                  : context.mode === "pro"
-                    ? "medium"
-                    : context.mode === "thinking"
-                      ? "low"
-                      : undefined),
-              thread_id: threadId,
-            },
+            context: composeThreadSubmitContext(
+              threadId,
+              context,
+              extraContext,
+              {
+                defaultPlanMode:
+                  workbenchKind !== "submarine" &&
+                  (context.mode === "pro" || context.mode === "ultra"),
+              },
+            ),
           },
         );
         setLatestRunStatus("pending");
@@ -544,6 +538,7 @@ export function useThreadStream({
       queryClient,
       t.uploads.uploadingFiles,
       thread,
+      workbenchKind,
     ],
   );
 
@@ -651,24 +646,9 @@ export function useThreads(
 
 export function useDeleteThread() {
   const queryClient = useQueryClient();
-  const apiClient = getAPIClient();
   return useMutation({
     mutationFn: async ({ threadId }: { threadId: string }) => {
-      await apiClient.threads.delete(threadId);
-
-      const response = await fetch(
-        `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}`,
-        {
-          method: "DELETE",
-        },
-      );
-
-      if (!response.ok) {
-        const error = await response
-          .json()
-          .catch(() => ({ detail: "Failed to delete local thread data." }));
-        throw new Error(error.detail ?? "Failed to delete local thread data.");
-      }
+      return deleteManagedThread(threadId);
     },
     onSuccess(_, { threadId }) {
       queryClient.setQueriesData(

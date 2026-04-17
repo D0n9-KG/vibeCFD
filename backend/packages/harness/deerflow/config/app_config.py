@@ -208,7 +208,21 @@ class AppConfig(BaseModel):
         Returns:
             The model config if found, otherwise None.
         """
-        return next((model for model in self.models if model.name == name), None)
+        configured_model = next(
+            (model for model in self.models if model.name == name), None
+        )
+        if configured_model is not None:
+            return configured_model
+
+        from deerflow.config.runtime_models import get_runtime_model_config
+
+        return get_runtime_model_config(name)
+
+    def get_effective_models(self) -> list[ModelConfig]:
+        """Get configured models plus runtime-registered models."""
+        from deerflow.config.runtime_models import list_runtime_model_configs
+
+        return [*self.models, *list_runtime_model_configs()]
 
     def get_tool_config(self, name: str) -> ToolConfig | None:
         """Get the tool config by name.
@@ -272,7 +286,16 @@ def get_app_config() -> AppConfig:
     if _app_config is not None and _app_config_is_custom:
         return _app_config
 
-    resolved_path = AppConfig.resolve_config_path()
+    try:
+        resolved_path = AppConfig.resolve_config_path()
+    except FileNotFoundError:
+        if _app_config is not None:
+            logger.warning(
+                "Config file is temporarily unavailable; reusing cached AppConfig from %s",
+                _app_config_path,
+            )
+            return _app_config
+        raise
     current_mtime = _get_config_mtime(resolved_path)
 
     should_reload = _app_config is None or _app_config_path != resolved_path or _app_config_mtime != current_mtime

@@ -2,7 +2,7 @@
 
 import {
   BotIcon,
-  MessageSquareIcon,
+  PanelsTopLeftIcon,
   SparklesIcon,
   WavesIcon,
 } from "lucide-react";
@@ -35,15 +35,15 @@ const SURFACE_ACTIONS: Record<
     label: "新建技能资产",
     icon: SparklesIcon,
   },
-  chats: {
-    href: "/workspace/chats",
-    label: "查看对话",
-    icon: MessageSquareIcon,
-  },
   agents: {
     href: "/workspace/agents/new",
     label: "新建智能体",
     icon: BotIcon,
+  },
+  "control-center": {
+    href: "/workspace/control-center",
+    label: "打开管理中心",
+    icon: PanelsTopLeftIcon,
   },
 };
 
@@ -66,8 +66,7 @@ export function WorkspaceHeader({ className }: { className?: string }) {
             VibeCFD
           </span>
           <span className={cn("mt-1 block", chrome.brandMetaClassName)}>
-            面向科研仿真的统一工作台 · 当前界面：{" "}
-            {activeSurface.label}
+            面向科研仿真的统一工作台 · 当前界面： {activeSurface.label}
           </span>
         </div>
         <Link

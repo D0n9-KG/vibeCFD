@@ -5,7 +5,9 @@ import type { AgentThread } from "./types";
 
 const {
   deriveThreadsAfterDeletion,
+  isManagedWorkbenchThread,
   pathAfterThreadDeletion,
+  resolveLegacyChatThreadHref,
   pathOfThreadByState,
   titleOfThread,
   rememberWorkbenchKindForThread,
@@ -147,6 +149,43 @@ void test("pathOfThreadByState uses artifact prefixes when runtime state is abse
   );
 });
 
+void test("isManagedWorkbenchThread keeps only submarine and skill-studio threads in the management-center inventory", () => {
+  const submarineThread = makeThread("managed-submarine", {
+    submarine_runtime: { current_stage: "solver-dispatch" },
+  });
+  const skillThread = makeThread("managed-skill", {
+    submarine_skill_studio: { skill_name: "mesh-doctor" },
+  });
+  const chatThread = makeThread("chat-only-thread");
+
+  assert.equal(isManagedWorkbenchThread(submarineThread), true);
+  assert.equal(isManagedWorkbenchThread(skillThread), true);
+  assert.equal(isManagedWorkbenchThread(chatThread), false);
+});
+
+void test("resolveLegacyChatThreadHref forwards workbench-backed legacy chat routes into the correct workspace and falls back to thread management for generic chats", () => {
+  const submarineThread = makeThread("legacy-submarine", {
+    submarine_runtime: { current_stage: "solver-dispatch" },
+  });
+  const skillThread = makeThread("legacy-skill", {
+    submarine_skill_studio: { skill_name: "mesh-doctor" },
+  });
+  const chatThread = makeThread("legacy-chat");
+
+  assert.equal(
+    resolveLegacyChatThreadHref("legacy-submarine", submarineThread),
+    "/workspace/submarine/legacy-submarine",
+  );
+  assert.equal(
+    resolveLegacyChatThreadHref("legacy-skill", skillThread, true),
+    "/workspace/skill-studio/legacy-skill?mock=true",
+  );
+  assert.equal(
+    resolveLegacyChatThreadHref("legacy-chat", chatThread),
+    "/workspace/control-center?tab=threads",
+  );
+});
+
 void test("pathAfterThreadDeletion routes to the next available thread", () => {
   const threads = [
     makeThread("current-cfd", {
@@ -188,7 +227,7 @@ void test("pathAfterThreadDeletion falls back to a matching workbench when the d
   );
   assert.equal(
     pathAfterThreadDeletion([makeThread("only-chat")], "only-chat"),
-    "/workspace/chats/new",
+    "/workspace/submarine/new",
   );
 });
 
@@ -268,6 +307,21 @@ void test("titleOfThread falls back to the first human message when a new thread
   });
 
   assert.match(titleOfThread(thread), /SUBOFF STL/);
+});
+
+void test("titleOfThread falls back to the official case id when an official-case thread is still untitled", () => {
+  const thread = makeThread("untitled-official-case", {
+    title: "Untitled",
+    submarine_runtime: {
+      current_stage: "solver-dispatch",
+      input_source_type: "openfoam_case_seed",
+      official_case_id: "cavity",
+    },
+    messages: [],
+    artifacts: [],
+  });
+
+  assert.match(titleOfThread(thread), /cavity/i);
 });
 
 void test("titleOfThread ignores uploaded file scaffolding when using the first human message as the fallback title", () => {

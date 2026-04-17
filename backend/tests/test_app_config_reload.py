@@ -113,3 +113,31 @@ def test_get_app_config_loads_without_runtime_getcwd_calls(tmp_path, monkeypatch
     finally:
         reset_app_config()
         reset_extensions_config()
+
+
+def test_get_app_config_uses_cached_config_when_file_temporarily_missing(
+    tmp_path,
+    monkeypatch,
+):
+    config_path = tmp_path / "config.yaml"
+    backup_path = tmp_path / "config.yaml.bak"
+    extensions_path = tmp_path / "extensions_config.json"
+    _write_extensions_config(extensions_path)
+    _write_config(config_path, model_name="cached-model", supports_thinking=True)
+
+    monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", str(extensions_path))
+    reset_app_config()
+
+    try:
+        initial = get_app_config()
+        config_path.rename(backup_path)
+
+        cached = get_app_config()
+
+        assert cached is initial
+        assert cached.models[0].name == "cached-model"
+    finally:
+        if backup_path.exists():
+            backup_path.rename(config_path)
+        reset_app_config()

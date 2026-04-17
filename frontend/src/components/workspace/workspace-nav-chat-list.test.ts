@@ -21,3 +21,10 @@ void test("workspace nav reserves recent-thread space while threads are still lo
     /<SidebarMenuSkeleton showIcon \/>/,
   );
 });
+
+void test("agents internal routes link back to the control-center agents tab instead of a duplicate gallery", () => {
+  assert.match(
+    workspaceNavChatListSource,
+    /\/workspace\/control-center\?tab=agents/,
+  );
+});

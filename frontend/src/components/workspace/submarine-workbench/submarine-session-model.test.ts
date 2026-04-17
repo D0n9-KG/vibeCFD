@@ -628,6 +628,49 @@ void test("creates a simulation-plan slice once the design brief is confirmed an
   assert.equal(model.activeSliceId, "simulation-plan");
 });
 
+void test("surfaces official case metadata in the simulation-plan slice even when no geometry path exists", () => {
+  const model = buildModel({
+    runtime: {
+      current_stage: "task-intelligence",
+      input_source_type: "openfoam_case_seed",
+      official_case_id: "cavity",
+      official_case_seed_virtual_paths: [
+        "/mnt/user-data/uploads/cavity/system/blockMeshDict",
+      ],
+      next_recommended_stage: "solver-dispatch",
+      task_summary: "Prepare the first official OpenFOAM baseline run.",
+      calculation_plan: [
+        {
+          item_id: "official-case-control",
+          label: "endTime",
+          approval_state: "researcher_confirmed",
+        },
+      ],
+    },
+    designBrief: {
+      confirmation_status: "confirmed",
+      input_source_type: "openfoam_case_seed",
+      official_case_id: "cavity",
+      official_case_seed_virtual_paths: [
+        "/mnt/user-data/uploads/cavity/system/blockMeshDict",
+      ],
+      execution_outline: [
+        {
+          phase_id: "simulation-plan",
+          title: "Prepare official case execution",
+        },
+      ],
+      open_questions: [],
+    },
+    messageCount: 5,
+    artifactCount: 1,
+  });
+
+  assert.equal(model.activeSliceId, "simulation-plan");
+  assert.match(model.currentSlice.keyEvidenceSummary, /cavity/i);
+  assert.match(model.currentSlice.agentInterpretation, /official|cavity/i);
+});
+
 void test("keeps the active slice stable while entering historical inspection mode for an older slice", () => {
   const model = buildModel({
     runtime: {

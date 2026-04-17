@@ -9,6 +9,13 @@ export function pathOfThread(threadId: string) {
   return `/workspace/chats/${threadId}`;
 }
 
+function appendMockQuery(href: string, isMock = false) {
+  if (!isMock) {
+    return href;
+  }
+  return href.includes("?") ? `${href}&mock=true` : `${href}?mock=true`;
+}
+
 export type ThreadWorkbenchKind = "submarine" | "skill-studio" | "chat";
 const rememberedWorkbenchKinds = new Map<
   string,
@@ -90,13 +97,32 @@ export function pathOfThreadByState(thread: AgentThread): string {
   }
 }
 
+export function isManagedWorkbenchThread(thread: AgentThread) {
+  return workbenchKindOfThread(thread) !== "chat";
+}
+
+export function resolveLegacyChatThreadHref(
+  threadId: string,
+  thread: AgentThread,
+  isMock = false,
+) {
+  switch (workbenchKindOfThread(thread)) {
+    case "submarine":
+      return appendMockQuery(`/workspace/submarine/${threadId}`, isMock);
+    case "skill-studio":
+      return appendMockQuery(`/workspace/skill-studio/${threadId}`, isMock);
+    default:
+      return "/workspace/control-center?tab=threads";
+  }
+}
+
 export function pathAfterThreadDeletion(
   threads: AgentThread[],
   deletedThreadId: string,
 ) {
   const threadIndex = threads.findIndex((t) => t.thread_id === deletedThreadId);
   if (threadIndex < 0) {
-    return "/workspace/chats/new";
+    return "/workspace/submarine/new";
   }
 
   const nextThread = threads[threadIndex + 1] ?? threads[threadIndex - 1];
@@ -110,7 +136,7 @@ export function pathAfterThreadDeletion(
     case "skill-studio":
       return "/workspace/skill-studio";
     default:
-      return "/workspace/chats/new";
+      return "/workspace/submarine/new";
   }
 }
 
@@ -265,9 +291,14 @@ export function titleOfThread(
   const runtime = thread.values?.submarine_runtime;
   const contextualFallbackTitle =
     runtime != null &&
-    typeof runtime === "object" &&
-    typeof runtime.task_description === "string"
-      ? runtime.task_description
+    typeof runtime === "object"
+      ? typeof runtime.task_description === "string"
+        ? runtime.task_description
+        : typeof runtime.task_summary === "string"
+          ? runtime.task_summary
+          : typeof runtime.official_case_id === "string"
+            ? `Official ${runtime.official_case_id} case`
+            : resolveArtifactDerivedThreadTitle(thread)
       : resolveArtifactDerivedThreadTitle(thread);
 
   return resolveThreadDisplayTitle(

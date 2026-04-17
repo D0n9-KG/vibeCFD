@@ -2,8 +2,7 @@
 
 import {
   BotIcon,
-  CompassIcon,
-  MessageSquareIcon,
+  PanelsTopLeftIcon,
   PlusIcon,
   SparklesIcon,
   WavesIcon,
@@ -76,25 +75,25 @@ function surfaceQuickLinks(
           icon: SparklesIcon,
         },
       ];
-    case "chats":
-      return [
-        {
-          href: getWorkspaceSurfaceHref("chats"),
-          label: "全部对话",
-          icon: MessageSquareIcon,
-        },
-      ];
     case "agents":
       return [
         {
-          href: "/workspace/agents",
-          label: "智能体总览",
-          icon: CompassIcon,
+          href: "/workspace/control-center?tab=agents",
+          label: "智能体管理",
+          icon: PanelsTopLeftIcon,
         },
         {
           href: "/workspace/agents/new",
           label: "新建智能体",
           icon: BotIcon,
+        },
+      ];
+    case "control-center":
+      return [
+        {
+          href: "/workspace/control-center",
+          label: "管理总览",
+          icon: PanelsTopLeftIcon,
         },
       ];
   }
@@ -113,8 +112,6 @@ function filterThreadsForSurface(
       return threads.filter(
         (thread) => workbenchKindOfThread(thread) === "skill-studio",
       );
-    case "chats":
-      return threads.filter((thread) => workbenchKindOfThread(thread) === "chat");
     default:
       return [];
   }
@@ -146,7 +143,7 @@ export function WorkspaceNavChatList({
   const isStartSurface =
     pathname.endsWith("/new") &&
     (surfaceId === "submarine" || surfaceId === "skill-studio");
-  const recentThreadLimit = surfaceId === "chats" ? 6 : isStartSurface ? 3 : 4;
+  const recentThreadLimit = isStartSurface ? 3 : 4;
 
   const recentThreads = useMemo(
     () => filterThreadsForSurface(surfaceId, threads).slice(0, recentThreadLimit),
@@ -185,7 +182,7 @@ export function WorkspaceNavChatList({
       {(isLoading || recentThreads.length > 0) && (
         <SidebarGroup className={chrome.historyGroupClassName}>
           <SidebarGroupLabel className={chrome.groupLabelClassName}>
-            {surfaceId === "chats" ? "最近对话" : "最近工作线程"}
+            最近工作线程
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

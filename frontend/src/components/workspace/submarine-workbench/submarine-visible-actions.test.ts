@@ -42,6 +42,36 @@ void test("offers a visible execution action when dispatch planning is ready but
   assert.ok((actions[0]?.message ?? "").length > 0);
 });
 
+void test("describes official-case execution actions without falling back to STL-centric copy", () => {
+  const actions = buildSubmarineVisibleActions({
+    runtime: {
+      current_stage: "solver-dispatch",
+      stage_status: "planned",
+      runtime_status: "ready",
+      review_status: "ready_for_supervisor",
+      execution_preference: "plan_only",
+      next_recommended_stage: "solver-dispatch",
+      input_source_type: "openfoam_case_seed",
+      official_case_id: "cavity",
+      official_case_seed_virtual_paths: [
+        "/mnt/user-data/uploads/cavity/system/blockMeshDict",
+      ],
+      run_script_virtual_path:
+        "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case/Allrun",
+      workspace_case_dir_virtual_path:
+        "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case",
+    },
+    designBrief: null,
+    finalReport: null,
+  });
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0]?.id, "execute");
+  assert.match(actions[0]?.description ?? "", /cavity|官方/i);
+  assert.match(actions[0]?.message ?? "", /cavity|官方/i);
+  assert.doesNotMatch(actions[0]?.message ?? "", /STL|几何/i);
+});
+
 void test("offers a visible report action after execution artifacts exist", () => {
   const actions = buildSubmarineVisibleActions({
     runtime: {

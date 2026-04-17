@@ -3,41 +3,31 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const {
+  PRIMARY_WORKSPACE_SURFACES,
   WORKSPACE_SURFACES,
   getWorkspaceSurfaceHref,
   isWorkspaceSurfaceActive,
   matchWorkspaceSurface,
 } = await import(new URL("./workspace-surface-config.ts", import.meta.url).href);
 
-void test("workspace surfaces expose the four locked top-level entries", () => {
+void test("workspace surface registry keeps only product workbenches and the management center as first-class surfaces", () => {
   assert.deepEqual(
     WORKSPACE_SURFACES.map((surface) => ({
       id: surface.id,
-      label: surface.label,
       href: surface.defaultHref,
+      primary: surface.primaryNavigation,
     })),
     [
-      {
-        id: "submarine",
-        label: "仿真工作台",
-        href: "/workspace/submarine/new",
-      },
-      {
-        id: "skill-studio",
-        label: "技能工作台",
-        href: "/workspace/skill-studio/new",
-      },
-      {
-        id: "chats",
-        label: "对话",
-        href: "/workspace/chats",
-      },
-      {
-        id: "agents",
-        label: "智能体",
-        href: "/workspace/agents",
-      },
+      { id: "submarine", href: "/workspace/submarine/new", primary: true },
+      { id: "skill-studio", href: "/workspace/skill-studio/new", primary: true },
+      { id: "agents", href: "/workspace/agents", primary: false },
+      { id: "control-center", href: "/workspace/control-center", primary: true },
     ],
+  );
+
+  assert.deepEqual(
+    PRIMARY_WORKSPACE_SURFACES.map((surface) => surface.id),
+    ["submarine", "skill-studio", "control-center"],
   );
 });
 
@@ -51,17 +41,27 @@ void test("workspace surfaces resolve active state from route prefixes", () => {
     true,
   );
   assert.equal(isWorkspaceSurfaceActive("agents", "/workspace/agents/new"), true);
-  assert.equal(isWorkspaceSurfaceActive("chats", "/workspace/agents/new"), false);
-  assert.equal(matchWorkspaceSurface("/workspace/chats/123").id, "chats");
+  assert.equal(
+    isWorkspaceSurfaceActive("control-center", "/workspace/control-center"),
+    true,
+  );
+  assert.equal(matchWorkspaceSurface("/workspace/chats/123").id, "submarine");
 });
 
 void test("workspace surfaces preserve mock-aware skill studio hrefs", () => {
-  assert.equal(getWorkspaceSurfaceHref("skill-studio"), "/workspace/skill-studio/new");
+  assert.equal(
+    getWorkspaceSurfaceHref("skill-studio"),
+    "/workspace/skill-studio/new",
+  );
   assert.equal(
     getWorkspaceSurfaceHref("skill-studio", { isMock: true }),
     "/workspace/skill-studio/new?mock=true",
   );
   assert.equal(getWorkspaceSurfaceHref("agents"), "/workspace/agents");
+  assert.equal(
+    getWorkspaceSurfaceHref("control-center"),
+    "/workspace/control-center",
+  );
 });
 
 void test("workspace header no longer shows English product eyebrow copy", async () => {

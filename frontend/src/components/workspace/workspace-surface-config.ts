@@ -1,14 +1,15 @@
 export type WorkspaceSurfaceId =
   | "submarine"
   | "skill-studio"
-  | "chats"
-  | "agents";
+  | "agents"
+  | "control-center";
 
 export type WorkspaceSurface = {
   id: WorkspaceSurfaceId;
   label: string;
   defaultHref: string;
   pathPrefixes: readonly string[];
+  primaryNavigation: boolean;
 };
 
 export type WorkspaceSurfaceHrefOptions = {
@@ -22,26 +23,34 @@ export const WORKSPACE_SURFACES: readonly WorkspaceSurface[] = [
     label: "仿真工作台",
     defaultHref: "/workspace/submarine/new",
     pathPrefixes: ["/workspace/submarine"],
+    primaryNavigation: true,
   },
   {
     id: "skill-studio",
     label: "技能工作台",
     defaultHref: "/workspace/skill-studio/new",
     pathPrefixes: ["/workspace/skill-studio"],
-  },
-  {
-    id: "chats",
-    label: "对话",
-    defaultHref: "/workspace/chats",
-    pathPrefixes: ["/workspace/chats"],
+    primaryNavigation: true,
   },
   {
     id: "agents",
     label: "智能体",
     defaultHref: "/workspace/agents",
     pathPrefixes: ["/workspace/agents"],
+    primaryNavigation: false,
+  },
+  {
+    id: "control-center",
+    label: "管理中心",
+    defaultHref: "/workspace/control-center",
+    pathPrefixes: ["/workspace/control-center"],
+    primaryNavigation: true,
   },
 ] as const;
+
+export const PRIMARY_WORKSPACE_SURFACES = WORKSPACE_SURFACES.filter(
+  (surface) => surface.primaryNavigation,
+);
 
 export function getWorkspaceSurfaceById(id: WorkspaceSurfaceId) {
   const surface = WORKSPACE_SURFACES.find((entry) => entry.id === id);

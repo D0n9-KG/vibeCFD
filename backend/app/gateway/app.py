@@ -13,6 +13,8 @@ from app.gateway.routers import (
     mcp,
     memory,
     models,
+    runtime_config,
+    runtime_models,
     skills,
     suggestions,
     threads,
@@ -123,6 +125,14 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
                 "description": "Access and manage global memory data for personalized conversations",
             },
             {
+                "name": "runtime-config",
+                "description": "Inspect canonical runtime model/provider and stage-role configuration",
+            },
+            {
+                "name": "runtime-models",
+                "description": "Manage runtime-editable model registry entries and write-only API secrets",
+            },
+            {
                 "name": "skills",
                 "description": "Manage skills and their configurations",
             },
@@ -179,6 +189,12 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
 
     # Skills API is mounted at /api/skills
     app.include_router(skills.router)
+
+    # Runtime config API is mounted at /api/runtime-config
+    app.include_router(runtime_config.router)
+
+    # Runtime model registry API is mounted at /api/runtime-models
+    app.include_router(runtime_models.router)
 
     # Artifacts API is mounted at /api/threads/{thread_id}/artifacts
     app.include_router(artifacts.router)

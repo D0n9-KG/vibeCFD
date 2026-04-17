@@ -1,5 +1,6 @@
 import json
 import logging
+import mimetypes
 import os
 import shutil
 import socket
@@ -465,6 +466,33 @@ class SkillRollbackRequest(BaseModel):
     revision_id: str = Field(..., description="Published revision ID to restore")
 
 
+class SkillFileNodeResponse(BaseModel):
+    name: str
+    path: str
+    node_type: Literal["file", "directory"]
+    size: int | None = None
+    media_type: str | None = None
+    children: list["SkillFileNodeResponse"] = Field(default_factory=list)
+
+
+SkillFileNodeResponse.model_rebuild()
+
+
+class SkillFileTreeResponse(BaseModel):
+    skill_name: str
+    root_path: str
+    entries: list[SkillFileNodeResponse] = Field(default_factory=list)
+
+
+class SkillFileContentResponse(BaseModel):
+    skill_name: str
+    path: str
+    media_type: str | None = None
+    preview_type: Literal["text", "binary"]
+    content: str | None = None
+    truncated: bool = False
+
+
 def _should_ignore_archive_entry(path: Path) -> bool:
     return path.name.startswith(".") or path.name == "__MACOSX"
 
@@ -489,16 +517,88 @@ def _skill_to_response(skill: Skill) -> SkillResponse:
     )
 
 
+def _find_skill(skill_name: str) -> Skill | None:
+    skills = load_skills(enabled_only=False)
+    return next((skill for skill in skills if skill.name == skill_name), None)
+
+
 def _find_custom_skill(skill_name: str) -> Skill | None:
-    skills = load_skills(
-        skills_path=get_skills_root_path(),
-        use_config=False,
-        enabled_only=False,
-    )
-    return next(
-        (skill for skill in skills if skill.name == skill_name and skill.category == "custom"),
-        None,
-    )
+    skill = _find_skill(skill_name)
+    if skill is None or skill.category != "custom":
+        return None
+    return skill
+
+
+def _should_expose_skill_tree_entry(relative_path: Path) -> bool:
+    return not any(part.startswith(".") for part in relative_path.parts)
+
+
+def _resolve_skill_file_path(skill: Skill, relative_path: str) -> Path:
+    candidate = Path(relative_path)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise HTTPException(status_code=403, detail="Access denied: path traversal detected")
+
+    root_dir = skill.skill_dir.resolve()
+    raw_path = root_dir / candidate
+    current = raw_path
+    while current != root_dir:
+        if current.is_symlink():
+            raise HTTPException(status_code=403, detail="Access denied: symlinked skill paths are not previewable")
+        current = current.parent
+    resolved = raw_path.resolve()
+    try:
+        resolved.relative_to(root_dir)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail="Access denied: path traversal detected") from exc
+    return resolved
+
+
+def _build_skill_file_tree_nodes(current_dir: Path, root_dir: Path) -> list[SkillFileNodeResponse]:
+    entries: list[SkillFileNodeResponse] = []
+    for child in sorted(current_dir.iterdir(), key=lambda item: (item.is_file(), item.name.lower())):
+        relative_path = child.relative_to(root_dir)
+        if not _should_expose_skill_tree_entry(relative_path):
+            continue
+        if child.is_symlink():
+            logger.warning("Skipping symlinked skill entry during file tree build: %s", child)
+            continue
+
+        if child.is_dir():
+            entries.append(
+                SkillFileNodeResponse(
+                    name=child.name,
+                    path=relative_path.as_posix(),
+                    node_type="directory",
+                    children=_build_skill_file_tree_nodes(child, root_dir),
+                )
+            )
+            continue
+
+        try:
+            size = child.stat().st_size
+        except OSError:
+            size = None
+
+        entries.append(
+            SkillFileNodeResponse(
+                name=child.name,
+                path=relative_path.as_posix(),
+                node_type="file",
+                size=size,
+                media_type=mimetypes.guess_type(child.name)[0],
+            )
+        )
+    return entries
+
+
+def _looks_like_text_file(file_path: Path, media_type: str | None) -> bool:
+    if media_type and media_type.startswith("text/"):
+        return True
+    try:
+        sample = file_path.read_bytes()[:8192]
+    except OSError:
+        return False
+    return b"\x00" not in sample
 
 
 def _get_skill_lifecycle_payload_path(skill: Skill) -> Path:
@@ -1096,8 +1196,7 @@ async def get_skill(skill_name: str) -> SkillResponse:
         ```
     """
     try:
-        skills = load_skills(enabled_only=False)
-        skill = next((s for s in skills if s.name == skill_name), None)
+        skill = _find_skill(skill_name)
 
         if skill is None:
             raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
@@ -1108,6 +1207,89 @@ async def get_skill(skill_name: str) -> SkillResponse:
     except Exception as e:
         logger.error(f"Failed to get skill {skill_name}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get skill: {str(e)}")
+
+
+@router.get(
+    "/skills/{skill_name}/files",
+    response_model=SkillFileTreeResponse,
+    summary="List Installed Skill Files",
+    description="Return the installed skill file tree while skipping hidden/internal entries.",
+)
+async def list_skill_files(skill_name: str) -> SkillFileTreeResponse:
+    try:
+        skill = _find_skill(skill_name)
+        if skill is None:
+            raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
+
+        return SkillFileTreeResponse(
+            skill_name=skill.name,
+            root_path=str(skill.skill_dir),
+            entries=_build_skill_file_tree_nodes(skill.skill_dir, skill.skill_dir),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to list installed skill files for %s: %s",
+            skill_name,
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail=f"Failed to list skill files: {str(e)}")
+
+
+@router.get(
+    "/skills/{skill_name}/files/content",
+    response_model=SkillFileContentResponse,
+    summary="Preview Installed Skill File",
+    description="Preview a file inside an installed skill without allowing path traversal.",
+)
+async def preview_skill_file(skill_name: str, path: str) -> SkillFileContentResponse:
+    try:
+        skill = _find_skill(skill_name)
+        if skill is None:
+            raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
+
+        resolved_path = _resolve_skill_file_path(skill, path)
+        if not resolved_path.exists():
+            raise HTTPException(status_code=404, detail=f"Skill file '{path}' not found")
+        if not resolved_path.is_file():
+            raise HTTPException(status_code=400, detail=f"Skill path '{path}' is not a file")
+
+        media_type = mimetypes.guess_type(resolved_path.name)[0]
+        if not _looks_like_text_file(resolved_path, media_type):
+            return SkillFileContentResponse(
+                skill_name=skill.name,
+                path=path,
+                media_type=media_type,
+                preview_type="binary",
+                content=None,
+                truncated=False,
+            )
+
+        raw = resolved_path.read_bytes()
+        preview_limit = 128 * 1024
+        truncated = len(raw) > preview_limit
+        content = raw[:preview_limit].decode("utf-8", errors="replace").replace("\r\n", "\n")
+        return SkillFileContentResponse(
+            skill_name=skill.name,
+            path=path,
+            media_type=media_type or "text/plain",
+            preview_type="text",
+            content=content,
+            truncated=truncated,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to preview installed skill file %s/%s: %s",
+            skill_name,
+            path,
+            e,
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail=f"Failed to preview skill file: {str(e)}")
 
 
 @router.put(

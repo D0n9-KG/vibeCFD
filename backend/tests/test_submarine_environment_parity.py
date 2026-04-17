@@ -79,7 +79,6 @@ def test_build_environment_parity_assessment_keeps_configless_unit_test_runnable
     assert assessment.drift_reasons == []
 
 
-
 def test_build_environment_parity_assessment_marks_configless_docker_profile_as_drifted_not_blocked(
     tmp_path,
     monkeypatch,

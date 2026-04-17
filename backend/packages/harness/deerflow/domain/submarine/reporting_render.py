@@ -1347,7 +1347,9 @@ def _legacy_render_markdown_v1(payload: dict) -> str:
         f"- 确认状态: `{payload.get('confirmation_status') or 'draft'}`",
         f"- 执行偏好: `{payload.get('execution_preference') or 'plan_only'}`",
         f"- 任务类型: `{payload['task_type']}`",
+        f"- 输入来源: `{payload.get('input_source_type') or 'geometry_seed'}`",
         f"- 几何文件: `{payload['geometry_virtual_path']}`",
+        f"- 官方案例: `{payload.get('official_case_id') or '未提供'}`",
         f"- 几何家族: `{payload.get('geometry_family') or '待确认'}`",
         f"- 执行就绪状态: `{payload.get('execution_readiness') or '待判定'}`",
         f"- 选定案例: `{payload.get('selected_case_id') or '未固定'}`",
@@ -1640,7 +1642,9 @@ def _legacy_render_html_v1(payload: dict) -> str:
       <p><strong>确认状态:</strong> {escape(str(payload.get("confirmation_status") or "draft"))}</p>
       <p><strong>执行偏好:</strong> {escape(str(payload.get("execution_preference") or "plan_only"))}</p>
       <p><strong>任务类型:</strong> {escape(str(payload["task_type"]))}</p>
+      <p><strong>输入来源:</strong> {escape(str(payload.get("input_source_type") or "geometry_seed"))}</p>
       <p><strong>几何文件:</strong> {escape(str(payload["geometry_virtual_path"]))}</p>
+      <p><strong>官方案例:</strong> {escape(str(payload.get("official_case_id") or "未提供"))}</p>
       <p><strong>几何家族:</strong> {escape(str(payload.get("geometry_family") or "待确认"))}</p>
       <p><strong>执行就绪状态:</strong> {escape(str(payload.get("execution_readiness") or "待判定"))}</p>
       <p><strong>选定案例:</strong> {escape(str(payload.get("selected_case_id") or "未固定"))}</p>
@@ -3430,7 +3434,9 @@ def _formal_render_geometry_settings_markdown(payload: dict) -> list[str]:
     lines = [
         "",
         "## 几何、网格与计算设置",
+        f"- 输入来源：`{_report_text(payload.get('input_source_type'), fallback='geometry_seed')}`",
         f"- 几何文件：`{_report_text(payload.get('geometry_virtual_path'), fallback='未提供')}`",
+        f"- 官方案例：`{_report_text(payload.get('official_case_id'), fallback='未提供')}`",
         f"- 主 workspace case：`{_report_text(payload.get('workspace_case_dir_virtual_path'), fallback='当前阶段无')}`",
         f"- 运行脚本：`{_report_text(payload.get('run_script_virtual_path'), fallback='当前阶段无')}`",
     ]
@@ -3489,7 +3495,9 @@ def _formal_render_geometry_settings_html(payload: dict) -> str:
         '<section class="panel">'
         "<h2>几何、网格与计算设置</h2>"
         "<ul>"
+        f"<li>输入来源：<code>{escape(_report_text(payload.get('input_source_type'), fallback='geometry_seed'))}</code></li>"
         f"<li>几何文件：<code>{escape(_report_text(payload.get('geometry_virtual_path'), fallback='未提供'))}</code></li>"
+        f"<li>官方案例：<code>{escape(_report_text(payload.get('official_case_id'), fallback='未提供'))}</code></li>"
         f"<li>主 workspace case：<code>{escape(_report_text(payload.get('workspace_case_dir_virtual_path'), fallback='当前阶段无'))}</code></li>"
         f"<li>运行脚本：<code>{escape(_report_text(payload.get('run_script_virtual_path'), fallback='当前阶段无'))}</code></li>"
         f"{postprocess_line}"
@@ -3497,6 +3505,162 @@ def _formal_render_geometry_settings_html(payload: dict) -> str:
         f"{mesh_block}{residual_block}"
         "</section>"
     )
+
+
+def _formal_render_official_case_traceability_markdown(payload: dict) -> list[str]:
+    if _report_text(payload.get("input_source_type"), fallback="") != "openfoam_case_seed":
+        return []
+
+    profile = (
+        payload.get("official_case_profile")
+        if isinstance(payload.get("official_case_profile"), dict)
+        else {}
+    )
+    provenance = (
+        payload.get("provenance_summary")
+        if isinstance(payload.get("provenance_summary"), dict)
+        else {}
+    )
+    file_sources = (
+        provenance.get("file_sources")
+        if isinstance(provenance.get("file_sources"), dict)
+        else {}
+    )
+    command_chain = (
+        profile.get("command_chain")
+        if isinstance(profile.get("command_chain"), list)
+        else []
+    )
+    solver_metrics = payload.get("solver_metrics") if isinstance(payload.get("solver_metrics"), dict) else {}
+    lines = [
+        "",
+        "### 官方案例追溯",
+        f"- official_case_id：`{_report_text(payload.get('official_case_id'), fallback='未提供')}`",
+        f"- source_commit：`{_report_text(profile.get('source_commit'), fallback='未提供')}`",
+        f"- source_kind：`{_report_text(profile.get('source_kind'), fallback='未提供')}`",
+    ]
+    seed_paths = _report_string_list(payload.get("official_case_seed_virtual_paths"))
+    if seed_paths:
+        lines.extend(
+            [
+                "",
+                "### Imported Seeds",
+                *(f"- `{path}`" for path in seed_paths),
+            ]
+        )
+    source_paths = _report_string_list(profile.get("source_paths"))
+    if source_paths:
+        lines.extend(
+            [
+                "",
+                "### 官方基线路径",
+                *(f"- `{path}`" for path in source_paths),
+            ]
+        )
+    if command_chain:
+        lines.extend(
+            [
+                "",
+                "### Execution Profile",
+                *(f"- `{command}`" for command in command_chain if isinstance(command, str)),
+            ]
+        )
+    if file_sources:
+        lines.extend(
+            [
+                "",
+                "### 核心文件来源",
+                *(
+                    f"- `{relative_path}` | source_kind=`{_report_text(source.get('source_kind'), fallback='unknown')}`"
+                    f" | source_path=`{_report_text(source.get('source_path'), fallback='未提供')}`"
+                    f" | imported_virtual_path=`{_report_text(source.get('imported_virtual_path'), fallback='--')}`"
+                    for relative_path, source in list(file_sources.items())[:6]
+                    if isinstance(source, dict)
+                ),
+            ]
+        )
+    if solver_metrics:
+        lines.extend(
+            [
+                "",
+                "### Completion State",
+                f"- solver_completed：`{_report_text(solver_metrics.get('solver_completed'), fallback='unknown')}`",
+                f"- final_time_seconds：`{_report_text(solver_metrics.get('final_time_seconds'), fallback='未提供')}`",
+            ]
+        )
+    return lines
+
+
+def _formal_render_official_case_traceability_html(payload: dict) -> str:
+    markdown_lines = _formal_render_official_case_traceability_markdown(payload)
+    if not markdown_lines:
+        return ""
+    sections: list[str] = []
+    current_heading = None
+    current_items: list[str] = []
+    for line in markdown_lines:
+        if not line:
+            continue
+        if line.startswith("### "):
+            if current_heading is not None:
+                sections.append(
+                    f"<h3>{escape(current_heading)}</h3><ul>{''.join(current_items)}</ul>"
+                )
+            current_heading = line.removeprefix("### ").strip()
+            current_items = []
+            continue
+        if line.startswith("- "):
+            current_items.append(f"<li>{escape(line.removeprefix('- ').strip())}</li>")
+    if current_heading is not None:
+        sections.append(
+            f"<h3>{escape(current_heading)}</h3><ul>{''.join(current_items)}</ul>"
+        )
+    return "".join(sections)
+
+
+def _formal_render_official_case_parity_markdown(payload: dict) -> list[str]:
+    if _report_text(payload.get("input_source_type"), fallback="") != "openfoam_case_seed":
+        return []
+
+    parity = (
+        payload.get("official_case_validation_assessment")
+        if isinstance(payload.get("official_case_validation_assessment"), dict)
+        else {}
+    )
+    if not parity:
+        return []
+
+    lines = [
+        "",
+        "### Official Case Parity",
+        f"- parity_status: `{_report_text(parity.get('parity_status'), fallback='unknown')}`",
+        f"- parity_artifact: `{_report_text(payload.get('official_case_validation_virtual_path'), fallback='not-recorded')}`",
+    ]
+    lines.extend(
+        f"- passed_check: {item}"
+        for item in _report_string_list(parity.get("passed_checks"))
+    )
+    lines.extend(
+        f"- drift_reason: {item}"
+        for item in _report_string_list(parity.get("drift_reasons"))
+    )
+    return lines
+
+
+def _formal_render_official_case_parity_html(payload: dict) -> str:
+    markdown_lines = _formal_render_official_case_parity_markdown(payload)
+    if not markdown_lines:
+        return ""
+
+    items = [
+        f"<li>{escape(line.removeprefix('- ').strip())}</li>"
+        for line in markdown_lines
+        if line.startswith("- ")
+    ]
+    if not items:
+        return ""
+
+    return "<h3>Official Case Parity</h3><ul>" + "".join(items) + "</ul>"
 
 
 def _formal_render_results_validation_markdown(payload: dict) -> list[str]:
@@ -3706,6 +3870,8 @@ def _formal_render_traceability_markdown(payload: dict) -> list[str]:
         f"- provenance_manifest_virtual_path：`{_report_text(payload.get('provenance_manifest_virtual_path'), fallback='')}`",
         f"- source_report_virtual_path：`{_report_text(payload.get('source_report_virtual_path'), fallback='')}`",
     ]
+    lines.extend(_formal_render_official_case_traceability_markdown(payload))
+    lines.extend(_formal_render_official_case_parity_markdown(payload))
     source_artifact_virtual_paths = _report_string_list(payload.get("source_artifact_virtual_paths"))
     if source_artifact_virtual_paths:
         lines.extend(
@@ -3749,7 +3915,7 @@ def _formal_render_traceability_html(payload: dict) -> str:
         f"<li>provenance_manifest_virtual_path：<code>{escape(_report_text(payload.get('provenance_manifest_virtual_path'), fallback=''))}</code></li>"
         f"<li>source_report_virtual_path：<code>{escape(_report_text(payload.get('source_report_virtual_path'), fallback=''))}</code></li>"
         "</ul>"
-        f"{source_block}{followup_block}"
+        f"{_formal_render_official_case_traceability_html(payload)}{_formal_render_official_case_parity_html(payload)}{source_block}{followup_block}"
         "</section>"
     )
 

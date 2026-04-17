@@ -607,6 +607,25 @@ function basenameOfPath(path?: string | null): string | null {
   return segments.at(-1) ?? normalized;
 }
 
+function resolveOfficialCaseId(
+  input: Pick<
+    BuildSubmarineSessionModelInput,
+    "runtime" | "designBrief" | "finalReport"
+  >,
+): string | null {
+  const runtimeId = normalizeNegotiationText(input.runtime?.official_case_id);
+  if (runtimeId) {
+    return runtimeId;
+  }
+
+  const briefId = normalizeNegotiationText(input.designBrief?.official_case_id);
+  if (briefId) {
+    return briefId;
+  }
+
+  return normalizeNegotiationText(input.finalReport?.official_case_id);
+}
+
 function hasGeometrySignal(
   input: Pick<
     BuildSubmarineSessionModelInput,
@@ -667,12 +686,23 @@ function buildResearchSlices({
   const uploadedGeometryFile = input.latestUploadedFiles?.find((file) =>
     file.filename.toLowerCase().endsWith(".stl"),
   );
+  const officialCaseId = resolveOfficialCaseId({
+    runtime: input.runtime,
+    designBrief: input.designBrief,
+    finalReport: input.finalReport,
+  });
   const geometryPath =
     input.runtime?.geometry_virtual_path ??
     input.designBrief?.geometry_virtual_path ??
     uploadedGeometryFile?.path ??
     uploadedGeometryFile?.filename;
   const geometryFilename = basenameOfPath(geometryPath);
+  const primaryInputSummary =
+    officialCaseId != null
+      ? `已绑定官方 OpenFOAM 案例 ${officialCaseId}。`
+      : geometryFilename != null
+        ? `已收到研究对象 ${geometryFilename}。`
+        : "当前还没有稳定的几何对象或求解证据。";
   const semanticTaskSummary =
     buildSubmarineResearchSnapshotSummary(
       input.runtime?.task_summary ?? input.designBrief?.summary_zh ?? currentObjective,
@@ -694,10 +724,7 @@ function buildResearchSlices({
       title: "任务建立",
       statusLabel: input.isNewThread ? "进行中" : "已建立",
       summary: currentObjective,
-      keyEvidenceSummary:
-        geometryFilename != null
-          ? `已收到研究对象 ${geometryFilename}。`
-          : "当前还没有稳定的几何对象或求解证据。",
+      keyEvidenceSummary: primaryInputSummary,
       agentInterpretation:
         taskEstablishmentInterpretation != null
           ? `主智能体已把当前研究意图收敛为：${taskEstablishmentInterpretation}`
@@ -751,7 +778,9 @@ function buildResearchSlices({
           ? `当前仍有 ${pendingApprovalCount} 项研究决策等待确认。`
           : "当前切片围绕求解准备、目标输出和技能协作展开。",
       keyEvidenceSummary:
-        executionPlanCount > 0
+        officialCaseId != null
+          ? `已形成针对官方案例 ${officialCaseId} 的执行草案。`
+          : executionPlanCount > 0
           ? `已形成 ${executionPlanCount} 项执行计划。`
           : skillNames.length > 0
             ? `已出现 ${skillNames.length} 个相关技能信号。`
@@ -759,7 +788,9 @@ function buildResearchSlices({
       agentInterpretation:
         confirmationGateActive
           ? "主智能体正在等待你确认关键研究决策，然后再进入计算执行。"
-          : "主智能体已经把研究目标收敛成可执行的计算草案。",
+          : officialCaseId != null
+            ? `主智能体已经把官方 OpenFOAM 案例 ${officialCaseId} 收敛成可执行的计算草案。`
+            : "主智能体已经把研究目标收敛成可执行的计算草案。",
       nextRecommendedAction:
         confirmationGateActive ? "完成研究者确认后推进求解。" : "进入首次求解执行。",
     });

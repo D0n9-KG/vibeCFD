@@ -1,409 +1,114 @@
-﻿"use client";
+"use client";
 
-import { LayoutPanelLeftIcon, WavesIcon } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
-import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
-import { Button } from "@/components/ui/button";
-import { ArtifactTrigger } from "@/components/workspace/artifacts";
-import {
-  ChatBox,
-  useSpecificChatMode,
-  useThreadChat,
-} from "@/components/workspace/chats";
-import { ExportTrigger } from "@/components/workspace/export-trigger";
-import { InputBox } from "@/components/workspace/input-box";
-import { MessageList } from "@/components/workspace/messages";
-import { ThreadContext } from "@/components/workspace/messages/context";
-import { ThreadTitle } from "@/components/workspace/thread-title";
-import { TodoList } from "@/components/workspace/todo-list";
-import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
-import { Welcome } from "@/components/workspace/welcome";
 import { WorkspaceStatePanel } from "@/components/workspace/workspace-state-panel";
-import { useI18n } from "@/core/i18n/hooks";
-import { useNotification } from "@/core/notification/hooks";
-import { useLocalSettings } from "@/core/settings";
-import { useThreadStream } from "@/core/threads/hooks";
-import { shouldPromoteStartedThreadRoute } from "@/core/threads/use-thread-stream.state";
-import { resolveThreadDisplayTitle, textOfMessage } from "@/core/threads/utils";
-import { env } from "@/env";
-import { cn } from "@/lib/utils";
+import { getAPIClient } from "@/core/api";
+import type { AgentThread, AgentThreadState } from "@/core/threads/types";
+import { resolveLegacyChatThreadHref } from "@/core/threads/utils";
 
-import { getChatPageLayout } from "../chat-layout";
+function buildThreadSnapshot(
+  threadId: string,
+  state: AgentThreadState | null | undefined,
+): AgentThread {
+  return {
+    thread_id: threadId,
+    created_at: "",
+    updated_at: "",
+    status: "idle",
+    metadata: {},
+    values: {
+      title: state?.title ?? "Untitled",
+      messages: state?.messages ?? [],
+      artifacts: state?.artifacts ?? [],
+      todos: state?.todos,
+      workspace_kind: state?.workspace_kind,
+      submarine_runtime: state?.submarine_runtime,
+      submarine_skill_studio: state?.submarine_skill_studio,
+    },
+  } as AgentThread;
+}
 
-const CHAT_SURFACE_LABEL = "对话";
-
-export default function ChatPage() {
-  const { t } = useI18n();
-  const [settings, setSettings] = useLocalSettings();
+export default function LegacyChatThreadRedirectPage() {
+  const params = useParams<{ thread_id: string }>();
   const router = useRouter();
-  const { threadId, isNewThread, markThreadStarted, isMock } = useThreadChat();
-  const { showNotification } = useNotification();
-  const [supportPanelOpen, setSupportPanelOpen] = useState(false);
-  const [pendingThreadRouteId, setPendingThreadRouteId] = useState<
-    string | null
-  >(null);
-
-  useSpecificChatMode();
-
-  const [thread, sendMessage, isUploading, streamMeta] = useThreadStream({
-    threadId: isNewThread ? undefined : threadId,
-    isNewThread,
-    context: settings.context,
-    isMock,
-    onStart: (createdThreadId) => {
-      markThreadStarted(createdThreadId);
-      if (isNewThread) {
-        setPendingThreadRouteId(createdThreadId);
-      }
-    },
-    onFinish: (state) => {
-      if (document.hidden || !document.hasFocus()) {
-        let body = "对话已结束";
-        const lastMessage = state.messages.at(-1);
-        if (lastMessage) {
-          const textContent = textOfMessage(lastMessage);
-          if (textContent) {
-            body =
-              textContent.length > 200
-                ? `${textContent.substring(0, 200)}...`
-                : textContent;
-          }
-        }
-        showNotification(
-          resolveThreadDisplayTitle(state.title, t.pages.untitled, state.messages),
-          { body },
-        );
-      }
-    },
-  });
+  const searchParams = useSearchParams();
+  const [error, setError] = useState<string | null>(null);
+  const isMock = searchParams.get("mock") === "true";
+  const threadId = params.thread_id;
 
   useEffect(() => {
-    if (
-      !shouldPromoteStartedThreadRoute({
-        pendingThreadId: pendingThreadRouteId,
-        activeThreadId: threadId,
-        isLoading: thread.isLoading,
-        persistedMessageCount: streamMeta.persistedMessageCount,
-        visibleMessageCount: thread.messages.length,
-      })
-    ) {
+    if (!threadId) {
       return;
     }
 
-    const nextPath = isMock
-      ? `/workspace/chats/${pendingThreadRouteId}?mock=true`
-      : `/workspace/chats/${pendingThreadRouteId}`;
-    router.replace(nextPath);
-    setPendingThreadRouteId(null);
-  }, [
-    isMock,
-    pendingThreadRouteId,
-    router,
-    threadId,
-    thread.messages.length,
-    streamMeta.persistedMessageCount,
-    thread.isLoading,
-  ]);
+    let cancelled = false;
 
-  const handleSubmit = useCallback(
-    (message: PromptInputMessage) => {
-      void sendMessage(threadId, message);
-    },
-    [sendMessage, threadId],
-  );
-
-  const handleStop = useCallback(async () => {
-    await thread.stop();
-  }, [thread]);
-
-  const hasSubmarineRuntime =
-    thread.values.submarine_runtime != null &&
-    typeof thread.values.submarine_runtime === "object";
-  const hasSubmarineArtifacts =
-    Array.isArray(thread.values.artifacts) &&
-    thread.values.artifacts.some(
-      (artifact) =>
-        typeof artifact === "string" && artifact.includes("/submarine/"),
-    );
-  const hasRuntimeWorkbench =
-    !isNewThread && (hasSubmarineRuntime || hasSubmarineArtifacts);
-
-  useEffect(() => {
-    if (hasRuntimeWorkbench) {
-      setSupportPanelOpen(true);
-    }
-  }, [hasRuntimeWorkbench]);
-
-  const layout = getChatPageLayout({
-    hasRuntimeWorkbench,
-    isNewThread,
-    supportPanelOpen,
-  });
-
-  const runtimeHref = isMock
-    ? `/workspace/submarine/${threadId}?mock=true`
-    : `/workspace/submarine/${threadId}`;
-  const artifactCount = Array.isArray(thread.values.artifacts)
-    ? thread.values.artifacts.length
-    : 0;
-  const todoCount = Array.isArray(thread.values.todos)
-    ? thread.values.todos.length
-    : 0;
-  const threadErrorMessage =
-    thread.error instanceof Error
-      ? thread.error.message
-      : typeof thread.error === "string"
-        ? thread.error
-        : null;
-  const threadLabel =
-    isNewThread && (!thread.values.title || thread.values.title === "Untitled")
-      ? t.pages.newChat
-      : resolveThreadDisplayTitle(
-          thread.values.title,
-          t.pages.untitled,
-          thread.values.messages,
+    async function redirectLegacyThread() {
+      try {
+        const state = await getAPIClient(isMock).threads.getState<AgentThreadState>(
+          threadId,
         );
+        if (cancelled) {
+          return;
+        }
+
+        const targetHref = resolveLegacyChatThreadHref(
+          threadId,
+          buildThreadSnapshot(threadId, state.values),
+          isMock,
+        );
+        router.replace(targetHref);
+      } catch (redirectError) {
+        if (cancelled) {
+          return;
+        }
+        setError(
+          redirectError instanceof Error
+            ? redirectError.message
+            : "无法恢复这个旧线程入口。",
+        );
+      }
+    }
+
+    void redirectLegacyThread();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isMock, router, threadId]);
+
+  if (error) {
+    return (
+      <WorkspaceStatePanel
+        state="update-failed"
+        label="线程迁移"
+        title="无法恢复这个旧线程入口"
+        description={error}
+        actions={[
+          {
+            label: "返回线程与历史",
+            href: "/workspace/control-center?tab=threads",
+          },
+          {
+            label: "新建仿真任务",
+            href: isMock
+              ? "/workspace/submarine/new?mock=true"
+              : "/workspace/submarine/new",
+            variant: "ghost",
+          },
+        ]}
+      />
+    );
+  }
 
   return (
-    <ThreadContext.Provider value={{ thread, isMock }}>
-      <ChatBox threadId={threadId}>
-        <div
-          className="relative flex size-full min-h-0 flex-col bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.08),_transparent_28%),linear-gradient(180deg,_rgba(247,244,238,0.96),_rgba(255,255,255,0.98))]"
-          data-surface-label={CHAT_SURFACE_LABEL}
-        >
-          <header className="bg-background/85 absolute inset-x-0 top-0 z-30 flex h-14 shrink-0 items-center border-b px-4 backdrop-blur">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="flex min-w-0 flex-1 flex-col">
-                <div className="sr-only">
-                  <ThreadTitle threadId={threadId} thread={thread} />
-                </div>
-                <div className="truncate text-sm font-medium text-stone-900">
-                  {threadLabel}
-                </div>
-                <div className="text-xs text-stone-500">
-                  {t.chats.threadMetaLabel}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className={cn("2xl:hidden", layout.supportToggleClassName)}
-                aria-label={t.workspace.toggleWorkspacePanel}
-                onClick={() => setSupportPanelOpen((open) => !open)}
-              >
-                <LayoutPanelLeftIcon className="size-4" />
-                {t.common.panel}
-              </Button>
-              {hasRuntimeWorkbench ? (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={runtimeHref}>
-                    <WavesIcon className="size-4" />
-                    {t.workspace.openRuntimeWorkbench}
-                  </Link>
-                </Button>
-              ) : null}
-              <TokenUsageIndicator messages={thread.messages} />
-              <ExportTrigger threadId={threadId} />
-              <ArtifactTrigger />
-            </div>
-          </header>
-
-          <main className="min-h-0 flex-1 overflow-hidden pt-14">
-            <div className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col px-4 py-4">
-              <div className={layout.shellClassName}>
-                <section className={layout.contentClassName}>
-                  <div className="rounded-[24px] border border-stone-200/80 bg-stone-50/80 px-4 py-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
-                      {CHAT_SURFACE_LABEL}
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-500">
-                      <span className="rounded-full border border-stone-200/80 bg-white px-2.5 py-1 font-medium text-stone-700">
-                        {t.common.messageCount(thread.messages.length)}
-                      </span>
-                      <span className="rounded-full border border-stone-200/80 bg-white px-2.5 py-1 font-medium text-stone-700">
-                        {t.common.artifactCount(artifactCount)}
-                      </span>
-                      <span className="rounded-full border border-stone-200/80 bg-white px-2.5 py-1 font-medium text-stone-700">
-                        {t.common.todoCount(todoCount)}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-stone-600">
-                      {t.chats.threadSummaryDescription}
-                    </p>
-                  </div>
-
-                  <div className="min-h-0 flex-1 overflow-hidden">
-                    <MessageList
-                      className={layout.messageListClassName}
-                      threadId={threadId}
-                      thread={thread}
-                    />
-                  </div>
-
-                  <div
-                    className={cn(
-                      "absolute inset-x-0 z-20 flex justify-center px-4",
-                      isNewThread ? "top-0" : "bottom-0 pb-4",
-                    )}
-                  >
-                    <div className={layout.inputShellClassName}>
-                      <div className="absolute -top-4 inset-x-0 z-0">
-                        <div className="absolute inset-x-0 bottom-0">
-                          <TodoList
-                            className="bg-background/5"
-                            todos={thread.values.todos ?? []}
-                            hidden={!todoCount}
-                          />
-                        </div>
-                      </div>
-                      <InputBox
-                        className="bg-background/80 w-full -translate-y-4 backdrop-blur"
-                        isNewThread={isNewThread}
-                        threadId={threadId}
-                        autoFocus={isNewThread}
-                        status={
-                          thread.error
-                            ? "error"
-                            : thread.isLoading
-                              ? "streaming"
-                              : "ready"
-                        }
-                        context={settings.context}
-                        extraHeader={
-                          isNewThread ? <Welcome mode={settings.context.mode} /> : null
-                        }
-                        disabled={
-                          env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
-                          isUploading
-                        }
-                        onContextChange={(context) => setSettings("context", context)}
-                        onSubmit={handleSubmit}
-                        onStop={handleStop}
-                      />
-                      {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ? (
-                        <div className="w-full translate-y-12 text-center text-xs text-stone-500">
-                          {t.common.notAvailableInDemoMode}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </section>
-
-                <aside className={layout.supportPanelClassName}>
-                  <div className={layout.supportPanelInnerClassName}>
-                    <div className="flex-1 space-y-4 overflow-y-auto p-4">
-                      {threadErrorMessage ? (
-                        <WorkspaceStatePanel
-                          state="data-interrupted"
-                          description={threadErrorMessage}
-                          actions={[
-                            {
-                              label: t.workspace.retryUpdate,
-                              onClick: () => window.location.reload(),
-                            },
-                            {
-                              label: t.workspace.backToOverview,
-                              href: "/workspace/chats",
-                              variant: "ghost",
-                            },
-                          ]}
-                        />
-                      ) : null}
-
-                      <div className="rounded-[24px] border border-stone-200/80 bg-stone-50/80 p-4">
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
-                          {t.chats.workspaceContextLabel}
-                        </div>
-                        <h2 className="mt-2 text-lg font-semibold tracking-tight text-stone-900">
-                          {threadLabel}
-                        </h2>
-                        <p className="mt-2 text-sm leading-6 text-stone-600">
-                          {t.chats.workspaceContextDescription}
-                        </p>
-                      </div>
-
-                      {hasRuntimeWorkbench ? (
-                        <div className="rounded-[24px] border border-sky-200/80 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(255,255,255,0.98))] p-4">
-                          <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700">
-                            {t.chats.runtimeHandoffLabel}
-                          </div>
-                          <p className="mt-2 text-sm leading-6 text-sky-950">
-                            {t.chats.runtimeHandoffDescription}
-                          </p>
-                          <Button asChild className="mt-4">
-                            <Link href={runtimeHref}>
-                              <WavesIcon className="size-4" />
-                              {t.workspace.openRuntimeWorkbench}
-                            </Link>
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="rounded-[24px] border border-dashed border-stone-300 bg-white/80 p-4">
-                          <div className="text-sm font-semibold text-stone-900">
-                            {t.chats.conversationFirstTitle}
-                          </div>
-                          <p className="mt-2 text-sm leading-6 text-stone-600">
-                            {t.chats.conversationFirstDescription}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="rounded-[24px] border border-stone-200/80 bg-white/92 p-4">
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">
-                          {t.chats.sessionSnapshotLabel}
-                        </div>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          <SnapshotMetric
-                            label={t.common.messages}
-                            value={String(thread.messages.length)}
-                          />
-                          <SnapshotMetric
-                            label={t.common.artifacts}
-                            value={String(artifactCount)}
-                          />
-                          <SnapshotMetric label={t.common.todos} value={String(todoCount)} />
-                          <SnapshotMetric
-                            label={t.common.status}
-                            value={
-                              thread.error
-                                ? t.common.interrupted
-                                : thread.isLoading
-                                  ? t.common.running
-                                  : t.common.ready
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </aside>
-              </div>
-            </div>
-          </main>
-        </div>
-      </ChatBox>
-    </ThreadContext.Provider>
-  );
-}
-
-function SnapshotMetric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-stone-200/80 bg-stone-50/80 px-3 py-3">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-stone-500">
-        {label}
-      </div>
-      <div className="mt-2 text-sm font-semibold text-stone-900">{value}</div>
-    </div>
+    <WorkspaceStatePanel
+      state="data-interrupted"
+      label="线程迁移"
+      title="正在跳转到对应工作台"
+      description="这个旧的通用 chat 页面已经退役，系统正在根据线程内容把你带到仿真工作台、技能工作台，或线程管理入口。"
+    />
   );
 }

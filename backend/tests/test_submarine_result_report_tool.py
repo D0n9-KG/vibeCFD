@@ -5356,3 +5356,212 @@ def test_submarine_result_report_recovers_to_result_reporting_when_previous_repo
     final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
 
     assert final_payload["source_runtime_stage"] == "result-reporting"
+
+
+def test_submarine_result_report_uses_official_case_slug_and_metadata(tmp_path):
+    provenance_module = importlib.import_module("deerflow.domain.submarine.provenance")
+    report_tool_module = importlib.import_module(
+        "deerflow.tools.builtins.submarine_result_report_tool"
+    )
+
+    paths = Paths(tmp_path)
+    thread_id = "thread-official-case-report"
+    outputs_dir = paths.sandbox_outputs_dir(thread_id)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    solver_dir = outputs_dir / "submarine" / "solver-dispatch" / "cavity"
+    solver_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = solver_dir / "provenance-manifest.json"
+    manifest_payload = provenance_module.build_run_provenance_manifest(
+        experiment_id="official-case-report",
+        run_id="baseline",
+        task_type="official_openfoam_case",
+        input_source_type="openfoam_case_seed",
+        geometry_virtual_path="",
+        geometry_family=None,
+        official_case_id="cavity",
+        official_case_seed_virtual_paths=[
+            "/mnt/user-data/uploads/cavity/system/blockMeshDict"
+        ],
+        assembled_case_virtual_paths=[
+            "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case/system/blockMeshDict"
+        ],
+        selected_case_id=None,
+        file_sources={
+            "system/blockMeshDict": {
+                "source_commit": "441953dfbb4270dd54e14672e194e4a4a478afc4",
+                "source_path": "tutorials/legacy/incompressible/icoFoam/cavity/cavity/system/blockMeshDict",
+                "source_kind": "imported_seed",
+                "imported_virtual_path": "/mnt/user-data/uploads/cavity/system/blockMeshDict",
+            }
+        },
+        requested_outputs=[],
+        simulation_requirements={},
+        approval_snapshot={"confirmation_status": "confirmed"},
+        artifact_entrypoints={
+            "request": "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/openfoam-request.json",
+            "dispatch_summary_markdown": "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/dispatch-summary.md",
+            "dispatch_summary_html": "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/dispatch-summary.html",
+        },
+        environment_fingerprint={"profile_id": "local_cli"},
+        environment_parity_assessment={"parity_status": "matched"},
+    ).model_dump(mode="json")
+    manifest_path.write_text(
+        json.dumps(manifest_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    runtime = SimpleNamespace(
+        state={
+            "thread_data": {
+                "uploads_path": str(paths.sandbox_uploads_dir(thread_id)),
+                "outputs_path": str(outputs_dir),
+            },
+            "submarine_runtime": {
+                "current_stage": "solver-dispatch",
+                "task_summary": "Run the official cavity case and summarize the setup.",
+                "confirmation_status": "confirmed",
+                "execution_preference": "plan_only",
+                "task_type": "official_openfoam_case",
+                "input_source_type": "openfoam_case_seed",
+                "geometry_virtual_path": "",
+                "geometry_family": None,
+                "official_case_id": "cavity",
+                "official_case_seed_virtual_paths": [
+                    "/mnt/user-data/uploads/cavity/system/blockMeshDict"
+                ],
+                "assembled_case_virtual_paths": [
+                    "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case/system/blockMeshDict"
+                ],
+                    "official_case_profile": {
+                        "case_id": "cavity",
+                        "source_commit": "441953dfbb4270dd54e14672e194e4a4a478afc4",
+                        "source_kind": "pinned_official_source",
+                        "source_paths": [
+                            "tutorials/legacy/incompressible/icoFoam/cavity/cavity"
+                        ],
+                        "command_chain": ["blockMesh", "icoFoam"],
+                    },
+                "stage_status": "planned",
+                "review_status": "ready_for_supervisor",
+                "next_recommended_stage": "result-reporting",
+                "requested_outputs": [
+                    {
+                        "output_id": "design_brief",
+                        "label": "设计简报",
+                        "requested_label": "设计简报",
+                        "support_level": "supported",
+                    },
+                    {
+                        "output_id": "assembled_openfoam_case",
+                        "label": "按默认设置组装的最小 OpenFOAM 案例",
+                        "requested_label": "按默认设置组装的最小 OpenFOAM 案例",
+                        "support_level": "supported",
+                    },
+                    {
+                        "output_id": "chinese_report",
+                        "label": "中文结果报告",
+                        "requested_label": "中文结果报告",
+                        "support_level": "supported",
+                    },
+                ],
+                "report_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/dispatch-summary.md",
+                "artifact_virtual_paths": [
+                    "/mnt/user-data/outputs/submarine/design-brief/cavity/cfd-design-brief.md",
+                    "/mnt/user-data/outputs/submarine/design-brief/cavity/cfd-design-brief.json",
+                    "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/provenance-manifest.json",
+                ],
+                "workspace_case_dir_virtual_path": "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case",
+                "run_script_virtual_path": "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case/Allrun",
+                "provenance_manifest_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/provenance-manifest.json",
+                "official_case_validation_virtual_path": "/mnt/user-data/outputs/submarine/solver-dispatch/cavity/official-case-parity.json",
+                "official_case_validation_assessment": {
+                    "case_id": "cavity",
+                    "source_commit": "441953dfbb4270dd54e14672e194e4a4a478afc4",
+                    "parity_status": "matched",
+                    "passed_checks": [
+                        "Assembly matched `system/controlDict`.",
+                        "Solver final time matched the pinned baseline (`0.5`).",
+                    ],
+                    "drift_reasons": [],
+                    "expected_metrics": {
+                        "final_time_seconds": 0.5,
+                        "mesh_cells": 400,
+                    },
+                    "observed_metrics": {
+                        "solver_completed": True,
+                        "final_time_seconds": 0.5,
+                        "mesh_cells": 400,
+                    },
+                },
+                "execution_plan": [],
+                "activity_timeline": [],
+            },
+        },
+        context={"thread_id": thread_id},
+    )
+
+    result = report_tool_module.submarine_result_report_tool.func(
+        runtime=runtime,
+        report_title="Official cavity report",
+        tool_call_id="tc-result-report-official-case",
+    )
+
+    final_report_virtual_path = next(
+        path for path in result.update["artifacts"] if path.endswith("/final-report.json")
+    )
+    assert final_report_virtual_path.endswith("/submarine/reports/cavity/final-report.json")
+
+    final_report_path = outputs_dir.joinpath(
+        *[
+            part
+            for part in final_report_virtual_path.removeprefix(
+                "/mnt/user-data/outputs/"
+            ).split("/")
+            if part
+        ]
+    )
+    final_payload = json.loads(final_report_path.read_text(encoding="utf-8"))
+    final_markdown_path = outputs_dir / "submarine" / "reports" / "cavity" / "final-report.md"
+    final_html_path = outputs_dir / "submarine" / "reports" / "cavity" / "final-report.html"
+    final_markdown = final_markdown_path.read_text(encoding="utf-8")
+    final_html = final_html_path.read_text(encoding="utf-8")
+
+    assert final_payload["input_source_type"] == "openfoam_case_seed"
+    assert final_payload["official_case_id"] == "cavity"
+    assert final_payload["official_case_seed_virtual_paths"] == [
+        "/mnt/user-data/uploads/cavity/system/blockMeshDict"
+    ]
+    assert final_payload["assembled_case_virtual_paths"] == [
+        "/mnt/user-data/workspace/official-openfoam/cavity/openfoam-case/system/blockMeshDict"
+    ]
+    delivery_status_by_output = {
+        item["output_id"]: item["delivery_status"]
+        for item in final_payload["output_delivery_plan"]
+    }
+    assert delivery_status_by_output["design_brief"] == "delivered"
+    assert delivery_status_by_output["assembled_openfoam_case"] == "delivered"
+    assert delivery_status_by_output["chinese_report"] == "delivered"
+    assert final_payload["provenance_summary"]["official_case_id"] == "cavity"
+    assert final_payload["official_case_validation_assessment"]["parity_status"] == "matched"
+    assert final_payload["research_evidence_summary"]["validation_status"] == "validated"
+    assert final_payload["research_evidence_summary"]["readiness_status"] == "validated_with_gaps"
+    assert final_payload["scientific_supervisor_gate"]["allowed_claim_level"] == "validated_with_gaps"
+    assert final_payload["report_overview"]["allowed_claim_level"] == "validated_with_gaps"
+    assert all(
+        "No applicable benchmark target was available" not in item
+        for item in final_payload["research_evidence_summary"]["evidence_gaps"]
+    )
+    assert final_payload["official_case_validation_virtual_path"].endswith(
+        "/solver-dispatch/cavity/official-case-parity.json"
+    )
+    assert "official-case-parity.json" in final_markdown
+    assert "matched" in final_markdown
+    assert "441953dfbb4270dd54e14672e194e4a4a478afc4" in final_markdown
+    assert "/mnt/user-data/uploads/cavity/system/blockMeshDict" in final_markdown
+    assert "blockMesh" in final_markdown
+    assert "icoFoam" in final_markdown
+    assert "official-case-parity.json" in final_html
+    assert "matched" in final_html
+    assert "441953dfbb4270dd54e14672e194e4a4a478afc4" in final_html
+    assert "/mnt/user-data/uploads/cavity/system/blockMeshDict" in final_html

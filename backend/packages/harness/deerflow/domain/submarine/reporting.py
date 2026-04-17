@@ -236,8 +236,20 @@ def _compose_summary(
         "result-reporting": "当前结果已经进入报告整理阶段，可直接交由 Supervisor 做质量复核。",
     }.get(source_runtime_stage, "当前结果已整理为可审阅交付物。")
 
-    case_text = f"选定案例 `{snapshot.selected_case_id}`。" if snapshot.selected_case_id else "当前尚未固定单一案例模板。"
-    family_text = f"几何家族识别为 `{snapshot.geometry_family}`。" if snapshot.geometry_family else "几何家族仍待进一步确认。"
+    if snapshot.input_source_type == "openfoam_case_seed" and snapshot.official_case_id:
+        case_text = f"官方 OpenFOAM 案例 `{snapshot.official_case_id}`。"
+        family_text = "当前流程基于导入的官方 case seed 而非 STL 几何。"
+    else:
+        case_text = (
+            f"选定案例 `{snapshot.selected_case_id}`。"
+            if snapshot.selected_case_id
+            else "当前尚未固定单一案例模板。"
+        )
+        family_text = (
+            f"几何家族识别为 `{snapshot.geometry_family}`。"
+            if snapshot.geometry_family
+            else "几何家族仍待进一步确认。"
+        )
     metrics_text = ""
     if solver_metrics and solver_metrics.get("latest_force_coefficients"):
         cd = solver_metrics["latest_force_coefficients"].get("Cd")
@@ -725,7 +737,7 @@ def _build_artifact_group_summary(
         (
             "Allrun",
             "执行脚本",
-            "调用 blockMesh、surfaceFeatures、snappyHexMesh 与 simpleFoam 的入口脚本。",
+            "调用 blockMesh、surfaceFeatures、snappyHexMesh 与 foamRun / incompressibleFluid 的入口脚本。",
             "run_script_virtual_path",
             "run_script_absolute_path",
         ),
@@ -829,7 +841,11 @@ def run_result_report(
     outputs_dir: Path,
     report_title: str | None = None,
 ) -> tuple[dict, list[str]]:
-    geometry_name = Path(snapshot.geometry_virtual_path).stem or "submarine-run"
+    geometry_name = (
+        snapshot.official_case_id
+        if snapshot.input_source_type == "openfoam_case_seed" and snapshot.official_case_id
+        else Path(snapshot.geometry_virtual_path).stem or "submarine-run"
+    )
     run_dir_name = _slugify(geometry_name)
     artifact_dir = outputs_dir / "submarine" / "reports" / run_dir_name
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -855,7 +871,11 @@ def run_result_report(
         html_artifact,
         json_artifact,
     ]
-    all_artifacts = _merge_artifact_paths(snapshot.artifact_virtual_paths, new_artifacts)
+    all_artifacts = _merge_artifact_paths(
+        snapshot.artifact_virtual_paths,
+        snapshot.assembled_case_virtual_paths,
+        new_artifacts,
+    )
     solver_metrics = _load_solver_metrics(outputs_dir, snapshot.artifact_virtual_paths)
     loaded_stability_evidence = _load_stability_evidence(
         outputs_dir,
@@ -925,6 +945,7 @@ def run_result_report(
     research_evidence_summary = build_research_evidence_summary(
         acceptance_profile=selected_case.acceptance_profile if selected_case else None,
         acceptance_assessment=acceptance_assessment,
+        official_case_validation_assessment=snapshot.official_case_validation_assessment,
         scientific_verification_assessment=scientific_verification_assessment,
         provenance_summary=provenance_summary,
         scientific_study_summary=scientific_study_summary,
@@ -1076,8 +1097,19 @@ def run_result_report(
         "revision_summary": snapshot.revision_summary,
         "execution_preference": snapshot.execution_preference,
         "task_type": snapshot.task_type,
+        "input_source_type": snapshot.input_source_type,
         "geometry_virtual_path": snapshot.geometry_virtual_path,
         "geometry_family": snapshot.geometry_family,
+        "official_case_id": snapshot.official_case_id,
+        "official_case_seed_virtual_paths": snapshot.official_case_seed_virtual_paths,
+        "assembled_case_virtual_paths": snapshot.assembled_case_virtual_paths,
+        "official_case_profile": (
+            snapshot.official_case_profile.model_dump(mode="json")
+            if snapshot.official_case_profile is not None
+            else None
+        ),
+        "official_case_validation_virtual_path": snapshot.official_case_validation_virtual_path,
+        "official_case_validation_assessment": snapshot.official_case_validation_assessment,
         "execution_readiness": snapshot.execution_readiness,
         "selected_case_id": snapshot.selected_case_id,
         "simulation_requirements": snapshot.simulation_requirements,
